@@ -1,0 +1,35 @@
+{
+  "churchName": "은혜로교회",
+  "hero": {
+    "verse": "수고하고 무거운 짐 진 자들아 다 내게로 오라 내가 너희를 쉬게 하리라",
+    "verseRef": "마태복음 11:28",
+    "subtitle": "함께 예배하고, 함께 나누고, 함께 자라가는 교회",
+    "backgroundImage": "/uploads/hero-default.svg"
+  },
+  "about": {
+    "title": "교회 소개",
+    "greeting": "은혜로교회에 오신 것을 환영합니다",
+    "body": "은혜로교회는 하나님의 말씀 위에 세워진 지역 공동체 교회입니다. 세대를 아우르는 예배와 나눔을 통해 이웃과 함께 성장하는 교회가 되기를 소망합니다. 처음 오시는 분도 편안하게 예배드릴 수 있도록 안내해 드리겠습니다.",
+    "history": "1998년 작은 상가 예배로 시작하여 오늘에 이르렀습니다.",
+    "pastorName": "김은혜 담임목사",
+    "pastorMessage": "언제나 문을 열어두고 여러분을 기다리고 있습니다. 삶의 자리에서 하나님의 은혜를 함께 나누길 바랍니다.",
+    "image": "/uploads/about-default.svg"
+  },
+  "serviceTimes": [
+    { "id": "svc1", "name": "주일 1부 예배", "time": "오전 8:00" },
+    { "id": "svc2", "name": "주일 2부 예배", "time": "오전 11:00" },
+    { "id": "svc3", "name": "수요 예배", "time": "저녁 7:30" },
+    { "id": "svc4", "name": "새벽 기도회", "time": "오전 5:30 (월~토)" }
+  ],
+  "contact": {
+    "address": "경기도 수원시 팔달구 예시로 123",
+    "phone": "031-123-4567",
+    "email": "info@grace-church.example",
+    "mapEmbedUrl": ""
+  },
+  "sns": {
+    "youtube": "https://www.youtube.com/@yourchannel",
+    "instagram": "",
+    "facebook": ""
+  }
+}

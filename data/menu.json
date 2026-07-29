@@ -1,0 +1,8 @@
+[
+  { "id": "m1", "label": "홈", "link": "#home", "order": 1 },
+  { "id": "m2", "label": "교회소개", "link": "#about", "order": 2 },
+  { "id": "m3", "label": "예배안내", "link": "#service", "order": 3 },
+  { "id": "m4", "label": "설교영상", "link": "#sermons", "order": 4 },
+  { "id": "m5", "label": "소식·활동", "link": "#board", "order": 5 },
+  { "id": "m6", "label": "오시는길", "link": "#contact", "order": 6 }
+]

@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>관리자 페이지</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/admin/css/admin.css" />
+</head>
+<body>
+
+<!-- 로그인 화면 -->
+<div class="login-screen" id="login-screen">
+  <form class="login-box" id="login-form">
+    <h1>관리자 로그인</h1>
+    <p class="login-sub">교회 홈페이지 관리자 페이지입니다</p>
+    <label>아이디
+      <input type="text" name="username" required autocomplete="username" />
+    </label>
+    <label>비밀번호
+      <input type="password" name="password" required autocomplete="current-password" />
+    </label>
+    <p class="login-error" id="login-error"></p>
+    <button type="submit" class="btn-primary">로그인</button>
+  </form>
+</div>
+
+<!-- 대시보드 화면 -->
+<div class="dashboard" id="dashboard" hidden>
+  <aside class="sidebar">
+    <div class="sidebar-brand">교회 관리자</div>
+    <nav class="sidebar-nav" id="sidebar-nav">
+      <button class="nav-item active" data-panel="panel-site">기본 정보</button>
+      <button class="nav-item" data-panel="panel-menu">메뉴 관리</button>
+      <button class="nav-item" data-panel="panel-board">소식·활동 게시판</button>
+      <button class="nav-item" data-panel="panel-sermons">설교 영상(유튜브)</button>
+    </nav>
+    <div class="sidebar-footer">
+      <a href="/" target="_blank" class="view-site-link">홈페이지 보기 ↗</a>
+      <button class="logout-btn" id="logout-btn">로그아웃</button>
+    </div>
+  </aside>
+
+  <main class="content">
+
+    <!-- 기본 정보 -->
+    <section class="panel active" id="panel-site">
+      <h2>기본 정보</h2>
+      <p class="panel-desc">교회 이름, 대문(히어로) 문구, 교회 소개, 예배 시간, 연락처를 수정합니다.</p>
+
+      <div class="card">
+        <h3>교회 이름</h3>
+        <div class="field"><label>교회 이름</label><input id="s-churchName" type="text" /></div>
+      </div>
+
+      <div class="card">
+        <h3>대문 화면 (히어로)</h3>
+        <div class="field"><label>대표 성경 말씀</label><textarea id="s-heroVerse" rows="2"></textarea></div>
+        <div class="field"><label>말씀 출처 (예: 마태복음 11:28)</label><input id="s-heroVerseRef" type="text" /></div>
+        <div class="field"><label>부제목</label><input id="s-heroSubtitle" type="text" /></div>
+        <div class="field">
+          <label>배경 이미지</label>
+          <input type="file" id="s-heroImageFile" accept="image/*" />
+          <img class="preview" id="s-heroImagePreview" />
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>교회 소개</h3>
+        <div class="field"><label>인사말 제목</label><input id="s-aboutGreeting" type="text" /></div>
+        <div class="field"><label>소개 본문</label><textarea id="s-aboutBody" rows="4"></textarea></div>
+        <div class="field"><label>연혁 한 줄</label><input id="s-aboutHistory" type="text" /></div>
+        <div class="field"><label>담임목사 성함</label><input id="s-pastorName" type="text" /></div>
+        <div class="field"><label>목회자 인사말</label><textarea id="s-pastorMessage" rows="3"></textarea></div>
+        <div class="field">
+          <label>교회 소개 이미지</label>
+          <input type="file" id="s-aboutImageFile" accept="image/*" />
+          <img class="preview" id="s-aboutImagePreview" />
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>예배 시간</h3>
+        <div id="service-list" class="list-editor"></div>
+        <button class="btn-secondary" id="add-service-btn">+ 예배 시간 추가</button>
+      </div>
+
+      <div class="card">
+        <h3>연락처 · 오시는 길</h3>
+        <div class="field"><label>주소</label><input id="s-address" type="text" /></div>
+        <div class="field"><label>전화번호</label><input id="s-phone" type="text" /></div>
+        <div class="field"><label>이메일</label><input id="s-email" type="text" /></div>
+        <div class="field"><label>지도 임베드 URL (구글맵 &lt;iframe&gt; src 주소)</label><input id="s-mapUrl" type="text" placeholder="https://www.google.com/maps/embed?..." /></div>
+      </div>
+
+      <div class="card">
+        <h3>SNS 링크</h3>
+        <div class="field"><label>유튜브 채널 URL</label><input id="s-snsYoutube" type="text" /></div>
+        <div class="field"><label>인스타그램 URL</label><input id="s-snsInstagram" type="text" /></div>
+        <div class="field"><label>페이스북 URL</label><input id="s-snsFacebook" type="text" /></div>
+      </div>
+
+      <button class="btn-primary" id="save-site-btn">기본 정보 저장</button>
+      <span class="save-status" id="site-save-status"></span>
+    </section>
+
+    <!-- 메뉴 관리 -->
+    <section class="panel" id="panel-menu">
+      <h2>메뉴 관리</h2>
+      <p class="panel-desc">상단 내비게이션에 표시될 메뉴를 추가, 수정, 삭제, 순서 변경할 수 있습니다.</p>
+      <div class="card">
+        <div id="menu-list" class="list-editor"></div>
+        <div class="menu-add-row">
+          <input type="text" id="new-menu-label" placeholder="메뉴 이름 (예: 새가족)" />
+          <input type="text" id="new-menu-link" placeholder="연결 위치 (예: #about)" />
+          <button class="btn-secondary" id="add-menu-btn">+ 메뉴 추가</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- 게시판 관리 -->
+    <section class="panel" id="panel-board">
+      <h2>소식 · 활동 게시판</h2>
+      <p class="panel-desc">교회 소식과 활동 게시글을 작성, 수정, 삭제합니다. 상단 고정도 가능합니다.</p>
+
+      <div class="card">
+        <h3>새 글 작성</h3>
+        <div class="field-row">
+          <div class="field"><label>구분</label>
+            <select id="p-category"><option value="소식">소식</option><option value="활동">활동</option></select>
+          </div>
+          <div class="field"><label>날짜</label><input id="p-date" type="date" /></div>
+        </div>
+        <div class="field"><label>제목</label><input id="p-title" type="text" /></div>
+        <div class="field"><label>내용</label><textarea id="p-content" rows="3"></textarea></div>
+        <div class="field">
+          <label>첨부 이미지 (선택)</label>
+          <input type="file" id="p-imageFile" accept="image/*" />
+          <img class="preview" id="p-imagePreview" />
+        </div>
+        <div class="field-checkbox"><label><input type="checkbox" id="p-pinned" /> 상단 고정</label></div>
+        <button class="btn-primary" id="add-post-btn">게시글 등록</button>
+      </div>
+
+      <div class="card">
+        <h3>게시글 목록</h3>
+        <div id="post-list" class="post-list"></div>
+      </div>
+    </section>
+
+    <!-- 설교 영상 (유튜브) -->
+    <section class="panel" id="panel-sermons">
+      <h2>설교 영상 (유튜브 자동 업데이트)</h2>
+      <p class="panel-desc">
+        교회 유튜브 채널ID를 서버 환경변수(YOUTUBE_CHANNEL_ID)에 등록하면,
+        매일 지정된 시간에 자동으로 최신 설교 영상을 가져옵니다.
+        아래 버튼으로 지금 바로 새로고침할 수도 있습니다.
+      </p>
+      <div class="card">
+        <h3>수동 새로고침</h3>
+        <div class="field"><label>유튜브 채널ID (비워두면 서버 기본값 사용)</label><input id="yt-channelId" type="text" placeholder="UCxxxxxxxxxxxxxxxxxxxxxx" /></div>
+        <button class="btn-primary" id="refresh-sermons-btn">지금 새로고침</button>
+        <span class="save-status" id="sermon-refresh-status"></span>
+        <p class="hint">※ 채널ID는 유튜브 채널의 '정보' 페이지에서 확인할 수 있습니다 (UC로 시작하는 문자열).</p>
+      </div>
+      <div class="card">
+        <h3>현재 캐시된 영상 목록</h3>
+        <p id="sermon-last-updated" class="hint"></p>
+        <div id="sermon-preview-list" class="sermon-preview-list"></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="/admin/js/admin.js"></script>
+</body>
+</html>

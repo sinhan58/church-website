@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1100" viewBox="0 0 900 1100">
+  <rect width="900" height="1100" fill="#f0ebdf"/>
+  <rect x="40" y="40" width="820" height="1020" fill="none" stroke="#c9a227" stroke-width="2"/>
+  <text x="450" y="560" font-family="Georgia, serif" font-size="42" fill="#16213e" text-anchor="middle">교회 사진</text>
+  <text x="450" y="610" font-family="Georgia, serif" font-size="20" fill="#6b6a63" text-anchor="middle">관리자 페이지에서 교체하세요</text>
+</svg>
