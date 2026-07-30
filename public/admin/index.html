@@ -6,6 +6,7 @@
 <title>관리자 페이지</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="/admin/css/admin.css" />
+<link href="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.snow.min.css" rel="stylesheet" />
 </head>
 <body>
 
@@ -124,7 +125,7 @@
       <p class="panel-desc">교회 소식과 활동 게시글을 작성, 수정, 삭제합니다. 상단 고정도 가능합니다.</p>
 
       <div class="card">
-        <h3>새 글 작성</h3>
+        <h3 id="post-form-title">새 글 작성</h3>
         <div class="field-row">
           <div class="field"><label>구분</label>
             <select id="p-category"><option value="소식">소식</option><option value="활동">활동</option></select>
@@ -132,14 +133,49 @@
           <div class="field"><label>날짜</label><input id="p-date" type="date" /></div>
         </div>
         <div class="field"><label>제목</label><input id="p-title" type="text" /></div>
-        <div class="field"><label>내용</label><textarea id="p-content" rows="3"></textarea></div>
         <div class="field">
-          <label>첨부 이미지 (선택)</label>
+          <label>내용</label>
+          <div id="p-content-toolbar">
+            <span class="ql-formats">
+              <select class="ql-size"><option value="small"></option><option selected></option><option value="large"></option><option value="huge"></option></select>
+            </span>
+            <span class="ql-formats">
+              <button class="ql-bold"></button>
+              <button class="ql-italic"></button>
+              <button class="ql-underline"></button>
+            </span>
+            <span class="ql-formats">
+              <select class="ql-color"></select>
+            </span>
+            <span class="ql-formats">
+              <button class="ql-list" value="ordered"></button>
+              <button class="ql-list" value="bullet"></button>
+            </span>
+            <span class="ql-formats">
+              <button class="ql-align" value=""></button>
+              <button class="ql-align" value="center"></button>
+            </span>
+            <span class="ql-formats">
+              <button class="ql-clean"></button>
+            </span>
+          </div>
+          <div id="p-content-editor"></div>
+        </div>
+        <div class="field">
+          <label>첨부 이미지 (선택, 본문 상단에 표시됨)</label>
           <input type="file" id="p-imageFile" accept="image/*" />
           <img class="preview" id="p-imagePreview" />
         </div>
+        <div class="field">
+          <label>첨부파일 (선택, 문서·PDF·한글파일 등, 최대 5개)</label>
+          <input type="file" id="p-attachmentFiles" multiple />
+          <div id="p-attachmentList" class="attachment-edit-list"></div>
+        </div>
         <div class="field-checkbox"><label><input type="checkbox" id="p-pinned" /> 상단 고정</label></div>
-        <button class="btn-primary" id="add-post-btn">게시글 등록</button>
+        <div class="post-form-actions">
+          <button class="btn-primary" id="add-post-btn">게시글 등록</button>
+          <button class="btn-secondary" id="cancel-edit-btn" hidden>취소</button>
+        </div>
       </div>
 
       <div class="card">
@@ -173,6 +209,7 @@
   </main>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.min.js"></script>
 <script src="/admin/js/admin.js"></script>
 </body>
 </html>
