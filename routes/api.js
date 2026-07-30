@@ -37,6 +37,18 @@ router.get('/posts', async (req, res) => {
   }
 });
 
+// 게시판 상세보기 (단건 조회)
+router.get('/posts/:id', async (req, res) => {
+  try {
+    const posts = (await readData('posts')) || [];
+    const post = posts.find((p) => p.id === req.params.id);
+    if (!post) return res.status(404).json({ error: '게시글을 찾을 수 없습니다.' });
+    res.json(post);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 설교 영상 (유튜브 자동 캐시)
 router.get('/sermons', async (req, res) => {
   try {
