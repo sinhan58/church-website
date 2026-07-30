@@ -24,6 +24,21 @@ const upload = multer({
   }
 });
 
+// 첨부파일(이미지 외 문서 등) 업로드 - 확장자 제한 없이 허용
+const attachmentUpload = multer({
+  storage,
+  limits: { fileSize: 15 * 1024 * 1024 } // 15MB 제한
+});
+
+// 한글 파일명이 깨지는 문제 보정 (multer가 원본 파일명을 latin1로 읽어들이는 이슈)
+function fixKoreanFilename(name = '') {
+  try {
+    return Buffer.from(name, 'latin1').toString('utf8');
+  } catch {
+    return name;
+  }
+}
+
 // ---------- 로그인 / 로그아웃 ----------
 router.post('/login', (req, res) => {
   const { username, password } = req.body;
@@ -55,6 +70,16 @@ router.use(requireAuth);
 router.post('/upload', upload.single('image'), (req, res) => {
   if (!req.file) return res.status(400).json({ error: '업로드된 파일이 없습니다.' });
   res.json({ url: `/uploads/${req.file.filename}` });
+});
+
+// 게시글 첨부파일 업로드 (여러 개, 문서/이미지 등 모든 형식 허용)
+router.post('/upload-attachment', attachmentUpload.array('files', 5), (req, res) => {
+  if (!req.files || req.files.length === 0) return res.status(400).json({ error: '업로드된 파일이 없습니다.' });
+  const files = req.files.map((f) => ({
+    name: fixKoreanFilename(f.originalname),
+    url: `/uploads/${f.filename}`
+  }));
+  res.json({ files });
 });
 
 // ---------- 사이트 기본 정보 수정 ----------
@@ -156,6 +181,7 @@ router.post('/posts', async (req, res) => {
       title: req.body.title || '',
       content: req.body.content || '',
       image: req.body.image || '',
+      attachments: Array.isArray(req.body.attachments) ? req.body.attachments : [],
       date: req.body.date || new Date().toISOString().slice(0, 10),
       pinned: !!req.body.pinned
     };
