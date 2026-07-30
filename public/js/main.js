@@ -140,6 +140,7 @@
     }
 
     grid.innerHTML = data.videos
+      .slice(0, 6)
       .map(
         (v) => `
         <div class="sermon-card" data-video-id="${escapeHtml(v.videoId)}">
