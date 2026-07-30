@@ -583,8 +583,7 @@ button { font-family: inherit; cursor: pointer; }
 @media (max-width: 560px) {
   .service-grid { grid-template-columns: 1fr 1fr; }
   .sermon-grid { grid-template-columns: 1fr; }
-  .board-item { grid-template-columns: 1fr; text-align: left; }
-  .board-item .date { order: 3; }
+  .sermon-card:nth-child(n+4) { display: none; } /* 모바일에서는 최신 3개만 노출 */
 }
 
 /* Focus visibility for accessibility */
