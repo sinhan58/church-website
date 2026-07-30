@@ -164,6 +164,36 @@
 
   // ---------------- 게시판 (소식·활동) ----------------
   let allPosts = [];
+
+  // 저장된 content가 HTML(리치 에디터로 작성)이면 그대로, 순수 텍스트(줄바꿈만 있는 옛 글)면 줄바꿈을 <br>로 변환
+  function renderContent(content = '') {
+    if (/<[a-z][\s\S]*>/i.test(content)) return content;
+    return escapeHtml(content).replace(/\n/g, '<br>');
+  }
+
+  // 목록에 보여줄 미리보기용 순수 텍스트 (HTML 태그 제거 + 길이 제한)
+  function plainPreview(content = '', maxLen = 90) {
+    const div = document.createElement('div');
+    div.innerHTML = content;
+    const text = (div.textContent || '').replace(/\s+/g, ' ').trim();
+    return text.length > maxLen ? text.slice(0, maxLen) + '…' : text;
+  }
+
+  function attachmentIcon() {
+    return `<svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>`;
+  }
+
+  function isImageAttachment(a) {
+    return /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(a.url || a.name || '');
+  }
+
+  // 목록 카드에 쓸 대표 이미지: 대표 이미지 → 없으면 첫 이미지 첨부파일
+  function thumbnailFor(post) {
+    if (post.image) return post.image;
+    const firstImg = (post.attachments || []).find(isImageAttachment);
+    return firstImg ? firstImg.url : '';
+  }
+
   function renderBoard(category) {
     const list = $('#board-list');
     const filtered = category === '전체' ? allPosts : allPosts.filter((p) => p.category === category);
@@ -174,19 +204,76 @@
     }
 
     list.innerHTML = filtered
-      .map(
-        (p) => `
-        <div class="board-item">
-          <span class="badge">${escapeHtml(p.category)}</span>
-          <div>
-            <h4>${p.pinned ? '<span class="pin">📌</span>' : ''}${escapeHtml(p.title)}</h4>
-            <p>${escapeHtml(p.content)}</p>
+      .map((p) => {
+        const thumb = thumbnailFor(p);
+        return `
+        <div class="board-card" data-id="${p.id}">
+          <div class="board-thumb">
+            ${thumb ? `<img src="${thumb}" alt="${escapeHtml(p.title)}" loading="lazy" />` : `<div class="board-thumb-empty">${escapeHtml((p.category || '')[0] || '소')}</div>`}
           </div>
-          <span class="date">${escapeHtml(p.date)}</span>
-        </div>`
+          <div class="board-info">
+            <div class="board-top">
+              <span class="badge">${escapeHtml(p.category)}</span>
+              <span class="date">${escapeHtml(p.date)}</span>
+            </div>
+            <h4>${p.pinned ? '<span class="pin">📌</span>' : ''}${escapeHtml(p.title)}</h4>
+            <p>${escapeHtml(plainPreview(p.content))}</p>
+          </div>
+        </div>`;
+      })
+      .join('');
+
+    $$('.board-card').forEach((item) => {
+      item.addEventListener('click', () => openPostModal(item.dataset.id));
+    });
+  }
+
+  function openPostModal(id) {
+    const post = allPosts.find((p) => p.id === id);
+    if (!post) return;
+
+    $('#post-modal-badge').textContent = post.category || '';
+    $('#post-modal-date').textContent = post.date || '';
+    $('#post-modal-title').textContent = post.title || '';
+    $('#post-modal-content').innerHTML = renderContent(post.content);
+
+    const imgEl = $('#post-modal-image');
+    if (post.image) {
+      imgEl.src = post.image;
+      imgEl.alt = post.title || '';
+    } else {
+      imgEl.removeAttribute('src');
+    }
+
+    const attachBox = $('#post-modal-attachments');
+    const attachments = Array.isArray(post.attachments) ? post.attachments : [];
+    const imageAttachments = attachments.filter(isImageAttachment);
+    const fileAttachments = attachments.filter((a) => !isImageAttachment(a));
+
+    const imagesHtml = imageAttachments
+      .map(
+        (a) => `<img class="attachment-image" src="${a.url}" alt="${escapeHtml(a.name || '첨부 이미지')}" loading="lazy" />`
       )
       .join('');
+
+    const filesHtml = fileAttachments
+      .map(
+        (a) => `<a class="attachment-item" href="${a.url}" download target="_blank" rel="noopener">${attachmentIcon()}<span>${escapeHtml(a.name || '첨부파일')}</span></a>`
+      )
+      .join('');
+
+    attachBox.innerHTML = imagesHtml + filesHtml;
+
+    $('#post-modal').classList.add('open');
   }
+
+  function closePostModal() {
+    $('#post-modal').classList.remove('open');
+  }
+  $('#post-modal-close').addEventListener('click', closePostModal);
+  $('#post-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'post-modal') closePostModal();
+  });
 
   async function loadBoard() {
     allPosts = await getJSON('/api/posts');
