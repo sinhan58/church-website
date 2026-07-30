@@ -35,6 +35,9 @@ input:focus, textarea:focus, select:focus {
 }
 label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
 
+/* hidden 속성이 항상 우선 적용되도록 (아래 .login-screen/.dashboard의 display:flex보다 먼저 이겨야 함) */
+[hidden] { display: none !important; }
+
 /* ---------------- Login ---------------- */
 .login-screen {
   min-height: 100vh;
