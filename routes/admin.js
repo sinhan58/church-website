@@ -58,98 +58,146 @@ router.post('/upload', upload.single('image'), (req, res) => {
 });
 
 // ---------- 사이트 기본 정보 수정 ----------
-router.get('/site', (req, res) => {
-  res.json(readData('site'));
+router.get('/site', async (req, res) => {
+  try {
+    res.json(await readData('site'));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-router.put('/site', (req, res) => {
-  const current = readData('site') || {};
-  const updated = { ...current, ...req.body };
-  writeData('site', updated);
-  res.json(updated);
+router.put('/site', async (req, res) => {
+  try {
+    const current = (await readData('site')) || {};
+    const updated = { ...current, ...req.body };
+    await writeData('site', updated);
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ---------- 메뉴 관리 ----------
-router.get('/menu', (req, res) => {
-  res.json(readData('menu') || []);
+router.get('/menu', async (req, res) => {
+  try {
+    res.json((await readData('menu')) || []);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-router.post('/menu', (req, res) => {
-  const menu = readData('menu') || [];
-  const item = { id: makeId('m'), label: req.body.label, link: req.body.link, order: req.body.order ?? menu.length + 1 };
-  menu.push(item);
-  writeData('menu', menu);
-  res.json(item);
+router.post('/menu', async (req, res) => {
+  try {
+    const menu = (await readData('menu')) || [];
+    const item = { id: makeId('m'), label: req.body.label, link: req.body.link, order: req.body.order ?? menu.length + 1 };
+    menu.push(item);
+    await writeData('menu', menu);
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-router.put('/menu/:id', (req, res) => {
-  const menu = readData('menu') || [];
-  const idx = menu.findIndex((m) => m.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: '메뉴를 찾을 수 없습니다.' });
-  menu[idx] = { ...menu[idx], ...req.body };
-  writeData('menu', menu);
-  res.json(menu[idx]);
+router.put('/menu/:id', async (req, res) => {
+  try {
+    const menu = (await readData('menu')) || [];
+    const idx = menu.findIndex((m) => m.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: '메뉴를 찾을 수 없습니다.' });
+    menu[idx] = { ...menu[idx], ...req.body };
+    await writeData('menu', menu);
+    res.json(menu[idx]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-router.delete('/menu/:id', (req, res) => {
-  const menu = readData('menu') || [];
-  const filtered = menu.filter((m) => m.id !== req.params.id);
-  writeData('menu', filtered);
-  res.json({ ok: true });
+router.delete('/menu/:id', async (req, res) => {
+  try {
+    const menu = (await readData('menu')) || [];
+    const filtered = menu.filter((m) => m.id !== req.params.id);
+    await writeData('menu', filtered);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-router.put('/menu-reorder', (req, res) => {
-  // req.body.order = [id1, id2, id3, ...] 순서
-  const menu = readData('menu') || [];
-  const order = req.body.order || [];
-  const updated = menu.map((m) => {
-    const pos = order.indexOf(m.id);
-    return pos === -1 ? m : { ...m, order: pos + 1 };
-  });
-  writeData('menu', updated);
-  res.json(updated);
+router.put('/menu-reorder', async (req, res) => {
+  try {
+    // req.body.order = [id1, id2, id3, ...] 순서
+    const menu = (await readData('menu')) || [];
+    const order = req.body.order || [];
+    const updated = menu.map((m) => {
+      const pos = order.indexOf(m.id);
+      return pos === -1 ? m : { ...m, order: pos + 1 };
+    });
+    await writeData('menu', updated);
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ---------- 게시판 (소식·활동) 관리 ----------
-router.get('/posts', (req, res) => {
-  res.json(readData('posts') || []);
+router.get('/posts', async (req, res) => {
+  try {
+    res.json((await readData('posts')) || []);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-router.post('/posts', (req, res) => {
-  const posts = readData('posts') || [];
-  const post = {
-    id: makeId('post'),
-    category: req.body.category || '소식',
-    title: req.body.title || '',
-    content: req.body.content || '',
-    image: req.body.image || '',
-    date: req.body.date || new Date().toISOString().slice(0, 10),
-    pinned: !!req.body.pinned
-  };
-  posts.unshift(post);
-  writeData('posts', posts);
-  res.json(post);
+router.post('/posts', async (req, res) => {
+  try {
+    const posts = (await readData('posts')) || [];
+    const post = {
+      id: makeId('post'),
+      category: req.body.category || '소식',
+      title: req.body.title || '',
+      content: req.body.content || '',
+      image: req.body.image || '',
+      date: req.body.date || new Date().toISOString().slice(0, 10),
+      pinned: !!req.body.pinned
+    };
+    posts.unshift(post);
+    await writeData('posts', posts);
+    res.json(post);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-router.put('/posts/:id', (req, res) => {
-  const posts = readData('posts') || [];
-  const idx = posts.findIndex((p) => p.id === req.params.id);
-  if (idx === -1) return res.status(404).json({ error: '게시글을 찾을 수 없습니다.' });
-  posts[idx] = { ...posts[idx], ...req.body };
-  writeData('posts', posts);
-  res.json(posts[idx]);
+router.put('/posts/:id', async (req, res) => {
+  try {
+    const posts = (await readData('posts')) || [];
+    const idx = posts.findIndex((p) => p.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: '게시글을 찾을 수 없습니다.' });
+    posts[idx] = { ...posts[idx], ...req.body };
+    await writeData('posts', posts);
+    res.json(posts[idx]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
-router.delete('/posts/:id', (req, res) => {
-  const posts = readData('posts') || [];
-  const filtered = posts.filter((p) => p.id !== req.params.id);
-  writeData('posts', filtered);
-  res.json({ ok: true });
+router.delete('/posts/:id', async (req, res) => {
+  try {
+    const posts = (await readData('posts')) || [];
+    const filtered = posts.filter((p) => p.id !== req.params.id);
+    await writeData('posts', filtered);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ---------- 설교 영상(유튜브) 관리 ----------
-router.get('/sermons', (req, res) => {
-  res.json(getCachedSermons());
+router.get('/sermons', async (req, res) => {
+  try {
+    res.json(await getCachedSermons());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // 관리자가 수동으로 즉시 새로고침 (자동 스케줄과 별개로 즉시 반영하고 싶을 때 사용)
