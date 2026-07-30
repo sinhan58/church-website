@@ -405,18 +405,31 @@ button { font-family: inherit; cursor: pointer; }
 }
 .board-tab.active { background: var(--navy-deep); border-color: var(--navy-deep); color: #fff; }
 
-.board-list { display: grid; gap: 16px; }
-.board-item {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  gap: 20px;
-  align-items: center;
+.board-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+.board-card {
+  cursor: pointer;
   background: #fff;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  padding: 20px 24px;
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  display: flex;
+  flex-direction: column;
 }
-.board-item .badge {
+.board-card:hover { transform: translateY(-4px); box-shadow: 0 10px 24px rgba(13,21,38,0.12); }
+.board-thumb { aspect-ratio: 16/10; overflow: hidden; background: var(--navy-soft); }
+.board-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.board-thumb-empty {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--gold-soft);
+  font-size: 2.2rem;
+  font-weight: 700;
+}
+.board-info { padding: 18px 20px 22px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.board-top { display: flex; align-items: center; justify-content: space-between; }
+.board-info .badge {
   font-size: 0.72rem;
   font-weight: 700;
   color: var(--gold);
@@ -425,11 +438,87 @@ button { font-family: inherit; cursor: pointer; }
   padding: 4px 12px;
   white-space: nowrap;
 }
-.board-item .pin { color: var(--gold); margin-right: 6px; }
-.board-item h4 { margin: 0 0 4px; font-size: 1.02rem; }
-.board-item p { margin: 0; color: var(--muted); font-size: 0.9rem; }
-.board-item .date { color: var(--muted); font-size: 0.82rem; white-space: nowrap; }
-.board-empty { text-align: center; color: var(--muted); padding: 40px; }
+.board-info .date { color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
+.board-info .pin { color: var(--gold); margin-right: 4px; }
+.board-info h4 {
+  margin: 0;
+  font-size: 1rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.board-info p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.board-empty { text-align: center; color: var(--muted); padding: 40px; grid-column: 1/-1; }
+
+@media (max-width: 900px) {
+  .board-list { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 560px) {
+  .board-list { grid-template-columns: 1fr; }
+}
+
+/* post detail modal */
+.post-modal {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(13,21,38,0.55);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.post-modal.open { display: flex; }
+.post-modal-inner {
+  width: 100%;
+  max-width: 640px;
+  max-height: 85vh;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: var(--radius);
+  padding: 32px;
+  position: relative;
+}
+.post-modal-close {
+  position: absolute;
+  top: 16px; right: 16px;
+  font-size: 1.6rem;
+  background: none;
+  border: none;
+  color: var(--muted);
+  line-height: 1;
+}
+.post-modal-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.post-modal-head .date { color: var(--muted); font-size: 0.85rem; }
+#post-modal-title { margin: 0 0 18px; font-size: 1.3rem; color: var(--navy-deep); }
+.post-modal-image { display: none; width: 100%; border-radius: var(--radius); margin-bottom: 18px; }
+.post-modal-image[src]:not([src=""]) { display: block; }
+.post-modal-content { line-height: 1.75; color: #2b2b2b; white-space: pre-wrap; word-break: break-word; }
+.post-modal-content img { max-width: 100%; border-radius: 8px; }
+.post-modal-attachments { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line); }
+.post-modal-attachments:empty { display: none; }
+.attachment-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  font-size: 0.88rem;
+  color: var(--navy-deep);
+  text-decoration: none;
+}
+.attachment-item:hover { border-color: var(--gold); background: #fdf7e6; }
+.attachment-item .icon { color: var(--gold); }
+.attachment-image { width: 100%; border-radius: 8px; display: block; margin-bottom: 12px; }
 
 /* ---------------- Contact ---------------- */
 .contact-grid {
