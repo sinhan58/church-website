@@ -58,8 +58,9 @@ async function updateSermonsCache(channelId, limit = 12) {
   return data;
 }
 
-function getCachedSermons() {
-  return readData('sermons') || { lastUpdated: null, videos: [] };
+async function getCachedSermons() {
+  const cached = await readData('sermons');
+  return cached || { lastUpdated: null, videos: [] };
 }
 
 module.exports = { fetchLatestVideos, updateSermonsCache, getCachedSermons };
