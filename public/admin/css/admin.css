@@ -34,7 +34,7 @@ input:focus, textarea:focus, select:focus {
   box-shadow: 0 0 0 3px rgba(201,162,39,0.15);
 }
 label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--muted); margin-bottom: 6px; }
-[hidden] { display: none !important; }
+
 /* ---------------- Login ---------------- */
 .login-screen {
   min-height: 100vh;
@@ -188,13 +188,33 @@ label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--muted
 .post-list { display: flex; flex-direction: column; gap: 12px; }
 .post-row {
   display: grid;
-  grid-template-columns: auto 1fr auto auto;
+  grid-template-columns: auto 1fr auto auto auto;
   gap: 14px;
   align-items: center;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 14px 16px;
 }
+.post-row.editing { border-color: var(--gold); background: #fdf7e6; }
+
+/* 리치 텍스트 에디터 (Quill) */
+#p-content-toolbar { border: 1px solid var(--line); border-bottom: none; border-radius: var(--radius) var(--radius) 0 0; }
+#p-content-editor { min-height: 160px; background: #fff; border-radius: 0 0 var(--radius) var(--radius); }
+#p-content-editor .ql-editor { min-height: 160px; font-size: 0.95rem; }
+
+/* 첨부파일 */
+.attachment-edit-list { margin-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.attachment-edit-item {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-size: 0.85rem;
+}
+.attachment-edit-item .remove-attachment { color: #b3413a; background: none; border: none; cursor: pointer; font-size: 0.8rem; }
+
+.post-form-actions { display: flex; gap: 10px; margin-top: 4px; }
+.post-form-actions .btn-primary, .post-form-actions .btn-secondary { flex: none; }
 .post-row .badge {
   font-size: 0.72rem;
   font-weight: 700;
