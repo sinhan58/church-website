@@ -11,6 +11,13 @@ const { updateSermonsCache } = require('./utils/youtube');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// 업로드 폴더가 없으면 생성 (첫 배포 시 빈 폴더는 git에 올라가지 않으므로 안전장치)
+const fs = require('fs');
+const uploadsDir = path.join(__dirname, 'public', 'uploads');
+if (!fs.existsSync(uploadsDir)) {
+  fs.mkdirSync(uploadsDir, { recursive: true });
+}
+
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
 
