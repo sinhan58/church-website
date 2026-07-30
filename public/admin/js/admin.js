@@ -25,6 +25,15 @@
     return data.url;
   }
 
+  async function uploadAttachments(files) {
+    const form = new FormData();
+    Array.from(files).forEach((f) => form.append('files', f));
+    const res = await fetch('/api/admin/upload-attachment', { method: 'POST', body: form });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '첨부파일 업로드 실패');
+    return data.files; // [{name, url}]
+  }
+
   // ---------------- 화면 전환 ----------------
   function showLogin() {
     $('#login-screen').hidden = false;
@@ -80,9 +89,16 @@
     });
   }
 
+  let postEditor = null;
+
   function initDashboard() {
     if (dashboardInitialized) return;
     dashboardInitialized = true;
+    postEditor = new Quill('#p-content-editor', {
+      theme: 'snow',
+      modules: { toolbar: '#p-content-toolbar' },
+      placeholder: '내용을 입력하세요. Enter로 줄바꿈, 위 도구모음으로 글자 크기·굵기·색상을 바꿀 수 있습니다.'
+    });
     setupNav();
     loadSiteIntoForm();
     loadMenuList();
@@ -339,25 +355,36 @@
     renderPostList(posts);
   }
 
+  let currentPosts = [];
+
+  function plainTextFromHtml(html = '') {
+    const div = document.createElement('div');
+    div.innerHTML = html;
+    return (div.textContent || '').replace(/\s+/g, ' ').trim();
+  }
+
   function renderPostList(posts) {
+    currentPosts = posts;
     const container = $('#post-list');
     if (posts.length === 0) {
       container.innerHTML = `<p class="hint">등록된 게시글이 없습니다.</p>`;
       return;
     }
     container.innerHTML = posts
-      .map(
-        (p) => `
-        <div class="post-row" data-id="${p.id}">
+      .map((p) => {
+        const preview = plainTextFromHtml(p.content);
+        return `
+        <div class="post-row${p.id === editingPostId ? ' editing' : ''}" data-id="${p.id}">
           <span class="badge">${escapeAttr(p.category)}</span>
           <div>
             <div class="title">${p.pinned ? '📌 ' : ''}${escapeHtml(p.title)}</div>
-            <div class="meta">${escapeHtml(p.content).slice(0, 60)}${p.content.length > 60 ? '…' : ''}</div>
+            <div class="meta">${escapeHtml(preview.slice(0, 60))}${preview.length > 60 ? '…' : ''}</div>
           </div>
           <span class="date">${escapeAttr(p.date)}</span>
+          <button type="button" class="icon-btn edit-post">수정</button>
           <button type="button" class="icon-btn remove-post">삭제</button>
-        </div>`
-      )
+        </div>`;
+      })
       .join('');
 
     $$('#post-list .remove-post').forEach((btn) =>
@@ -365,7 +392,16 @@
         if (!confirm('이 게시글을 삭제하시겠습니까?')) return;
         const id = e.target.closest('.post-row').dataset.id;
         await api(`/api/admin/posts/${id}`, { method: 'DELETE' });
+        if (id === editingPostId) resetPostForm();
         loadPostList();
+      })
+    );
+
+    $$('#post-list .edit-post').forEach((btn) =>
+      btn.addEventListener('click', (e) => {
+        const id = e.target.closest('.post-row').dataset.id;
+        const post = currentPosts.find((p) => p.id === id);
+        if (post) loadPostIntoForm(post);
       })
     );
   }
@@ -374,11 +410,91 @@
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
+  let editingPostId = null;
+  let pendingAttachments = []; // [{name, url}]
+
+  function renderAttachmentEditList() {
+    const box = $('#p-attachmentList');
+    box.innerHTML = pendingAttachments
+      .map(
+        (a, idx) => `
+        <div class="attachment-edit-item" data-idx="${idx}">
+          <span>${escapeHtml(a.name)}</span>
+          <button type="button" class="remove-attachment">삭제</button>
+        </div>`
+      )
+      .join('');
+
+    $$('#p-attachmentList .remove-attachment').forEach((btn) =>
+      btn.addEventListener('click', (e) => {
+        const idx = Number(e.target.closest('.attachment-edit-item').dataset.idx);
+        pendingAttachments.splice(idx, 1);
+        renderAttachmentEditList();
+      })
+    );
+  }
+
+  function resetPostForm() {
+    editingPostId = null;
+    pendingAttachments = [];
+    $('#post-form-title').textContent = '새 글 작성';
+    $('#add-post-btn').textContent = '게시글 등록';
+    $('#cancel-edit-btn').hidden = true;
+    $('#p-title').value = '';
+    postEditor.setContents([]);
+    $('#p-pinned').checked = false;
+    $('#p-imageFile').value = '';
+    $('#p-imageFile').dataset.uploadedUrl = '';
+    $('#p-imagePreview').src = '';
+    $('#p-attachmentFiles').value = '';
+    renderAttachmentEditList();
+    $('#p-date').value = new Date().toISOString().slice(0, 10);
+    $('#p-category').value = '소식';
+  }
+
+  function loadPostIntoForm(post) {
+    editingPostId = post.id;
+    pendingAttachments = Array.isArray(post.attachments) ? [...post.attachments] : [];
+    $('#post-form-title').textContent = '게시글 수정';
+    $('#add-post-btn').textContent = '수정 저장';
+    $('#cancel-edit-btn').hidden = false;
+    $('#p-category').value = post.category || '소식';
+    $('#p-date').value = post.date || '';
+    $('#p-title').value = post.title || '';
+    postEditor.root.innerHTML = post.content || '';
+    $('#p-pinned').checked = !!post.pinned;
+    $('#p-imageFile').value = '';
+    $('#p-imageFile').dataset.uploadedUrl = post.image || '';
+    $('#p-imagePreview').src = post.image || '';
+    renderAttachmentEditList();
+    $('#panel-board').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
   function setupPostEditor() {
+    $('#p-attachmentFiles').addEventListener('change', async () => {
+      const files = $('#p-attachmentFiles').files;
+      if (!files || files.length === 0) return;
+      try {
+        const uploaded = await uploadAttachments(files);
+        pendingAttachments = pendingAttachments.concat(uploaded);
+        renderAttachmentEditList();
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        $('#p-attachmentFiles').value = '';
+      }
+    });
+
+    $('#cancel-edit-btn').addEventListener('click', () => {
+      resetPostForm();
+      loadPostList();
+    });
+
     $('#add-post-btn').addEventListener('click', async () => {
       const title = $('#p-title').value.trim();
-      const content = $('#p-content').value.trim();
-      if (!title || !content) return alert('제목과 내용을 입력해주세요.');
+      const content = postEditor.root.innerHTML;
+      const isEmpty = postEditor.getText().trim().length === 0;
+      if (!title || isEmpty) return alert('제목과 내용을 입력해주세요.');
 
       const payload = {
         category: $('#p-category').value,
@@ -386,18 +502,17 @@
         title,
         content,
         image: $('#p-imageFile').dataset.uploadedUrl || '',
+        attachments: pendingAttachments,
         pinned: $('#p-pinned').checked
       };
 
-      await api('/api/admin/posts', { method: 'POST', body: JSON.stringify(payload) });
+      if (editingPostId) {
+        await api(`/api/admin/posts/${editingPostId}`, { method: 'PUT', body: JSON.stringify(payload) });
+      } else {
+        await api('/api/admin/posts', { method: 'POST', body: JSON.stringify(payload) });
+      }
 
-      $('#p-title').value = '';
-      $('#p-content').value = '';
-      $('#p-pinned').checked = false;
-      $('#p-imageFile').value = '';
-      $('#p-imageFile').dataset.uploadedUrl = '';
-      $('#p-imagePreview').src = '';
-
+      resetPostForm();
       loadPostList();
     });
   }
