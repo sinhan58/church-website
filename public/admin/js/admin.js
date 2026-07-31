@@ -2,6 +2,8 @@
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
+  let currentSession = null; // { username, role, permissions }
+
   async function api(url, options = {}) {
     const res = await fetch(url, {
       headers: { 'Content-Type': 'application/json' },
@@ -54,7 +56,8 @@
     const errorEl = $('#login-error');
     errorEl.textContent = '';
     try {
-      await api('/api/admin/login', { method: 'POST', body: JSON.stringify({ username, password }) });
+      const result = await api('/api/admin/login', { method: 'POST', body: JSON.stringify({ username, password }) });
+      currentSession = { username: result.username, role: result.role, permissions: result.permissions };
       showDashboard();
     } catch (err) {
       errorEl.textContent = err.message;
@@ -68,9 +71,13 @@
 
   async function checkSession() {
     try {
-      const { isAdmin } = await api('/api/admin/session');
-      if (isAdmin) showDashboard();
-      else showLogin();
+      const session = await api('/api/admin/session');
+      if (session.isAdmin) {
+        currentSession = { username: session.username, role: session.role, permissions: session.permissions };
+        showDashboard();
+      } else {
+        showLogin();
+      }
     } catch {
       showLogin();
     }
@@ -100,6 +107,7 @@
       placeholder: '내용을 입력하세요. Enter로 줄바꿈, 위 도구모음으로 글자 크기·굵기·색상을 바꿀 수 있습니다.'
     });
     setupNav();
+    filterNavByPermission();
     setupFontPickers();
     loadSiteIntoForm();
     loadMenuList();
@@ -111,7 +119,23 @@
     setupMenuEditor();
     setupPostEditor();
     setupSermonRefresh();
+    setupAccountPanel();
     $('#p-date').value = new Date().toISOString().slice(0, 10);
+  }
+
+  // ---------------- 권한별 메뉴 표시 ----------------
+  function filterNavByPermission() {
+    const isMain = currentSession && currentSession.role === 'main';
+    $$('.nav-item[data-permission]').forEach((btn) => {
+      const perm = btn.dataset.permission;
+      const allowed = isMain || (currentSession.permissions && currentSession.permissions[perm]);
+      btn.hidden = !allowed;
+    });
+    const activeBtn = $('.nav-item.active');
+    if (activeBtn && activeBtn.hidden) {
+      const firstVisible = $$('.nav-item').find((b) => !b.hidden);
+      if (firstVisible) firstVisible.click();
+    }
   }
 
   // ---------------- 이미지 업로드 필드 공통 처리 ----------------
@@ -591,6 +615,152 @@
         alert(err.message);
       }
     });
+  }
+
+  // ---------------- 계정 관리 ----------------
+  function setupAccountPanel() {
+    setupMyPasswordForm();
+    if (currentSession && currentSession.role === 'main') {
+      $('#account-add-card').hidden = false;
+      $('#account-list-card').hidden = false;
+      setupAddAccountForm();
+      loadAccountList();
+    }
+  }
+
+  function setupMyPasswordForm() {
+    $('#save-password-btn').addEventListener('click', async () => {
+      const currentPassword = $('#pw-current').value;
+      const newPassword = $('#pw-new').value;
+      const confirmPassword = $('#pw-confirm').value;
+      if (newPassword.length < 6) return alert('새 비밀번호는 6자 이상이어야 합니다.');
+      if (newPassword !== confirmPassword) return alert('새 비밀번호가 서로 일치하지 않습니다.');
+
+      const statusEl = $('#password-save-status');
+      try {
+        await api('/api/admin/my-password', {
+          method: 'PUT',
+          body: JSON.stringify({ currentPassword, newPassword })
+        });
+        $('#pw-current').value = '';
+        $('#pw-new').value = '';
+        $('#pw-confirm').value = '';
+        statusEl.textContent = '변경 완료 ✓';
+        setTimeout(() => (statusEl.textContent = ''), 3000);
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  }
+
+  function setupAddAccountForm() {
+    $('#add-account-btn').addEventListener('click', async () => {
+      const username = $('#acc-username').value.trim();
+      const password = $('#acc-password').value;
+      if (!username || password.length < 6) {
+        return alert('아이디와 6자 이상의 비밀번호를 입력해주세요.');
+      }
+      const permissions = {
+        site: $('#acc-perm-site').checked,
+        menu: $('#acc-perm-menu').checked,
+        posts: $('#acc-perm-posts').checked,
+        sermons: $('#acc-perm-sermons').checked
+      };
+      const statusEl = $('#account-add-status');
+      try {
+        await api('/api/admin/accounts', {
+          method: 'POST',
+          body: JSON.stringify({ username, password, permissions })
+        });
+        $('#acc-username').value = '';
+        $('#acc-password').value = '';
+        ['site', 'menu', 'posts', 'sermons'].forEach((p) => ($('#acc-perm-' + p).checked = false));
+        statusEl.textContent = '추가 완료 ✓';
+        setTimeout(() => (statusEl.textContent = ''), 3000);
+        loadAccountList();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  }
+
+  async function loadAccountList() {
+    const accounts = await api('/api/admin/accounts');
+    renderAccountList(accounts);
+  }
+
+  function renderAccountList(accounts) {
+    const container = $('#account-list');
+    container.innerHTML = accounts
+      .map((a) => {
+        const isMain = a.role === 'main';
+        const perms = a.permissions || {};
+        const permRow = ['site', 'menu', 'posts', 'sermons']
+          .map(
+            (p) => `
+            <label>
+              <input type="checkbox" class="perm-${p}" ${perms[p] ? 'checked' : ''} ${isMain ? 'disabled' : ''} />
+              ${{ site: '기본 정보', menu: '메뉴 관리', posts: '소식·활동 게시판', sermons: '설교 영상' }[p]}
+            </label>`
+          )
+          .join('');
+
+        return `
+        <div class="account-row" data-id="${a.id}">
+          <div class="account-row-top">
+            <span class="badge${isMain ? ' main' : ''}">${isMain ? '메인 관리자' : '부관리자'}</span>
+            <span class="account-username">${escapeHtml(a.username)}</span>
+            ${!isMain ? `<button type="button" class="icon-btn remove-account">계정 삭제</button>` : ''}
+          </div>
+          <div class="permission-checks">${permRow}</div>
+          ${
+            !isMain
+              ? `<div class="account-pw-row">
+                  <input type="password" class="acc-new-pw" placeholder="새 비밀번호 (변경할 때만 입력, 6자 이상)" />
+                  <button type="button" class="btn-secondary save-account-btn">저장</button>
+                </div>`
+              : ''
+          }
+        </div>`;
+      })
+      .join('');
+
+    $$('#account-list .save-account-btn').forEach((btn) =>
+      btn.addEventListener('click', async (e) => {
+        const row = e.target.closest('.account-row');
+        const id = row.dataset.id;
+        const permissions = {
+          site: row.querySelector('.perm-site').checked,
+          menu: row.querySelector('.perm-menu').checked,
+          posts: row.querySelector('.perm-posts').checked,
+          sermons: row.querySelector('.perm-sermons').checked
+        };
+        const newPassword = row.querySelector('.acc-new-pw').value;
+        if (newPassword && newPassword.length < 6) {
+          return alert('새 비밀번호는 6자 이상이어야 합니다.');
+        }
+        const payload = { permissions };
+        if (newPassword) payload.newPassword = newPassword;
+        try {
+          await api(`/api/admin/accounts/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+          flashSaved(btn);
+          row.querySelector('.acc-new-pw').value = '';
+        } catch (err) {
+          alert(err.message);
+        }
+      })
+    );
+
+    $$('#account-list .remove-account').forEach((btn) =>
+      btn.addEventListener('click', async (e) => {
+        const row = e.target.closest('.account-row');
+        const id = row.dataset.id;
+        const username = row.querySelector('.account-username').textContent;
+        if (!confirm(`'${username}' 계정을 삭제하시겠습니까?`)) return;
+        await api(`/api/admin/accounts/${id}`, { method: 'DELETE' });
+        loadAccountList();
+      })
+    );
   }
 
   // ---------------- 시작 ----------------
