@@ -258,6 +258,25 @@ label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--muted
 .sermon-preview-item img { width: 100%; aspect-ratio: 16/9; object-fit: cover; }
 .sermon-preview-item .t { padding: 8px 10px; }
 
+/* 계정 관리 */
+.permission-checks { display: flex; flex-wrap: wrap; gap: 14px; }
+.permission-checks label { display: flex; align-items: center; gap: 6px; font-weight: 500; color: var(--ink); font-size: 0.88rem; }
+.permission-checks input { width: auto; }
+
+.account-list { display: flex; flex-direction: column; gap: 14px; }
+.account-row { border: 1px solid var(--line); border-radius: var(--radius); padding: 14px 16px; }
+.account-row-top { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.account-username { font-weight: 700; font-size: 0.95rem; }
+.account-row-top .icon-btn { margin-left: auto; }
+.account-row .badge {
+  font-size: 0.72rem; font-weight: 700; color: var(--gold);
+  border: 1px solid var(--gold); border-radius: 999px; padding: 4px 10px; white-space: nowrap;
+}
+.account-row .badge.main { color: #96780f; background: #fdf7e6; }
+.account-pw-row { display: flex; gap: 10px; margin-top: 12px; }
+.account-pw-row input { flex: 1; }
+.account-pw-row button { flex-shrink: 0; }
+
 @media (max-width: 720px) {
   .dashboard { flex-direction: column; }
   .sidebar { width: 100%; flex-direction: row; align-items: center; padding: 12px 16px; overflow-x: auto; }
