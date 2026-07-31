@@ -197,7 +197,7 @@
         (svc, idx) => `
         <div class="list-row" data-id="${svc.id}">
           <input type="text" class="svc-name" value="${escapeAttr(svc.name)}" placeholder="예배 이름" />
-          <input type="text" class="svc-time" value="${escapeAttr(svc.time)}" placeholder="시간" />
+          <textarea class="svc-time" rows="1" placeholder="시간 (Enter로 줄바꿈 가능)">${escapeHtml(svc.time || '')}</textarea>
           <button type="button" class="icon-btn remove-svc">삭제</button>
         </div>`
       )
@@ -217,7 +217,7 @@
     row.dataset.id = 'svc_' + Date.now();
     row.innerHTML = `
       <input type="text" class="svc-name" placeholder="예배 이름" />
-      <input type="text" class="svc-time" placeholder="시간" />
+      <textarea class="svc-time" rows="1" placeholder="시간 (Enter로 줄바꿈 가능)"></textarea>
       <button type="button" class="icon-btn remove-svc">삭제</button>`;
     container.appendChild(row);
     row.querySelector('.remove-svc').addEventListener('click', () => row.remove());
