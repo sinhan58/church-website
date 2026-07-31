@@ -39,6 +39,13 @@
   async function loadSite() {
     const site = await getJSON('/api/site');
 
+    if (site.design) {
+      const headingFamily = window.getFontFamily(site.design.headingFont, "'Noto Serif KR', serif");
+      const bodyFamily = window.getFontFamily(site.design.bodyFont, "'Pretendard', 'Noto Sans KR', sans-serif");
+      document.documentElement.style.setProperty('--font-heading', headingFamily);
+      document.documentElement.style.setProperty('--font-body', bodyFamily);
+    }
+
     document.title = site.churchName || '교회 홈페이지';
     $('#brand-name').innerHTML = `${escapeHtml(site.churchName || '교회')}<span class="gold-dot">.</span>`;
     $('#footer-brand').textContent = site.churchName || '';
