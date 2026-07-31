@@ -100,6 +100,7 @@
       placeholder: '내용을 입력하세요. Enter로 줄바꿈, 위 도구모음으로 글자 크기·굵기·색상을 바꿀 수 있습니다.'
     });
     setupNav();
+    setupFontPickers();
     loadSiteIntoForm();
     loadMenuList();
     loadPostList();
@@ -137,10 +138,34 @@
   // ---------------- 기본 정보 (사이트) ----------------
   let currentSite = null;
 
+  function populateFontSelect(selectEl) {
+    selectEl.innerHTML = window.FONT_CATALOG
+      .map((f) => `<option value="${f.id}">${escapeHtml(f.label)}</option>`)
+      .join('');
+  }
+
+  function updateFontPreview(selectId, previewId) {
+    const id = $('#' + selectId).value;
+    const family = window.getFontFamily(id, 'inherit');
+    $('#' + previewId).style.fontFamily = family;
+  }
+
+  function setupFontPickers() {
+    populateFontSelect($('#s-headingFont'));
+    populateFontSelect($('#s-bodyFont'));
+    $('#s-headingFont').addEventListener('change', () => updateFontPreview('s-headingFont', 's-headingFont-preview'));
+    $('#s-bodyFont').addEventListener('change', () => updateFontPreview('s-bodyFont', 's-bodyFont-preview'));
+  }
+
   async function loadSiteIntoForm() {
     currentSite = await api('/api/admin/site');
     const s = currentSite;
     $('#s-churchName').value = s.churchName || '';
+
+    $('#s-headingFont').value = s.design?.headingFont || 'noto-serif-kr';
+    $('#s-bodyFont').value = s.design?.bodyFont || 'pretendard';
+    updateFontPreview('s-headingFont', 's-headingFont-preview');
+    updateFontPreview('s-bodyFont', 's-bodyFont-preview');
     $('#s-heroVerse').value = s.hero?.verse || '';
     $('#s-heroVerseRef').value = s.hero?.verseRef || '';
     $('#s-heroSubtitle').value = s.hero?.subtitle || '';
@@ -223,6 +248,10 @@
 
       const payload = {
         churchName: $('#s-churchName').value.trim(),
+        design: {
+          headingFont: $('#s-headingFont').value,
+          bodyFont: $('#s-bodyFont').value
+        },
         hero: {
           verse: $('#s-heroVerse').value.trim(),
           verseRef: $('#s-heroVerseRef').value.trim(),
