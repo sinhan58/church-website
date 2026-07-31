@@ -211,6 +211,8 @@ button { font-family: inherit; cursor: pointer; }
   line-height: 1.6;
   color: #fff;
   margin-bottom: 10px;
+  white-space: pre-line;
+  word-break: keep-all;
 }
 .verse-card .verse-ref {
   color: var(--gold-soft);
@@ -278,7 +280,7 @@ button { font-family: inherit; cursor: pointer; }
   object-fit: cover;
   width: 100%;
 }
-.about-body p { color: #4a4942; }
+.about-body p { color: #4a4942; white-space: pre-line; word-break: keep-all; }
 .pastor-box {
   margin-top: 28px;
   padding: 22px 24px;
@@ -287,6 +289,7 @@ button { font-family: inherit; cursor: pointer; }
   border-radius: var(--radius);
 }
 .pastor-box .name { font-weight: 700; color: var(--navy-deep); margin-bottom: 6px; }
+.pastor-box p:not(.name) { white-space: pre-line; word-break: keep-all; }
 
 /* ---------------- Service Times ---------------- */
 .service-grid {
@@ -306,6 +309,8 @@ button { font-family: inherit; cursor: pointer; }
   font-size: 1.5rem;
   color: var(--gold-soft);
   margin: 8px 0 4px;
+  white-space: pre-line;
+  word-break: keep-all;
 }
 .service-card .name { color: #d7d9e4; font-size: 0.92rem; }
 
@@ -505,7 +510,7 @@ button { font-family: inherit; cursor: pointer; }
 #post-modal-title { margin: 0 0 18px; font-size: 1.3rem; color: var(--navy-deep); }
 .post-modal-image { display: none; width: 100%; border-radius: var(--radius); margin-bottom: 18px; }
 .post-modal-image[src]:not([src=""]) { display: block; }
-.post-modal-content { line-height: 1.75; color: #2b2b2b; white-space: pre-wrap; word-break: break-word; }
+.post-modal-content { line-height: 1.75; color: #2b2b2b; white-space: pre-wrap; word-break: keep-all; overflow-wrap: break-word; }
 .post-modal-content img { max-width: 100%; border-radius: 8px; }
 .post-modal-attachments { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line); }
 .post-modal-attachments:empty { display: none; }
