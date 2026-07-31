@@ -3,18 +3,17 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const path = require('path');
-const { readData, writeData, makeId } = require('../utils/db');
+const fs = require('fs');
+const { readData, writeData, makeId, saveUploadedFile } = require('../utils/db');
 const { requireAuth } = require('../middleware/auth');
 const { updateSermonsCache, getCachedSermons } = require('../utils/youtube');
 
+const uploadsDir = path.join(__dirname, '..', 'public', 'uploads');
+
 // ---------- 파일 업로드 설정 ----------
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, path.join(__dirname, '..', 'public', 'uploads')),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    cb(null, `${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`);
-  }
-});
+// 파일을 메모리에 잠깐 담아두었다가(diskStorage 대신 memoryStorage), 아래에서
+// Supabase 연결 여부에 따라 Storage에 올리거나 로컬 디스크에 저장합니다.
+const storage = multer.memoryStorage();
 const upload = multer({
   storage,
   limits: { fileSize: 8 * 1024 * 1024 }, // 8MB 제한
@@ -29,6 +28,13 @@ const attachmentUpload = multer({
   storage,
   limits: { fileSize: 15 * 1024 * 1024 } // 15MB 제한
 });
+
+// 업로드된 파일 하나를 저장하고(Supabase Storage 또는 로컬 디스크) 접근 가능한 URL을 돌려줍니다.
+async function storeFile(file) {
+  const ext = path.extname(file.originalname);
+  const filename = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`;
+  return saveUploadedFile(file.buffer, filename, file.mimetype, uploadsDir);
+}
 
 // 한글 파일명이 깨지는 문제 보정 (multer가 원본 파일명을 latin1로 읽어들이는 이슈)
 function fixKoreanFilename(name = '') {
@@ -67,19 +73,30 @@ router.get('/session', (req, res) => {
 router.use(requireAuth);
 
 // ---------- 이미지 업로드 ----------
-router.post('/upload', upload.single('image'), (req, res) => {
+router.post('/upload', upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: '업로드된 파일이 없습니다.' });
-  res.json({ url: `/uploads/${req.file.filename}` });
+  try {
+    const url = await storeFile(req.file);
+    res.json({ url });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // 게시글 첨부파일 업로드 (여러 개, 문서/이미지 등 모든 형식 허용)
-router.post('/upload-attachment', attachmentUpload.array('files', 5), (req, res) => {
+router.post('/upload-attachment', attachmentUpload.array('files', 5), async (req, res) => {
   if (!req.files || req.files.length === 0) return res.status(400).json({ error: '업로드된 파일이 없습니다.' });
-  const files = req.files.map((f) => ({
-    name: fixKoreanFilename(f.originalname),
-    url: `/uploads/${f.filename}`
-  }));
-  res.json({ files });
+  try {
+    const files = await Promise.all(
+      req.files.map(async (f) => ({
+        name: fixKoreanFilename(f.originalname),
+        url: await storeFile(f)
+      }))
+    );
+    res.json({ files });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ---------- 사이트 기본 정보 수정 ----------
