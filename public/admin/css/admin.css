@@ -181,6 +181,12 @@ label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--muted
   padding: 10px;
 }
 .list-row input { flex: 1; }
+.list-row textarea.svc-time {
+  flex: 1;
+  resize: vertical;
+  min-height: 40px;
+  line-height: 1.4;
+}
 .icon-btn {
   background: none;
   border: 1px solid var(--line);
