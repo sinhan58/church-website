@@ -5,7 +5,7 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { readData, writeData, makeId, saveUploadedFile } = require('../utils/db');
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireMainAdmin, requirePermission } = require('../middleware/auth');
 const { updateSermonsCache, getCachedSermons } = require('../utils/youtube');
 
 const uploadsDir = path.join(__dirname, '..', 'public', 'uploads');
@@ -46,19 +46,49 @@ function fixKoreanFilename(name = '') {
 }
 
 // ---------- 로그인 / 로그아웃 ----------
-router.post('/login', (req, res) => {
-  const { username, password } = req.body;
-  const validUser = username === process.env.ADMIN_USERNAME;
-  const validPass = validUser && process.env.ADMIN_PASSWORD_HASH
-    ? bcrypt.compareSync(password || '', process.env.ADMIN_PASSWORD_HASH)
-    : false;
+// ---------- 관리자 계정 마이그레이션 (최초 1회, 기존 .env 계정 → 메인 관리자로 이전) ----------
+async function ensureMainAdmin() {
+  const admins = (await readData('admins')) || [];
+  if (admins.length > 0) return admins;
 
-  if (!validUser || !validPass) {
-    return res.status(401).json({ error: '아이디 또는 비밀번호가 올바르지 않습니다.' });
+  const username = process.env.ADMIN_USERNAME;
+  const passwordHash = process.env.ADMIN_PASSWORD_HASH;
+  if (!username || !passwordHash) return admins;
+
+  const mainAdmin = {
+    id: makeId('admin'),
+    username,
+    passwordHash,
+    role: 'main',
+    permissions: { site: true, menu: true, posts: true, sermons: true, accounts: true },
+    createdAt: new Date().toISOString()
+  };
+  const updated = [mainAdmin];
+  await writeData('admins', updated);
+  return updated;
+}
+
+// ---------- 로그인 / 로그아웃 ----------
+router.post('/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const admins = await ensureMainAdmin();
+    const admin = admins.find((a) => a.username === username);
+    const validPass = admin ? bcrypt.compareSync(password || '', admin.passwordHash) : false;
+
+    if (!admin || !validPass) {
+      return res.status(401).json({ error: '아이디 또는 비밀번호가 올바르지 않습니다.' });
+    }
+
+    req.session.isAdmin = true;
+    req.session.adminId = admin.id;
+    req.session.adminUsername = admin.username;
+    req.session.adminRole = admin.role;
+    req.session.adminPermissions = admin.permissions;
+    res.json({ ok: true, role: admin.role, permissions: admin.permissions, username: admin.username });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
-
-  req.session.isAdmin = true;
-  res.json({ ok: true });
 });
 
 router.post('/logout', (req, res) => {
@@ -66,11 +96,130 @@ router.post('/logout', (req, res) => {
 });
 
 router.get('/session', (req, res) => {
-  res.json({ isAdmin: !!(req.session && req.session.isAdmin) });
+  if (!req.session || !req.session.isAdmin) return res.json({ isAdmin: false });
+  res.json({
+    isAdmin: true,
+    username: req.session.adminUsername,
+    role: req.session.adminRole,
+    permissions: req.session.adminPermissions
+  });
 });
 
 // 아래 모든 라우트는 로그인 필요
 router.use(requireAuth);
+
+// ---------- 내 비밀번호 변경 (모든 관리자 공통) ----------
+router.put('/my-password', async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ error: '새 비밀번호는 6자 이상이어야 합니다.' });
+    }
+    const admins = (await readData('admins')) || [];
+    const idx = admins.findIndex((a) => a.id === req.session.adminId);
+    if (idx === -1) return res.status(404).json({ error: '계정을 찾을 수 없습니다.' });
+
+    const ok = bcrypt.compareSync(currentPassword || '', admins[idx].passwordHash);
+    if (!ok) return res.status(401).json({ error: '현재 비밀번호가 올바르지 않습니다.' });
+
+    admins[idx].passwordHash = bcrypt.hashSync(newPassword, 10);
+    await writeData('admins', admins);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- 관리자 계정 관리 (메인 관리자 전용) ----------
+router.get('/accounts', requireMainAdmin, async (req, res) => {
+  try {
+    const admins = (await readData('admins')) || [];
+    // 비밀번호 해시는 노출하지 않음
+    res.json(admins.map(({ passwordHash, ...rest }) => rest));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/accounts', requireMainAdmin, async (req, res) => {
+  try {
+    const { username, password, permissions } = req.body;
+    if (!username || !password || password.length < 6) {
+      return res.status(400).json({ error: '아이디와 6자 이상의 비밀번호를 입력해주세요.' });
+    }
+    const admins = (await readData('admins')) || [];
+    if (admins.some((a) => a.username === username)) {
+      return res.status(409).json({ error: '이미 사용 중인 아이디입니다.' });
+    }
+    const newAdmin = {
+      id: makeId('admin'),
+      username,
+      passwordHash: bcrypt.hashSync(password, 10),
+      role: 'sub',
+      permissions: {
+        site: !!permissions?.site,
+        menu: !!permissions?.menu,
+        posts: !!permissions?.posts,
+        sermons: !!permissions?.sermons,
+        accounts: false // 부관리자는 계정관리 권한을 가질 수 없음
+      },
+      createdAt: new Date().toISOString()
+    };
+    admins.push(newAdmin);
+    await writeData('admins', admins);
+    const { passwordHash, ...safe } = newAdmin;
+    res.json(safe);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/accounts/:id', requireMainAdmin, async (req, res) => {
+  try {
+    const admins = (await readData('admins')) || [];
+    const idx = admins.findIndex((a) => a.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: '계정을 찾을 수 없습니다.' });
+    if (admins[idx].role === 'main') {
+      return res.status(403).json({ error: '메인 관리자 권한은 여기서 수정할 수 없습니다.' });
+    }
+
+    if (req.body.permissions) {
+      admins[idx].permissions = {
+        ...admins[idx].permissions,
+        site: !!req.body.permissions.site,
+        menu: !!req.body.permissions.menu,
+        posts: !!req.body.permissions.posts,
+        sermons: !!req.body.permissions.sermons
+      };
+    }
+    if (req.body.newPassword) {
+      if (req.body.newPassword.length < 6) {
+        return res.status(400).json({ error: '비밀번호는 6자 이상이어야 합니다.' });
+      }
+      admins[idx].passwordHash = bcrypt.hashSync(req.body.newPassword, 10);
+    }
+    await writeData('admins', admins);
+    const { passwordHash, ...safe } = admins[idx];
+    res.json(safe);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/accounts/:id', requireMainAdmin, async (req, res) => {
+  try {
+    const admins = (await readData('admins')) || [];
+    const target = admins.find((a) => a.id === req.params.id);
+    if (!target) return res.status(404).json({ error: '계정을 찾을 수 없습니다.' });
+    if (target.role === 'main') return res.status(403).json({ error: '메인 관리자는 삭제할 수 없습니다.' });
+
+    const filtered = admins.filter((a) => a.id !== req.params.id);
+    await writeData('admins', filtered);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // ---------- 이미지 업로드 ----------
 router.post('/upload', upload.single('image'), async (req, res) => {
@@ -108,7 +257,7 @@ router.get('/site', async (req, res) => {
   }
 });
 
-router.put('/site', async (req, res) => {
+router.put('/site', requirePermission('site'), async (req, res) => {
   try {
     const current = (await readData('site')) || {};
     const updated = { ...current, ...req.body };
@@ -128,7 +277,7 @@ router.get('/menu', async (req, res) => {
   }
 });
 
-router.post('/menu', async (req, res) => {
+router.post('/menu', requirePermission('menu'), async (req, res) => {
   try {
     const menu = (await readData('menu')) || [];
     const item = { id: makeId('m'), label: req.body.label, link: req.body.link, order: req.body.order ?? menu.length + 1 };
@@ -140,7 +289,7 @@ router.post('/menu', async (req, res) => {
   }
 });
 
-router.put('/menu/:id', async (req, res) => {
+router.put('/menu/:id', requirePermission('menu'), async (req, res) => {
   try {
     const menu = (await readData('menu')) || [];
     const idx = menu.findIndex((m) => m.id === req.params.id);
@@ -153,7 +302,7 @@ router.put('/menu/:id', async (req, res) => {
   }
 });
 
-router.delete('/menu/:id', async (req, res) => {
+router.delete('/menu/:id', requirePermission('menu'), async (req, res) => {
   try {
     const menu = (await readData('menu')) || [];
     const filtered = menu.filter((m) => m.id !== req.params.id);
@@ -164,7 +313,7 @@ router.delete('/menu/:id', async (req, res) => {
   }
 });
 
-router.put('/menu-reorder', async (req, res) => {
+router.put('/menu-reorder', requirePermission('menu'), async (req, res) => {
   try {
     // req.body.order = [id1, id2, id3, ...] 순서
     const menu = (await readData('menu')) || [];
@@ -189,7 +338,7 @@ router.get('/posts', async (req, res) => {
   }
 });
 
-router.post('/posts', async (req, res) => {
+router.post('/posts', requirePermission('posts'), async (req, res) => {
   try {
     const posts = (await readData('posts')) || [];
     const post = {
@@ -210,7 +359,7 @@ router.post('/posts', async (req, res) => {
   }
 });
 
-router.put('/posts/:id', async (req, res) => {
+router.put('/posts/:id', requirePermission('posts'), async (req, res) => {
   try {
     const posts = (await readData('posts')) || [];
     const idx = posts.findIndex((p) => p.id === req.params.id);
@@ -223,7 +372,7 @@ router.put('/posts/:id', async (req, res) => {
   }
 });
 
-router.delete('/posts/:id', async (req, res) => {
+router.delete('/posts/:id', requirePermission('posts'), async (req, res) => {
   try {
     const posts = (await readData('posts')) || [];
     const filtered = posts.filter((p) => p.id !== req.params.id);
@@ -244,7 +393,7 @@ router.get('/sermons', async (req, res) => {
 });
 
 // 관리자가 수동으로 즉시 새로고침 (자동 스케줄과 별개로 즉시 반영하고 싶을 때 사용)
-router.post('/sermons/refresh', async (req, res) => {
+router.post('/sermons/refresh', requirePermission('sermons'), async (req, res) => {
   try {
     const channelId = req.body.channelId || process.env.YOUTUBE_CHANNEL_ID;
     const data = await updateSermonsCache(channelId);
