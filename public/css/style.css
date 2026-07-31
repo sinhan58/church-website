@@ -18,6 +18,9 @@
   --radius: 4px;
   --max-width: 1140px;
   --shadow: 0 10px 30px rgba(13, 21, 38, 0.12);
+  /* 관리자 페이지 "글꼴 설정"에서 선택하면 JS가 이 값을 덮어씁니다 */
+  --font-heading: 'Noto Serif KR', serif;
+  --font-body: 'Pretendard', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -37,13 +40,13 @@ body {
   margin: 0;
   background: var(--ivory);
   color: var(--ink);
-  font-family: 'Pretendard', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+  font-family: var(--font-body);
   line-height: 1.7;
   font-size: 16px;
 }
 
 h1, h2, h3, h4 {
-  font-family: 'Noto Serif KR', serif;
+  font-family: var(--font-heading);
   font-weight: 700;
   color: var(--navy-deep);
   margin: 0 0 0.5em;
@@ -109,7 +112,7 @@ button { font-family: inherit; cursor: pointer; }
   justify-content: space-between;
 }
 .brand {
-  font-family: 'Noto Serif KR', serif;
+  font-family: var(--font-heading);
   font-size: 1.35rem;
   font-weight: 700;
   color: #fff;
@@ -203,7 +206,7 @@ button { font-family: inherit; cursor: pointer; }
   margin-bottom: 28px;
 }
 .verse-card .verse-text {
-  font-family: 'Noto Serif KR', serif;
+  font-family: var(--font-heading);
   font-size: clamp(1.35rem, 3vw, 1.85rem);
   line-height: 1.6;
   color: #fff;
@@ -299,7 +302,7 @@ button { font-family: inherit; cursor: pointer; }
   text-align: center;
 }
 .service-card .time {
-  font-family: 'Noto Serif KR', serif;
+  font-family: var(--font-heading);
   font-size: 1.5rem;
   color: var(--gold-soft);
   margin: 8px 0 4px;
@@ -564,7 +567,7 @@ button { font-family: inherit; cursor: pointer; }
   margin-bottom: 24px;
   border-bottom: 1px solid rgba(255,255,255,0.08);
 }
-.footer-brand { color: #fff; font-family: 'Noto Serif KR', serif; font-size: 1.1rem; }
+.footer-brand { color: #fff; font-family: var(--font-heading); font-size: 1.1rem; }
 .footer-sns { display: flex; gap: 14px; }
 .footer-sns a { color: #d7d9e4; }
 .admin-link { color: #6b6e80; }
