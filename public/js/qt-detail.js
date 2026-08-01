@@ -1,4 +1,19 @@
 (function () {
+  function track(type, data = {}) {
+    const payload = JSON.stringify({ type, ...data });
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon('/api/track', new Blob([payload], { type: 'application/json' }));
+    } else {
+      fetch('/api/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload,
+        keepalive: true
+      }).catch(() => {});
+    }
+  }
+  track('pageview', { path: location.pathname });
+
   const amenBtn = document.getElementById('qt-amen-btn');
   const heartEl = document.getElementById('qt-heart');
   const shareBtn = document.getElementById('qt-share-btn');
@@ -36,7 +51,10 @@
 
       // 먼저 화면을 바꿔서 반응이 즉각적으로 느껴지게 하고, 실패하면 되돌립니다.
       setPressedState(!alreadyPressed);
-      if (!alreadyPressed) playPopEffect();
+      if (!alreadyPressed) {
+        playPopEffect();
+        track('click', { label: 'amen_button' });
+      }
 
       try {
         const res = await fetch(`/api/qt/${qtId}/amen`, {
@@ -54,6 +72,7 @@
 
   if (shareBtn) {
     shareBtn.addEventListener('click', async () => {
+      track('click', { label: 'share_button' });
       const title = shareBtn.dataset.title;
       const text = shareBtn.dataset.text;
       const url = shareBtn.dataset.url;
