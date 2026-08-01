@@ -650,6 +650,10 @@ button { font-family: inherit; cursor: pointer; }
   font-size: 0.78rem;
   color: var(--muted);
 }
+.qt-stage--navy { background: linear-gradient(180deg, var(--navy-deep) 0%, var(--navy-soft) 100%); }
+.qt-stage--gold { background: linear-gradient(160deg, #7a5c12 0%, var(--navy-deep) 70%); }
+.qt-stage--dawn { background: linear-gradient(160deg, #4a3a63 0%, #b06a4f 55%, #e0a86a 100%); }
+
 .qt-empty { text-align: center; color: var(--ivory-dim); padding: 40px 0; position: relative; }
 
 .qt-archive-toggle-wrap { text-align: center; margin-top: 20px; }
