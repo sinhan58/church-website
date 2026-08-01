@@ -64,8 +64,6 @@ function renderQtDetailPage({ site, item, prev, next, siteUrl }) {
   <section class="section qt-detail-section">
     <div class="container qt-detail-container">
 
-      <a href="/#qt" class="qt-back-link">← 홈으로</a>
-
       <div class="qt-detail-head">
         <span class="qt-badge">오늘의 큐티</span>
         <p class="qt-detail-meta">${escapeHtml(formatDateLabel(item.date))}${pastor ? ` · ${escapeHtml(pastor)}` : ''}</p>
@@ -85,7 +83,7 @@ function renderQtDetailPage({ site, item, prev, next, siteUrl }) {
 
       <div class="qt-reaction-bar">
         <button class="qt-amen-btn" id="qt-amen-btn" data-id="${escapeHtml(item.id)}">
-          아멘 <span class="qt-heart" id="qt-heart">♥</span> 참여중
+          아멘 <span class="qt-heart" id="qt-heart">♥</span>명 참여중
         </button>
         <button class="qt-share-btn" id="qt-share-btn"
           data-title="${escapeHtml(item.title || '오늘의 큐티')}"
@@ -93,6 +91,7 @@ function renderQtDetailPage({ site, item, prev, next, siteUrl }) {
           data-url="${pageUrl}">
           공유
         </button>
+        <a href="/#qt" class="qt-home-btn">홈으로</a>
       </div>
 
       ${navHtml}
