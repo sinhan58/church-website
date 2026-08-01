@@ -122,6 +122,8 @@
     setupAccountPanel();
     setupQtEditor();
     loadQtList();
+    setupQtBackgroundEditor();
+    loadStats().catch(() => {}); // 통계 권한이 없는 부관리자는 조용히 건너뜀
     $('#p-date').value = new Date().toISOString().slice(0, 10);
     $('#qt-date').value = new Date().toISOString().slice(0, 10);
   }
@@ -146,6 +148,7 @@
     bindImageField('s-heroImageFile', 's-heroImagePreview');
     bindImageField('s-aboutImageFile', 's-aboutImagePreview');
     bindImageField('p-imageFile', 'p-imagePreview');
+    bindImageField('qt-bg-photoFile', 'qt-bg-photoPreview');
   }
   function bindImageField(inputId, previewId) {
     const input = $('#' + inputId);
@@ -215,6 +218,12 @@
     $('#s-snsFacebook').value = s.sns?.facebook || '';
 
     renderServiceTimes(s.serviceTimes || []);
+
+    const qtBg = s.qtBackground || { type: 'preset', preset: 'navy' };
+    $('#qt-bg-type').value = qtBg.type || 'preset';
+    $('#qt-bg-preset').value = qtBg.preset || 'navy';
+    if (qtBg.image) $('#qt-bg-photoPreview').src = qtBg.image;
+    toggleQtBgFields();
   }
 
   function renderServiceTimes(list) {
@@ -685,6 +694,111 @@
         alert(err.message);
       }
     });
+  }
+
+  // ---------------- 큐티 배경 디자인 ----------------
+  function toggleQtBgFields() {
+    const type = $('#qt-bg-type').value;
+    $('#qt-bg-preset-field').hidden = type !== 'preset';
+    $('#qt-bg-photo-field').hidden = type !== 'photo';
+  }
+
+  function setupQtBackgroundEditor() {
+    $('#qt-bg-type').addEventListener('change', toggleQtBgFields);
+
+    $('#save-qt-bg-btn').addEventListener('click', async () => {
+      const payload = {
+        type: $('#qt-bg-type').value,
+        preset: $('#qt-bg-preset').value,
+        image: $('#qt-bg-photoFile').dataset.uploadedUrl || $('#qt-bg-photoPreview').getAttribute('src') || ''
+      };
+      const statusEl = $('#qt-bg-save-status');
+      try {
+        await api('/api/admin/qt-background', { method: 'PUT', body: JSON.stringify(payload) });
+        statusEl.textContent = '저장 완료 ✓';
+        setTimeout(() => (statusEl.textContent = ''), 3000);
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  }
+
+  // ---------------- 통계 ----------------
+  function sumStatsByDay(byDay, days) {
+    const today = new Date();
+    let total = 0;
+    for (let i = 0; i < days; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      const dayData = byDay[key] || {};
+      total += Object.values(dayData).reduce((a, b) => a + b, 0);
+    }
+    return total;
+  }
+
+  function aggregateByLabel(byDay, days) {
+    const today = new Date();
+    const totals = {};
+    for (let i = 0; i < days; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      const dayData = byDay[key] || {};
+      Object.entries(dayData).forEach(([label, count]) => {
+        totals[label] = (totals[label] || 0) + count;
+      });
+    }
+    return Object.entries(totals).sort((a, b) => b[1] - a[1]);
+  }
+
+  const CLICK_LABELS = {
+    sermon_card: '설교 영상',
+    board_card: '소식·활동 게시글',
+    qt_card: '오늘의 큐티 카드',
+    qt_archive_row: '지난 큐티 목록',
+    amen_button: "'아멘' 누르기",
+    share_button: '큐티 공유'
+  };
+
+  function renderBarList(container, entries, labelMap = {}) {
+    if (entries.length === 0) {
+      container.innerHTML = `<p class="hint">아직 데이터가 없습니다.</p>`;
+      return;
+    }
+    const max = entries[0][1] || 1;
+    container.innerHTML = entries
+      .slice(0, 10)
+      .map(([key, count]) => {
+        const label = labelMap[key] || key;
+        const pct = Math.max(6, Math.round((count / max) * 100));
+        return `
+        <div class="stats-bar-row">
+          <span class="stats-bar-label">${escapeHtml(label)}</span>
+          <div class="stats-bar-track"><div class="stats-bar-fill" style="width:${pct}%"></div></div>
+          <span class="stats-bar-count">${count}</span>
+        </div>`;
+      })
+      .join('');
+  }
+
+  async function loadStats() {
+    const [stats, qtList] = await Promise.all([api('/api/admin/stats'), api('/api/admin/qt')]);
+    const qtTitleById = {};
+    qtList.forEach((q) => (qtTitleById['/qt/' + q.id] = q.title));
+    const pageLabelMap = { '/': '홈페이지', ...qtTitleById };
+
+    const today = sumStatsByDay(stats.pageviews, 1);
+    const last7 = sumStatsByDay(stats.pageviews, 7);
+    const last30 = sumStatsByDay(stats.pageviews, 30);
+
+    $('#stats-summary-cards').innerHTML = `
+      <div class="stat-card"><div class="num">${today}</div><div class="label">오늘</div></div>
+      <div class="stat-card"><div class="num">${last7}</div><div class="label">최근 7일</div></div>
+      <div class="stat-card"><div class="num">${last30}</div><div class="label">최근 30일</div></div>`;
+
+    renderBarList($('#stats-click-list'), aggregateByLabel(stats.clicks, 7), CLICK_LABELS);
+    renderBarList($('#stats-page-list'), aggregateByLabel(stats.pageviews, 7), pageLabelMap);
   }
 
   // ---------------- 설교 영상 (유튜브) ----------------
