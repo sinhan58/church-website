@@ -15,6 +15,22 @@
       .replace(/>/g, '&gt;');
   }
 
+  // ---------------- 방문/클릭 통계 수집 ----------------
+  function track(type, data = {}) {
+    const payload = JSON.stringify({ type, ...data });
+    if (navigator.sendBeacon) {
+      navigator.sendBeacon('/api/track', new Blob([payload], { type: 'application/json' }));
+    } else {
+      fetch('/api/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: payload,
+        keepalive: true
+      }).catch(() => {});
+    }
+  }
+  track('pageview', { path: location.pathname });
+
   // ---------------- 헤더 스크롤 효과 ----------------
   const header = $('#site-header');
   window.addEventListener('scroll', () => {
@@ -69,6 +85,10 @@
       $('#pastor-name').textContent = site.about.pastorName || '';
       $('#pastor-message').textContent = site.about.pastorMessage || '';
       if (site.about.image) $('#about-image').src = site.about.image;
+    }
+
+    if (site.qtBackground) {
+      applyQtBackground(site.qtBackground);
     }
 
     const serviceGrid = $('#service-grid');
@@ -166,7 +186,10 @@
       .join('');
 
     $$('.sermon-card').forEach((card) => {
-      card.addEventListener('click', () => openVideoModal(card.dataset.videoId));
+      card.addEventListener('click', () => {
+        track('click', { label: 'sermon_card' });
+        openVideoModal(card.dataset.videoId);
+      });
     });
   }
 
@@ -232,7 +255,10 @@
       .join('');
 
     $$('.board-card').forEach((item) => {
-      item.addEventListener('click', () => openPostModal(item.dataset.id));
+      item.addEventListener('click', () => {
+        track('click', { label: 'board_card' });
+        openPostModal(item.dataset.id);
+      });
     });
   }
 
@@ -297,6 +323,18 @@
   }
 
   // ---------------- 오늘의 큐티 ----------------
+  function applyQtBackground(bg) {
+    const stage = $('#qt-stage');
+    stage.classList.remove('qt-stage--navy', 'qt-stage--gold', 'qt-stage--dawn');
+    if (bg.type === 'photo' && bg.image) {
+      stage.style.background =
+        `linear-gradient(180deg, rgba(13,21,38,0.55), rgba(13,21,38,0.75)), url('${bg.image}') center/cover no-repeat`;
+    } else {
+      stage.style.background = '';
+      stage.classList.add(`qt-stage--${bg.preset || 'navy'}`);
+    }
+  }
+
   function formatQtDate(dateStr = '') {
     const d = new Date(dateStr);
     if (isNaN(d)) return dateStr;
@@ -329,6 +367,8 @@
         </div>
       </a>`;
 
+    $('#qt-card-slot .qt-card').addEventListener('click', () => track('click', { label: 'qt_card' }));
+
     if (rest.length === 0) {
       toggleWrap.style.display = 'none';
       return;
@@ -343,6 +383,10 @@
         </a>`
       )
       .join('');
+
+    $$('.qt-archive-row').forEach((row) => {
+      row.addEventListener('click', () => track('click', { label: 'qt_archive_row' }));
+    });
 
     $('#qt-archive-toggle').addEventListener('click', () => {
       const isOpen = archiveList.classList.toggle('open');
