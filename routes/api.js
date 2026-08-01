@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const { readData } = require('../utils/db');
+const { readData, writeData } = require('../utils/db');
 const { getCachedSermons } = require('../utils/youtube');
 
 // 사이트 기본 정보 (교회소개, 예배시간, 연락처 등)
@@ -53,6 +53,45 @@ router.get('/posts/:id', async (req, res) => {
 router.get('/sermons', async (req, res) => {
   try {
     res.json(await getCachedSermons());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- 오늘의 큐티 ----------
+// 목록 (최신순)
+router.get('/qt', async (req, res) => {
+  try {
+    const qt = (await readData('qt')) || [];
+    const sorted = [...qt].sort((a, b) => new Date(b.date) - new Date(a.date));
+    res.json(sorted);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 단건 조회
+router.get('/qt/:id', async (req, res) => {
+  try {
+    const qt = (await readData('qt')) || [];
+    const item = qt.find((q) => q.id === req.params.id);
+    if (!item) return res.status(404).json({ error: '큐티를 찾을 수 없습니다.' });
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 아멘 반응 추가/취소 (로그인 없이 이용, 중복 방지는 클라이언트(localStorage)에서 처리)
+router.post('/qt/:id/amen', async (req, res) => {
+  try {
+    const qt = (await readData('qt')) || [];
+    const idx = qt.findIndex((q) => q.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: '큐티를 찾을 수 없습니다.' });
+    const delta = req.body.action === 'remove' ? -1 : 1;
+    qt[idx].amen = Math.max(0, (qt[idx].amen || 0) + delta);
+    await writeData('qt', qt);
+    res.json({ amen: qt[idx].amen });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
