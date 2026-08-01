@@ -2,356 +2,886 @@
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
-  async function getJSON(url) {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`요청 실패: ${url}`);
-    return res.json();
-  }
+  let currentSession = null; // { username, role, permissions }
 
-  function escapeHtml(str = '') {
-    return str
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-  }
-
-  // ---------------- 헤더 스크롤 효과 ----------------
-  const header = $('#site-header');
-  window.addEventListener('scroll', () => {
-    header.classList.toggle('scrolled', window.scrollY > 40);
-  });
-
-  // ---------------- 모바일 메뉴 ----------------
-  const hamburger = $('#hamburger');
-  const navMobile = $('#nav-mobile');
-  hamburger.addEventListener('click', () => {
-    hamburger.classList.toggle('active');
-    navMobile.classList.toggle('open');
-  });
-  navMobile.addEventListener('click', (e) => {
-    if (e.target.tagName === 'A') {
-      hamburger.classList.remove('active');
-      navMobile.classList.remove('open');
-    }
-  });
-
-  // ---------------- 사이트 기본 정보 ----------------
-  async function loadSite() {
-    const site = await getJSON('/api/site');
-
-    if (site.design) {
-      const headingFamily = window.getFontFamily(site.design.headingFont, "'Noto Serif KR', serif");
-      const bodyFamily = window.getFontFamily(site.design.bodyFont, "'Pretendard', 'Noto Sans KR', sans-serif");
-      document.documentElement.style.setProperty('--font-heading', headingFamily);
-      document.documentElement.style.setProperty('--font-body', bodyFamily);
-    }
-
-    document.title = site.churchName || '교회 홈페이지';
-    $('#brand-name').innerHTML = `${escapeHtml(site.churchName || '교회')}<span class="gold-dot">.</span>`;
-    $('#footer-brand').textContent = site.churchName || '';
-    $('#footer-brand-2').textContent = site.churchName || '';
-    $('#footer-year').textContent = new Date().getFullYear();
-
-    if (site.hero) {
-      $('#hero-verse').textContent = site.hero.verse || '';
-      $('#hero-verse-ref').textContent = site.hero.verseRef || '';
-      $('#hero-subtitle').textContent = site.hero.subtitle || '';
-      if (site.hero.backgroundImage) {
-        $('.hero').style.background =
-          `linear-gradient(180deg, rgba(13,21,38,0.72), rgba(13,21,38,0.86)), url('${site.hero.backgroundImage}') center/cover no-repeat`;
-      }
-    }
-
-    if (site.about) {
-      $('#about-greeting').textContent = site.about.greeting || site.about.title || '교회 소개';
-      $('#about-body-text').textContent = site.about.body || '';
-      $('#about-history').textContent = site.about.history || '';
-      $('#pastor-name').textContent = site.about.pastorName || '';
-      $('#pastor-message').textContent = site.about.pastorMessage || '';
-      if (site.about.image) $('#about-image').src = site.about.image;
-    }
-
-    const serviceGrid = $('#service-grid');
-    serviceGrid.innerHTML = (site.serviceTimes || [])
-      .map(
-        (s) => `
-        <div class="service-card">
-          <div class="name">${escapeHtml(s.name)}</div>
-          <div class="time">${escapeHtml(s.time)}</div>
-        </div>`
-      )
-      .join('');
-
-    if (site.contact) {
-      $('#contact-address').textContent = site.contact.address || '';
-      $('#contact-phone').textContent = site.contact.phone || '';
-      $('#contact-email').textContent = site.contact.email || '';
-      if (site.contact.mapEmbedUrl) {
-        $('#map-box').innerHTML = `<iframe src="${site.contact.mapEmbedUrl}" loading="lazy" allowfullscreen></iframe>`;
-      }
-    }
-
-    const footerSns = $('#footer-sns');
-    const links = [];
-    if (site.sns) {
-      if (site.sns.youtube) links.push(`<a href="${site.sns.youtube}" target="_blank" rel="noopener">유튜브</a>`);
-      if (site.sns.instagram) links.push(`<a href="${site.sns.instagram}" target="_blank" rel="noopener">인스타그램</a>`);
-      if (site.sns.facebook) links.push(`<a href="${site.sns.facebook}" target="_blank" rel="noopener">페이스북</a>`);
-    }
-    footerSns.innerHTML = links.join('');
-  }
-
-  // ---------------- 메뉴 ----------------
-  async function loadMenu() {
-    const menu = await getJSON('/api/menu');
-    const html = menu.map((m) => `<a href="${escapeHtml(m.link)}">${escapeHtml(m.label)}</a>`).join('');
-    $('#nav-desktop').innerHTML = html;
-    $('#nav-mobile').innerHTML = html;
-  }
-
-  // ---------------- 설교 영상 ----------------
-  function formatDate(iso) {
-    if (!iso) return '';
-    const d = new Date(iso);
-    if (isNaN(d)) return '';
-    return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
-  }
-
-  function openVideoModal(videoId) {
-    const modal = $('#video-modal');
-    $('#video-modal-frame').innerHTML =
-      `<iframe src="https://www.youtube.com/embed/${videoId}?autoplay=1" title="설교 영상" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
-    modal.classList.add('open');
-  }
-  function closeVideoModal() {
-    $('#video-modal').classList.remove('open');
-    $('#video-modal-frame').innerHTML = '';
-  }
-  $('#video-modal-close').addEventListener('click', closeVideoModal);
-  $('#video-modal').addEventListener('click', (e) => {
-    if (e.target.id === 'video-modal') closeVideoModal();
-  });
-
-  async function loadSermons() {
-    const data = await getJSON('/api/sermons');
-    const grid = $('#sermon-grid');
-    const updated = $('#sermon-updated');
-
-    updated.textContent = data.lastUpdated
-      ? `마지막 업데이트: ${formatDate(data.lastUpdated)}`
-      : '';
-
-    if (!data.videos || data.videos.length === 0) {
-      grid.innerHTML = `<div class="sermon-empty" style="grid-column:1/-1;">아직 등록된 설교 영상이 없습니다. 관리자 페이지에서 유튜브 채널을 연결해주세요.</div>`;
-      return;
-    }
-
-    grid.innerHTML = data.videos
-      .slice(0, 6)
-      .map(
-        (v) => `
-        <div class="sermon-card" data-video-id="${escapeHtml(v.videoId)}">
-          <div class="sermon-thumb">
-            <img src="${v.thumbnail}" alt="${escapeHtml(v.title)}" loading="lazy" />
-            <div class="play">
-              <svg viewBox="0 0 24 24" fill="white"><circle cx="12" cy="12" r="11" fill="rgba(13,21,38,0.55)"/><path d="M9.5 7.5v9l8-4.5-8-4.5z" fill="white"/></svg>
-            </div>
-          </div>
-          <div class="sermon-info">
-            <div class="title">${escapeHtml(v.title)}</div>
-            <div class="date">${formatDate(v.publishedAt)}</div>
-          </div>
-        </div>`
-      )
-      .join('');
-
-    $$('.sermon-card').forEach((card) => {
-      card.addEventListener('click', () => openVideoModal(card.dataset.videoId));
+  async function api(url, options = {}) {
+    const res = await fetch(url, {
+      headers: { 'Content-Type': 'application/json' },
+      ...options
     });
-  }
-
-  // ---------------- 게시판 (소식·활동) ----------------
-  let allPosts = [];
-
-  // 저장된 content가 HTML(리치 에디터로 작성)이면 그대로, 순수 텍스트(줄바꿈만 있는 옛 글)면 줄바꿈을 <br>로 변환
-  function renderContent(content = '') {
-    if (/<[a-z][\s\S]*>/i.test(content)) return content;
-    return escapeHtml(content).replace(/\n/g, '<br>');
-  }
-
-  // 목록에 보여줄 미리보기용 순수 텍스트 (HTML 태그 제거 + 길이 제한)
-  function plainPreview(content = '', maxLen = 90) {
-    const div = document.createElement('div');
-    div.innerHTML = content;
-    const text = (div.textContent || '').replace(/\s+/g, ' ').trim();
-    return text.length > maxLen ? text.slice(0, maxLen) + '…' : text;
-  }
-
-  function attachmentIcon() {
-    return `<svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>`;
-  }
-
-  function isImageAttachment(a) {
-    return /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(a.url || a.name || '');
-  }
-
-  // 목록 카드에 쓸 대표 이미지: 대표 이미지 → 없으면 첫 이미지 첨부파일
-  function thumbnailFor(post) {
-    if (post.image) return post.image;
-    const firstImg = (post.attachments || []).find(isImageAttachment);
-    return firstImg ? firstImg.url : '';
-  }
-
-  function renderBoard(category) {
-    const list = $('#board-list');
-    const filtered = category === '전체' ? allPosts : allPosts.filter((p) => p.category === category);
-
-    if (filtered.length === 0) {
-      list.innerHTML = `<div class="board-empty">등록된 게시글이 없습니다.</div>`;
-      return;
+    if (res.status === 401) {
+      showLogin();
+      throw new Error('로그인이 필요합니다.');
     }
-
-    list.innerHTML = filtered
-      .map((p) => {
-        const thumb = thumbnailFor(p);
-        return `
-        <div class="board-card" data-id="${p.id}">
-          <div class="board-thumb">
-            ${thumb ? `<img src="${thumb}" alt="${escapeHtml(p.title)}" loading="lazy" />` : `<div class="board-thumb-empty">${escapeHtml((p.category || '')[0] || '소')}</div>`}
-          </div>
-          <div class="board-info">
-            <div class="board-top">
-              <span class="badge">${escapeHtml(p.category)}</span>
-              <span class="date">${escapeHtml(p.date)}</span>
-            </div>
-            <h4>${p.pinned ? '<span class="pin">📌</span>' : ''}${escapeHtml(p.title)}</h4>
-            <p>${escapeHtml(plainPreview(p.content))}</p>
-          </div>
-        </div>`;
-      })
-      .join('');
-
-    $$('.board-card').forEach((item) => {
-      item.addEventListener('click', () => openPostModal(item.dataset.id));
-    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || '요청 처리 중 오류가 발생했습니다.');
+    return data;
   }
 
-  function openPostModal(id) {
-    const post = allPosts.find((p) => p.id === id);
-    if (!post) return;
+  async function uploadImage(file) {
+    const form = new FormData();
+    form.append('image', file);
+    const res = await fetch('/api/admin/upload', { method: 'POST', body: form });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '이미지 업로드 실패');
+    return data.url;
+  }
 
-    $('#post-modal-badge').textContent = post.category || '';
-    $('#post-modal-date').textContent = post.date || '';
-    $('#post-modal-title').textContent = post.title || '';
-    $('#post-modal-content').innerHTML = renderContent(post.content);
+  async function uploadAttachments(files) {
+    const form = new FormData();
+    Array.from(files).forEach((f) => form.append('files', f));
+    const res = await fetch('/api/admin/upload-attachment', { method: 'POST', body: form });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '첨부파일 업로드 실패');
+    return data.files; // [{name, url}]
+  }
 
-    const imgEl = $('#post-modal-image');
-    if (post.image) {
-      imgEl.src = post.image;
-      imgEl.alt = post.title || '';
-    } else {
-      imgEl.removeAttribute('src');
+  // ---------------- 화면 전환 ----------------
+  function showLogin() {
+    $('#login-screen').hidden = false;
+    $('#dashboard').hidden = true;
+  }
+  function showDashboard() {
+    $('#login-screen').hidden = true;
+    $('#dashboard').hidden = false;
+    initDashboard();
+  }
+
+  // ---------------- 로그인 ----------------
+  $('#login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const username = form.username.value;
+    const password = form.password.value;
+    const errorEl = $('#login-error');
+    errorEl.textContent = '';
+    try {
+      const result = await api('/api/admin/login', { method: 'POST', body: JSON.stringify({ username, password }) });
+      currentSession = { username: result.username, role: result.role, permissions: result.permissions };
+      showDashboard();
+    } catch (err) {
+      errorEl.textContent = err.message;
     }
-
-    const attachBox = $('#post-modal-attachments');
-    const attachments = Array.isArray(post.attachments) ? post.attachments : [];
-    const imageAttachments = attachments.filter(isImageAttachment);
-    const fileAttachments = attachments.filter((a) => !isImageAttachment(a));
-
-    const imagesHtml = imageAttachments
-      .map(
-        (a) => `<img class="attachment-image" src="${a.url}" alt="${escapeHtml(a.name || '첨부 이미지')}" loading="lazy" />`
-      )
-      .join('');
-
-    const filesHtml = fileAttachments
-      .map(
-        (a) => `<a class="attachment-item" href="${a.url}" download target="_blank" rel="noopener">${attachmentIcon()}<span>${escapeHtml(a.name || '첨부파일')}</span></a>`
-      )
-      .join('');
-
-    attachBox.innerHTML = imagesHtml + filesHtml;
-
-    $('#post-modal').classList.add('open');
-  }
-
-  function closePostModal() {
-    $('#post-modal').classList.remove('open');
-  }
-  $('#post-modal-close').addEventListener('click', closePostModal);
-  $('#post-modal').addEventListener('click', (e) => {
-    if (e.target.id === 'post-modal') closePostModal();
   });
 
-  async function loadBoard() {
-    allPosts = await getJSON('/api/posts');
-    renderBoard('전체');
+  $('#logout-btn').addEventListener('click', async () => {
+    await api('/api/admin/logout', { method: 'POST' });
+    showLogin();
+  });
 
-    $$('.board-tab').forEach((tab) => {
-      tab.addEventListener('click', () => {
-        $$('.board-tab').forEach((t) => t.classList.remove('active'));
-        tab.classList.add('active');
-        renderBoard(tab.dataset.cat);
+  async function checkSession() {
+    try {
+      const session = await api('/api/admin/session');
+      if (session.isAdmin) {
+        currentSession = { username: session.username, role: session.role, permissions: session.permissions };
+        showDashboard();
+      } else {
+        showLogin();
+      }
+    } catch {
+      showLogin();
+    }
+  }
+
+  // ---------------- 사이드바 탭 전환 ----------------
+  let dashboardInitialized = false;
+  function setupNav() {
+    $$('.nav-item').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        $$('.nav-item').forEach((b) => b.classList.remove('active'));
+        $$('.panel').forEach((p) => p.classList.remove('active'));
+        btn.classList.add('active');
+        $('#' + btn.dataset.panel).classList.add('active');
       });
     });
   }
 
-  // ---------------- 오늘의 큐티 ----------------
-  function formatQtDate(dateStr = '') {
-    const d = new Date(dateStr);
-    if (isNaN(d)) return dateStr;
-    return `${d.getMonth() + 1}월 ${d.getDate()}일`;
+  let postEditor = null;
+
+  function initDashboard() {
+    if (dashboardInitialized) return;
+    dashboardInitialized = true;
+    postEditor = new Quill('#p-content-editor', {
+      theme: 'snow',
+      modules: { toolbar: '#p-content-toolbar' },
+      placeholder: '내용을 입력하세요. Enter로 줄바꿈, 위 도구모음으로 글자 크기·굵기·색상을 바꿀 수 있습니다.'
+    });
+    setupNav();
+    filterNavByPermission();
+    setupFontPickers();
+    loadSiteIntoForm();
+    loadMenuList();
+    loadPostList();
+    loadSermonPreview();
+    setupImageUploadFields();
+    setupSiteSave();
+    setupServiceTimeEditor();
+    setupMenuEditor();
+    setupPostEditor();
+    setupSermonRefresh();
+    setupAccountPanel();
+    setupQtEditor();
+    loadQtList();
+    $('#p-date').value = new Date().toISOString().slice(0, 10);
+    $('#qt-date').value = new Date().toISOString().slice(0, 10);
   }
 
-  async function loadQT() {
-    const list = await getJSON('/api/qt');
-    const slot = $('#qt-card-slot');
-    const stage = $('#qt-stage');
-    const toggleWrap = $('.qt-archive-toggle-wrap');
-    const archiveList = $('#qt-archive-list');
-
-    if (!list || list.length === 0) {
-      slot.innerHTML = `<p class="qt-empty">아직 등록된 큐티가 없습니다.</p>`;
-      toggleWrap.style.display = 'none';
-      return;
+  // ---------------- 권한별 메뉴 표시 ----------------
+  function filterNavByPermission() {
+    const isMain = currentSession && currentSession.role === 'main';
+    $$('.nav-item[data-permission]').forEach((btn) => {
+      const perm = btn.dataset.permission;
+      const allowed = isMain || (currentSession.permissions && currentSession.permissions[perm]);
+      btn.hidden = !allowed;
+    });
+    const activeBtn = $('.nav-item.active');
+    if (activeBtn && activeBtn.hidden) {
+      const firstVisible = $$('.nav-item').find((b) => !b.hidden);
+      if (firstVisible) firstVisible.click();
     }
+  }
 
-    const [latest, ...rest] = list;
-
-    slot.innerHTML = `
-      <a class="qt-card" href="/qt/${latest.id}">
-        <span class="qt-badge">오늘의 큐티</span>
-        <h3 class="qt-card-title">${escapeHtml(latest.title || '')}</h3>
-        ${latest.verseRef ? `<p class="qt-card-ref">${escapeHtml(latest.verseRef)}</p>` : ''}
-        <div class="qt-card-foot">
-          <span>${escapeHtml(latest.pastor || '')}${latest.pastor ? ' · ' : ''}${formatQtDate(latest.date)}</span>
-          <span>전체 보기 →</span>
-        </div>
-      </a>`;
-
-    if (rest.length === 0) {
-      toggleWrap.style.display = 'none';
-      return;
-    }
-
-    archiveList.innerHTML = rest
-      .map(
-        (q) => `
-        <a class="qt-archive-row" href="/qt/${q.id}">
-          <span class="date">${formatQtDate(q.date)}</span>
-          <span class="title">${escapeHtml(q.title || '')}</span>
-        </a>`
-      )
-      .join('');
-
-    $('#qt-archive-toggle').addEventListener('click', () => {
-      const isOpen = archiveList.classList.toggle('open');
-      $('#qt-archive-toggle').textContent = isOpen ? '지난 큐티 접기 ▴' : '지난 큐티 보기 ▾';
+  // ---------------- 이미지 업로드 필드 공통 처리 ----------------
+  function setupImageUploadFields() {
+    bindImageField('s-heroImageFile', 's-heroImagePreview');
+    bindImageField('s-aboutImageFile', 's-aboutImagePreview');
+    bindImageField('p-imageFile', 'p-imagePreview');
+  }
+  function bindImageField(inputId, previewId) {
+    const input = $('#' + inputId);
+    input.addEventListener('change', async () => {
+      const file = input.files[0];
+      if (!file) return;
+      try {
+        const url = await uploadImage(file);
+        input.dataset.uploadedUrl = url;
+        $('#' + previewId).src = url;
+      } catch (err) {
+        alert(err.message);
+      }
     });
   }
 
-  // ---------------- 초기 로드 ----------------
-  Promise.all([loadSite(), loadMenu(), loadSermons(), loadBoard(), loadQT()]).catch((err) => {
-    console.error('콘텐츠를 불러오는 중 오류가 발생했습니다:', err);
+  // ---------------- 기본 정보 (사이트) ----------------
+  let currentSite = null;
+
+  function populateFontSelect(selectEl) {
+    selectEl.innerHTML = window.FONT_CATALOG
+      .map((f) => `<option value="${f.id}">${escapeHtml(f.label)}</option>`)
+      .join('');
+  }
+
+  function updateFontPreview(selectId, previewId) {
+    const id = $('#' + selectId).value;
+    const family = window.getFontFamily(id, 'inherit');
+    $('#' + previewId).style.fontFamily = family;
+  }
+
+  function setupFontPickers() {
+    populateFontSelect($('#s-headingFont'));
+    populateFontSelect($('#s-bodyFont'));
+    $('#s-headingFont').addEventListener('change', () => updateFontPreview('s-headingFont', 's-headingFont-preview'));
+    $('#s-bodyFont').addEventListener('change', () => updateFontPreview('s-bodyFont', 's-bodyFont-preview'));
+  }
+
+  async function loadSiteIntoForm() {
+    currentSite = await api('/api/admin/site');
+    const s = currentSite;
+    $('#s-churchName').value = s.churchName || '';
+
+    $('#s-headingFont').value = s.design?.headingFont || 'noto-serif-kr';
+    $('#s-bodyFont').value = s.design?.bodyFont || 'pretendard';
+    updateFontPreview('s-headingFont', 's-headingFont-preview');
+    updateFontPreview('s-bodyFont', 's-bodyFont-preview');
+    $('#s-heroVerse').value = s.hero?.verse || '';
+    $('#s-heroVerseRef').value = s.hero?.verseRef || '';
+    $('#s-heroSubtitle').value = s.hero?.subtitle || '';
+    if (s.hero?.backgroundImage) $('#s-heroImagePreview').src = s.hero.backgroundImage;
+
+    $('#s-aboutGreeting').value = s.about?.greeting || '';
+    $('#s-aboutBody').value = s.about?.body || '';
+    $('#s-aboutHistory').value = s.about?.history || '';
+    $('#s-pastorName').value = s.about?.pastorName || '';
+    $('#s-pastorMessage').value = s.about?.pastorMessage || '';
+    if (s.about?.image) $('#s-aboutImagePreview').src = s.about.image;
+
+    $('#s-address').value = s.contact?.address || '';
+    $('#s-phone').value = s.contact?.phone || '';
+    $('#s-email').value = s.contact?.email || '';
+    $('#s-mapUrl').value = s.contact?.mapEmbedUrl || '';
+
+    $('#s-snsYoutube').value = s.sns?.youtube || '';
+    $('#s-snsInstagram').value = s.sns?.instagram || '';
+    $('#s-snsFacebook').value = s.sns?.facebook || '';
+
+    renderServiceTimes(s.serviceTimes || []);
+  }
+
+  function renderServiceTimes(list) {
+    const container = $('#service-list');
+    container.innerHTML = list
+      .map(
+        (svc, idx) => `
+        <div class="list-row" data-id="${svc.id}">
+          <input type="text" class="svc-name" value="${escapeAttr(svc.name)}" placeholder="예배 이름" />
+          <textarea class="svc-time" rows="1" placeholder="시간 (Enter로 줄바꿈 가능)">${escapeHtml(svc.time || '')}</textarea>
+          <button type="button" class="icon-btn remove-svc">삭제</button>
+        </div>`
+      )
+      .join('');
+
+    $$('.remove-svc').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.target.closest('.list-row').remove();
+      });
+    });
+  }
+
+  $('#add-service-btn').addEventListener('click', () => {
+    const container = $('#service-list');
+    const row = document.createElement('div');
+    row.className = 'list-row';
+    row.dataset.id = 'svc_' + Date.now();
+    row.innerHTML = `
+      <input type="text" class="svc-name" placeholder="예배 이름" />
+      <textarea class="svc-time" rows="1" placeholder="시간 (Enter로 줄바꿈 가능)"></textarea>
+      <button type="button" class="icon-btn remove-svc">삭제</button>`;
+    container.appendChild(row);
+    row.querySelector('.remove-svc').addEventListener('click', () => row.remove());
   });
+
+  function escapeAttr(str = '') {
+    return String(str).replace(/"/g, '&quot;');
+  }
+
+  function setupServiceTimeEditor() {
+    // 추가/삭제는 위에서 이벤트 바인딩됨. 저장 시점에 값 취합.
+  }
+
+  function collectServiceTimes() {
+    return $$('#service-list .list-row').map((row) => ({
+      id: row.dataset.id,
+      name: row.querySelector('.svc-name').value.trim(),
+      time: row.querySelector('.svc-time').value.trim()
+    })).filter((s) => s.name && s.time);
+  }
+
+  function setupSiteSave() {
+    $('#save-site-btn').addEventListener('click', async () => {
+      const statusEl = $('#site-save-status');
+      statusEl.textContent = '저장 중...';
+      const heroImg = $('#s-heroImageFile').dataset.uploadedUrl || currentSite.hero?.backgroundImage || '';
+      const aboutImg = $('#s-aboutImageFile').dataset.uploadedUrl || currentSite.about?.image || '';
+
+      const payload = {
+        churchName: $('#s-churchName').value.trim(),
+        design: {
+          headingFont: $('#s-headingFont').value,
+          bodyFont: $('#s-bodyFont').value
+        },
+        hero: {
+          verse: $('#s-heroVerse').value.trim(),
+          verseRef: $('#s-heroVerseRef').value.trim(),
+          subtitle: $('#s-heroSubtitle').value.trim(),
+          backgroundImage: heroImg
+        },
+        about: {
+          greeting: $('#s-aboutGreeting').value.trim(),
+          body: $('#s-aboutBody').value.trim(),
+          history: $('#s-aboutHistory').value.trim(),
+          pastorName: $('#s-pastorName').value.trim(),
+          pastorMessage: $('#s-pastorMessage').value.trim(),
+          image: aboutImg
+        },
+        serviceTimes: collectServiceTimes(),
+        contact: {
+          address: $('#s-address').value.trim(),
+          phone: $('#s-phone').value.trim(),
+          email: $('#s-email').value.trim(),
+          mapEmbedUrl: $('#s-mapUrl').value.trim()
+        },
+        sns: {
+          youtube: $('#s-snsYoutube').value.trim(),
+          instagram: $('#s-snsInstagram').value.trim(),
+          facebook: $('#s-snsFacebook').value.trim()
+        }
+      };
+
+      try {
+        currentSite = await api('/api/admin/site', { method: 'PUT', body: JSON.stringify(payload) });
+        statusEl.textContent = '저장되었습니다 ✓';
+        setTimeout(() => (statusEl.textContent = ''), 3000);
+      } catch (err) {
+        statusEl.textContent = '';
+        alert(err.message);
+      }
+    });
+  }
+
+  // ---------------- 메뉴 관리 ----------------
+  async function loadMenuList() {
+    const menu = await api('/api/admin/menu');
+    renderMenuList(menu.sort((a, b) => a.order - b.order));
+  }
+
+  function renderMenuList(menu) {
+    const container = $('#menu-list');
+    container.innerHTML = menu
+      .map(
+        (m) => `
+        <div class="list-row" data-id="${m.id}">
+          <input type="text" class="menu-label" value="${escapeAttr(m.label)}" />
+          <input type="text" class="menu-link" value="${escapeAttr(m.link)}" />
+          <button type="button" class="icon-btn move up" title="위로">↑</button>
+          <button type="button" class="icon-btn move down" title="아래로">↓</button>
+          <button type="button" class="icon-btn save-menu" title="저장">저장</button>
+          <button type="button" class="icon-btn remove-menu" title="삭제">삭제</button>
+        </div>`
+      )
+      .join('');
+
+    $$('#menu-list .save-menu').forEach((btn) =>
+      btn.addEventListener('click', async (e) => {
+        const row = e.target.closest('.list-row');
+        const id = row.dataset.id;
+        await api(`/api/admin/menu/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            label: row.querySelector('.menu-label').value.trim(),
+            link: row.querySelector('.menu-link').value.trim()
+          })
+        });
+        flashSaved(btn);
+      })
+    );
+
+    $$('#menu-list .remove-menu').forEach((btn) =>
+      btn.addEventListener('click', async (e) => {
+        if (!confirm('이 메뉴를 삭제하시겠습니까?')) return;
+        const row = e.target.closest('.list-row');
+        await api(`/api/admin/menu/${row.dataset.id}`, { method: 'DELETE' });
+        loadMenuList();
+      })
+    );
+
+    $$('#menu-list .move.up').forEach((btn) =>
+      btn.addEventListener('click', (e) => {
+        const row = e.target.closest('.list-row');
+        const prev = row.previousElementSibling;
+        if (prev) container.insertBefore(row, prev);
+        saveMenuOrder(container);
+      })
+    );
+    $$('#menu-list .move.down').forEach((btn) =>
+      btn.addEventListener('click', (e) => {
+        const row = e.target.closest('.list-row');
+        const next = row.nextElementSibling;
+        if (next) container.insertBefore(next, row);
+        saveMenuOrder(container);
+      })
+    );
+  }
+
+  async function saveMenuOrder(container) {
+    const order = $$('.list-row', container).map((row) => row.dataset.id);
+    await api('/api/admin/menu-reorder', { method: 'PUT', body: JSON.stringify({ order }) });
+  }
+
+  function flashSaved(btn) {
+    const original = btn.textContent;
+    btn.textContent = '완료✓';
+    setTimeout(() => (btn.textContent = original), 1500);
+  }
+
+  function setupMenuEditor() {
+    $('#add-menu-btn').addEventListener('click', async () => {
+      const label = $('#new-menu-label').value.trim();
+      const link = $('#new-menu-link').value.trim();
+      if (!label || !link) return alert('메뉴 이름과 연결 위치를 모두 입력해주세요.');
+      await api('/api/admin/menu', { method: 'POST', body: JSON.stringify({ label, link }) });
+      $('#new-menu-label').value = '';
+      $('#new-menu-link').value = '';
+      loadMenuList();
+    });
+  }
+
+  // ---------------- 게시판 관리 ----------------
+  async function loadPostList() {
+    const posts = await api('/api/admin/posts');
+    renderPostList(posts);
+  }
+
+  let currentPosts = [];
+
+  function plainTextFromHtml(html = '') {
+    const div = document.createElement('div');
+    div.innerHTML = html;
+    return (div.textContent || '').replace(/\s+/g, ' ').trim();
+  }
+
+  function renderPostList(posts) {
+    currentPosts = posts;
+    const container = $('#post-list');
+    if (posts.length === 0) {
+      container.innerHTML = `<p class="hint">등록된 게시글이 없습니다.</p>`;
+      return;
+    }
+    container.innerHTML = posts
+      .map((p) => {
+        const preview = plainTextFromHtml(p.content);
+        return `
+        <div class="post-row${p.id === editingPostId ? ' editing' : ''}" data-id="${p.id}">
+          <span class="badge">${escapeAttr(p.category)}</span>
+          <div>
+            <div class="title">${p.pinned ? '📌 ' : ''}${escapeHtml(p.title)}</div>
+            <div class="meta">${escapeHtml(preview.slice(0, 60))}${preview.length > 60 ? '…' : ''}</div>
+          </div>
+          <span class="date">${escapeAttr(p.date)}</span>
+          <button type="button" class="icon-btn edit-post">수정</button>
+          <button type="button" class="icon-btn remove-post">삭제</button>
+        </div>`;
+      })
+      .join('');
+
+    $$('#post-list .remove-post').forEach((btn) =>
+      btn.addEventListener('click', async (e) => {
+        if (!confirm('이 게시글을 삭제하시겠습니까?')) return;
+        const id = e.target.closest('.post-row').dataset.id;
+        await api(`/api/admin/posts/${id}`, { method: 'DELETE' });
+        if (id === editingPostId) resetPostForm();
+        loadPostList();
+      })
+    );
+
+    $$('#post-list .edit-post').forEach((btn) =>
+      btn.addEventListener('click', (e) => {
+        const id = e.target.closest('.post-row').dataset.id;
+        const post = currentPosts.find((p) => p.id === id);
+        if (post) loadPostIntoForm(post);
+      })
+    );
+  }
+
+  function escapeHtml(str = '') {
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  let editingPostId = null;
+  let pendingAttachments = []; // [{name, url}]
+
+  function renderAttachmentEditList() {
+    const box = $('#p-attachmentList');
+    box.innerHTML = pendingAttachments
+      .map(
+        (a, idx) => `
+        <div class="attachment-edit-item" data-idx="${idx}">
+          <span>${escapeHtml(a.name)}</span>
+          <button type="button" class="remove-attachment">삭제</button>
+        </div>`
+      )
+      .join('');
+
+    $$('#p-attachmentList .remove-attachment').forEach((btn) =>
+      btn.addEventListener('click', (e) => {
+        const idx = Number(e.target.closest('.attachment-edit-item').dataset.idx);
+        pendingAttachments.splice(idx, 1);
+        renderAttachmentEditList();
+      })
+    );
+  }
+
+  function resetPostForm() {
+    editingPostId = null;
+    pendingAttachments = [];
+    $('#post-form-title').textContent = '새 글 작성';
+    $('#add-post-btn').textContent = '게시글 등록';
+    $('#cancel-edit-btn').hidden = true;
+    $('#p-title').value = '';
+    postEditor.setContents([]);
+    $('#p-pinned').checked = false;
+    $('#p-imageFile').value = '';
+    $('#p-imageFile').dataset.uploadedUrl = '';
+    $('#p-imagePreview').src = '';
+    $('#p-attachmentFiles').value = '';
+    renderAttachmentEditList();
+    $('#p-date').value = new Date().toISOString().slice(0, 10);
+    $('#p-category').value = '소식';
+  }
+
+  function loadPostIntoForm(post) {
+    editingPostId = post.id;
+    pendingAttachments = Array.isArray(post.attachments) ? [...post.attachments] : [];
+    $('#post-form-title').textContent = '게시글 수정';
+    $('#add-post-btn').textContent = '수정 저장';
+    $('#cancel-edit-btn').hidden = false;
+    $('#p-category').value = post.category || '소식';
+    $('#p-date').value = post.date || '';
+    $('#p-title').value = post.title || '';
+    postEditor.root.innerHTML = post.content || '';
+    $('#p-pinned').checked = !!post.pinned;
+    $('#p-imageFile').value = '';
+    $('#p-imageFile').dataset.uploadedUrl = post.image || '';
+    $('#p-imagePreview').src = post.image || '';
+    renderAttachmentEditList();
+    $('#panel-board').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function setupPostEditor() {
+    $('#p-attachmentFiles').addEventListener('change', async () => {
+      const files = $('#p-attachmentFiles').files;
+      if (!files || files.length === 0) return;
+      try {
+        const uploaded = await uploadAttachments(files);
+        pendingAttachments = pendingAttachments.concat(uploaded);
+        renderAttachmentEditList();
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        $('#p-attachmentFiles').value = '';
+      }
+    });
+
+    $('#cancel-edit-btn').addEventListener('click', () => {
+      resetPostForm();
+      loadPostList();
+    });
+
+    $('#add-post-btn').addEventListener('click', async () => {
+      const title = $('#p-title').value.trim();
+      const content = postEditor.root.innerHTML;
+      const isEmpty = postEditor.getText().trim().length === 0;
+      if (!title || isEmpty) return alert('제목과 내용을 입력해주세요.');
+
+      const payload = {
+        category: $('#p-category').value,
+        date: $('#p-date').value || new Date().toISOString().slice(0, 10),
+        title,
+        content,
+        image: $('#p-imageFile').dataset.uploadedUrl || '',
+        attachments: pendingAttachments,
+        pinned: $('#p-pinned').checked
+      };
+
+      if (editingPostId) {
+        await api(`/api/admin/posts/${editingPostId}`, { method: 'PUT', body: JSON.stringify(payload) });
+      } else {
+        await api('/api/admin/posts', { method: 'POST', body: JSON.stringify(payload) });
+      }
+
+      resetPostForm();
+      loadPostList();
+    });
+  }
+
+  // ---------------- 오늘의 큐티 관리 ----------------
+  let currentQtList = [];
+  let editingQtId = null;
+
+  async function loadQtList() {
+    const list = await api('/api/admin/qt');
+    renderQtList(list);
+  }
+
+  function renderQtList(list) {
+    currentQtList = list;
+    const container = $('#qt-list');
+    if (!list || list.length === 0) {
+      container.innerHTML = `<p class="hint">등록된 큐티가 없습니다.</p>`;
+      return;
+    }
+    container.innerHTML = list
+      .map(
+        (q) => `
+        <div class="post-row${q.id === editingQtId ? ' editing' : ''}" data-id="${q.id}">
+          <span class="badge">큐티</span>
+          <div>
+            <div class="title">${escapeHtml(q.title || '')}</div>
+            <div class="meta">${escapeHtml(q.verseRef || '')}</div>
+          </div>
+          <span class="date">${escapeAttr(q.date)}</span>
+          <button type="button" class="icon-btn edit-qt">수정</button>
+          <button type="button" class="icon-btn remove-qt">삭제</button>
+        </div>`
+      )
+      .join('');
+
+    $$('#qt-list .remove-qt').forEach((btn) =>
+      btn.addEventListener('click', async (e) => {
+        if (!confirm('이 큐티를 삭제하시겠습니까?')) return;
+        const id = e.target.closest('.post-row').dataset.id;
+        await api(`/api/admin/qt/${id}`, { method: 'DELETE' });
+        if (id === editingQtId) resetQtForm();
+        loadQtList();
+      })
+    );
+
+    $$('#qt-list .edit-qt').forEach((btn) =>
+      btn.addEventListener('click', (e) => {
+        const id = e.target.closest('.post-row').dataset.id;
+        const item = currentQtList.find((q) => q.id === id);
+        if (item) loadQtIntoForm(item);
+      })
+    );
+  }
+
+  function resetQtForm() {
+    editingQtId = null;
+    $('#qt-form-title').textContent = '새 큐티 작성';
+    $('#add-qt-btn').textContent = '큐티 등록';
+    $('#cancel-qt-edit-btn').hidden = true;
+    $('#qt-date').value = new Date().toISOString().slice(0, 10);
+    $('#qt-pastor').value = '';
+    $('#qt-title').value = '';
+    $('#qt-verseRef').value = '';
+    $('#qt-verseText').value = '';
+    $('#qt-body').value = '';
+  }
+
+  function loadQtIntoForm(item) {
+    editingQtId = item.id;
+    $('#qt-form-title').textContent = '큐티 수정';
+    $('#add-qt-btn').textContent = '수정 저장';
+    $('#cancel-qt-edit-btn').hidden = false;
+    $('#qt-date').value = item.date || '';
+    $('#qt-pastor').value = item.pastor || '';
+    $('#qt-title').value = item.title || '';
+    $('#qt-verseRef').value = item.verseRef || '';
+    $('#qt-verseText').value = item.verseText || '';
+    $('#qt-body').value = item.body || '';
+    $('#panel-qt').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function setupQtEditor() {
+    $('#cancel-qt-edit-btn').addEventListener('click', () => {
+      resetQtForm();
+      loadQtList();
+    });
+
+    $('#add-qt-btn').addEventListener('click', async () => {
+      const title = $('#qt-title').value.trim();
+      if (!title) return alert('제목을 입력해주세요.');
+
+      const payload = {
+        date: $('#qt-date').value || new Date().toISOString().slice(0, 10),
+        pastor: $('#qt-pastor').value.trim(),
+        title,
+        verseRef: $('#qt-verseRef').value.trim(),
+        verseText: $('#qt-verseText').value.trim(),
+        body: $('#qt-body').value.trim()
+      };
+
+      const statusEl = $('#qt-save-status');
+      try {
+        if (editingQtId) {
+          await api(`/api/admin/qt/${editingQtId}`, { method: 'PUT', body: JSON.stringify(payload) });
+        } else {
+          await api('/api/admin/qt', { method: 'POST', body: JSON.stringify(payload) });
+        }
+        statusEl.textContent = '저장 완료 ✓';
+        setTimeout(() => (statusEl.textContent = ''), 3000);
+        resetQtForm();
+        loadQtList();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  }
+
+  // ---------------- 설교 영상 (유튜브) ----------------
+  async function loadSermonPreview() {
+    const data = await api('/api/admin/sermons');
+    renderSermonPreview(data);
+  }
+
+  function renderSermonPreview(data) {
+    $('#sermon-last-updated').textContent = data.lastUpdated
+      ? `마지막 업데이트: ${new Date(data.lastUpdated).toLocaleString('ko-KR')}`
+      : '아직 업데이트된 적이 없습니다.';
+
+    const container = $('#sermon-preview-list');
+    if (!data.videos || data.videos.length === 0) {
+      container.innerHTML = `<p class="hint">캐시된 영상이 없습니다. 새로고침을 눌러주세요.</p>`;
+      return;
+    }
+    container.innerHTML = data.videos
+      .map(
+        (v) => `
+        <div class="sermon-preview-item">
+          <img src="${v.thumbnail}" alt="${escapeAttr(v.title)}" />
+          <div class="t">${escapeHtml(v.title)}</div>
+        </div>`
+      )
+      .join('');
+  }
+
+  function setupSermonRefresh() {
+    $('#refresh-sermons-btn').addEventListener('click', async () => {
+      const statusEl = $('#sermon-refresh-status');
+      const channelId = $('#yt-channelId').value.trim();
+      statusEl.textContent = '새로고침 중...';
+      try {
+        const data = await api('/api/admin/sermons/refresh', {
+          method: 'POST',
+          body: JSON.stringify(channelId ? { channelId } : {})
+        });
+        renderSermonPreview(data);
+        statusEl.textContent = `완료 ✓ (영상 ${data.videos.length}개 갱신)`;
+        setTimeout(() => (statusEl.textContent = ''), 4000);
+      } catch (err) {
+        statusEl.textContent = '';
+        alert(err.message);
+      }
+    });
+  }
+
+  // ---------------- 계정 관리 ----------------
+  function setupAccountPanel() {
+    setupMyPasswordForm();
+    if (currentSession && currentSession.role === 'main') {
+      $('#account-add-card').hidden = false;
+      $('#account-list-card').hidden = false;
+      setupAddAccountForm();
+      loadAccountList();
+    }
+  }
+
+  function setupMyPasswordForm() {
+    $('#save-password-btn').addEventListener('click', async () => {
+      const currentPassword = $('#pw-current').value;
+      const newPassword = $('#pw-new').value;
+      const confirmPassword = $('#pw-confirm').value;
+      if (newPassword.length < 6) return alert('새 비밀번호는 6자 이상이어야 합니다.');
+      if (newPassword !== confirmPassword) return alert('새 비밀번호가 서로 일치하지 않습니다.');
+
+      const statusEl = $('#password-save-status');
+      try {
+        await api('/api/admin/my-password', {
+          method: 'PUT',
+          body: JSON.stringify({ currentPassword, newPassword })
+        });
+        $('#pw-current').value = '';
+        $('#pw-new').value = '';
+        $('#pw-confirm').value = '';
+        statusEl.textContent = '변경 완료 ✓';
+        setTimeout(() => (statusEl.textContent = ''), 3000);
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  }
+
+  function setupAddAccountForm() {
+    $('#add-account-btn').addEventListener('click', async () => {
+      const username = $('#acc-username').value.trim();
+      const password = $('#acc-password').value;
+      if (!username || password.length < 6) {
+        return alert('아이디와 6자 이상의 비밀번호를 입력해주세요.');
+      }
+      const permissions = {
+        site: $('#acc-perm-site').checked,
+        menu: $('#acc-perm-menu').checked,
+        posts: $('#acc-perm-posts').checked,
+        sermons: $('#acc-perm-sermons').checked,
+        qt: $('#acc-perm-qt').checked
+      };
+      const statusEl = $('#account-add-status');
+      try {
+        await api('/api/admin/accounts', {
+          method: 'POST',
+          body: JSON.stringify({ username, password, permissions })
+        });
+        $('#acc-username').value = '';
+        $('#acc-password').value = '';
+        ['site', 'menu', 'posts', 'sermons', 'qt'].forEach((p) => ($('#acc-perm-' + p).checked = false));
+        statusEl.textContent = '추가 완료 ✓';
+        setTimeout(() => (statusEl.textContent = ''), 3000);
+        loadAccountList();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  }
+
+  async function loadAccountList() {
+    const accounts = await api('/api/admin/accounts');
+    renderAccountList(accounts);
+  }
+
+  function renderAccountList(accounts) {
+    const container = $('#account-list');
+    container.innerHTML = accounts
+      .map((a) => {
+        const isMain = a.role === 'main';
+        const perms = a.permissions || {};
+        const permRow = ['site', 'menu', 'posts', 'sermons', 'qt']
+          .map(
+            (p) => `
+            <label>
+              <input type="checkbox" class="perm-${p}" ${perms[p] ? 'checked' : ''} ${isMain ? 'disabled' : ''} />
+              ${{ site: '기본 정보', menu: '메뉴 관리', posts: '소식·활동 게시판', sermons: '설교 영상', qt: '오늘의 큐티' }[p]}
+            </label>`
+          )
+          .join('');
+
+        return `
+        <div class="account-row" data-id="${a.id}">
+          <div class="account-row-top">
+            <span class="badge${isMain ? ' main' : ''}">${isMain ? '메인 관리자' : '부관리자'}</span>
+            <span class="account-username">${escapeHtml(a.username)}</span>
+            ${!isMain ? `<button type="button" class="icon-btn remove-account">계정 삭제</button>` : ''}
+          </div>
+          <div class="permission-checks">${permRow}</div>
+          ${
+            !isMain
+              ? `<div class="account-pw-row">
+                  <input type="password" class="acc-new-pw" placeholder="새 비밀번호 (변경할 때만 입력, 6자 이상)" />
+                  <button type="button" class="btn-secondary save-account-btn">저장</button>
+                </div>`
+              : ''
+          }
+        </div>`;
+      })
+      .join('');
+
+    $$('#account-list .save-account-btn').forEach((btn) =>
+      btn.addEventListener('click', async (e) => {
+        const row = e.target.closest('.account-row');
+        const id = row.dataset.id;
+        const permissions = {
+          site: row.querySelector('.perm-site').checked,
+          menu: row.querySelector('.perm-menu').checked,
+          posts: row.querySelector('.perm-posts').checked,
+          sermons: row.querySelector('.perm-sermons').checked,
+          qt: row.querySelector('.perm-qt').checked
+        };
+        const newPassword = row.querySelector('.acc-new-pw').value;
+        if (newPassword && newPassword.length < 6) {
+          return alert('새 비밀번호는 6자 이상이어야 합니다.');
+        }
+        const payload = { permissions };
+        if (newPassword) payload.newPassword = newPassword;
+        try {
+          await api(`/api/admin/accounts/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+          flashSaved(btn);
+          row.querySelector('.acc-new-pw').value = '';
+        } catch (err) {
+          alert(err.message);
+        }
+      })
+    );
+
+    $$('#account-list .remove-account').forEach((btn) =>
+      btn.addEventListener('click', async (e) => {
+        const row = e.target.closest('.account-row');
+        const id = row.dataset.id;
+        const username = row.querySelector('.account-username').textContent;
+        if (!confirm(`'${username}' 계정을 삭제하시겠습니까?`)) return;
+        await api(`/api/admin/accounts/${id}`, { method: 'DELETE' });
+        loadAccountList();
+      })
+    );
+  }
+
+  // ---------------- 시작 ----------------
+  checkSession();
 })();
