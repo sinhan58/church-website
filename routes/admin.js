@@ -60,7 +60,7 @@ async function ensureMainAdmin() {
     username,
     passwordHash,
     role: 'main',
-    permissions: { site: true, menu: true, posts: true, sermons: true, accounts: true },
+    permissions: { site: true, menu: true, posts: true, sermons: true, qt: true, accounts: true },
     createdAt: new Date().toISOString()
   };
   const updated = [mainAdmin];
@@ -161,6 +161,7 @@ router.post('/accounts', requireMainAdmin, async (req, res) => {
         menu: !!permissions?.menu,
         posts: !!permissions?.posts,
         sermons: !!permissions?.sermons,
+        qt: !!permissions?.qt,
         accounts: false // 부관리자는 계정관리 권한을 가질 수 없음
       },
       createdAt: new Date().toISOString()
@@ -189,7 +190,8 @@ router.put('/accounts/:id', requireMainAdmin, async (req, res) => {
         site: !!req.body.permissions.site,
         menu: !!req.body.permissions.menu,
         posts: !!req.body.permissions.posts,
-        sermons: !!req.body.permissions.sermons
+        sermons: !!req.body.permissions.sermons,
+        qt: !!req.body.permissions.qt
       };
     }
     if (req.body.newPassword) {
@@ -398,6 +400,63 @@ router.post('/sermons/refresh', requirePermission('sermons'), async (req, res) =
     const channelId = req.body.channelId || process.env.YOUTUBE_CHANNEL_ID;
     const data = await updateSermonsCache(channelId);
     res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- 오늘의 큐티 관리 ----------
+router.get('/qt', async (req, res) => {
+  try {
+    const qt = (await readData('qt')) || [];
+    res.json([...qt].sort((a, b) => new Date(b.date) - new Date(a.date)));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/qt', requirePermission('qt'), async (req, res) => {
+  try {
+    const qt = (await readData('qt')) || [];
+    const item = {
+      id: makeId('qt'),
+      date: req.body.date || new Date().toISOString().slice(0, 10),
+      title: req.body.title || '',
+      verseRef: req.body.verseRef || '',
+      verseText: req.body.verseText || '',
+      body: req.body.body || '',
+      pastor: req.body.pastor || '',
+      amen: 0,
+      createdAt: new Date().toISOString()
+    };
+    qt.unshift(item);
+    await writeData('qt', qt);
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/qt/:id', requirePermission('qt'), async (req, res) => {
+  try {
+    const qt = (await readData('qt')) || [];
+    const idx = qt.findIndex((q) => q.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: '큐티를 찾을 수 없습니다.' });
+    const { amen, id, createdAt, ...editable } = req.body; // 반응 수·id·생성일은 여기서 직접 수정 불가
+    qt[idx] = { ...qt[idx], ...editable };
+    await writeData('qt', qt);
+    res.json(qt[idx]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/qt/:id', requirePermission('qt'), async (req, res) => {
+  try {
+    const qt = (await readData('qt')) || [];
+    const filtered = qt.filter((q) => q.id !== req.params.id);
+    await writeData('qt', filtered);
+    res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
