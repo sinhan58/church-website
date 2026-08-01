@@ -594,6 +594,128 @@ button { font-family: inherit; cursor: pointer; }
   .sermon-card:nth-child(n+4) { display: none; } /* 모바일에서는 최신 3개만 노출 */
 }
 
+/* ---------------- 오늘의 큐티 (홈 섹션) ---------------- */
+.qt-section {
+  padding: 72px 0;
+  background: var(--ivory-dim);
+}
+.qt-stage {
+  position: relative;
+  border-radius: 20px;
+  overflow: hidden;
+  min-height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, var(--navy-deep) 0%, var(--navy-soft) 100%);
+}
+.qt-stage svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+.qt-card {
+  position: relative;
+  width: min(340px, 86%);
+  background: var(--ivory);
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  padding: 26px 28px;
+  text-align: left;
+  box-shadow: var(--shadow);
+}
+.qt-card:hover { transform: translateY(-2px); transition: transform 0.2s ease; }
+.qt-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--navy-deep);
+  background: var(--gold-soft);
+  border-radius: 999px;
+  padding: 4px 12px;
+  margin-bottom: 14px;
+}
+.qt-card-title {
+  font-family: var(--font-heading);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--navy-deep);
+  margin: 0 0 8px;
+}
+.qt-card-ref { font-size: 0.85rem; color: var(--muted); margin: 0 0 16px; }
+.qt-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.qt-empty { text-align: center; color: var(--ivory-dim); padding: 40px 0; position: relative; }
+
+.qt-archive-toggle-wrap { text-align: center; margin-top: 20px; }
+.qt-archive-toggle {
+  background: none;
+  border: none;
+  font-size: 0.86rem;
+  color: var(--muted);
+  padding: 6px 10px;
+}
+.qt-archive-toggle:hover { color: var(--navy-deep); }
+.qt-archive-list {
+  max-width: 520px;
+  margin: 12px auto 0;
+  display: none;
+}
+.qt-archive-list.open { display: block; }
+.qt-archive-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.9rem;
+}
+.qt-archive-row .date { color: var(--muted); width: 88px; flex-shrink: 0; }
+.qt-archive-row .title { flex: 1; color: var(--ink); }
+
+/* ---------------- 오늘의 큐티 (상세 페이지) ---------------- */
+.qt-detail-section { padding: 64px 0 96px; }
+.qt-detail-container { max-width: 640px; }
+.qt-back-link { display: inline-block; font-size: 0.85rem; color: var(--muted); margin-bottom: 28px; }
+.qt-detail-head { text-align: center; margin-bottom: 32px; }
+.qt-detail-meta { font-size: 0.85rem; color: var(--muted); margin: 4px 0 10px; }
+.qt-detail-title { font-size: 1.5rem; margin: 0; }
+.qt-verse-card {
+  background: var(--ivory-dim);
+  border-radius: var(--radius);
+  padding: 28px;
+  text-align: center;
+  margin-bottom: 28px;
+}
+.qt-verse-text { font-family: var(--font-heading); font-size: 1.15rem; line-height: 1.9; margin: 0 0 10px; }
+.qt-verse-ref { font-size: 0.85rem; color: var(--muted); margin: 0; }
+.qt-detail-body { font-size: 1rem; line-height: 1.9; margin-bottom: 28px; }
+
+.qt-reaction-bar { display: flex; gap: 10px; justify-content: center; margin-bottom: 28px; }
+.qt-amen-btn, .qt-share-btn {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.86rem;
+  padding: 10px 20px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--ivory);
+  color: var(--ink);
+}
+.qt-amen-btn:hover, .qt-share-btn:hover { border-color: var(--gold); }
+.qt-amen-btn.pressed { border-color: var(--gold); background: var(--gold-soft); color: var(--navy-deep); }
+.qt-heart { color: var(--gold); }
+
+.qt-detail-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
 /* Focus visibility for accessibility */
 a:focus-visible, button:focus-visible {
   outline: 2px solid var(--gold);
