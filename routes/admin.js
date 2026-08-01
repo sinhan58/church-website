@@ -60,7 +60,7 @@ async function ensureMainAdmin() {
     username,
     passwordHash,
     role: 'main',
-    permissions: { site: true, menu: true, posts: true, sermons: true, qt: true, accounts: true },
+    permissions: { site: true, menu: true, posts: true, sermons: true, qt: true, stats: true, accounts: true },
     createdAt: new Date().toISOString()
   };
   const updated = [mainAdmin];
@@ -162,6 +162,7 @@ router.post('/accounts', requireMainAdmin, async (req, res) => {
         posts: !!permissions?.posts,
         sermons: !!permissions?.sermons,
         qt: !!permissions?.qt,
+        stats: !!permissions?.stats,
         accounts: false // 부관리자는 계정관리 권한을 가질 수 없음
       },
       createdAt: new Date().toISOString()
@@ -191,7 +192,8 @@ router.put('/accounts/:id', requireMainAdmin, async (req, res) => {
         menu: !!req.body.permissions.menu,
         posts: !!req.body.permissions.posts,
         sermons: !!req.body.permissions.sermons,
-        qt: !!req.body.permissions.qt
+        qt: !!req.body.permissions.qt,
+        stats: !!req.body.permissions.stats
       };
     }
     if (req.body.newPassword) {
@@ -457,6 +459,31 @@ router.delete('/qt/:id', requirePermission('qt'), async (req, res) => {
     const filtered = qt.filter((q) => q.id !== req.params.id);
     await writeData('qt', filtered);
     res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 큐티 섹션 배경 디자인 (site 데이터의 qtBackground 필드에 저장)
+router.put('/qt-background', requirePermission('qt'), async (req, res) => {
+  try {
+    const site = (await readData('site')) || {};
+    site.qtBackground = {
+      type: req.body.type === 'photo' ? 'photo' : 'preset',
+      preset: req.body.preset || 'navy',
+      image: req.body.image || ''
+    };
+    await writeData('site', site);
+    res.json(site.qtBackground);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- 통계 ----------
+router.get('/stats', requirePermission('stats'), async (req, res) => {
+  try {
+    res.json((await readData('stats')) || { pageviews: {}, clicks: {} });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
