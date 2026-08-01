@@ -596,7 +596,7 @@
           <span class="badge">큐티</span>
           <div>
             <div class="title">${escapeHtml(q.title || '')}</div>
-            <div class="meta">${escapeHtml(q.verseRef || '')}</div>
+            <div class="meta">${escapeHtml(q.verseRef || '')} · 아멘 ${q.amen || 0}명 참여</div>
           </div>
           <span class="date">${escapeAttr(q.date)}</span>
           <button type="button" class="icon-btn edit-qt">수정</button>
