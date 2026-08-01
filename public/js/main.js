@@ -296,8 +296,62 @@
     });
   }
 
+  // ---------------- 오늘의 큐티 ----------------
+  function formatQtDate(dateStr = '') {
+    const d = new Date(dateStr);
+    if (isNaN(d)) return dateStr;
+    return `${d.getMonth() + 1}월 ${d.getDate()}일`;
+  }
+
+  async function loadQT() {
+    const list = await getJSON('/api/qt');
+    const slot = $('#qt-card-slot');
+    const stage = $('#qt-stage');
+    const toggleWrap = $('.qt-archive-toggle-wrap');
+    const archiveList = $('#qt-archive-list');
+
+    if (!list || list.length === 0) {
+      slot.innerHTML = `<p class="qt-empty">아직 등록된 큐티가 없습니다.</p>`;
+      toggleWrap.style.display = 'none';
+      return;
+    }
+
+    const [latest, ...rest] = list;
+
+    slot.innerHTML = `
+      <a class="qt-card" href="/qt/${latest.id}">
+        <span class="qt-badge">오늘의 큐티</span>
+        <h3 class="qt-card-title">${escapeHtml(latest.title || '')}</h3>
+        ${latest.verseRef ? `<p class="qt-card-ref">${escapeHtml(latest.verseRef)}</p>` : ''}
+        <div class="qt-card-foot">
+          <span>${escapeHtml(latest.pastor || '')}${latest.pastor ? ' · ' : ''}${formatQtDate(latest.date)}</span>
+          <span>전체 보기 →</span>
+        </div>
+      </a>`;
+
+    if (rest.length === 0) {
+      toggleWrap.style.display = 'none';
+      return;
+    }
+
+    archiveList.innerHTML = rest
+      .map(
+        (q) => `
+        <a class="qt-archive-row" href="/qt/${q.id}">
+          <span class="date">${formatQtDate(q.date)}</span>
+          <span class="title">${escapeHtml(q.title || '')}</span>
+        </a>`
+      )
+      .join('');
+
+    $('#qt-archive-toggle').addEventListener('click', () => {
+      const isOpen = archiveList.classList.toggle('open');
+      $('#qt-archive-toggle').textContent = isOpen ? '지난 큐티 접기 ▴' : '지난 큐티 보기 ▾';
+    });
+  }
+
   // ---------------- 초기 로드 ----------------
-  Promise.all([loadSite(), loadMenu(), loadSermons(), loadBoard()]).catch((err) => {
+  Promise.all([loadSite(), loadMenu(), loadSermons(), loadBoard(), loadQT()]).catch((err) => {
     console.error('콘텐츠를 불러오는 중 오류가 발생했습니다:', err);
   });
 })();
