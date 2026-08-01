@@ -35,6 +35,7 @@
       <button class="nav-item active" data-panel="panel-site" data-permission="site">기본 정보</button>
       <button class="nav-item" data-panel="panel-menu" data-permission="menu">메뉴 관리</button>
       <button class="nav-item" data-panel="panel-board" data-permission="posts">소식·활동 게시판</button>
+      <button class="nav-item" data-panel="panel-qt" data-permission="qt">오늘의 큐티</button>
       <button class="nav-item" data-panel="panel-sermons" data-permission="sermons">설교 영상(유튜브)</button>
       <button class="nav-item" data-panel="panel-account">계정 관리</button>
     </nav>
@@ -201,6 +202,34 @@
       </div>
     </section>
 
+    <!-- 오늘의 큐티 -->
+    <section class="panel" id="panel-qt">
+      <h2>오늘의 큐티</h2>
+      <p class="panel-desc">매일 아침 카카오톡으로 보내시는 큐티 내용을 그대로 붙여넣으면 홈페이지에 자동으로 게시됩니다.</p>
+
+      <div class="card">
+        <h3 id="qt-form-title">새 큐티 작성</h3>
+        <div class="field-row">
+          <div class="field"><label>날짜</label><input id="qt-date" type="date" /></div>
+          <div class="field"><label>목사님 성함</label><input id="qt-pastor" type="text" placeholder="이기삼 목사" /></div>
+        </div>
+        <div class="field"><label>제목</label><input id="qt-title" type="text" placeholder="나의 도움이 어디서 올까" /></div>
+        <div class="field"><label>말씀 구절 위치</label><input id="qt-verseRef" type="text" placeholder="시편 121편 1-2절" /></div>
+        <div class="field"><label>말씀 본문</label><textarea id="qt-verseText" rows="3" placeholder="내가 산을 향하여 눈을 들리라..."></textarea></div>
+        <div class="field"><label>묵상 나눔</label><textarea id="qt-body" rows="6" placeholder="오늘 말씀은..."></textarea></div>
+        <div class="post-form-actions">
+          <button class="btn-primary" id="add-qt-btn">큐티 등록</button>
+          <button class="btn-secondary" id="cancel-qt-edit-btn" hidden>취소</button>
+        </div>
+        <span class="save-status" id="qt-save-status"></span>
+      </div>
+
+      <div class="card">
+        <h3>큐티 목록</h3>
+        <div id="qt-list" class="post-list"></div>
+      </div>
+    </section>
+
     <!-- 설교 영상 (유튜브) -->
     <section class="panel" id="panel-sermons">
       <h2>설교 영상 (유튜브 자동 업데이트)</h2>
@@ -250,6 +279,7 @@
             <label><input type="checkbox" id="acc-perm-menu" /> 메뉴 관리</label>
             <label><input type="checkbox" id="acc-perm-posts" /> 소식·활동 게시판</label>
             <label><input type="checkbox" id="acc-perm-sermons" /> 설교 영상</label>
+            <label><input type="checkbox" id="acc-perm-qt" /> 오늘의 큐티</label>
           </div>
         </div>
         <button class="btn-primary" id="add-account-btn">계정 추가</button>
