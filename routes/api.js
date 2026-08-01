@@ -97,4 +97,29 @@ router.post('/qt/:id/amen', async (req, res) => {
   }
 });
 
+// ---------- 방문/클릭 통계 수집 (관리자 페이지 '통계'에서 확인) ----------
+router.post('/track', async (req, res) => {
+  try {
+    const { type, path: trackPath, label } = req.body;
+    const today = new Date().toISOString().slice(0, 10);
+    const stats = (await readData('stats')) || { pageviews: {}, clicks: {} };
+
+    if (type === 'pageview' && trackPath) {
+      stats.pageviews[today] = stats.pageviews[today] || {};
+      stats.pageviews[today][trackPath] = (stats.pageviews[today][trackPath] || 0) + 1;
+    } else if (type === 'click' && label) {
+      stats.clicks[today] = stats.clicks[today] || {};
+      stats.clicks[today][label] = (stats.clicks[today][label] || 0) + 1;
+    } else {
+      return res.status(400).json({ error: '잘못된 요청입니다.' });
+    }
+
+    await writeData('stats', stats);
+    res.json({ ok: true });
+  } catch (err) {
+    // 통계 수집 실패가 사용자 화면에 영향을 주면 안 되므로 에러여도 200으로 조용히 응답
+    res.json({ ok: false });
+  }
+});
+
 module.exports = router;
