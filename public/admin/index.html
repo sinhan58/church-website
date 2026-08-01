@@ -36,6 +36,7 @@
       <button class="nav-item" data-panel="panel-menu" data-permission="menu">메뉴 관리</button>
       <button class="nav-item" data-panel="panel-board" data-permission="posts">소식·활동 게시판</button>
       <button class="nav-item" data-panel="panel-qt" data-permission="qt">오늘의 큐티</button>
+      <button class="nav-item" data-panel="panel-stats" data-permission="stats">통계</button>
       <button class="nav-item" data-panel="panel-sermons" data-permission="sermons">설교 영상(유튜브)</button>
       <button class="nav-item" data-panel="panel-account">계정 관리</button>
     </nav>
@@ -208,6 +209,33 @@
       <p class="panel-desc">매일 아침 카카오톡으로 보내시는 큐티 내용을 그대로 붙여넣으면 홈페이지에 자동으로 게시됩니다.</p>
 
       <div class="card">
+        <h3>배경 디자인</h3>
+        <p class="hint">홈 화면 '오늘의 큐티' 카드 뒤쪽 배경을 골라주세요.</p>
+        <div class="field">
+          <label>배경 유형</label>
+          <select id="qt-bg-type">
+            <option value="preset">프리셋</option>
+            <option value="photo">사진 업로드</option>
+          </select>
+        </div>
+        <div class="field" id="qt-bg-preset-field">
+          <label>프리셋</label>
+          <select id="qt-bg-preset">
+            <option value="navy">딥네이비 (기본)</option>
+            <option value="gold">골드 글로우</option>
+            <option value="dawn">새벽빛</option>
+          </select>
+        </div>
+        <div class="field" id="qt-bg-photo-field" hidden>
+          <label>배경 사진</label>
+          <input type="file" id="qt-bg-photoFile" accept="image/*" />
+          <img class="preview" id="qt-bg-photoPreview" />
+        </div>
+        <button class="btn-primary" id="save-qt-bg-btn">배경 저장</button>
+        <span class="save-status" id="qt-bg-save-status"></span>
+      </div>
+
+      <div class="card">
         <h3 id="qt-form-title">새 큐티 작성</h3>
         <div class="field-row">
           <div class="field"><label>날짜</label><input id="qt-date" type="date" /></div>
@@ -227,6 +255,27 @@
       <div class="card">
         <h3>큐티 목록</h3>
         <div id="qt-list" class="post-list"></div>
+      </div>
+    </section>
+
+    <!-- 통계 -->
+    <section class="panel" id="panel-stats">
+      <h2>통계</h2>
+      <p class="panel-desc">홈페이지 방문 수와 콘텐츠별 클릭 현황을 확인할 수 있습니다.</p>
+
+      <div class="card">
+        <h3>방문 수</h3>
+        <div class="stats-cards" id="stats-summary-cards"></div>
+      </div>
+
+      <div class="card">
+        <h3>인기 콘텐츠 클릭 (최근 7일)</h3>
+        <div id="stats-click-list" class="stats-bar-list"></div>
+      </div>
+
+      <div class="card">
+        <h3>페이지별 조회수 (최근 7일)</h3>
+        <div id="stats-page-list" class="stats-bar-list"></div>
       </div>
     </section>
 
@@ -280,6 +329,7 @@
             <label><input type="checkbox" id="acc-perm-posts" /> 소식·활동 게시판</label>
             <label><input type="checkbox" id="acc-perm-sermons" /> 설교 영상</label>
             <label><input type="checkbox" id="acc-perm-qt" /> 오늘의 큐티</label>
+            <label><input type="checkbox" id="acc-perm-stats" /> 통계</label>
           </div>
         </div>
         <button class="btn-primary" id="add-account-btn">계정 추가</button>
