@@ -614,6 +614,7 @@ button { font-family: inherit; cursor: pointer; }
   position: relative;
   display: block;
   width: min(340px, 86%);
+  margin: 0 auto;
   background: var(--ivory);
   border-radius: var(--radius);
   border: 1px solid var(--line);
@@ -705,9 +706,31 @@ button { font-family: inherit; cursor: pointer; }
   background: var(--ivory);
   color: var(--ink);
 }
+.qt-amen-btn { position: relative; overflow: visible; }
 .qt-amen-btn:hover, .qt-share-btn:hover, .qt-home-btn:hover { border-color: var(--gold); }
 .qt-amen-btn.pressed { border-color: var(--gold); background: var(--gold-soft); color: var(--navy-deep); }
-.qt-heart { color: var(--gold); }
+.qt-heart { color: var(--gold); font-size: 1.05rem; }
+@keyframes qtAmenPop {
+  0% { transform: scale(1); }
+  40% { transform: scale(0.9); }
+  70% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+.qt-amen-btn.pop { animation: qtAmenPop 0.35s ease; }
+@keyframes qtHeartFloat {
+  0% { transform: translate(-50%, 0) scale(0.6); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: translate(-50%, -60px) scale(1.15); opacity: 0; }
+}
+.qt-heart-particle {
+  position: absolute;
+  left: 50%;
+  top: -6px;
+  color: var(--gold);
+  font-size: 1rem;
+  pointer-events: none;
+  animation: qtHeartFloat 0.9s ease forwards;
+}
 
 .qt-detail-nav {
   display: flex; align-items: center; justify-content: space-between;
