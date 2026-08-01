@@ -612,6 +612,7 @@ button { font-family: inherit; cursor: pointer; }
 .qt-stage svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
 .qt-card {
   position: relative;
+  display: block;
   width: min(340px, 86%);
   background: var(--ivory);
   border-radius: var(--radius);
@@ -695,7 +696,7 @@ button { font-family: inherit; cursor: pointer; }
 .qt-detail-body { font-size: 1rem; line-height: 1.9; margin-bottom: 28px; }
 
 .qt-reaction-bar { display: flex; gap: 10px; justify-content: center; margin-bottom: 28px; }
-.qt-amen-btn, .qt-share-btn {
+.qt-amen-btn, .qt-share-btn, .qt-home-btn {
   display: flex; align-items: center; gap: 6px;
   font-size: 0.86rem;
   padding: 10px 20px;
@@ -704,7 +705,7 @@ button { font-family: inherit; cursor: pointer; }
   background: var(--ivory);
   color: var(--ink);
 }
-.qt-amen-btn:hover, .qt-share-btn:hover { border-color: var(--gold); }
+.qt-amen-btn:hover, .qt-share-btn:hover, .qt-home-btn:hover { border-color: var(--gold); }
 .qt-amen-btn.pressed { border-color: var(--gold); background: var(--gold-soft); color: var(--navy-deep); }
 .qt-heart { color: var(--gold); }
 
