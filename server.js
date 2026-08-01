@@ -7,6 +7,8 @@ const cron = require('node-cron');
 const apiRoutes = require('./routes/api');
 const adminRoutes = require('./routes/admin');
 const { updateSermonsCache } = require('./utils/youtube');
+const { readData } = require('./utils/db');
+const { renderQtDetailPage } = require('./utils/qt-page');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -32,6 +34,45 @@ app.use(
     }
   })
 );
+
+// 사이트 주소 (환경변수로 지정, 없으면 배포 주소로 기본값)
+const SITE_URL = process.env.SITE_URL || 'https://church-website-7sct.onrender.com';
+
+// 사이트맵 (홈 + 큐티 상세 페이지들을 매 요청마다 최신 목록으로 반영)
+app.get('/sitemap.xml', async (req, res) => {
+  try {
+    const qt = (await readData('qt')) || [];
+    const urls = [
+      `<url><loc>${SITE_URL}/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>`,
+      ...qt.map(
+        (q) =>
+          `<url><loc>${SITE_URL}/qt/${q.id}</loc><changefreq>never</changefreq><priority>0.6</priority></url>`
+      )
+    ];
+    res.type('application/xml');
+    res.send(
+      `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n${urls.join('\n')}\n</urlset>`
+    );
+  } catch (err) {
+    res.status(500).send('사이트맵 생성 실패');
+  }
+});
+
+// 큐티 상세 페이지 (검색엔진이 매일의 큐티를 각각 독립된 페이지로 색인할 수 있도록 서버에서 직접 렌더링)
+app.get('/qt/:id', async (req, res, next) => {
+  try {
+    const [site, qtList] = await Promise.all([readData('site'), readData('qt')]);
+    const list = (qtList || []).sort((a, b) => new Date(b.date) - new Date(a.date));
+    const item = list.find((q) => q.id === req.params.id);
+    if (!item) return next(); // 없으면 기존 SPA 폴백(홈)으로
+    const idx = list.findIndex((q) => q.id === req.params.id);
+    const prev = list[idx + 1] || null; // 더 과거
+    const nextItem = idx > 0 ? list[idx - 1] : null; // 더 최근
+    res.send(renderQtDetailPage({ site: site || {}, item, prev, next: nextItem, siteUrl: SITE_URL }));
+  } catch (err) {
+    next(err);
+  }
+});
 
 // 정적 파일 (홈페이지 + 관리자 화면 + 업로드 이미지)
 app.use(express.static(path.join(__dirname, 'public')));
