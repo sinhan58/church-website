@@ -12,6 +12,22 @@
       heartEl.textContent = pressed ? '♥' : '♡';
     }
 
+    function playPopEffect() {
+      amenBtn.classList.remove('pop');
+      void amenBtn.offsetWidth; // 리플레이를 위해 강제로 리플로우
+      amenBtn.classList.add('pop');
+
+      for (let i = 0; i < 5; i++) {
+        const p = document.createElement('span');
+        p.className = 'qt-heart-particle';
+        p.textContent = '♥';
+        p.style.left = `${50 + (Math.random() * 40 - 20)}%`;
+        p.style.animationDelay = `${i * 0.05}s`;
+        amenBtn.appendChild(p);
+        setTimeout(() => p.remove(), 1000);
+      }
+    }
+
     setPressedState(localStorage.getItem(storageKey) === '1');
 
     amenBtn.addEventListener('click', async () => {
@@ -20,6 +36,8 @@
 
       // 먼저 화면을 바꿔서 반응이 즉각적으로 느껴지게 하고, 실패하면 되돌립니다.
       setPressedState(!alreadyPressed);
+      if (!alreadyPressed) playPopEffect();
+
       try {
         const res = await fetch(`/api/qt/${qtId}/amen`, {
           method: 'POST',
