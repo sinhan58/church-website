@@ -83,7 +83,7 @@ function renderQtDetailPage({ site, item, prev, next, siteUrl }) {
 
       <div class="qt-reaction-bar">
         <button class="qt-amen-btn" id="qt-amen-btn" data-id="${escapeHtml(item.id)}">
-          아멘 <span class="qt-heart" id="qt-heart">♥</span>명 참여중
+          <span class="qt-heart" id="qt-heart">♡</span> '아멘' 누르기
         </button>
         <button class="qt-share-btn" id="qt-share-btn"
           data-title="${escapeHtml(item.title || '오늘의 큐티')}"
