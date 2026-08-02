@@ -537,6 +537,19 @@ button { font-family: inherit; cursor: pointer; }
 .contact-info dt { color: var(--gold); font-size: 0.78rem; letter-spacing: 0.1em; text-transform: uppercase; margin-top: 20px; }
 .contact-info dt:first-child { margin-top: 0; }
 .contact-info dd { margin: 4px 0 0; font-size: 1.05rem; color: var(--navy-deep); }
+
+.offering-card {
+  max-width: 520px;
+  margin: 0 auto;
+  background: var(--ivory-dim);
+  border-radius: var(--radius);
+  padding: 32px 36px;
+  text-align: center;
+}
+.offering-info { display: flex; flex-direction: column; gap: 14px; margin: 0 0 20px; }
+.offering-info dt { color: var(--gold); font-size: 0.78rem; letter-spacing: 0.1em; text-transform: uppercase; }
+.offering-info dd { margin: 4px 0 0; font-size: 1.15rem; font-weight: 600; color: var(--navy-deep); }
+.offering-note { font-size: 0.88rem; line-height: 1.7; color: var(--muted); white-space: pre-line; border-top: 1px solid var(--line); padding-top: 16px; margin: 0; }
 .map-box {
   border-radius: var(--radius);
   overflow: hidden;
