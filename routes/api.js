@@ -122,4 +122,26 @@ router.post('/track', async (req, res) => {
   }
 });
 
+// ---------- 기부금 영수증 신청 ----------
+router.post('/receipt-requests', async (req, res) => {
+  try {
+    const { name, phone, email, note } = req.body;
+    if (!name || !phone) return res.status(400).json({ error: '이름과 연락처를 입력해주세요.' });
+
+    const requests = (await readData('receiptRequests')) || [];
+    requests.unshift({
+      id: 'rc_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      name,
+      phone,
+      email: email || '',
+      note: note || '',
+      createdAt: new Date().toISOString()
+    });
+    await writeData('receiptRequests', requests);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
