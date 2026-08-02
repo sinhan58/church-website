@@ -128,11 +128,16 @@
     }
 
     const footerSns = $('#footer-sns');
+    const icons = {
+      youtube: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.6 7.2c-.2-1-1-1.7-1.9-1.9C18 5 12 5 12 5s-6 0-7.7.3c-1 .2-1.7 1-1.9 1.9C2 8.9 2 12 2 12s0 3.1.3 4.8c.2 1 1 1.7 1.9 1.9C6 19 12 19 12 19s6 0 7.7-.3c1-.2 1.7-1 1.9-1.9.3-1.7.3-4.8.3-4.8s0-3.1-.3-4.8ZM10 15.3V8.7L15.8 12 10 15.3Z"/></svg>',
+      instagram: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none"/></svg>',
+      facebook: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 9h3V5.6c-.5-.1-1.6-.2-2.8-.2-2.8 0-4.7 1.7-4.7 4.9V13H6.8v3.8H9.5V22h3.7v-5.2h2.9l.5-3.8h-3.4V10.6c0-1.1.3-1.6 1.8-1.6Z"/></svg>'
+    };
     const links = [];
     if (site.sns) {
-      if (site.sns.youtube) links.push(`<a href="${site.sns.youtube}" target="_blank" rel="noopener">유튜브</a>`);
-      if (site.sns.instagram) links.push(`<a href="${site.sns.instagram}" target="_blank" rel="noopener">인스타그램</a>`);
-      if (site.sns.facebook) links.push(`<a href="${site.sns.facebook}" target="_blank" rel="noopener">페이스북</a>`);
+      if (site.sns.youtube) links.push(`<a href="${site.sns.youtube}" target="_blank" rel="noopener" aria-label="유튜브">${icons.youtube}</a>`);
+      if (site.sns.instagram) links.push(`<a href="${site.sns.instagram}" target="_blank" rel="noopener" aria-label="인스타그램">${icons.instagram}</a>`);
+      if (site.sns.facebook) links.push(`<a href="${site.sns.facebook}" target="_blank" rel="noopener" aria-label="페이스북">${icons.facebook}</a>`);
     }
     footerSns.innerHTML = links.join('');
   }
