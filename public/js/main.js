@@ -104,6 +104,10 @@
 
     if (site.contact) {
       $('#contact-address').textContent = site.contact.address || '';
+      if (site.contact.addressNote) {
+        $('#contact-address-note').textContent = site.contact.addressNote;
+        $('#contact-address-note').style.display = '';
+      }
       $('#contact-phone').textContent = site.contact.phone || '';
       $('#contact-email').textContent = site.contact.email || '';
       if (site.contact.mapEmbedUrl) {
