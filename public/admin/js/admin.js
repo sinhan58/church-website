@@ -210,6 +210,7 @@
     if (s.about?.image) $('#s-aboutImagePreview').src = s.about.image;
 
     $('#s-address').value = s.contact?.address || '';
+    $('#s-addressNote').value = s.contact?.addressNote || '';
     $('#s-phone').value = s.contact?.phone || '';
     $('#s-email').value = s.contact?.email || '';
     $('#s-mapUrl').value = s.contact?.mapEmbedUrl || '';
@@ -311,6 +312,7 @@
         serviceTimes: collectServiceTimes(),
         contact: {
           address: $('#s-address').value.trim(),
+          addressNote: $('#s-addressNote').value.trim(),
           phone: $('#s-phone').value.trim(),
           email: $('#s-email').value.trim(),
           mapEmbedUrl: $('#s-mapUrl').value.trim()
