@@ -213,6 +213,11 @@
     $('#s-email').value = s.contact?.email || '';
     $('#s-mapUrl').value = s.contact?.mapEmbedUrl || '';
 
+    $('#s-offeringBank').value = s.offering?.bank || '';
+    $('#s-offeringAccount').value = s.offering?.account || '';
+    $('#s-offeringHolder').value = s.offering?.holder || '';
+    $('#s-offeringNote').value = s.offering?.note || '';
+
     $('#s-snsYoutube').value = s.sns?.youtube || '';
     $('#s-snsInstagram').value = s.sns?.instagram || '';
     $('#s-snsFacebook').value = s.sns?.facebook || '';
@@ -308,6 +313,12 @@
           phone: $('#s-phone').value.trim(),
           email: $('#s-email').value.trim(),
           mapEmbedUrl: $('#s-mapUrl').value.trim()
+        },
+        offering: {
+          bank: $('#s-offeringBank').value.trim(),
+          account: $('#s-offeringAccount').value.trim(),
+          holder: $('#s-offeringHolder').value.trim(),
+          note: $('#s-offeringNote').value.trim()
         },
         sns: {
           youtube: $('#s-snsYoutube').value.trim(),
