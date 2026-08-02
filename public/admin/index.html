@@ -37,6 +37,7 @@
       <button class="nav-item" data-panel="panel-board" data-permission="posts">소식·활동 게시판</button>
       <button class="nav-item" data-panel="panel-qt" data-permission="qt">오늘의 큐티</button>
       <button class="nav-item" data-panel="panel-stats" data-permission="stats">통계</button>
+      <button class="nav-item" data-panel="panel-receipts" data-permission="receipts">영수증 신청</button>
       <button class="nav-item" data-panel="panel-sermons" data-permission="sermons">설교 영상(유튜브)</button>
       <button class="nav-item" data-panel="panel-account">계정 관리</button>
     </nav>
@@ -290,6 +291,15 @@
       </div>
     </section>
 
+    <!-- 기부금 영수증 신청 -->
+    <section class="panel" id="panel-receipts">
+      <h2>기부금 영수증 신청</h2>
+      <p class="panel-desc">홈페이지 '헌금 안내'에서 성도님들이 신청한 내역입니다. 확인 후 개별 연락하시고, 처리가 끝나면 목록에서 삭제해주세요.</p>
+      <div class="card">
+        <div id="receipt-list" class="post-list"></div>
+      </div>
+    </section>
+
     <!-- 설교 영상 (유튜브) -->
     <section class="panel" id="panel-sermons">
       <h2>설교 영상 (유튜브 자동 업데이트)</h2>
@@ -341,6 +351,7 @@
             <label><input type="checkbox" id="acc-perm-sermons" /> 설교 영상</label>
             <label><input type="checkbox" id="acc-perm-qt" /> 오늘의 큐티</label>
             <label><input type="checkbox" id="acc-perm-stats" /> 통계</label>
+            <label><input type="checkbox" id="acc-perm-receipts" /> 영수증 신청</label>
           </div>
         </div>
         <button class="btn-primary" id="add-account-btn">계정 추가</button>
