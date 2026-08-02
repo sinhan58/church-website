@@ -182,8 +182,8 @@
     $('#file-modal').classList.remove('open');
     $('#file-modal-frame').innerHTML = '';
   }
-  $('#file-modal-close').addEventListener('click', closeFileModal);
-  $('#file-modal').addEventListener('click', (e) => {
+  $('#file-modal-close')?.addEventListener('click', closeFileModal);
+  $('#file-modal')?.addEventListener('click', (e) => {
     if (e.target.id === 'file-modal') closeFileModal();
   });
 
