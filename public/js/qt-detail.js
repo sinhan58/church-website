@@ -74,12 +74,13 @@
     shareBtn.addEventListener('click', async () => {
       track('click', { label: 'share_button' });
       const title = shareBtn.dataset.title;
-      const text = shareBtn.dataset.text;
       const url = shareBtn.dataset.url;
 
+      // 카카오톡 등 메신저는 링크만 보내면 og 태그로 자동 카드 미리보기를 만들어줍니다.
+      // title/text까지 같이 보내면 텍스트 말풍선과 카드가 중복으로 노출되어 링크만 전달합니다.
       if (navigator.share) {
         try {
-          await navigator.share({ title, text, url });
+          await navigator.share({ title, url });
         } catch (err) {
           // 사용자가 공유를 취소한 경우 등은 조용히 무시
         }
