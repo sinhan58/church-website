@@ -124,6 +124,7 @@
     loadQtList();
     setupQtBackgroundEditor();
     loadStats().catch(() => {}); // 통계 권한이 없는 부관리자는 조용히 건너뜀
+    loadReceiptRequests().catch(() => {}); // 영수증 신청 권한이 없는 부관리자는 조용히 건너뜀
     $('#p-date').value = new Date().toISOString().slice(0, 10);
     $('#qt-date').value = new Date().toISOString().slice(0, 10);
   }
@@ -812,6 +813,49 @@
     renderBarList($('#stats-page-list'), aggregateByLabel(stats.pageviews, 7), pageLabelMap);
   }
 
+  // ---------------- 기부금 영수증 신청 관리 ----------------
+  function formatReceiptDate(iso) {
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`;
+  }
+
+  async function loadReceiptRequests() {
+    const list = await api('/api/admin/receipt-requests');
+    renderReceiptList(list);
+  }
+
+  function renderReceiptList(list) {
+    const container = $('#receipt-list');
+    if (!list || list.length === 0) {
+      container.innerHTML = `<p class="hint">접수된 신청이 없습니다.</p>`;
+      return;
+    }
+    container.innerHTML = list
+      .map(
+        (r) => `
+        <div class="post-row" data-id="${r.id}">
+          <span class="badge">신청</span>
+          <div>
+            <div class="title">${escapeHtml(r.name)} · ${escapeHtml(r.phone)}${r.email ? ' · ' + escapeHtml(r.email) : ''}</div>
+            <div class="meta">${escapeHtml(r.note || '')}</div>
+          </div>
+          <span class="date">${formatReceiptDate(r.createdAt)}</span>
+          <button type="button" class="icon-btn remove-receipt">처리완료(삭제)</button>
+        </div>`
+      )
+      .join('');
+
+    $$('#receipt-list .remove-receipt').forEach((btn) =>
+      btn.addEventListener('click', async (e) => {
+        if (!confirm('처리 완료 처리하고 목록에서 삭제하시겠습니까?')) return;
+        const id = e.target.closest('.post-row').dataset.id;
+        await api(`/api/admin/receipt-requests/${id}`, { method: 'DELETE' });
+        loadReceiptRequests();
+      })
+    );
+  }
+
   // ---------------- 설교 영상 (유튜브) ----------------
   async function loadSermonPreview() {
     const data = await api('/api/admin/sermons');
@@ -907,7 +951,9 @@
         menu: $('#acc-perm-menu').checked,
         posts: $('#acc-perm-posts').checked,
         sermons: $('#acc-perm-sermons').checked,
-        qt: $('#acc-perm-qt').checked
+        qt: $('#acc-perm-qt').checked,
+        stats: $('#acc-perm-stats').checked,
+        receipts: $('#acc-perm-receipts').checked
       };
       const statusEl = $('#account-add-status');
       try {
@@ -917,7 +963,7 @@
         });
         $('#acc-username').value = '';
         $('#acc-password').value = '';
-        ['site', 'menu', 'posts', 'sermons', 'qt'].forEach((p) => ($('#acc-perm-' + p).checked = false));
+        ['site', 'menu', 'posts', 'sermons', 'qt', 'stats', 'receipts'].forEach((p) => ($('#acc-perm-' + p).checked = false));
         statusEl.textContent = '추가 완료 ✓';
         setTimeout(() => (statusEl.textContent = ''), 3000);
         loadAccountList();
@@ -938,12 +984,12 @@
       .map((a) => {
         const isMain = a.role === 'main';
         const perms = a.permissions || {};
-        const permRow = ['site', 'menu', 'posts', 'sermons', 'qt']
+        const permRow = ['site', 'menu', 'posts', 'sermons', 'qt', 'stats', 'receipts']
           .map(
             (p) => `
             <label>
               <input type="checkbox" class="perm-${p}" ${perms[p] ? 'checked' : ''} ${isMain ? 'disabled' : ''} />
-              ${{ site: '기본 정보', menu: '메뉴 관리', posts: '소식·활동 게시판', sermons: '설교 영상', qt: '오늘의 큐티' }[p]}
+              ${{ site: '기본 정보', menu: '메뉴 관리', posts: '소식·활동 게시판', sermons: '설교 영상', qt: '오늘의 큐티', stats: '통계', receipts: '영수증 신청' }[p]}
             </label>`
           )
           .join('');
@@ -977,7 +1023,9 @@
           menu: row.querySelector('.perm-menu').checked,
           posts: row.querySelector('.perm-posts').checked,
           sermons: row.querySelector('.perm-sermons').checked,
-          qt: row.querySelector('.perm-qt').checked
+          qt: row.querySelector('.perm-qt').checked,
+          stats: row.querySelector('.perm-stats').checked,
+          receipts: row.querySelector('.perm-receipts').checked
         };
         const newPassword = row.querySelector('.acc-new-pw').value;
         if (newPassword && newPassword.length < 6) {
