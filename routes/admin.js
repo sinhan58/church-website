@@ -60,7 +60,7 @@ async function ensureMainAdmin() {
     username,
     passwordHash,
     role: 'main',
-    permissions: { site: true, menu: true, posts: true, sermons: true, qt: true, stats: true, accounts: true },
+    permissions: { site: true, menu: true, posts: true, sermons: true, qt: true, stats: true, receipts: true, accounts: true },
     createdAt: new Date().toISOString()
   };
   const updated = [mainAdmin];
@@ -163,6 +163,7 @@ router.post('/accounts', requireMainAdmin, async (req, res) => {
         sermons: !!permissions?.sermons,
         qt: !!permissions?.qt,
         stats: !!permissions?.stats,
+        receipts: !!permissions?.receipts,
         accounts: false // 부관리자는 계정관리 권한을 가질 수 없음
       },
       createdAt: new Date().toISOString()
@@ -193,7 +194,8 @@ router.put('/accounts/:id', requireMainAdmin, async (req, res) => {
         posts: !!req.body.permissions.posts,
         sermons: !!req.body.permissions.sermons,
         qt: !!req.body.permissions.qt,
-        stats: !!req.body.permissions.stats
+        stats: !!req.body.permissions.stats,
+        receipts: !!req.body.permissions.receipts
       };
     }
     if (req.body.newPassword) {
@@ -484,6 +486,26 @@ router.put('/qt-background', requirePermission('qt'), async (req, res) => {
 router.get('/stats', requirePermission('stats'), async (req, res) => {
   try {
     res.json((await readData('stats')) || { pageviews: {}, clicks: {} });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- 기부금 영수증 신청 관리 ----------
+router.get('/receipt-requests', requirePermission('receipts'), async (req, res) => {
+  try {
+    res.json((await readData('receiptRequests')) || []);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/receipt-requests/:id', requirePermission('receipts'), async (req, res) => {
+  try {
+    const requests = (await readData('receiptRequests')) || [];
+    const filtered = requests.filter((r) => r.id !== req.params.id);
+    await writeData('receiptRequests', filtered);
+    res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
