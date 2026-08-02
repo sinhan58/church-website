@@ -325,13 +325,16 @@
   // ---------------- 오늘의 큐티 ----------------
   function applyQtBackground(bg) {
     const stage = $('#qt-stage');
+    const decor = $('#qt-decor');
     stage.classList.remove('qt-stage--navy', 'qt-stage--gold', 'qt-stage--dawn');
     if (bg.type === 'photo' && bg.image) {
       stage.style.background =
         `linear-gradient(180deg, rgba(13,21,38,0.55), rgba(13,21,38,0.75)), url('${bg.image}') center/cover no-repeat`;
+      decor.style.display = 'none';
     } else {
       stage.style.background = '';
       stage.classList.add(`qt-stage--${bg.preset || 'navy'}`);
+      decor.style.display = '';
     }
   }
 
