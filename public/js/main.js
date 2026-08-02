@@ -160,6 +160,33 @@
     if (e.target.id === 'video-modal') closeVideoModal();
   });
 
+  // ---------------- 첨부파일(주보 등) 미리보기 ----------------
+  function isPreviewable(name = '', url = '') {
+    const ext = (name.split('.').pop() || url.split('.').pop() || '').toLowerCase();
+    return ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext);
+  }
+
+  function openFileModal(url, name) {
+    const ext = (name.split('.').pop() || url.split('.').pop() || '').toLowerCase();
+    const frame = $('#file-modal-frame');
+    if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) {
+      frame.innerHTML = `<img src="${url}" alt="${escapeHtml(name)}" />`;
+    } else {
+      frame.innerHTML = `<iframe src="${url}" title="${escapeHtml(name)}"></iframe>`;
+    }
+    $('#file-modal-name').textContent = name;
+    $('#file-modal-download').href = url;
+    $('#file-modal').classList.add('open');
+  }
+  function closeFileModal() {
+    $('#file-modal').classList.remove('open');
+    $('#file-modal-frame').innerHTML = '';
+  }
+  $('#file-modal-close').addEventListener('click', closeFileModal);
+  $('#file-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'file-modal') closeFileModal();
+  });
+
   async function loadSermons() {
     const data = await getJSON('/api/sermons');
     const grid = $('#sermon-grid');
@@ -300,11 +327,20 @@
 
     const filesHtml = fileAttachments
       .map(
-        (a) => `<a class="attachment-item" href="${a.url}" download target="_blank" rel="noopener">${attachmentIcon()}<span>${escapeHtml(a.name || '첨부파일')}</span></a>`
+        (a) =>
+          `<a class="attachment-item" href="${a.url}" data-name="${escapeHtml(a.name || '첨부파일')}" ${
+            isPreviewable(a.name || '', a.url) ? 'data-preview="1"' : 'target="_blank" rel="noopener"'
+          }>${attachmentIcon()}<span>${escapeHtml(a.name || '첨부파일')}</span></a>`
       )
       .join('');
 
     attachBox.innerHTML = imagesHtml + filesHtml;
+    $$('#post-modal-attachments [data-preview="1"]').forEach((el) => {
+      el.addEventListener('click', (e) => {
+        e.preventDefault();
+        openFileModal(el.getAttribute('href'), el.dataset.name);
+      });
+    });
 
     $('#post-modal').classList.add('open');
   }
