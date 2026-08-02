@@ -111,6 +111,14 @@
       }
     }
 
+    if (site.offering && site.offering.bank && site.offering.account) {
+      $('#offering-bank').textContent = site.offering.bank;
+      $('#offering-account').textContent = site.offering.account;
+      $('#offering-holder').textContent = site.offering.holder || '';
+      $('#offering-note').textContent = site.offering.note || '';
+      $('#offering').style.display = '';
+    }
+
     const footerSns = $('#footer-sns');
     const links = [];
     if (site.sns) {
