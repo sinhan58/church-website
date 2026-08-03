@@ -401,54 +401,93 @@
     return `${d.getMonth() + 1}월 ${d.getDate()}일`;
   }
 
-  // 캐러셀 좌우 드래그(마우스)/스와이프(터치)로 자연스럽게 넘길 수 있게 처리
-  // 드래그 중 발생하는 클릭은 카드 링크 이동을 막아, "당겼다 놨는데 페이지로 이동"하는 오작동을 방지한다.
-  function enableCarouselDrag(el) {
+  // 캐러셀을 "겹쳐진 카드가 옆으로 스르륵 밀려나는" 커버플로우 방식으로 제어한다.
+  // activeIndex에 해당하는 카드가 가운데(delta=0)에 오고, 나머지는 좌우로 카드 너비의
+  // 약 2/3만큼 떨어져(=1/3 겹쳐) 배치된다. 인덱스가 바뀌면 CSS transition이 슬라이드 애니메이션을 만든다.
+  function createCoverflow(carousel, cardEls, initialIndex, { onChange } = {}) {
+    const CARD_WIDTH = 340;
+    const STEP = Math.round(CARD_WIDTH * 0.64); // 카드 너비의 약 1/3만큼 겹치도록
+    let activeIndex = initialIndex;
+
+    function layout() {
+      cardEls.forEach((card, i) => {
+        const delta = i - activeIndex;
+        const abs = Math.abs(delta);
+        const scale = delta === 0 ? 1 : abs === 1 ? 0.88 : 0.8;
+        const opacity = delta === 0 ? 1 : abs === 1 ? 0.6 : abs === 2 ? 0.22 : 0;
+        card.style.transform = `translate(-50%, -50%) translateX(${delta * STEP}px) scale(${scale})`;
+        card.style.opacity = String(opacity);
+        card.style.zIndex = String(100 - abs);
+        card.style.pointerEvents = abs > 2 ? 'none' : '';
+      });
+      if (typeof onChange === 'function') onChange(activeIndex);
+    }
+
+    function goTo(i) {
+      const next = Math.max(0, Math.min(cardEls.length - 1, i));
+      if (next === activeIndex) return;
+      activeIndex = next;
+      layout();
+    }
+
+    // 가운데(활성) 카드가 아닌 카드를 클릭하면 그 카드가 가운데로 이동하고,
+    // 이미 가운데인 카드를 클릭하면 원래 링크(상세 페이지)로 정상 이동한다.
+    cardEls.forEach((card, i) => {
+      card.addEventListener('click', (e) => {
+        if (i !== activeIndex) {
+          e.preventDefault();
+          goTo(i);
+        }
+      });
+    });
+
+    // 드래그/스와이프로도 넘길 수 있게 처리
     let isDown = false;
-    let moved = false;
+    let dragged = false;
     let startX = 0;
-    let scrollStart = 0;
 
-    const down = (e) => {
+    carousel.addEventListener('pointerdown', (e) => {
       isDown = true;
-      moved = false;
+      dragged = false;
       startX = e.clientX;
-      scrollStart = el.scrollLeft;
-      el.classList.add('dragging');
-      el.setPointerCapture(e.pointerId);
-    };
-    const move = (e) => {
+      carousel.classList.add('dragging');
+      carousel.setPointerCapture(e.pointerId);
+    });
+    carousel.addEventListener('pointermove', (e) => {
       if (!isDown) return;
-      const dx = e.clientX - startX;
-      if (Math.abs(dx) > 4) moved = true;
-      el.scrollLeft = scrollStart - dx;
-    };
-    const up = () => {
+      if (Math.abs(e.clientX - startX) > 6) dragged = true;
+    });
+    const finishDrag = (e) => {
+      if (!isDown) return;
       isDown = false;
-      el.classList.remove('dragging');
+      carousel.classList.remove('dragging');
+      if (!dragged) return;
+      const dx = e.clientX - startX;
+      if (dx < -40) goTo(activeIndex + 1);
+      else if (dx > 40) goTo(activeIndex - 1);
     };
-
-    el.addEventListener('pointerdown', down);
-    el.addEventListener('pointermove', move);
-    el.addEventListener('pointerup', up);
-    el.addEventListener('pointerleave', up);
-    el.addEventListener('pointercancel', up);
-    el.addEventListener(
+    carousel.addEventListener('pointerup', finishDrag);
+    carousel.addEventListener('pointercancel', finishDrag);
+    carousel.addEventListener(
       'click',
       (e) => {
-        if (moved) {
+        if (dragged) {
           e.preventDefault();
           e.stopPropagation();
         }
       },
       true
     );
-  }
 
-  function scrollCarouselByCard(el, dir) {
-    const card = el.querySelector('.qt-card');
-    const step = card ? card.offsetWidth + 24 : 300;
-    el.scrollBy({ left: dir * step, behavior: 'smooth' });
+    layout();
+    return {
+      goTo,
+      next: () => goTo(activeIndex + 1),
+      prev: () => goTo(activeIndex - 1),
+      get activeIndex() {
+        return activeIndex;
+      }
+    };
   }
 
   async function loadQT() {
@@ -498,25 +537,28 @@
     $$('#qt-carousel-track .qt-card--today').forEach((c) => c.addEventListener('click', () => track('click', { label: 'qt_card' })));
     $$('#qt-carousel-track .qt-card--archive').forEach((c) => c.addEventListener('click', () => track('click', { label: 'qt_carousel_archive' })));
 
-    // 오늘 카드가 가운데 오도록 캐러셀을 맨 끝까지 스크롤(트랙의 좌우 패딩이 중앙 정렬을 맞춰줌)
-    requestAnimationFrame(() => {
-      carousel.scrollLeft = carousel.scrollWidth;
-    });
-
     const isDesktop = window.matchMedia('(min-width: 861px)').matches;
+    const todayIndex = carouselPast.length; // 오늘 카드는 배열 맨 뒤(오른쪽)에 위치
 
     if (carouselPast.length === 0 || !isDesktop) {
       stage.classList.add('qt-stage--single');
       navPrev.style.display = 'none';
       navNext.style.display = 'none';
-    }
-    if (carouselPast.length > 0 && isDesktop) {
+    } else {
       stage.classList.remove('qt-stage--single');
       navPrev.style.display = '';
       navNext.style.display = '';
-      enableCarouselDrag(carousel); // 데스크톱에서만 드래그로 지난 큐티 넘겨보기 활성화(모바일 탭 이동에는 영향 없음)
-      navPrev.addEventListener('click', () => scrollCarouselByCard(carousel, -1));
-      navNext.addEventListener('click', () => scrollCarouselByCard(carousel, 1));
+      carousel.classList.add('qt-carousel--coverflow');
+
+      const cardEls = $$('#qt-carousel-track .qt-card');
+      const coverflow = createCoverflow(carousel, cardEls, todayIndex, {
+        onChange: (activeIndex) => {
+          navPrev.disabled = activeIndex === 0;
+          navNext.disabled = activeIndex === cardEls.length - 1;
+        }
+      });
+      navPrev.addEventListener('click', () => coverflow.prev());
+      navNext.addEventListener('click', () => coverflow.next());
     }
 
     if (rest.length === 0) {
