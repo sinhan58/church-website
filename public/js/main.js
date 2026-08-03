@@ -401,23 +401,89 @@
     return `${d.getMonth() + 1}월 ${d.getDate()}일`;
   }
 
+  // 캐러셀 좌우 드래그(마우스)/스와이프(터치)로 자연스럽게 넘길 수 있게 처리
+  // 드래그 중 발생하는 클릭은 카드 링크 이동을 막아, "당겼다 놨는데 페이지로 이동"하는 오작동을 방지한다.
+  function enableCarouselDrag(el) {
+    let isDown = false;
+    let moved = false;
+    let startX = 0;
+    let scrollStart = 0;
+
+    const down = (e) => {
+      isDown = true;
+      moved = false;
+      startX = e.clientX;
+      scrollStart = el.scrollLeft;
+      el.classList.add('dragging');
+      el.setPointerCapture(e.pointerId);
+    };
+    const move = (e) => {
+      if (!isDown) return;
+      const dx = e.clientX - startX;
+      if (Math.abs(dx) > 4) moved = true;
+      el.scrollLeft = scrollStart - dx;
+    };
+    const up = () => {
+      isDown = false;
+      el.classList.remove('dragging');
+    };
+
+    el.addEventListener('pointerdown', down);
+    el.addEventListener('pointermove', move);
+    el.addEventListener('pointerup', up);
+    el.addEventListener('pointerleave', up);
+    el.addEventListener('pointercancel', up);
+    el.addEventListener(
+      'click',
+      (e) => {
+        if (moved) {
+          e.preventDefault();
+          e.stopPropagation();
+        }
+      },
+      true
+    );
+  }
+
+  function scrollCarouselByCard(el, dir) {
+    const card = el.querySelector('.qt-card');
+    const step = card ? card.offsetWidth + 24 : 300;
+    el.scrollBy({ left: dir * step, behavior: 'smooth' });
+  }
+
   async function loadQT() {
     const list = await getJSON('/api/qt');
-    const slot = $('#qt-card-slot');
     const stage = $('#qt-stage');
+    const carousel = $('#qt-carousel');
+    const trackEl = $('#qt-carousel-track');
+    const navPrev = $('#qt-nav-prev');
+    const navNext = $('#qt-nav-next');
     const toggleWrap = $('.qt-archive-toggle-wrap');
     const archiveList = $('#qt-archive-list');
 
     if (!list || list.length === 0) {
-      slot.innerHTML = `<p class="qt-empty">아직 등록된 큐티가 없습니다.</p>`;
+      trackEl.innerHTML = `<p class="qt-empty">아직 등록된 큐티가 없습니다.</p>`;
+      navPrev.style.display = 'none';
+      navNext.style.display = 'none';
       toggleWrap.style.display = 'none';
       return;
     }
 
     const [latest, ...rest] = list;
 
-    slot.innerHTML = `
-      <a class="qt-card" href="/qt/${latest.id}">
+    // 캐러셀에는 오늘 카드 + 최근 지난 큐티 몇 장만(오래된 순 → 오늘 순으로 배치해
+    // 오늘 카드가 맨 오른쪽=가운데 정렬 기준이 되도록 함)
+    const carouselPast = rest.slice(0, 5).reverse();
+
+    const archiveCardHtml = (q) => `
+      <a class="qt-card qt-card--archive" href="/qt/${q.id}" data-id="${q.id}">
+        <span class="qt-badge qt-badge--archive">${formatQtDate(q.date)}</span>
+        <h3 class="qt-card-title">${escapeHtml(q.title || '')}</h3>
+        ${q.verseRef ? `<p class="qt-card-ref">${escapeHtml(q.verseRef)}</p>` : ''}
+      </a>`;
+
+    const todayCardHtml = `
+      <a class="qt-card qt-card--today" href="/qt/${latest.id}" data-id="${latest.id}">
         <span class="qt-badge">오늘의 큐티</span>
         <h3 class="qt-card-title">${escapeHtml(latest.title || '')}</h3>
         ${latest.verseRef ? `<p class="qt-card-ref">${escapeHtml(latest.verseRef)}</p>` : ''}
@@ -427,7 +493,31 @@
         </div>
       </a>`;
 
-    $('#qt-card-slot .qt-card').addEventListener('click', () => track('click', { label: 'qt_card' }));
+    trackEl.innerHTML = carouselPast.map(archiveCardHtml).join('') + todayCardHtml;
+
+    $$('#qt-carousel-track .qt-card--today').forEach((c) => c.addEventListener('click', () => track('click', { label: 'qt_card' })));
+    $$('#qt-carousel-track .qt-card--archive').forEach((c) => c.addEventListener('click', () => track('click', { label: 'qt_carousel_archive' })));
+
+    // 오늘 카드가 가운데 오도록 캐러셀을 맨 끝까지 스크롤(트랙의 좌우 패딩이 중앙 정렬을 맞춰줌)
+    requestAnimationFrame(() => {
+      carousel.scrollLeft = carousel.scrollWidth;
+    });
+
+    const isDesktop = window.matchMedia('(min-width: 861px)').matches;
+
+    if (carouselPast.length === 0 || !isDesktop) {
+      stage.classList.add('qt-stage--single');
+      navPrev.style.display = 'none';
+      navNext.style.display = 'none';
+    }
+    if (carouselPast.length > 0 && isDesktop) {
+      stage.classList.remove('qt-stage--single');
+      navPrev.style.display = '';
+      navNext.style.display = '';
+      enableCarouselDrag(carousel); // 데스크톱에서만 드래그로 지난 큐티 넘겨보기 활성화(모바일 탭 이동에는 영향 없음)
+      navPrev.addEventListener('click', () => scrollCarouselByCard(carousel, -1));
+      navNext.addEventListener('click', () => scrollCarouselByCard(carousel, 1));
+    }
 
     if (rest.length === 0) {
       toggleWrap.style.display = 'none';
