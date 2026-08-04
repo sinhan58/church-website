@@ -465,6 +465,11 @@
       if (Math.abs(e.clientX - startX) > 6) dragged = true;
     });
     const finishDrag = (e) => {
+      // 포인터 캡처를 풀어줘야 클릭이 끝나는 지점(mouseup)이 실제 카드(<a>) 위로
+      // 정상적으로 인식되어, 카드 클릭 시 상세 페이지 이동(전체 보기)이 막히지 않는다.
+      if (carousel.hasPointerCapture && carousel.hasPointerCapture(e.pointerId)) {
+        carousel.releasePointerCapture(e.pointerId);
+      }
       if (!isDown) return;
       isDown = false;
       carousel.classList.remove('dragging');
