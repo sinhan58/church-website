@@ -959,6 +959,15 @@ a:focus-visible, button:focus-visible {
 }
 
 /* ---------- 선교사역 (세계지도 + 동역자의 섬김) ---------- */
+.missions-verse {
+  font-family: var(--font-heading);
+  font-style: italic;
+  color: var(--ink);
+  font-size: 1.05rem;
+  line-height: 1.6;
+  margin: 8px 0 6px;
+  word-break: keep-all;
+}
 .missions-layout {
   display: grid;
   grid-template-columns: 1.7fr 1fr;
