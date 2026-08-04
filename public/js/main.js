@@ -88,9 +88,9 @@
     }
 
     if (site.missions) {
-      $('#missions-title').textContent = site.missions.title || '선교사역';
+      $('#missions-title').textContent = site.missions.title || '선교와 동역';
       $('#missions-subtitle').textContent = site.missions.subtitle || '';
-      $('#partners-title').textContent = '동역자의 섬김';
+      $('#partners-title').textContent = '동역해주시는 분들';
     }
 
     if (site.qtBackground) {
