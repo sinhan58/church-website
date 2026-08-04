@@ -60,7 +60,7 @@ async function ensureMainAdmin() {
     username,
     passwordHash,
     role: 'main',
-    permissions: { site: true, menu: true, posts: true, sermons: true, qt: true, stats: true, receipts: true, accounts: true },
+    permissions: { site: true, menu: true, posts: true, sermons: true, qt: true, missions: true, stats: true, receipts: true, accounts: true },
     createdAt: new Date().toISOString()
   };
   const updated = [mainAdmin];
@@ -162,6 +162,7 @@ router.post('/accounts', requireMainAdmin, async (req, res) => {
         posts: !!permissions?.posts,
         sermons: !!permissions?.sermons,
         qt: !!permissions?.qt,
+        missions: !!permissions?.missions,
         stats: !!permissions?.stats,
         receipts: !!permissions?.receipts,
         accounts: false // 부관리자는 계정관리 권한을 가질 수 없음
@@ -194,6 +195,7 @@ router.put('/accounts/:id', requireMainAdmin, async (req, res) => {
         posts: !!req.body.permissions.posts,
         sermons: !!req.body.permissions.sermons,
         qt: !!req.body.permissions.qt,
+        missions: !!req.body.permissions.missions,
         stats: !!req.body.permissions.stats,
         receipts: !!req.body.permissions.receipts
       };
@@ -477,6 +479,118 @@ router.put('/qt-background', requirePermission('qt'), async (req, res) => {
     };
     await writeData('site', site);
     res.json(site.qtBackground);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- 선교사역 (세계지도 핀) ----------
+router.get('/missions', async (req, res) => {
+  try {
+    res.json((await readData('missions')) || []);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/missions', requirePermission('missions'), async (req, res) => {
+  try {
+    const missions = (await readData('missions')) || [];
+    const item = {
+      id: makeId('mission'),
+      order: missions.length,
+      countryCode: req.body.countryCode || '',
+      country: req.body.country || '',
+      lat: Number(req.body.lat) || 0,
+      lon: Number(req.body.lon) || 0,
+      name: req.body.name || '',
+      tag: req.body.tag || '',
+      desc: req.body.desc || '',
+      image: req.body.image || '',
+      createdAt: new Date().toISOString()
+    };
+    missions.push(item);
+    await writeData('missions', missions);
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/missions/:id', requirePermission('missions'), async (req, res) => {
+  try {
+    const missions = (await readData('missions')) || [];
+    const idx = missions.findIndex((m) => m.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: '선교지 정보를 찾을 수 없습니다.' });
+    const { id, createdAt, ...editable } = req.body;
+    missions[idx] = { ...missions[idx], ...editable };
+    await writeData('missions', missions);
+    res.json(missions[idx]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/missions/:id', requirePermission('missions'), async (req, res) => {
+  try {
+    const missions = (await readData('missions')) || [];
+    const filtered = missions.filter((m) => m.id !== req.params.id);
+    await writeData('missions', filtered);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- 동역자의 섬김 ----------
+router.get('/partners', async (req, res) => {
+  try {
+    res.json((await readData('partners')) || []);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/partners', requirePermission('missions'), async (req, res) => {
+  try {
+    const partners = (await readData('partners')) || [];
+    const item = {
+      id: makeId('partner'),
+      order: partners.length,
+      name: req.body.name || '',
+      image: req.body.image || '',
+      startDate: req.body.startDate || '',
+      note: req.body.note || '',
+      createdAt: new Date().toISOString()
+    };
+    partners.push(item);
+    await writeData('partners', partners);
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/partners/:id', requirePermission('missions'), async (req, res) => {
+  try {
+    const partners = (await readData('partners')) || [];
+    const idx = partners.findIndex((p) => p.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: '동역자 정보를 찾을 수 없습니다.' });
+    const { id, createdAt, ...editable } = req.body;
+    partners[idx] = { ...partners[idx], ...editable };
+    await writeData('partners', partners);
+    res.json(partners[idx]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/partners/:id', requirePermission('missions'), async (req, res) => {
+  try {
+    const partners = (await readData('partners')) || [];
+    const filtered = partners.filter((p) => p.id !== req.params.id);
+    await writeData('partners', filtered);
+    res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
