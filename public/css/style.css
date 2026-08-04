@@ -728,7 +728,7 @@ button { font-family: inherit; cursor: pointer; }
   justify-content: center;
   background: linear-gradient(180deg, var(--navy-deep) 0%, var(--navy-soft) 100%);
 }
-.qt-stage svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; }
+.qt-stage svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
 
 /* 캐러셀 트랙(오늘 카드 가운데, 지난 카드는 옆으로 드래그해서 보기) */
 .qt-carousel {
