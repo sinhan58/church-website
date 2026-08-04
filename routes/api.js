@@ -144,4 +144,21 @@ router.post('/receipt-requests', async (req, res) => {
   }
 });
 
+// ---------- 선교사역 ----------
+router.get('/missions', async (req, res) => {
+  try {
+    res.json((await readData('missions')) || []);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/partners', async (req, res) => {
+  try {
+    res.json((await readData('partners')) || []);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
