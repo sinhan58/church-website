@@ -462,7 +462,10 @@
     });
     carousel.addEventListener('pointermove', (e) => {
       if (!isDown) return;
-      if (Math.abs(e.clientX - startX) > 6) dragged = true;
+      // 클릭 시 손이 미세하게 떨리는 정도(수 px)는 드래그로 오인하지 않도록 기준을 넉넉히 잡는다.
+      // 실제 카드 넘기기(스와이프) 판정은 아래 finishDrag의 40px 기준을 그대로 사용하므로
+      // 이 값을 조금 올려도 스와이프 동작 자체에는 영향이 없다.
+      if (Math.abs(e.clientX - startX) > 15) dragged = true;
     });
     const finishDrag = (e) => {
       // 포인터 캡처를 풀어줘야 클릭이 끝나는 지점(mouseup)이 실제 카드(<a>) 위로
