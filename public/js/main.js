@@ -458,14 +458,20 @@
       dragged = false;
       startX = e.clientX;
       carousel.classList.add('dragging');
-      carousel.setPointerCapture(e.pointerId);
+      // 여기서 바로 setPointerCapture를 걸면, 단순 클릭이어도 mouseup/click 이벤트의
+      // 대상이 카드(<a>)가 아니라 캐러셀로 바뀌어 카드의 기본 동작(페이지 이동)이
+      // 막혀버린다. 그래서 캡처는 아래 pointermove에서 "진짜 드래그"로 확정된
+      // 순간에만 건다.
     });
     carousel.addEventListener('pointermove', (e) => {
       if (!isDown) return;
       // 클릭 시 손이 미세하게 떨리는 정도(수 px)는 드래그로 오인하지 않도록 기준을 넉넉히 잡는다.
-      // 실제 카드 넘기기(스와이프) 판정은 아래 finishDrag의 40px 기준을 그대로 사용하므로
-      // 이 값을 조금 올려도 스와이프 동작 자체에는 영향이 없다.
-      if (Math.abs(e.clientX - startX) > 15) dragged = true;
+      if (!dragged && Math.abs(e.clientX - startX) > 15) {
+        dragged = true;
+        // 진짜 드래그로 확정된 시점에만 캡처를 걸어, 커서가 캐러셀 영역 밖으로
+        // 나가도 드래그를 계속 추적할 수 있게 한다.
+        carousel.setPointerCapture(e.pointerId);
+      }
     });
     const finishDrag = (e) => {
       // 포인터 캡처를 풀어줘야 클릭이 끝나는 지점(mouseup)이 실제 카드(<a>) 위로
