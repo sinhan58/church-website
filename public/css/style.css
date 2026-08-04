@@ -957,3 +957,147 @@ a:focus-visible, button:focus-visible {
   outline: 2px solid var(--gold);
   outline-offset: 2px;
 }
+
+/* ---------- 선교사역 (세계지도 + 동역자의 섬김) ---------- */
+.missions-layout {
+  display: grid;
+  grid-template-columns: 1.7fr 1fr;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 860px) {
+  .missions-layout { grid-template-columns: 1fr; }
+}
+
+.missions-map-wrap {
+  position: relative;
+  background: var(--ivory);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+#missions-map { position: relative; width: 100%; min-height: 340px; }
+.missions-empty { text-align: center; color: var(--muted); padding: 60px 20px; }
+
+.mission-pin-card-wrap {
+  position: absolute;
+  transform: translate(12px, -50%);
+  z-index: 3;
+  pointer-events: none;
+}
+.mission-pin-card-wrap.flip { transform: translate(calc(-100% - 12px), -50%); }
+
+.mission-pin-card {
+  background: var(--ivory);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 12px 14px;
+  width: 190px;
+  pointer-events: auto;
+}
+.mission-pin-card-head { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.mission-pin-card-head .flag { font-size: 15px; }
+.mission-pin-card-head .country { font-size: 11px; font-weight: 600; color: var(--muted); }
+.mission-pin-card-body { display: flex; gap: 10px; align-items: flex-start; }
+.mission-pin-card-body img,
+.mission-pin-card-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--line);
+  flex-shrink: 0;
+}
+.mission-pin-card-body .name { margin: 0 0 3px; font-size: 12.5px; font-weight: 600; color: var(--ink); }
+.mission-pin-card-body .name .tag {
+  font-weight: 500;
+  font-size: 10.5px;
+  color: var(--navy-deep);
+  background: var(--gold-soft);
+  border-radius: 999px;
+  padding: 1px 8px;
+  margin-left: 4px;
+  white-space: nowrap;
+}
+.mission-pin-card-body .desc { margin: 0; font-size: 11px; color: var(--muted); line-height: 1.55; }
+
+.missions-mobile-list { display: none; margin-top: 20px; }
+@media (max-width: 860px) {
+  .missions-mobile-list { display: grid; gap: 14px; }
+}
+.mission-mobile-card {
+  background: var(--ivory);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 18px 20px;
+}
+.mission-mobile-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--navy-deep);
+  background: var(--gold-soft);
+  border-radius: 999px;
+  padding: 3px 10px;
+  margin-bottom: 10px;
+}
+.mission-mobile-card .mission-pin-card-body img,
+.mission-mobile-card .mission-pin-card-avatar { width: 40px; height: 40px; }
+.mission-mobile-card .name { font-size: 14px; }
+.mission-mobile-card .desc { font-size: 12.5px; }
+
+.missions-partners {
+  background: var(--ivory);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px 16px;
+}
+.missions-partners-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.eyebrow-sm { display: block; font-size: 11px; font-weight: 600; letter-spacing: 1px; color: var(--gold); margin-bottom: 2px; }
+.missions-partners-head h3 { font-family: var(--font-heading); font-size: 16px; font-weight: 500; margin: 0; color: var(--ink); }
+.missions-partners-nav { display: flex; gap: 4px; }
+.icon-btn-round {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--ivory);
+  color: var(--muted);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px;
+  padding: 0;
+  transition: background 0.2s ease;
+}
+.icon-btn-round:hover:not(:disabled) { background: var(--ivory-dim); }
+.icon-btn-round:disabled { opacity: 0.3; cursor: default; }
+
+.partner-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.partner-row img, .partner-avatar {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--line);
+  flex-shrink: 0;
+}
+.partner-info { flex: 1; min-width: 0; }
+.partner-info .name {
+  margin: 0; font-size: 13px; font-weight: 600; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.partner-info .note { margin: 2px 0 0; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.partner-day {
+  font-size: 10.5px; font-weight: 600;
+  color: var(--navy-deep);
+  background: var(--gold-soft);
+  border-radius: 999px;
+  padding: 3px 9px;
+  white-space: nowrap;
+}
+.missions-partners-page { text-align: center; font-size: 10.5px; color: var(--muted); margin: 10px 0 0; }
+
