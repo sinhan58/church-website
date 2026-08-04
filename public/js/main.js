@@ -87,6 +87,12 @@
       if (site.about.image) $('#about-image').src = site.about.image;
     }
 
+    if (site.missions) {
+      $('#missions-title').textContent = site.missions.title || '선교사역';
+      $('#missions-subtitle').textContent = site.missions.subtitle || '';
+      $('#partners-title').textContent = '동역자의 섬김';
+    }
+
     if (site.qtBackground) {
       applyQtBackground(site.qtBackground);
     }
@@ -586,8 +592,195 @@
     });
   }
 
+  // ---------------- 선교사역 (세계지도 + 동역자의 섬김) ----------------
+  function daysSince(dateStr) {
+    if (!dateStr) return null;
+    const start = new Date(dateStr);
+    if (isNaN(start.getTime())) return null;
+    return Math.floor((Date.now() - start.getTime()) / 86400000) + 1;
+  }
+
+  function missionCardHTML(m) {
+    const flag = window.isoToFlag ? window.isoToFlag(m.countryCode) : '';
+    return `
+      <div class="mission-pin-card">
+        <div class="mission-pin-card-head">
+          <span class="flag">${flag}</span>
+          <span class="country">${escapeHtml(m.country || '')}</span>
+        </div>
+        <div class="mission-pin-card-body">
+          ${m.image ? `<img src="${m.image}" alt="${escapeHtml(m.name || '')}" />` : `<div class="mission-pin-card-avatar"></div>`}
+          <div>
+            <p class="name">${escapeHtml(m.name || '')}${m.tag ? ` <span class="tag">${escapeHtml(m.tag)}</span>` : ''}</p>
+            <p class="desc">${escapeHtml(m.desc || '').replace(/\n/g, '<br>')}</p>
+          </div>
+        </div>
+      </div>`;
+  }
+
+  function renderMissionsMobileList(missions) {
+    const wrap = $('#missions-mobile-list');
+    if (!missions.length) {
+      wrap.innerHTML = '';
+      return;
+    }
+    wrap.innerHTML = missions
+      .map(
+        (m) => `
+        <div class="mission-mobile-card">
+          <span class="mission-mobile-badge">${window.isoToFlag ? window.isoToFlag(m.countryCode) : ''} ${escapeHtml(m.tag || m.country || '')}</span>
+          <div class="mission-pin-card-body">
+            ${m.image ? `<img src="${m.image}" alt="${escapeHtml(m.name || '')}" />` : `<div class="mission-pin-card-avatar"></div>`}
+            <div>
+              <p class="name">${escapeHtml(m.name || '')}</p>
+              <p class="desc">${escapeHtml(m.desc || '').replace(/\n/g, '<br>')}</p>
+            </div>
+          </div>
+        </div>`
+      )
+      .join('');
+  }
+
+  function renderMissionsMap(missions) {
+    const mapEl = $('#missions-map');
+    mapEl.innerHTML = '';
+    if (!missions.length || typeof d3 === 'undefined' || typeof topojson === 'undefined') return;
+
+    const width = 620;
+    const height = 460;
+    const svg = d3
+      .select(mapEl)
+      .append('svg')
+      .attr('viewBox', `0 0 ${width} ${height}`)
+      .attr('width', '100%')
+      .style('display', 'block');
+
+    d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
+      .then((world) => {
+        const countries = topojson.feature(world, world.objects.countries);
+        const pointFeatures = {
+          type: 'FeatureCollection',
+          features: missions.map((m) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [m.lon, m.lat] } }))
+        };
+        const projection = d3.geoMercator().fitExtent(
+          [
+            [50, 40],
+            [width - 50, height - 40]
+          ],
+          pointFeatures
+        );
+        const path = d3.geoPath(projection);
+
+        svg
+          .append('g')
+          .selectAll('path')
+          .data(countries.features)
+          .join('path')
+          .attr('d', path)
+          .attr('fill', 'var(--line)')
+          .attr('stroke', 'var(--ivory-dim)')
+          .attr('stroke-width', 0.6);
+
+        const pinGroup = svg.append('g');
+        missions.forEach((m) => {
+          const [x, y] = projection([m.lon, m.lat]);
+          pinGroup
+            .append('circle')
+            .attr('cx', x)
+            .attr('cy', y)
+            .attr('r', 7)
+            .attr('fill', 'var(--gold)')
+            .append('title')
+            .text(m.country || '');
+
+          const flipX = x > width * 0.62;
+          const div = document.createElement('div');
+          div.className = 'mission-pin-card-wrap' + (flipX ? ' flip' : '');
+          div.style.left = (x / width) * 100 + '%';
+          div.style.top = (y / height) * 100 + '%';
+          div.innerHTML = missionCardHTML(m);
+          mapEl.appendChild(div);
+        });
+      })
+      .catch((err) => console.error('세계지도를 불러오지 못했습니다:', err));
+  }
+
+  function renderPartners(partners) {
+    const listEl = $('#partners-list');
+    const pageEl = $('#partners-page');
+    const prevBtn = $('#partners-prev');
+    const nextBtn = $('#partners-next');
+    const perPage = 3;
+    const totalPages = Math.max(1, Math.ceil(partners.length / perPage));
+    let page = 0;
+
+    function draw() {
+      const slice = partners.slice(page * perPage, page * perPage + perPage);
+      listEl.innerHTML = slice
+        .map((p) => {
+          const days = daysSince(p.startDate);
+          return `
+          <div class="partner-row">
+            ${p.image ? `<img src="${p.image}" alt="${escapeHtml(p.name || '')}" />` : `<div class="partner-avatar"></div>`}
+            <div class="partner-info">
+              <p class="name">${escapeHtml(p.name || '')}</p>
+              ${p.note ? `<p class="note">${escapeHtml(p.note)}</p>` : ''}
+            </div>
+            ${days !== null ? `<span class="partner-day">D+${days}</span>` : ''}
+          </div>`;
+        })
+        .join('');
+      pageEl.textContent = totalPages > 1 ? `${page + 1} / ${totalPages}` : '';
+      prevBtn.disabled = totalPages <= 1;
+      nextBtn.disabled = totalPages <= 1;
+    }
+
+    prevBtn.onclick = () => {
+      page = (page - 1 + totalPages) % totalPages;
+      draw();
+    };
+    nextBtn.onclick = () => {
+      page = (page + 1) % totalPages;
+      draw();
+    };
+    draw();
+  }
+
+  async function loadMissions() {
+    const [missions, partners] = await Promise.all([getJSON('/api/missions'), getJSON('/api/partners')]);
+    const missionsList = missions || [];
+    const partnersList = partners || [];
+
+    if (missionsList.length === 0 && partnersList.length === 0) {
+      $('#missions').style.display = 'none';
+      return;
+    }
+
+    const isDesktop = window.matchMedia('(min-width: 861px)').matches;
+
+    if (missionsList.length === 0) {
+      $('.missions-map-wrap').style.display = 'none';
+      $('#missions-mobile-list').innerHTML = '';
+    } else if (isDesktop) {
+      $('.missions-map-wrap').style.display = '';
+      $('#missions-mobile-list').style.display = 'none';
+      renderMissionsMap(missionsList);
+    } else {
+      $('.missions-map-wrap').style.display = 'none';
+      $('#missions-mobile-list').style.display = '';
+      renderMissionsMobileList(missionsList);
+    }
+
+    if (partnersList.length === 0) {
+      $('.missions-partners').style.display = 'none';
+    } else {
+      $('.missions-partners').style.display = '';
+      renderPartners(partnersList);
+    }
+  }
+
   // ---------------- 초기 로드 ----------------
-  Promise.all([loadSite(), loadMenu(), loadSermons(), loadBoard(), loadQT()]).catch((err) => {
+  Promise.all([loadSite(), loadMenu(), loadSermons(), loadBoard(), loadQT(), loadMissions()]).catch((err) => {
     console.error('콘텐츠를 불러오는 중 오류가 발생했습니다:', err);
   });
 })();
