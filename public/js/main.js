@@ -660,7 +660,10 @@
         const countries = topojson.feature(world, world.objects.countries);
         const pointFeatures = {
           type: 'FeatureCollection',
-          features: missions.map((m) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [m.lon, m.lat] } }))
+          features: [
+            { type: 'Feature', geometry: { type: 'Point', coordinates: [127.8, 36.5] } }, // 대한민국 기준점
+            ...missions.map((m) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [m.lon, m.lat] } }))
+          ]
         };
         const projection = d3.geoMercator().fitExtent(
           [
@@ -710,7 +713,7 @@
     const pageEl = $('#partners-page');
     const prevBtn = $('#partners-prev');
     const nextBtn = $('#partners-next');
-    const perPage = 3;
+    const perPage = 5;
     const totalPages = Math.max(1, Math.ceil(partners.length / perPage));
     let page = 0;
 
