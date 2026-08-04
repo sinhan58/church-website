@@ -123,6 +123,10 @@
     setupQtEditor();
     loadQtList();
     setupQtBackgroundEditor();
+    setupMissionEditor();
+    loadMissionList();
+    setupPartnerEditor();
+    loadPartnerList();
     loadStats().catch(() => {}); // 통계 권한이 없는 부관리자는 조용히 건너뜀
     loadReceiptRequests().catch(() => {}); // 영수증 신청 권한이 없는 부관리자는 조용히 건너뜀
     $('#p-date').value = new Date().toISOString().slice(0, 10);
@@ -150,6 +154,8 @@
     bindImageField('s-aboutImageFile', 's-aboutImagePreview');
     bindImageField('p-imageFile', 'p-imagePreview');
     bindImageField('qt-bg-photoFile', 'qt-bg-photoPreview');
+    bindImageField('m-imageFile', 'm-imagePreview');
+    bindImageField('pt-imageFile', 'pt-imagePreview');
   }
   function bindImageField(inputId, previewId) {
     const input = $('#' + inputId);
@@ -223,6 +229,9 @@
     $('#s-snsYoutube').value = s.sns?.youtube || '';
     $('#s-snsInstagram').value = s.sns?.instagram || '';
     $('#s-snsFacebook').value = s.sns?.facebook || '';
+
+    $('#s-missionsTitle').value = s.missions?.title || '';
+    $('#s-missionsSubtitle').value = s.missions?.subtitle || '';
 
     renderServiceTimes(s.serviceTimes || []);
 
@@ -327,6 +336,10 @@
           youtube: $('#s-snsYoutube').value.trim(),
           instagram: $('#s-snsInstagram').value.trim(),
           facebook: $('#s-snsFacebook').value.trim()
+        },
+        missions: {
+          title: $('#s-missionsTitle').value.trim(),
+          subtitle: $('#s-missionsSubtitle').value.trim()
         }
       };
 
@@ -710,6 +723,240 @@
     });
   }
 
+  // ---------------- 선교사역 (지도 핀) ----------------
+  let currentMissionList = [];
+  let editingMissionId = null;
+
+  function populateCountrySelect() {
+    const select = $('#m-countryCode');
+    select.innerHTML = window.COUNTRY_LIST
+      .map((c) => `<option value="${c.code}">${window.isoToFlag(c.code)} ${escapeHtml(c.name)}</option>`)
+      .join('');
+  }
+
+  async function loadMissionList() {
+    currentMissionList = await api('/api/admin/missions');
+    renderMissionList(currentMissionList);
+  }
+
+  function renderMissionList(list) {
+    const container = $('#mission-list');
+    if (!list || list.length === 0) {
+      container.innerHTML = `<p class="hint">등록된 선교지가 없습니다.</p>`;
+      return;
+    }
+    container.innerHTML = list
+      .map(
+        (m) => `
+        <div class="post-row${m.id === editingMissionId ? ' editing' : ''}" data-id="${m.id}">
+          <span class="badge">${window.isoToFlag(m.countryCode)} ${escapeHtml(m.country || '')}</span>
+          <div>
+            <div class="title">${escapeHtml(m.name || '')}</div>
+            <div class="meta">${escapeHtml(m.tag || m.country || '')}</div>
+          </div>
+          <button type="button" class="icon-btn edit-mission">수정</button>
+          <button type="button" class="icon-btn remove-mission">삭제</button>
+        </div>`
+      )
+      .join('');
+
+    $$('#mission-list .remove-mission').forEach((btn) =>
+      btn.addEventListener('click', async (e) => {
+        if (!confirm('이 선교지 정보를 삭제하시겠습니까?')) return;
+        const id = e.target.closest('.post-row').dataset.id;
+        await api(`/api/admin/missions/${id}`, { method: 'DELETE' });
+        if (id === editingMissionId) resetMissionForm();
+        loadMissionList();
+      })
+    );
+    $$('#mission-list .edit-mission').forEach((btn) =>
+      btn.addEventListener('click', (e) => {
+        const id = e.target.closest('.post-row').dataset.id;
+        const item = currentMissionList.find((m) => m.id === id);
+        if (item) loadMissionIntoForm(item);
+      })
+    );
+  }
+
+  function resetMissionForm() {
+    editingMissionId = null;
+    $('#mission-form-title').textContent = '선교지 추가';
+    $('#add-mission-btn').textContent = '선교지 등록';
+    $('#cancel-mission-edit-btn').hidden = true;
+    $('#m-countryCode').value = 'KR';
+    $('#m-tag').value = '';
+    $('#m-name').value = '';
+    $('#m-desc').value = '';
+    $('#m-imageFile').value = '';
+    $('#m-imageFile').dataset.uploadedUrl = '';
+    $('#m-imagePreview').src = '';
+  }
+
+  function loadMissionIntoForm(item) {
+    editingMissionId = item.id;
+    $('#mission-form-title').textContent = '선교지 수정';
+    $('#add-mission-btn').textContent = '수정 저장';
+    $('#cancel-mission-edit-btn').hidden = false;
+    $('#m-countryCode').value = item.countryCode || 'KR';
+    $('#m-tag').value = item.tag || '';
+    $('#m-name').value = item.name || '';
+    $('#m-desc').value = item.desc || '';
+    $('#m-imageFile').dataset.uploadedUrl = item.image || '';
+    if (item.image) $('#m-imagePreview').src = item.image;
+    $('#panel-missions').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function setupMissionEditor() {
+    populateCountrySelect();
+
+    $('#cancel-mission-edit-btn').addEventListener('click', () => {
+      resetMissionForm();
+      loadMissionList();
+    });
+
+    $('#add-mission-btn').addEventListener('click', async () => {
+      const name = $('#m-name').value.trim();
+      if (!name) return alert('선교사님 성함을 입력해주세요.');
+      const countryCode = $('#m-countryCode').value;
+      const country = window.findCountryByCode(countryCode);
+
+      const payload = {
+        countryCode,
+        country: country ? country.name : '',
+        lat: country ? country.lat : 0,
+        lon: country ? country.lon : 0,
+        name,
+        tag: $('#m-tag').value.trim(),
+        desc: $('#m-desc').value.trim(),
+        image: $('#m-imageFile').dataset.uploadedUrl || ''
+      };
+
+      const statusEl = $('#mission-save-status');
+      try {
+        if (editingMissionId) {
+          await api(`/api/admin/missions/${editingMissionId}`, { method: 'PUT', body: JSON.stringify(payload) });
+        } else {
+          await api('/api/admin/missions', { method: 'POST', body: JSON.stringify(payload) });
+        }
+        statusEl.textContent = '저장 완료 ✓';
+        setTimeout(() => (statusEl.textContent = ''), 3000);
+        resetMissionForm();
+        loadMissionList();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  }
+
+  // ---------------- 동역자의 섬김 ----------------
+  let currentPartnerList = [];
+  let editingPartnerId = null;
+
+  async function loadPartnerList() {
+    currentPartnerList = await api('/api/admin/partners');
+    renderPartnerList(currentPartnerList);
+  }
+
+  function renderPartnerList(list) {
+    const container = $('#partner-list');
+    if (!list || list.length === 0) {
+      container.innerHTML = `<p class="hint">등록된 동역자가 없습니다.</p>`;
+      return;
+    }
+    container.innerHTML = list
+      .map((p) => {
+        const days = p.startDate ? Math.floor((Date.now() - new Date(p.startDate).getTime()) / 86400000) + 1 : null;
+        return `
+        <div class="post-row${p.id === editingPartnerId ? ' editing' : ''}" data-id="${p.id}">
+          <span class="badge">${days !== null ? 'D+' + days : '-'}</span>
+          <div>
+            <div class="title">${escapeHtml(p.name || '')}</div>
+            <div class="meta">${escapeHtml(p.note || '')}</div>
+          </div>
+          <button type="button" class="icon-btn edit-partner">수정</button>
+          <button type="button" class="icon-btn remove-partner">삭제</button>
+        </div>`;
+      })
+      .join('');
+
+    $$('#partner-list .remove-partner').forEach((btn) =>
+      btn.addEventListener('click', async (e) => {
+        if (!confirm('이 동역자 정보를 삭제하시겠습니까?')) return;
+        const id = e.target.closest('.post-row').dataset.id;
+        await api(`/api/admin/partners/${id}`, { method: 'DELETE' });
+        if (id === editingPartnerId) resetPartnerForm();
+        loadPartnerList();
+      })
+    );
+    $$('#partner-list .edit-partner').forEach((btn) =>
+      btn.addEventListener('click', (e) => {
+        const id = e.target.closest('.post-row').dataset.id;
+        const item = currentPartnerList.find((p) => p.id === id);
+        if (item) loadPartnerIntoForm(item);
+      })
+    );
+  }
+
+  function resetPartnerForm() {
+    editingPartnerId = null;
+    $('#partner-form-title').textContent = '동역자 추가';
+    $('#add-partner-btn').textContent = '동역자 등록';
+    $('#cancel-partner-edit-btn').hidden = true;
+    $('#pt-name').value = '';
+    $('#pt-startDate').value = '';
+    $('#pt-note').value = '';
+    $('#pt-imageFile').value = '';
+    $('#pt-imageFile').dataset.uploadedUrl = '';
+    $('#pt-imagePreview').src = '';
+  }
+
+  function loadPartnerIntoForm(item) {
+    editingPartnerId = item.id;
+    $('#partner-form-title').textContent = '동역자 수정';
+    $('#add-partner-btn').textContent = '수정 저장';
+    $('#cancel-partner-edit-btn').hidden = false;
+    $('#pt-name').value = item.name || '';
+    $('#pt-startDate').value = item.startDate || '';
+    $('#pt-note').value = item.note || '';
+    $('#pt-imageFile').dataset.uploadedUrl = item.image || '';
+    if (item.image) $('#pt-imagePreview').src = item.image;
+    $('#panel-missions').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function setupPartnerEditor() {
+    $('#cancel-partner-edit-btn').addEventListener('click', () => {
+      resetPartnerForm();
+      loadPartnerList();
+    });
+
+    $('#add-partner-btn').addEventListener('click', async () => {
+      const name = $('#pt-name').value.trim();
+      if (!name) return alert('이름 또는 기관명을 입력해주세요.');
+
+      const payload = {
+        name,
+        startDate: $('#pt-startDate').value || '',
+        note: $('#pt-note').value.trim(),
+        image: $('#pt-imageFile').dataset.uploadedUrl || ''
+      };
+
+      const statusEl = $('#partner-save-status');
+      try {
+        if (editingPartnerId) {
+          await api(`/api/admin/partners/${editingPartnerId}`, { method: 'PUT', body: JSON.stringify(payload) });
+        } else {
+          await api('/api/admin/partners', { method: 'POST', body: JSON.stringify(payload) });
+        }
+        statusEl.textContent = '저장 완료 ✓';
+        setTimeout(() => (statusEl.textContent = ''), 3000);
+        resetPartnerForm();
+        loadPartnerList();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  }
+
   // ---------------- 큐티 배경 디자인 ----------------
   function toggleQtBgFields() {
     const type = $('#qt-bg-type').value;
@@ -954,6 +1201,7 @@
         posts: $('#acc-perm-posts').checked,
         sermons: $('#acc-perm-sermons').checked,
         qt: $('#acc-perm-qt').checked,
+        missions: $('#acc-perm-missions').checked,
         stats: $('#acc-perm-stats').checked,
         receipts: $('#acc-perm-receipts').checked
       };
@@ -965,7 +1213,7 @@
         });
         $('#acc-username').value = '';
         $('#acc-password').value = '';
-        ['site', 'menu', 'posts', 'sermons', 'qt', 'stats', 'receipts'].forEach((p) => ($('#acc-perm-' + p).checked = false));
+        ['site', 'menu', 'posts', 'sermons', 'qt', 'missions', 'stats', 'receipts'].forEach((p) => ($('#acc-perm-' + p).checked = false));
         statusEl.textContent = '추가 완료 ✓';
         setTimeout(() => (statusEl.textContent = ''), 3000);
         loadAccountList();
@@ -986,12 +1234,12 @@
       .map((a) => {
         const isMain = a.role === 'main';
         const perms = a.permissions || {};
-        const permRow = ['site', 'menu', 'posts', 'sermons', 'qt', 'stats', 'receipts']
+        const permRow = ['site', 'menu', 'posts', 'sermons', 'qt', 'missions', 'stats', 'receipts']
           .map(
             (p) => `
             <label>
               <input type="checkbox" class="perm-${p}" ${perms[p] ? 'checked' : ''} ${isMain ? 'disabled' : ''} />
-              ${{ site: '기본 정보', menu: '메뉴 관리', posts: '소식·활동 게시판', sermons: '설교 영상', qt: '오늘의 큐티', stats: '통계', receipts: '영수증 신청' }[p]}
+              ${{ site: '기본 정보', menu: '메뉴 관리', posts: '소식·활동 게시판', sermons: '설교 영상', qt: '오늘의 큐티', missions: '선교사역', stats: '통계', receipts: '영수증 신청' }[p]}
             </label>`
           )
           .join('');
@@ -1026,6 +1274,7 @@
           posts: row.querySelector('.perm-posts').checked,
           sermons: row.querySelector('.perm-sermons').checked,
           qt: row.querySelector('.perm-qt').checked,
+          missions: row.querySelector('.perm-missions').checked,
           stats: row.querySelector('.perm-stats').checked,
           receipts: row.querySelector('.perm-receipts').checked
         };
