@@ -88,7 +88,8 @@
     }
 
     if (site.missions) {
-      $('#missions-title').textContent = site.missions.title || '선교와 동역';
+      $('#missions-title').textContent = site.missions.title || '선교 사역 / 동역의 기쁨';
+      $('#missions-verse').textContent = '"온 천하에 다니며 만민에게 복음을 전파하라" (마가복음 16:15)';
       $('#missions-subtitle').textContent = site.missions.subtitle || '';
       $('#partners-title').textContent = '동역해주시는 분들';
     }
