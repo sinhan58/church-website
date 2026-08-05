@@ -4,6 +4,7 @@ const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
+const sharp = require('sharp');
 const { readData, writeData, makeId, saveUploadedFile } = require('../utils/db');
 const { requireAuth, requireMainAdmin, requirePermission } = require('../middleware/auth');
 const { updateSermonsCache, getCachedSermons } = require('../utils/youtube');
@@ -29,11 +30,47 @@ const attachmentUpload = multer({
   limits: { fileSize: 15 * 1024 * 1024 } // 15MB 제한
 });
 
+// 업로드된 이미지를 적당한 크기/용량으로 자동 압축합니다.
+// - 가로 1920px보다 크면 1920px로 축소 (세로는 비율 유지, 더 작은 원본은 확대하지 않음)
+// - jpeg/png/webp는 화질 82 정도로 재압축해서 용량을 크게 줄임
+// - 움짤(gif)이나 이미지가 아닌 파일(주보 PDF 등)은 원본 그대로 둠
+const MAX_IMAGE_DIMENSION = 1920;
+
+async function compressImageIfNeeded(file) {
+  const isCompressibleImage = /^image\/(jpeg|png|webp)/.test(file.mimetype);
+  if (!isCompressibleImage) return file.buffer;
+
+  try {
+    const image = sharp(file.buffer, { failOn: 'none' });
+    const metadata = await image.metadata();
+
+    let pipeline = image.rotate(); // 사진의 EXIF 방향 정보를 반영해 실제로 보이는 방향대로 회전 보정
+    if (metadata.width && metadata.width > MAX_IMAGE_DIMENSION) {
+      pipeline = pipeline.resize({ width: MAX_IMAGE_DIMENSION, withoutEnlargement: true });
+    }
+
+    if (metadata.format === 'png') {
+      pipeline = pipeline.png({ quality: 82, compressionLevel: 9 });
+    } else if (metadata.format === 'webp') {
+      pipeline = pipeline.webp({ quality: 82 });
+    } else {
+      pipeline = pipeline.jpeg({ quality: 82, mozjpeg: true });
+    }
+
+    return await pipeline.toBuffer();
+  } catch (err) {
+    // 압축 중 문제가 생겨도 업로드 자체가 실패하면 안 되므로, 이럴 땐 원본 그대로 저장합니다.
+    console.error('이미지 압축 중 오류(원본으로 저장합니다):', err.message);
+    return file.buffer;
+  }
+}
+
 // 업로드된 파일 하나를 저장하고(Supabase Storage 또는 로컬 디스크) 접근 가능한 URL을 돌려줍니다.
 async function storeFile(file) {
   const ext = path.extname(file.originalname);
   const filename = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`;
-  return saveUploadedFile(file.buffer, filename, file.mimetype, uploadsDir);
+  const buffer = await compressImageIfNeeded(file);
+  return saveUploadedFile(buffer, filename, file.mimetype, uploadsDir);
 }
 
 // 한글 파일명이 깨지는 문제 보정 (multer가 원본 파일명을 latin1로 읽어들이는 이슈)
@@ -625,30 +662,39 @@ router.delete('/receipt-requests/:id', requirePermission('receipts'), async (req
   }
 });
 
-// ---------- 기도 요청 관리 ----------
+// ---------- 기도 요청 / 온라인 문의 관리 (공용) ----------
 // 로그인한 관리자는 비밀글 여부와 관계없이 전체 내용을 확인할 수 있습니다
-// (다른 방문자에게는 비밀글 내용이 노출되지 않으며, 목회자가 중보기도를 위해 확인하는 용도입니다).
-router.get('/prayers', async (req, res) => {
-  try {
-    const prayers = (await readData('prayers')) || [];
-    const sorted = [...prayers]
-      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-      .map(({ passwordHash, ...rest }) => rest);
-    res.json(sorted);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// (다른 방문자에게는 비밀글 내용이 노출되지 않으며, 목회자가 확인하는 용도입니다).
+function createSecretBoardAdminRouter(key) {
+  const board = express.Router();
 
-router.delete('/prayers/:id', async (req, res) => {
-  try {
-    const prayers = (await readData('prayers')) || [];
-    const filtered = prayers.filter((p) => p.id !== req.params.id);
-    await writeData('prayers', filtered);
-    res.json({ ok: true });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  board.get('/', async (req, res) => {
+    try {
+      const items = (await readData(key)) || [];
+      const sorted = [...items]
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .map(({ passwordHash, ...rest }) => rest);
+      res.json(sorted);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  board.delete('/:id', async (req, res) => {
+    try {
+      const items = (await readData(key)) || [];
+      const filtered = items.filter((p) => p.id !== req.params.id);
+      await writeData(key, filtered);
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  return board;
+}
+
+router.use('/prayers', createSecretBoardAdminRouter('prayers'));
+router.use('/inquiries', createSecretBoardAdminRouter('inquiries'));
 
 module.exports = router;
