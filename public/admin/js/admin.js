@@ -1,1311 +1,654 @@
-(function () {
-  const $ = (sel) => document.querySelector(sel);
-  const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+const express = require('express');
+const router = express.Router();
+const bcrypt = require('bcryptjs');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
+const { readData, writeData, makeId, saveUploadedFile } = require('../utils/db');
+const { requireAuth, requireMainAdmin, requirePermission } = require('../middleware/auth');
+const { updateSermonsCache, getCachedSermons } = require('../utils/youtube');
 
-  let currentSession = null; // { username, role, permissions }
+const uploadsDir = path.join(__dirname, '..', 'public', 'uploads');
 
-  async function api(url, options = {}) {
-    const res = await fetch(url, {
-      headers: { 'Content-Type': 'application/json' },
-      ...options
-    });
-    if (res.status === 401) {
-      showLogin();
-      throw new Error('로그인이 필요합니다.');
-    }
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || '요청 처리 중 오류가 발생했습니다.');
-    return data;
+// ---------- 파일 업로드 설정 ----------
+// 파일을 메모리에 잠깐 담아두었다가(diskStorage 대신 memoryStorage), 아래에서
+// Supabase 연결 여부에 따라 Storage에 올리거나 로컬 디스크에 저장합니다.
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage,
+  limits: { fileSize: 8 * 1024 * 1024 }, // 8MB 제한
+  fileFilter: (req, file, cb) => {
+    const ok = /image\/(jpeg|png|gif|webp)/.test(file.mimetype);
+    cb(ok ? null : new Error('이미지 파일만 업로드할 수 있습니다.'), ok);
   }
+});
 
-  async function uploadImage(file) {
-    const form = new FormData();
-    form.append('image', file);
-    const res = await fetch('/api/admin/upload', { method: 'POST', body: form });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || '이미지 업로드 실패');
-    return data.url;
+// 첨부파일(이미지 외 문서 등) 업로드 - 확장자 제한 없이 허용
+const attachmentUpload = multer({
+  storage,
+  limits: { fileSize: 15 * 1024 * 1024 } // 15MB 제한
+});
+
+// 업로드된 파일 하나를 저장하고(Supabase Storage 또는 로컬 디스크) 접근 가능한 URL을 돌려줍니다.
+async function storeFile(file) {
+  const ext = path.extname(file.originalname);
+  const filename = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`;
+  return saveUploadedFile(file.buffer, filename, file.mimetype, uploadsDir);
+}
+
+// 한글 파일명이 깨지는 문제 보정 (multer가 원본 파일명을 latin1로 읽어들이는 이슈)
+function fixKoreanFilename(name = '') {
+  try {
+    return Buffer.from(name, 'latin1').toString('utf8');
+  } catch {
+    return name;
   }
-
-  async function uploadAttachments(files) {
-    const form = new FormData();
-    Array.from(files).forEach((f) => form.append('files', f));
-    const res = await fetch('/api/admin/upload-attachment', { method: 'POST', body: form });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || '첨부파일 업로드 실패');
-    return data.files; // [{name, url}]
-  }
-
-  // ---------------- 화면 전환 ----------------
-  function showLogin() {
-    $('#login-screen').hidden = false;
-    $('#dashboard').hidden = true;
-  }
-  function showDashboard() {
-    $('#login-screen').hidden = true;
-    $('#dashboard').hidden = false;
-    initDashboard();
-  }
-
-  // ---------------- 로그인 ----------------
-  $('#login-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const form = e.target;
-    const username = form.username.value;
-    const password = form.password.value;
-    const errorEl = $('#login-error');
-    errorEl.textContent = '';
-    try {
-      const result = await api('/api/admin/login', { method: 'POST', body: JSON.stringify({ username, password }) });
-      currentSession = { username: result.username, role: result.role, permissions: result.permissions };
-      showDashboard();
-    } catch (err) {
-      errorEl.textContent = err.message;
-    }
-  });
-
-  $('#logout-btn').addEventListener('click', async () => {
-    await api('/api/admin/logout', { method: 'POST' });
-    showLogin();
-  });
-
-  async function checkSession() {
-    try {
-      const session = await api('/api/admin/session');
-      if (session.isAdmin) {
-        currentSession = { username: session.username, role: session.role, permissions: session.permissions };
-        showDashboard();
-      } else {
-        showLogin();
-      }
-    } catch {
-      showLogin();
-    }
-  }
-
-  // ---------------- 사이드바 탭 전환 ----------------
-  let dashboardInitialized = false;
-  function setupNav() {
-    $$('.nav-item').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        $$('.nav-item').forEach((b) => b.classList.remove('active'));
-        $$('.panel').forEach((p) => p.classList.remove('active'));
-        btn.classList.add('active');
-        $('#' + btn.dataset.panel).classList.add('active');
-      });
-    });
-  }
-
-  let postEditor = null;
-
-  function initDashboard() {
-    if (dashboardInitialized) return;
-    dashboardInitialized = true;
-    postEditor = new Quill('#p-content-editor', {
-      theme: 'snow',
-      modules: { toolbar: '#p-content-toolbar' },
-      placeholder: '내용을 입력하세요. Enter로 줄바꿈, 위 도구모음으로 글자 크기·굵기·색상을 바꿀 수 있습니다.'
-    });
-    setupNav();
-    filterNavByPermission();
-    setupFontPickers();
-    loadSiteIntoForm();
-    loadMenuList();
-    loadPostList();
-    loadSermonPreview();
-    setupImageUploadFields();
-    setupSiteSave();
-    setupServiceTimeEditor();
-    setupMenuEditor();
-    setupPostEditor();
-    setupSermonRefresh();
-    setupAccountPanel();
-    setupQtEditor();
-    loadQtList();
-    setupQtBackgroundEditor();
-    setupMissionEditor();
-    loadMissionList();
-    setupPartnerEditor();
-    loadPartnerList();
-    loadStats().catch(() => {}); // 통계 권한이 없는 부관리자는 조용히 건너뜀
-    loadReceiptRequests().catch(() => {}); // 영수증 신청 권한이 없는 부관리자는 조용히 건너뜀
-    $('#p-date').value = new Date().toISOString().slice(0, 10);
-    $('#qt-date').value = new Date().toISOString().slice(0, 10);
-  }
-
-  // ---------------- 권한별 메뉴 표시 ----------------
-  function filterNavByPermission() {
-    const isMain = currentSession && currentSession.role === 'main';
-    $$('.nav-item[data-permission]').forEach((btn) => {
-      const perm = btn.dataset.permission;
-      const allowed = isMain || (currentSession.permissions && currentSession.permissions[perm]);
-      btn.hidden = !allowed;
-    });
-    const activeBtn = $('.nav-item.active');
-    if (activeBtn && activeBtn.hidden) {
-      const firstVisible = $$('.nav-item').find((b) => !b.hidden);
-      if (firstVisible) firstVisible.click();
-    }
-  }
-
-  // ---------------- 이미지 업로드 필드 공통 처리 ----------------
-  function setupImageUploadFields() {
-    bindImageField('s-heroImageFile', 's-heroImagePreview');
-    bindImageField('s-aboutImageFile', 's-aboutImagePreview');
-    bindImageField('p-imageFile', 'p-imagePreview');
-    bindImageField('qt-bg-photoFile', 'qt-bg-photoPreview');
-    bindImageField('m-imageFile', 'm-imagePreview');
-    bindImageField('pt-imageFile', 'pt-imagePreview');
-  }
-  function bindImageField(inputId, previewId) {
-    const input = $('#' + inputId);
-    input.addEventListener('change', async () => {
-      const file = input.files[0];
-      if (!file) return;
-      try {
-        const url = await uploadImage(file);
-        input.dataset.uploadedUrl = url;
-        $('#' + previewId).src = url;
-      } catch (err) {
-        alert(err.message);
-      }
-    });
-  }
-
-  // ---------------- 기본 정보 (사이트) ----------------
-  let currentSite = null;
-
-  function populateFontSelect(selectEl) {
-    selectEl.innerHTML = window.FONT_CATALOG
-      .map((f) => `<option value="${f.id}">${escapeHtml(f.label)}</option>`)
-      .join('');
-  }
-
-  function updateFontPreview(selectId, previewId) {
-    const id = $('#' + selectId).value;
-    const family = window.getFontFamily(id, 'inherit');
-    $('#' + previewId).style.fontFamily = family;
-  }
-
-  function setupFontPickers() {
-    populateFontSelect($('#s-headingFont'));
-    populateFontSelect($('#s-bodyFont'));
-    $('#s-headingFont').addEventListener('change', () => updateFontPreview('s-headingFont', 's-headingFont-preview'));
-    $('#s-bodyFont').addEventListener('change', () => updateFontPreview('s-bodyFont', 's-bodyFont-preview'));
-  }
-
-  async function loadSiteIntoForm() {
-    currentSite = await api('/api/admin/site');
-    const s = currentSite;
-    $('#s-churchName').value = s.churchName || '';
-
-    $('#s-headingFont').value = s.design?.headingFont || 'noto-serif-kr';
-    $('#s-bodyFont').value = s.design?.bodyFont || 'pretendard';
-    updateFontPreview('s-headingFont', 's-headingFont-preview');
-    updateFontPreview('s-bodyFont', 's-bodyFont-preview');
-    $('#s-heroVerse').value = s.hero?.verse || '';
-    $('#s-heroVerseRef').value = s.hero?.verseRef || '';
-    $('#s-heroSubtitle').value = s.hero?.subtitle || '';
-    if (s.hero?.backgroundImage) $('#s-heroImagePreview').src = s.hero.backgroundImage;
-
-    $('#s-aboutGreeting').value = s.about?.greeting || '';
-    $('#s-aboutBody').value = s.about?.body || '';
-    $('#s-aboutHistory').value = s.about?.history || '';
-    $('#s-pastorName').value = s.about?.pastorName || '';
-    $('#s-pastorMessage').value = s.about?.pastorMessage || '';
-    if (s.about?.image) $('#s-aboutImagePreview').src = s.about.image;
-
-    $('#s-address').value = s.contact?.address || '';
-    $('#s-addressNote').value = s.contact?.addressNote || '';
-    $('#s-phone').value = s.contact?.phone || '';
-    $('#s-email').value = s.contact?.email || '';
-    $('#s-mapUrl').value = s.contact?.mapEmbedUrl || '';
-
-    $('#s-offeringBank').value = s.offering?.bank || '';
-    $('#s-offeringAccount').value = s.offering?.account || '';
-    $('#s-offeringHolder').value = s.offering?.holder || '';
-    $('#s-offeringNote').value = s.offering?.note || '';
-
-    $('#s-snsYoutube').value = s.sns?.youtube || '';
-    $('#s-snsInstagram').value = s.sns?.instagram || '';
-    $('#s-snsFacebook').value = s.sns?.facebook || '';
-
-    $('#s-missionsTitle').value = s.missions?.title || '';
-    $('#s-missionsSubtitle').value = s.missions?.subtitle || '';
-
-    renderServiceTimes(s.serviceTimes || []);
-
-    const qtBg = s.qtBackground || { type: 'preset', preset: 'navy' };
-    $('#qt-bg-type').value = qtBg.type || 'preset';
-    $('#qt-bg-preset').value = qtBg.preset || 'navy';
-    if (qtBg.image) $('#qt-bg-photoPreview').src = qtBg.image;
-    toggleQtBgFields();
-  }
-
-  function renderServiceTimes(list) {
-    const container = $('#service-list');
-    container.innerHTML = list
-      .map(
-        (svc, idx) => `
-        <div class="list-row" data-id="${svc.id}">
-          <input type="text" class="svc-name" value="${escapeAttr(svc.name)}" placeholder="예배 이름" />
-          <textarea class="svc-time" rows="1" placeholder="시간 (Enter로 줄바꿈 가능)">${escapeHtml(svc.time || '')}</textarea>
-          <button type="button" class="icon-btn remove-svc">삭제</button>
-        </div>`
-      )
-      .join('');
-
-    $$('.remove-svc').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        e.target.closest('.list-row').remove();
-      });
-    });
-  }
-
-  $('#add-service-btn').addEventListener('click', () => {
-    const container = $('#service-list');
-    const row = document.createElement('div');
-    row.className = 'list-row';
-    row.dataset.id = 'svc_' + Date.now();
-    row.innerHTML = `
-      <input type="text" class="svc-name" placeholder="예배 이름" />
-      <textarea class="svc-time" rows="1" placeholder="시간 (Enter로 줄바꿈 가능)"></textarea>
-      <button type="button" class="icon-btn remove-svc">삭제</button>`;
-    container.appendChild(row);
-    row.querySelector('.remove-svc').addEventListener('click', () => row.remove());
-  });
-
-  function escapeAttr(str = '') {
-    return String(str).replace(/"/g, '&quot;');
-  }
-
-  function setupServiceTimeEditor() {
-    // 추가/삭제는 위에서 이벤트 바인딩됨. 저장 시점에 값 취합.
-  }
-
-  function collectServiceTimes() {
-    return $$('#service-list .list-row').map((row) => ({
-      id: row.dataset.id,
-      name: row.querySelector('.svc-name').value.trim(),
-      time: row.querySelector('.svc-time').value.trim()
-    })).filter((s) => s.name && s.time);
-  }
-
-  function setupSiteSave() {
-    $('#save-site-btn').addEventListener('click', async () => {
-      const statusEl = $('#site-save-status');
-      statusEl.textContent = '저장 중...';
-      const heroImg = $('#s-heroImageFile').dataset.uploadedUrl || currentSite.hero?.backgroundImage || '';
-      const aboutImg = $('#s-aboutImageFile').dataset.uploadedUrl || currentSite.about?.image || '';
-
-      const payload = {
-        churchName: $('#s-churchName').value.trim(),
-        design: {
-          headingFont: $('#s-headingFont').value,
-          bodyFont: $('#s-bodyFont').value
-        },
-        hero: {
-          verse: $('#s-heroVerse').value.trim(),
-          verseRef: $('#s-heroVerseRef').value.trim(),
-          subtitle: $('#s-heroSubtitle').value.trim(),
-          backgroundImage: heroImg
-        },
-        about: {
-          greeting: $('#s-aboutGreeting').value.trim(),
-          body: $('#s-aboutBody').value.trim(),
-          history: $('#s-aboutHistory').value.trim(),
-          pastorName: $('#s-pastorName').value.trim(),
-          pastorMessage: $('#s-pastorMessage').value.trim(),
-          image: aboutImg
-        },
-        serviceTimes: collectServiceTimes(),
-        contact: {
-          address: $('#s-address').value.trim(),
-          addressNote: $('#s-addressNote').value.trim(),
-          phone: $('#s-phone').value.trim(),
-          email: $('#s-email').value.trim(),
-          mapEmbedUrl: $('#s-mapUrl').value.trim()
-        },
-        offering: {
-          bank: $('#s-offeringBank').value.trim(),
-          account: $('#s-offeringAccount').value.trim(),
-          holder: $('#s-offeringHolder').value.trim(),
-          note: $('#s-offeringNote').value.trim()
-        },
-        sns: {
-          youtube: $('#s-snsYoutube').value.trim(),
-          instagram: $('#s-snsInstagram').value.trim(),
-          facebook: $('#s-snsFacebook').value.trim()
-        },
-        missions: {
-          title: $('#s-missionsTitle').value.trim(),
-          subtitle: $('#s-missionsSubtitle').value.trim()
-        }
-      };
-
-      try {
-        currentSite = await api('/api/admin/site', { method: 'PUT', body: JSON.stringify(payload) });
-        statusEl.textContent = '저장되었습니다 ✓';
-        setTimeout(() => (statusEl.textContent = ''), 3000);
-      } catch (err) {
-        statusEl.textContent = '';
-        alert(err.message);
-      }
-    });
-  }
-
-  // ---------------- 메뉴 관리 ----------------
-  async function loadMenuList() {
-    const menu = await api('/api/admin/menu');
-    renderMenuList(menu.sort((a, b) => a.order - b.order));
-  }
-
-  function renderMenuList(menu) {
-    const container = $('#menu-list');
-    container.innerHTML = menu
-      .map(
-        (m) => `
-        <div class="list-row" data-id="${m.id}">
-          <input type="text" class="menu-label" value="${escapeAttr(m.label)}" />
-          <input type="text" class="menu-link" value="${escapeAttr(m.link)}" />
-          <button type="button" class="icon-btn move up" title="위로">↑</button>
-          <button type="button" class="icon-btn move down" title="아래로">↓</button>
-          <button type="button" class="icon-btn save-menu" title="저장">저장</button>
-          <button type="button" class="icon-btn remove-menu" title="삭제">삭제</button>
-        </div>`
-      )
-      .join('');
-
-    $$('#menu-list .save-menu').forEach((btn) =>
-      btn.addEventListener('click', async (e) => {
-        const row = e.target.closest('.list-row');
-        const id = row.dataset.id;
-        await api(`/api/admin/menu/${id}`, {
-          method: 'PUT',
-          body: JSON.stringify({
-            label: row.querySelector('.menu-label').value.trim(),
-            link: row.querySelector('.menu-link').value.trim()
-          })
-        });
-        flashSaved(btn);
-      })
-    );
-
-    $$('#menu-list .remove-menu').forEach((btn) =>
-      btn.addEventListener('click', async (e) => {
-        if (!confirm('이 메뉴를 삭제하시겠습니까?')) return;
-        const row = e.target.closest('.list-row');
-        await api(`/api/admin/menu/${row.dataset.id}`, { method: 'DELETE' });
-        loadMenuList();
-      })
-    );
-
-    $$('#menu-list .move.up').forEach((btn) =>
-      btn.addEventListener('click', (e) => {
-        const row = e.target.closest('.list-row');
-        const prev = row.previousElementSibling;
-        if (prev) container.insertBefore(row, prev);
-        saveMenuOrder(container);
-      })
-    );
-    $$('#menu-list .move.down').forEach((btn) =>
-      btn.addEventListener('click', (e) => {
-        const row = e.target.closest('.list-row');
-        const next = row.nextElementSibling;
-        if (next) container.insertBefore(next, row);
-        saveMenuOrder(container);
-      })
-    );
-  }
-
-  async function saveMenuOrder(container) {
-    const order = $$('.list-row', container).map((row) => row.dataset.id);
-    await api('/api/admin/menu-reorder', { method: 'PUT', body: JSON.stringify({ order }) });
-  }
-
-  function flashSaved(btn) {
-    const original = btn.textContent;
-    btn.textContent = '완료✓';
-    setTimeout(() => (btn.textContent = original), 1500);
-  }
-
-  function setupMenuEditor() {
-    $('#add-menu-btn').addEventListener('click', async () => {
-      const label = $('#new-menu-label').value.trim();
-      const link = $('#new-menu-link').value.trim();
-      if (!label || !link) return alert('메뉴 이름과 연결 위치를 모두 입력해주세요.');
-      await api('/api/admin/menu', { method: 'POST', body: JSON.stringify({ label, link }) });
-      $('#new-menu-label').value = '';
-      $('#new-menu-link').value = '';
-      loadMenuList();
-    });
-  }
-
-  // ---------------- 게시판 관리 ----------------
-  async function loadPostList() {
-    const posts = await api('/api/admin/posts');
-    renderPostList(posts);
-  }
-
-  let currentPosts = [];
-
-  function plainTextFromHtml(html = '') {
-    const div = document.createElement('div');
-    div.innerHTML = html;
-    return (div.textContent || '').replace(/\s+/g, ' ').trim();
-  }
-
-  function renderPostList(posts) {
-    currentPosts = posts;
-    const container = $('#post-list');
-    if (posts.length === 0) {
-      container.innerHTML = `<p class="hint">등록된 게시글이 없습니다.</p>`;
-      return;
-    }
-    container.innerHTML = posts
-      .map((p) => {
-        const preview = plainTextFromHtml(p.content);
-        return `
-        <div class="post-row${p.id === editingPostId ? ' editing' : ''}" data-id="${p.id}">
-          <span class="badge">${escapeAttr(p.category)}</span>
-          <div>
-            <div class="title">${p.pinned ? '📌 ' : ''}${escapeHtml(p.title)}</div>
-            <div class="meta">${escapeHtml(preview.slice(0, 60))}${preview.length > 60 ? '…' : ''}</div>
-          </div>
-          <span class="date">${escapeAttr(p.date)}</span>
-          <button type="button" class="icon-btn edit-post">수정</button>
-          <button type="button" class="icon-btn remove-post">삭제</button>
-        </div>`;
-      })
-      .join('');
-
-    $$('#post-list .remove-post').forEach((btn) =>
-      btn.addEventListener('click', async (e) => {
-        if (!confirm('이 게시글을 삭제하시겠습니까?')) return;
-        const id = e.target.closest('.post-row').dataset.id;
-        await api(`/api/admin/posts/${id}`, { method: 'DELETE' });
-        if (id === editingPostId) resetPostForm();
-        loadPostList();
-      })
-    );
-
-    $$('#post-list .edit-post').forEach((btn) =>
-      btn.addEventListener('click', (e) => {
-        const id = e.target.closest('.post-row').dataset.id;
-        const post = currentPosts.find((p) => p.id === id);
-        if (post) loadPostIntoForm(post);
-      })
-    );
-  }
-
-  function escapeHtml(str = '') {
-    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  }
-
-  let editingPostId = null;
-  let pendingAttachments = []; // [{name, url}]
-
-  function renderAttachmentEditList() {
-    const box = $('#p-attachmentList');
-    box.innerHTML = pendingAttachments
-      .map(
-        (a, idx) => `
-        <div class="attachment-edit-item" data-idx="${idx}">
-          <span>${escapeHtml(a.name)}</span>
-          <button type="button" class="remove-attachment">삭제</button>
-        </div>`
-      )
-      .join('');
-
-    $$('#p-attachmentList .remove-attachment').forEach((btn) =>
-      btn.addEventListener('click', (e) => {
-        const idx = Number(e.target.closest('.attachment-edit-item').dataset.idx);
-        pendingAttachments.splice(idx, 1);
-        renderAttachmentEditList();
-      })
-    );
-  }
-
-  function resetPostForm() {
-    editingPostId = null;
-    pendingAttachments = [];
-    $('#post-form-title').textContent = '새 글 작성';
-    $('#add-post-btn').textContent = '게시글 등록';
-    $('#cancel-edit-btn').hidden = true;
-    $('#p-title').value = '';
-    postEditor.setContents([]);
-    $('#p-pinned').checked = false;
-    $('#p-imageFile').value = '';
-    $('#p-imageFile').dataset.uploadedUrl = '';
-    $('#p-imagePreview').src = '';
-    $('#p-attachmentFiles').value = '';
-    renderAttachmentEditList();
-    $('#p-date').value = new Date().toISOString().slice(0, 10);
-    $('#p-category').value = '소식';
-  }
-
-  function loadPostIntoForm(post) {
-    editingPostId = post.id;
-    pendingAttachments = Array.isArray(post.attachments) ? [...post.attachments] : [];
-    $('#post-form-title').textContent = '게시글 수정';
-    $('#add-post-btn').textContent = '수정 저장';
-    $('#cancel-edit-btn').hidden = false;
-    $('#p-category').value = post.category || '소식';
-    $('#p-date').value = post.date || '';
-    $('#p-title').value = post.title || '';
-    postEditor.root.innerHTML = post.content || '';
-    $('#p-pinned').checked = !!post.pinned;
-    $('#p-imageFile').value = '';
-    $('#p-imageFile').dataset.uploadedUrl = post.image || '';
-    $('#p-imagePreview').src = post.image || '';
-    renderAttachmentEditList();
-    $('#panel-board').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-
-  function setupPostEditor() {
-    $('#p-attachmentFiles').addEventListener('change', async () => {
-      const files = $('#p-attachmentFiles').files;
-      if (!files || files.length === 0) return;
-      try {
-        const uploaded = await uploadAttachments(files);
-        pendingAttachments = pendingAttachments.concat(uploaded);
-        renderAttachmentEditList();
-      } catch (err) {
-        alert(err.message);
-      } finally {
-        $('#p-attachmentFiles').value = '';
-      }
-    });
-
-    $('#cancel-edit-btn').addEventListener('click', () => {
-      resetPostForm();
-      loadPostList();
-    });
-
-    $('#add-post-btn').addEventListener('click', async () => {
-      const title = $('#p-title').value.trim();
-      const content = postEditor.root.innerHTML;
-      const isEmpty = postEditor.getText().trim().length === 0;
-      if (!title || isEmpty) return alert('제목과 내용을 입력해주세요.');
-
-      const payload = {
-        category: $('#p-category').value,
-        date: $('#p-date').value || new Date().toISOString().slice(0, 10),
-        title,
-        content,
-        image: $('#p-imageFile').dataset.uploadedUrl || '',
-        attachments: pendingAttachments,
-        pinned: $('#p-pinned').checked
-      };
-
-      if (editingPostId) {
-        await api(`/api/admin/posts/${editingPostId}`, { method: 'PUT', body: JSON.stringify(payload) });
-      } else {
-        await api('/api/admin/posts', { method: 'POST', body: JSON.stringify(payload) });
-      }
-
-      resetPostForm();
-      loadPostList();
-    });
-  }
-
-  // ---------------- 오늘의 큐티 관리 ----------------
-  let currentQtList = [];
-  let editingQtId = null;
-
-  async function loadQtList() {
-    const list = await api('/api/admin/qt');
-    renderQtList(list);
-  }
-
-  function renderQtList(list) {
-    currentQtList = list;
-    const container = $('#qt-list');
-    if (!list || list.length === 0) {
-      container.innerHTML = `<p class="hint">등록된 큐티가 없습니다.</p>`;
-      return;
-    }
-    container.innerHTML = list
-      .map(
-        (q) => `
-        <div class="post-row${q.id === editingQtId ? ' editing' : ''}" data-id="${q.id}">
-          <span class="badge">큐티</span>
-          <div>
-            <div class="title">${escapeHtml(q.title || '')}</div>
-            <div class="meta">${escapeHtml(q.verseRef || '')} · 아멘 ${q.amen || 0}명 참여</div>
-          </div>
-          <span class="date">${escapeAttr(q.date)}</span>
-          <button type="button" class="icon-btn edit-qt">수정</button>
-          <button type="button" class="icon-btn remove-qt">삭제</button>
-        </div>`
-      )
-      .join('');
-
-    $$('#qt-list .remove-qt').forEach((btn) =>
-      btn.addEventListener('click', async (e) => {
-        if (!confirm('이 큐티를 삭제하시겠습니까?')) return;
-        const id = e.target.closest('.post-row').dataset.id;
-        await api(`/api/admin/qt/${id}`, { method: 'DELETE' });
-        if (id === editingQtId) resetQtForm();
-        loadQtList();
-      })
-    );
-
-    $$('#qt-list .edit-qt').forEach((btn) =>
-      btn.addEventListener('click', (e) => {
-        const id = e.target.closest('.post-row').dataset.id;
-        const item = currentQtList.find((q) => q.id === id);
-        if (item) loadQtIntoForm(item);
-      })
-    );
-  }
-
-  function resetQtForm() {
-    editingQtId = null;
-    $('#qt-form-title').textContent = '새 큐티 작성';
-    $('#add-qt-btn').textContent = '큐티 등록';
-    $('#cancel-qt-edit-btn').hidden = true;
-    $('#qt-date').value = new Date().toISOString().slice(0, 10);
-    $('#qt-pastor').value = '';
-    $('#qt-title').value = '';
-    $('#qt-verseRef').value = '';
-    $('#qt-verseText').value = '';
-    $('#qt-body').value = '';
-  }
-
-  function loadQtIntoForm(item) {
-    editingQtId = item.id;
-    $('#qt-form-title').textContent = '큐티 수정';
-    $('#add-qt-btn').textContent = '수정 저장';
-    $('#cancel-qt-edit-btn').hidden = false;
-    $('#qt-date').value = item.date || '';
-    $('#qt-pastor').value = item.pastor || '';
-    $('#qt-title').value = item.title || '';
-    $('#qt-verseRef').value = item.verseRef || '';
-    $('#qt-verseText').value = item.verseText || '';
-    $('#qt-body').value = item.body || '';
-    $('#panel-qt').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-
-  function setupQtEditor() {
-    $('#cancel-qt-edit-btn').addEventListener('click', () => {
-      resetQtForm();
-      loadQtList();
-    });
-
-    $('#add-qt-btn').addEventListener('click', async () => {
-      const title = $('#qt-title').value.trim();
-      if (!title) return alert('제목을 입력해주세요.');
-
-      const payload = {
-        date: $('#qt-date').value || new Date().toISOString().slice(0, 10),
-        pastor: $('#qt-pastor').value.trim(),
-        title,
-        verseRef: $('#qt-verseRef').value.trim(),
-        verseText: $('#qt-verseText').value.trim(),
-        body: $('#qt-body').value.trim()
-      };
-
-      const statusEl = $('#qt-save-status');
-      try {
-        if (editingQtId) {
-          await api(`/api/admin/qt/${editingQtId}`, { method: 'PUT', body: JSON.stringify(payload) });
-        } else {
-          await api('/api/admin/qt', { method: 'POST', body: JSON.stringify(payload) });
-        }
-        statusEl.textContent = '저장 완료 ✓';
-        setTimeout(() => (statusEl.textContent = ''), 3000);
-        resetQtForm();
-        loadQtList();
-      } catch (err) {
-        alert(err.message);
-      }
-    });
-  }
-
-  // ---------------- 선교사역 (지도 핀) ----------------
-  let currentMissionList = [];
-  let editingMissionId = null;
-
-  function populateCountrySelect() {
-    const select = $('#m-countryCode');
-    select.innerHTML = window.COUNTRY_LIST
-      .map((c) => `<option value="${c.code}">${window.isoToFlag(c.code)} ${escapeHtml(c.name)}</option>`)
-      .join('');
-  }
-
-  async function loadMissionList() {
-    currentMissionList = await api('/api/admin/missions');
-    renderMissionList(currentMissionList);
-  }
-
-  function renderMissionList(list) {
-    const container = $('#mission-list');
-    if (!list || list.length === 0) {
-      container.innerHTML = `<p class="hint">등록된 선교지가 없습니다.</p>`;
-      return;
-    }
-    container.innerHTML = list
-      .map(
-        (m) => `
-        <div class="post-row${m.id === editingMissionId ? ' editing' : ''}" data-id="${m.id}">
-          <span class="badge">${window.isoToFlag(m.countryCode)} ${escapeHtml(m.country || '')}</span>
-          <div>
-            <div class="title">${escapeHtml(m.name || '')}</div>
-            <div class="meta">${escapeHtml(m.tag || m.country || '')}</div>
-          </div>
-          <button type="button" class="icon-btn edit-mission">수정</button>
-          <button type="button" class="icon-btn remove-mission">삭제</button>
-        </div>`
-      )
-      .join('');
-
-    $$('#mission-list .remove-mission').forEach((btn) =>
-      btn.addEventListener('click', async (e) => {
-        if (!confirm('이 선교지 정보를 삭제하시겠습니까?')) return;
-        const id = e.target.closest('.post-row').dataset.id;
-        await api(`/api/admin/missions/${id}`, { method: 'DELETE' });
-        if (id === editingMissionId) resetMissionForm();
-        loadMissionList();
-      })
-    );
-    $$('#mission-list .edit-mission').forEach((btn) =>
-      btn.addEventListener('click', (e) => {
-        const id = e.target.closest('.post-row').dataset.id;
-        const item = currentMissionList.find((m) => m.id === id);
-        if (item) loadMissionIntoForm(item);
-      })
-    );
-  }
-
-  function resetMissionForm() {
-    editingMissionId = null;
-    $('#mission-form-title').textContent = '선교지 추가';
-    $('#add-mission-btn').textContent = '선교지 등록';
-    $('#cancel-mission-edit-btn').hidden = true;
-    $('#m-countryCode').value = 'KR';
-    $('#m-tag').value = '';
-    $('#m-name').value = '';
-    $('#m-desc').value = '';
-    $('#m-imageFile').value = '';
-    $('#m-imageFile').dataset.uploadedUrl = '';
-    $('#m-imagePreview').src = '';
-  }
-
-  function loadMissionIntoForm(item) {
-    editingMissionId = item.id;
-    $('#mission-form-title').textContent = '선교지 수정';
-    $('#add-mission-btn').textContent = '수정 저장';
-    $('#cancel-mission-edit-btn').hidden = false;
-    $('#m-countryCode').value = item.countryCode || 'KR';
-    $('#m-tag').value = item.tag || '';
-    $('#m-name').value = item.name || '';
-    $('#m-desc').value = item.desc || '';
-    $('#m-imageFile').dataset.uploadedUrl = item.image || '';
-    if (item.image) $('#m-imagePreview').src = item.image;
-    $('#panel-missions').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-
-  function setupMissionEditor() {
-    populateCountrySelect();
-
-    $('#cancel-mission-edit-btn').addEventListener('click', () => {
-      resetMissionForm();
-      loadMissionList();
-    });
-
-    $('#add-mission-btn').addEventListener('click', async () => {
-      const name = $('#m-name').value.trim();
-      if (!name) return alert('선교사님 성함을 입력해주세요.');
-      const countryCode = $('#m-countryCode').value;
-      const country = window.findCountryByCode(countryCode);
-
-      const payload = {
-        countryCode,
-        country: country ? country.name : '',
-        lat: country ? country.lat : 0,
-        lon: country ? country.lon : 0,
-        name,
-        tag: $('#m-tag').value.trim(),
-        desc: $('#m-desc').value.trim(),
-        image: $('#m-imageFile').dataset.uploadedUrl || ''
-      };
-
-      const statusEl = $('#mission-save-status');
-      try {
-        if (editingMissionId) {
-          await api(`/api/admin/missions/${editingMissionId}`, { method: 'PUT', body: JSON.stringify(payload) });
-        } else {
-          await api('/api/admin/missions', { method: 'POST', body: JSON.stringify(payload) });
-        }
-        statusEl.textContent = '저장 완료 ✓';
-        setTimeout(() => (statusEl.textContent = ''), 3000);
-        resetMissionForm();
-        loadMissionList();
-      } catch (err) {
-        alert(err.message);
-      }
-    });
-  }
-
-  // ---------------- 동역자의 섬김 ----------------
-  let currentPartnerList = [];
-  let editingPartnerId = null;
-
-  async function loadPartnerList() {
-    currentPartnerList = await api('/api/admin/partners');
-    renderPartnerList(currentPartnerList);
-  }
-
-  function renderPartnerList(list) {
-    const container = $('#partner-list');
-    if (!list || list.length === 0) {
-      container.innerHTML = `<p class="hint">등록된 동역자가 없습니다.</p>`;
-      return;
-    }
-    container.innerHTML = list
-      .map((p) => {
-        const days = p.startDate ? Math.floor((Date.now() - new Date(p.startDate).getTime()) / 86400000) + 1 : null;
-        return `
-        <div class="post-row${p.id === editingPartnerId ? ' editing' : ''}" data-id="${p.id}">
-          <span class="badge">${days !== null ? 'D+' + days : '-'}</span>
-          <div>
-            <div class="title">${escapeHtml(p.name || '')}</div>
-            <div class="meta">${escapeHtml(p.note || '')}</div>
-          </div>
-          <button type="button" class="icon-btn edit-partner">수정</button>
-          <button type="button" class="icon-btn remove-partner">삭제</button>
-        </div>`;
-      })
-      .join('');
-
-    $$('#partner-list .remove-partner').forEach((btn) =>
-      btn.addEventListener('click', async (e) => {
-        if (!confirm('이 동역자 정보를 삭제하시겠습니까?')) return;
-        const id = e.target.closest('.post-row').dataset.id;
-        await api(`/api/admin/partners/${id}`, { method: 'DELETE' });
-        if (id === editingPartnerId) resetPartnerForm();
-        loadPartnerList();
-      })
-    );
-    $$('#partner-list .edit-partner').forEach((btn) =>
-      btn.addEventListener('click', (e) => {
-        const id = e.target.closest('.post-row').dataset.id;
-        const item = currentPartnerList.find((p) => p.id === id);
-        if (item) loadPartnerIntoForm(item);
-      })
-    );
-  }
-
-  function resetPartnerForm() {
-    editingPartnerId = null;
-    $('#partner-form-title').textContent = '동역자 추가';
-    $('#add-partner-btn').textContent = '동역자 등록';
-    $('#cancel-partner-edit-btn').hidden = true;
-    $('#pt-name').value = '';
-    $('#pt-startDate').value = '';
-    $('#pt-note').value = '';
-    $('#pt-imageFile').value = '';
-    $('#pt-imageFile').dataset.uploadedUrl = '';
-    $('#pt-imagePreview').src = '';
-  }
-
-  function loadPartnerIntoForm(item) {
-    editingPartnerId = item.id;
-    $('#partner-form-title').textContent = '동역자 수정';
-    $('#add-partner-btn').textContent = '수정 저장';
-    $('#cancel-partner-edit-btn').hidden = false;
-    $('#pt-name').value = item.name || '';
-    $('#pt-startDate').value = item.startDate || '';
-    $('#pt-note').value = item.note || '';
-    $('#pt-imageFile').dataset.uploadedUrl = item.image || '';
-    if (item.image) $('#pt-imagePreview').src = item.image;
-    $('#panel-missions').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-
-  function setupPartnerEditor() {
-    $('#cancel-partner-edit-btn').addEventListener('click', () => {
-      resetPartnerForm();
-      loadPartnerList();
-    });
-
-    $('#add-partner-btn').addEventListener('click', async () => {
-      const name = $('#pt-name').value.trim();
-      if (!name) return alert('이름 또는 기관명을 입력해주세요.');
-
-      const payload = {
-        name,
-        startDate: $('#pt-startDate').value || '',
-        note: $('#pt-note').value.trim(),
-        image: $('#pt-imageFile').dataset.uploadedUrl || ''
-      };
-
-      const statusEl = $('#partner-save-status');
-      try {
-        if (editingPartnerId) {
-          await api(`/api/admin/partners/${editingPartnerId}`, { method: 'PUT', body: JSON.stringify(payload) });
-        } else {
-          await api('/api/admin/partners', { method: 'POST', body: JSON.stringify(payload) });
-        }
-        statusEl.textContent = '저장 완료 ✓';
-        setTimeout(() => (statusEl.textContent = ''), 3000);
-        resetPartnerForm();
-        loadPartnerList();
-      } catch (err) {
-        alert(err.message);
-      }
-    });
-  }
-
-  // ---------------- 큐티 배경 디자인 ----------------
-  function toggleQtBgFields() {
-    const type = $('#qt-bg-type').value;
-    $('#qt-bg-preset-field').hidden = type !== 'preset';
-    $('#qt-bg-photo-field').hidden = type !== 'photo';
-  }
-
-  function setupQtBackgroundEditor() {
-    $('#qt-bg-type').addEventListener('change', toggleQtBgFields);
-
-    $('#save-qt-bg-btn').addEventListener('click', async () => {
-      const payload = {
-        type: $('#qt-bg-type').value,
-        preset: $('#qt-bg-preset').value,
-        image: $('#qt-bg-photoFile').dataset.uploadedUrl || $('#qt-bg-photoPreview').getAttribute('src') || ''
-      };
-      const statusEl = $('#qt-bg-save-status');
-      try {
-        await api('/api/admin/qt-background', { method: 'PUT', body: JSON.stringify(payload) });
-        statusEl.textContent = '저장 완료 ✓';
-        setTimeout(() => (statusEl.textContent = ''), 3000);
-      } catch (err) {
-        alert(err.message);
-      }
-    });
-  }
-
-  // ---------------- 통계 ----------------
-  function sumStatsByDay(byDay, days) {
-    const today = new Date();
-    let total = 0;
-    for (let i = 0; i < days; i++) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      const key = d.toISOString().slice(0, 10);
-      const dayData = byDay[key] || {};
-      total += Object.values(dayData).reduce((a, b) => a + b, 0);
-    }
-    return total;
-  }
-
-  function aggregateByLabel(byDay, days) {
-    const today = new Date();
-    const totals = {};
-    for (let i = 0; i < days; i++) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      const key = d.toISOString().slice(0, 10);
-      const dayData = byDay[key] || {};
-      Object.entries(dayData).forEach(([label, count]) => {
-        totals[label] = (totals[label] || 0) + count;
-      });
-    }
-    return Object.entries(totals).sort((a, b) => b[1] - a[1]);
-  }
-
-  const CLICK_LABELS = {
-    sermon_card: '설교 영상',
-    board_card: '소식·활동 게시글',
-    qt_card: '오늘의 큐티 카드',
-    qt_archive_row: '지난 큐티 목록',
-    amen_button: "'아멘' 누르기",
-    share_button: '큐티 공유'
+}
+
+// ---------- 로그인 / 로그아웃 ----------
+// ---------- 관리자 계정 마이그레이션 (최초 1회, 기존 .env 계정 → 메인 관리자로 이전) ----------
+async function ensureMainAdmin() {
+  const admins = (await readData('admins')) || [];
+  if (admins.length > 0) return admins;
+
+  const username = process.env.ADMIN_USERNAME;
+  const passwordHash = process.env.ADMIN_PASSWORD_HASH;
+  if (!username || !passwordHash) return admins;
+
+  const mainAdmin = {
+    id: makeId('admin'),
+    username,
+    passwordHash,
+    role: 'main',
+    permissions: { site: true, menu: true, posts: true, sermons: true, qt: true, missions: true, stats: true, receipts: true, accounts: true },
+    createdAt: new Date().toISOString()
   };
+  const updated = [mainAdmin];
+  await writeData('admins', updated);
+  return updated;
+}
 
-  function renderBarList(container, entries, labelMap = {}) {
-    if (entries.length === 0) {
-      container.innerHTML = `<p class="hint">아직 데이터가 없습니다.</p>`;
-      return;
+// ---------- 로그인 / 로그아웃 ----------
+router.post('/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const admins = await ensureMainAdmin();
+    const admin = admins.find((a) => a.username === username);
+    const validPass = admin ? bcrypt.compareSync(password || '', admin.passwordHash) : false;
+
+    if (!admin || !validPass) {
+      return res.status(401).json({ error: '아이디 또는 비밀번호가 올바르지 않습니다.' });
     }
-    const max = entries[0][1] || 1;
-    container.innerHTML = entries
-      .slice(0, 10)
-      .map(([key, count]) => {
-        const label = labelMap[key] || key;
-        const pct = Math.max(6, Math.round((count / max) * 100));
-        return `
-        <div class="stats-bar-row">
-          <span class="stats-bar-label">${escapeHtml(label)}</span>
-          <div class="stats-bar-track"><div class="stats-bar-fill" style="width:${pct}%"></div></div>
-          <span class="stats-bar-count">${count}</span>
-        </div>`;
-      })
-      .join('');
+
+    req.session.isAdmin = true;
+    req.session.adminId = admin.id;
+    req.session.adminUsername = admin.username;
+    req.session.adminRole = admin.role;
+    req.session.adminPermissions = admin.permissions;
+    res.json({ ok: true, role: admin.role, permissions: admin.permissions, username: admin.username });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
+});
 
-  async function loadStats() {
-    const [stats, qtList] = await Promise.all([api('/api/admin/stats'), api('/api/admin/qt')]);
-    const qtTitleById = {};
-    qtList.forEach((q) => (qtTitleById['/qt/' + q.id] = q.title));
-    const pageLabelMap = { '/': '홈페이지', ...qtTitleById };
+router.post('/logout', (req, res) => {
+  req.session.destroy(() => res.json({ ok: true }));
+});
 
-    const today = sumStatsByDay(stats.pageviews, 1);
-    const last7 = sumStatsByDay(stats.pageviews, 7);
-    const last30 = sumStatsByDay(stats.pageviews, 30);
+router.get('/session', (req, res) => {
+  if (!req.session || !req.session.isAdmin) return res.json({ isAdmin: false });
+  res.json({
+    isAdmin: true,
+    username: req.session.adminUsername,
+    role: req.session.adminRole,
+    permissions: req.session.adminPermissions
+  });
+});
 
-    $('#stats-summary-cards').innerHTML = `
-      <div class="stat-card"><div class="num">${today}</div><div class="label">오늘</div></div>
-      <div class="stat-card"><div class="num">${last7}</div><div class="label">최근 7일</div></div>
-      <div class="stat-card"><div class="num">${last30}</div><div class="label">최근 30일</div></div>`;
+// 아래 모든 라우트는 로그인 필요
+router.use(requireAuth);
 
-    renderBarList($('#stats-click-list'), aggregateByLabel(stats.clicks, 7), CLICK_LABELS);
-    renderBarList($('#stats-page-list'), aggregateByLabel(stats.pageviews, 7), pageLabelMap);
-  }
-
-  // ---------------- 기부금 영수증 신청 관리 ----------------
-  function formatReceiptDate(iso) {
-    const d = new Date(iso);
-    if (isNaN(d)) return '';
-    return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`;
-  }
-
-  async function loadReceiptRequests() {
-    const list = await api('/api/admin/receipt-requests');
-    renderReceiptList(list);
-  }
-
-  function renderReceiptList(list) {
-    const container = $('#receipt-list');
-    if (!list || list.length === 0) {
-      container.innerHTML = `<p class="hint">접수된 신청이 없습니다.</p>`;
-      return;
+// ---------- 내 비밀번호 변경 (모든 관리자 공통) ----------
+router.put('/my-password', async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ error: '새 비밀번호는 6자 이상이어야 합니다.' });
     }
-    container.innerHTML = list
-      .map(
-        (r) => `
-        <div class="post-row" data-id="${r.id}">
-          <span class="badge">신청</span>
-          <div>
-            <div class="title">${escapeHtml(r.name)} · ${escapeHtml(r.phone)}${r.email ? ' · ' + escapeHtml(r.email) : ''}</div>
-            <div class="meta">${escapeHtml(r.note || '')}</div>
-          </div>
-          <span class="date">${formatReceiptDate(r.createdAt)}</span>
-          <button type="button" class="icon-btn remove-receipt">처리완료(삭제)</button>
-        </div>`
-      )
-      .join('');
+    const admins = (await readData('admins')) || [];
+    const idx = admins.findIndex((a) => a.id === req.session.adminId);
+    if (idx === -1) return res.status(404).json({ error: '계정을 찾을 수 없습니다.' });
 
-    $$('#receipt-list .remove-receipt').forEach((btn) =>
-      btn.addEventListener('click', async (e) => {
-        if (!confirm('처리 완료 처리하고 목록에서 삭제하시겠습니까?')) return;
-        const id = e.target.closest('.post-row').dataset.id;
-        await api(`/api/admin/receipt-requests/${id}`, { method: 'DELETE' });
-        loadReceiptRequests();
-      })
-    );
+    const ok = bcrypt.compareSync(currentPassword || '', admins[idx].passwordHash);
+    if (!ok) return res.status(401).json({ error: '현재 비밀번호가 올바르지 않습니다.' });
+
+    admins[idx].passwordHash = bcrypt.hashSync(newPassword, 10);
+    await writeData('admins', admins);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
+});
 
-  // ---------------- 설교 영상 (유튜브) ----------------
-  async function loadSermonPreview() {
-    const data = await api('/api/admin/sermons');
-    renderSermonPreview(data);
+// ---------- 관리자 계정 관리 (메인 관리자 전용) ----------
+router.get('/accounts', requireMainAdmin, async (req, res) => {
+  try {
+    const admins = (await readData('admins')) || [];
+    // 비밀번호 해시는 노출하지 않음
+    res.json(admins.map(({ passwordHash, ...rest }) => rest));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
+});
 
-  function renderSermonPreview(data) {
-    $('#sermon-last-updated').textContent = data.lastUpdated
-      ? `마지막 업데이트: ${new Date(data.lastUpdated).toLocaleString('ko-KR')}`
-      : '아직 업데이트된 적이 없습니다.';
-
-    const container = $('#sermon-preview-list');
-    if (!data.videos || data.videos.length === 0) {
-      container.innerHTML = `<p class="hint">캐시된 영상이 없습니다. 새로고침을 눌러주세요.</p>`;
-      return;
+router.post('/accounts', requireMainAdmin, async (req, res) => {
+  try {
+    const { username, password, permissions } = req.body;
+    if (!username || !password || password.length < 6) {
+      return res.status(400).json({ error: '아이디와 6자 이상의 비밀번호를 입력해주세요.' });
     }
-    container.innerHTML = data.videos
-      .map(
-        (v) => `
-        <div class="sermon-preview-item">
-          <img src="${v.thumbnail}" alt="${escapeAttr(v.title)}" />
-          <div class="t">${escapeHtml(v.title)}</div>
-        </div>`
-      )
-      .join('');
-  }
-
-  function setupSermonRefresh() {
-    $('#refresh-sermons-btn').addEventListener('click', async () => {
-      const statusEl = $('#sermon-refresh-status');
-      const channelId = $('#yt-channelId').value.trim();
-      statusEl.textContent = '새로고침 중...';
-      try {
-        const data = await api('/api/admin/sermons/refresh', {
-          method: 'POST',
-          body: JSON.stringify(channelId ? { channelId } : {})
-        });
-        renderSermonPreview(data);
-        statusEl.textContent = `완료 ✓ (영상 ${data.videos.length}개 갱신)`;
-        setTimeout(() => (statusEl.textContent = ''), 4000);
-      } catch (err) {
-        statusEl.textContent = '';
-        alert(err.message);
-      }
-    });
-  }
-
-  // ---------------- 계정 관리 ----------------
-  function setupAccountPanel() {
-    setupMyPasswordForm();
-    if (currentSession && currentSession.role === 'main') {
-      $('#account-add-card').hidden = false;
-      $('#account-list-card').hidden = false;
-      setupAddAccountForm();
-      loadAccountList();
+    const admins = (await readData('admins')) || [];
+    if (admins.some((a) => a.username === username)) {
+      return res.status(409).json({ error: '이미 사용 중인 아이디입니다.' });
     }
+    const newAdmin = {
+      id: makeId('admin'),
+      username,
+      passwordHash: bcrypt.hashSync(password, 10),
+      role: 'sub',
+      permissions: {
+        site: !!permissions?.site,
+        menu: !!permissions?.menu,
+        posts: !!permissions?.posts,
+        sermons: !!permissions?.sermons,
+        qt: !!permissions?.qt,
+        missions: !!permissions?.missions,
+        stats: !!permissions?.stats,
+        receipts: !!permissions?.receipts,
+        accounts: false // 부관리자는 계정관리 권한을 가질 수 없음
+      },
+      createdAt: new Date().toISOString()
+    };
+    admins.push(newAdmin);
+    await writeData('admins', admins);
+    const { passwordHash, ...safe } = newAdmin;
+    res.json(safe);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
+});
 
-  function setupMyPasswordForm() {
-    $('#save-password-btn').addEventListener('click', async () => {
-      const currentPassword = $('#pw-current').value;
-      const newPassword = $('#pw-new').value;
-      const confirmPassword = $('#pw-confirm').value;
-      if (newPassword.length < 6) return alert('새 비밀번호는 6자 이상이어야 합니다.');
-      if (newPassword !== confirmPassword) return alert('새 비밀번호가 서로 일치하지 않습니다.');
+router.put('/accounts/:id', requireMainAdmin, async (req, res) => {
+  try {
+    const admins = (await readData('admins')) || [];
+    const idx = admins.findIndex((a) => a.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: '계정을 찾을 수 없습니다.' });
+    if (admins[idx].role === 'main') {
+      return res.status(403).json({ error: '메인 관리자 권한은 여기서 수정할 수 없습니다.' });
+    }
 
-      const statusEl = $('#password-save-status');
-      try {
-        await api('/api/admin/my-password', {
-          method: 'PUT',
-          body: JSON.stringify({ currentPassword, newPassword })
-        });
-        $('#pw-current').value = '';
-        $('#pw-new').value = '';
-        $('#pw-confirm').value = '';
-        statusEl.textContent = '변경 완료 ✓';
-        setTimeout(() => (statusEl.textContent = ''), 3000);
-      } catch (err) {
-        alert(err.message);
-      }
-    });
-  }
-
-  function setupAddAccountForm() {
-    $('#add-account-btn').addEventListener('click', async () => {
-      const username = $('#acc-username').value.trim();
-      const password = $('#acc-password').value;
-      if (!username || password.length < 6) {
-        return alert('아이디와 6자 이상의 비밀번호를 입력해주세요.');
-      }
-      const permissions = {
-        site: $('#acc-perm-site').checked,
-        menu: $('#acc-perm-menu').checked,
-        posts: $('#acc-perm-posts').checked,
-        sermons: $('#acc-perm-sermons').checked,
-        qt: $('#acc-perm-qt').checked,
-        missions: $('#acc-perm-missions').checked,
-        stats: $('#acc-perm-stats').checked,
-        receipts: $('#acc-perm-receipts').checked
+    if (req.body.permissions) {
+      admins[idx].permissions = {
+        ...admins[idx].permissions,
+        site: !!req.body.permissions.site,
+        menu: !!req.body.permissions.menu,
+        posts: !!req.body.permissions.posts,
+        sermons: !!req.body.permissions.sermons,
+        qt: !!req.body.permissions.qt,
+        missions: !!req.body.permissions.missions,
+        stats: !!req.body.permissions.stats,
+        receipts: !!req.body.permissions.receipts
       };
-      const statusEl = $('#account-add-status');
-      try {
-        await api('/api/admin/accounts', {
-          method: 'POST',
-          body: JSON.stringify({ username, password, permissions })
-        });
-        $('#acc-username').value = '';
-        $('#acc-password').value = '';
-        ['site', 'menu', 'posts', 'sermons', 'qt', 'missions', 'stats', 'receipts'].forEach((p) => ($('#acc-perm-' + p).checked = false));
-        statusEl.textContent = '추가 완료 ✓';
-        setTimeout(() => (statusEl.textContent = ''), 3000);
-        loadAccountList();
-      } catch (err) {
-        alert(err.message);
+    }
+    if (req.body.newPassword) {
+      if (req.body.newPassword.length < 6) {
+        return res.status(400).json({ error: '비밀번호는 6자 이상이어야 합니다.' });
       }
+      admins[idx].passwordHash = bcrypt.hashSync(req.body.newPassword, 10);
+    }
+    await writeData('admins', admins);
+    const { passwordHash, ...safe } = admins[idx];
+    res.json(safe);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/accounts/:id', requireMainAdmin, async (req, res) => {
+  try {
+    const admins = (await readData('admins')) || [];
+    const target = admins.find((a) => a.id === req.params.id);
+    if (!target) return res.status(404).json({ error: '계정을 찾을 수 없습니다.' });
+    if (target.role === 'main') return res.status(403).json({ error: '메인 관리자는 삭제할 수 없습니다.' });
+
+    const filtered = admins.filter((a) => a.id !== req.params.id);
+    await writeData('admins', filtered);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- 이미지 업로드 ----------
+router.post('/upload', upload.single('image'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: '업로드된 파일이 없습니다.' });
+  try {
+    const url = await storeFile(req.file);
+    res.json({ url });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 게시글 첨부파일 업로드 (여러 개, 문서/이미지 등 모든 형식 허용)
+router.post('/upload-attachment', attachmentUpload.array('files', 5), async (req, res) => {
+  if (!req.files || req.files.length === 0) return res.status(400).json({ error: '업로드된 파일이 없습니다.' });
+  try {
+    const files = await Promise.all(
+      req.files.map(async (f) => ({
+        name: fixKoreanFilename(f.originalname),
+        url: await storeFile(f)
+      }))
+    );
+    res.json({ files });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- 사이트 기본 정보 수정 ----------
+router.get('/site', async (req, res) => {
+  try {
+    res.json(await readData('site'));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/site', requirePermission('site'), async (req, res) => {
+  try {
+    const current = (await readData('site')) || {};
+    const updated = { ...current, ...req.body };
+    await writeData('site', updated);
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- 메뉴 관리 ----------
+router.get('/menu', async (req, res) => {
+  try {
+    res.json((await readData('menu')) || []);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/menu', requirePermission('menu'), async (req, res) => {
+  try {
+    const menu = (await readData('menu')) || [];
+    const item = { id: makeId('m'), label: req.body.label, link: req.body.link, order: req.body.order ?? menu.length + 1 };
+    menu.push(item);
+    await writeData('menu', menu);
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/menu/:id', requirePermission('menu'), async (req, res) => {
+  try {
+    const menu = (await readData('menu')) || [];
+    const idx = menu.findIndex((m) => m.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: '메뉴를 찾을 수 없습니다.' });
+    menu[idx] = { ...menu[idx], ...req.body };
+    await writeData('menu', menu);
+    res.json(menu[idx]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/menu/:id', requirePermission('menu'), async (req, res) => {
+  try {
+    const menu = (await readData('menu')) || [];
+    const filtered = menu.filter((m) => m.id !== req.params.id);
+    await writeData('menu', filtered);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/menu-reorder', requirePermission('menu'), async (req, res) => {
+  try {
+    // req.body.order = [id1, id2, id3, ...] 순서
+    const menu = (await readData('menu')) || [];
+    const order = req.body.order || [];
+    const updated = menu.map((m) => {
+      const pos = order.indexOf(m.id);
+      return pos === -1 ? m : { ...m, order: pos + 1 };
     });
+    await writeData('menu', updated);
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
+});
 
-  async function loadAccountList() {
-    const accounts = await api('/api/admin/accounts');
-    renderAccountList(accounts);
+// ---------- 게시판 (소식·활동) 관리 ----------
+router.get('/posts', async (req, res) => {
+  try {
+    res.json((await readData('posts')) || []);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
+});
 
-  function renderAccountList(accounts) {
-    const container = $('#account-list');
-    container.innerHTML = accounts
-      .map((a) => {
-        const isMain = a.role === 'main';
-        const perms = a.permissions || {};
-        const permRow = ['site', 'menu', 'posts', 'sermons', 'qt', 'missions', 'stats', 'receipts']
-          .map(
-            (p) => `
-            <label>
-              <input type="checkbox" class="perm-${p}" ${perms[p] ? 'checked' : ''} ${isMain ? 'disabled' : ''} />
-              ${{ site: '기본 정보', menu: '메뉴 관리', posts: '소식·활동 게시판', sermons: '설교 영상', qt: '오늘의 큐티', missions: '선교사역', stats: '통계', receipts: '영수증 신청' }[p]}
-            </label>`
-          )
-          .join('');
-
-        return `
-        <div class="account-row" data-id="${a.id}">
-          <div class="account-row-top">
-            <span class="badge${isMain ? ' main' : ''}">${isMain ? '메인 관리자' : '부관리자'}</span>
-            <span class="account-username">${escapeHtml(a.username)}</span>
-            ${!isMain ? `<button type="button" class="icon-btn remove-account">계정 삭제</button>` : ''}
-          </div>
-          <div class="permission-checks">${permRow}</div>
-          ${
-            !isMain
-              ? `<div class="account-pw-row">
-                  <input type="password" class="acc-new-pw" placeholder="새 비밀번호 (변경할 때만 입력, 6자 이상)" />
-                  <button type="button" class="btn-secondary save-account-btn">저장</button>
-                </div>`
-              : ''
-          }
-        </div>`;
-      })
-      .join('');
-
-    $$('#account-list .save-account-btn').forEach((btn) =>
-      btn.addEventListener('click', async (e) => {
-        const row = e.target.closest('.account-row');
-        const id = row.dataset.id;
-        const permissions = {
-          site: row.querySelector('.perm-site').checked,
-          menu: row.querySelector('.perm-menu').checked,
-          posts: row.querySelector('.perm-posts').checked,
-          sermons: row.querySelector('.perm-sermons').checked,
-          qt: row.querySelector('.perm-qt').checked,
-          missions: row.querySelector('.perm-missions').checked,
-          stats: row.querySelector('.perm-stats').checked,
-          receipts: row.querySelector('.perm-receipts').checked
-        };
-        const newPassword = row.querySelector('.acc-new-pw').value;
-        if (newPassword && newPassword.length < 6) {
-          return alert('새 비밀번호는 6자 이상이어야 합니다.');
-        }
-        const payload = { permissions };
-        if (newPassword) payload.newPassword = newPassword;
-        try {
-          await api(`/api/admin/accounts/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
-          flashSaved(btn);
-          row.querySelector('.acc-new-pw').value = '';
-        } catch (err) {
-          alert(err.message);
-        }
-      })
-    );
-
-    $$('#account-list .remove-account').forEach((btn) =>
-      btn.addEventListener('click', async (e) => {
-        const row = e.target.closest('.account-row');
-        const id = row.dataset.id;
-        const username = row.querySelector('.account-username').textContent;
-        if (!confirm(`'${username}' 계정을 삭제하시겠습니까?`)) return;
-        await api(`/api/admin/accounts/${id}`, { method: 'DELETE' });
-        loadAccountList();
-      })
-    );
+router.post('/posts', requirePermission('posts'), async (req, res) => {
+  try {
+    const posts = (await readData('posts')) || [];
+    const post = {
+      id: makeId('post'),
+      category: req.body.category || '소식',
+      title: req.body.title || '',
+      content: req.body.content || '',
+      image: req.body.image || '',
+      attachments: Array.isArray(req.body.attachments) ? req.body.attachments : [],
+      date: req.body.date || new Date().toISOString().slice(0, 10),
+      pinned: !!req.body.pinned
+    };
+    posts.unshift(post);
+    await writeData('posts', posts);
+    res.json(post);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
+});
 
-  // ---------------- 시작 ----------------
-  checkSession();
-})();
+router.put('/posts/:id', requirePermission('posts'), async (req, res) => {
+  try {
+    const posts = (await readData('posts')) || [];
+    const idx = posts.findIndex((p) => p.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: '게시글을 찾을 수 없습니다.' });
+    posts[idx] = { ...posts[idx], ...req.body };
+    await writeData('posts', posts);
+    res.json(posts[idx]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/posts/:id', requirePermission('posts'), async (req, res) => {
+  try {
+    const posts = (await readData('posts')) || [];
+    const filtered = posts.filter((p) => p.id !== req.params.id);
+    await writeData('posts', filtered);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- 설교 영상(유튜브) 관리 ----------
+router.get('/sermons', async (req, res) => {
+  try {
+    res.json(await getCachedSermons());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 관리자가 수동으로 즉시 새로고침 (자동 스케줄과 별개로 즉시 반영하고 싶을 때 사용)
+router.post('/sermons/refresh', requirePermission('sermons'), async (req, res) => {
+  try {
+    const channelId = req.body.channelId || process.env.YOUTUBE_CHANNEL_ID;
+    const data = await updateSermonsCache(channelId);
+    res.json(data);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- 오늘의 큐티 관리 ----------
+router.get('/qt', async (req, res) => {
+  try {
+    const qt = (await readData('qt')) || [];
+    res.json([...qt].sort((a, b) => new Date(b.date) - new Date(a.date)));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/qt', requirePermission('qt'), async (req, res) => {
+  try {
+    const qt = (await readData('qt')) || [];
+    const item = {
+      id: makeId('qt'),
+      date: req.body.date || new Date().toISOString().slice(0, 10),
+      title: req.body.title || '',
+      verseRef: req.body.verseRef || '',
+      verseText: req.body.verseText || '',
+      body: req.body.body || '',
+      pastor: req.body.pastor || '',
+      amen: 0,
+      createdAt: new Date().toISOString()
+    };
+    qt.unshift(item);
+    await writeData('qt', qt);
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/qt/:id', requirePermission('qt'), async (req, res) => {
+  try {
+    const qt = (await readData('qt')) || [];
+    const idx = qt.findIndex((q) => q.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: '큐티를 찾을 수 없습니다.' });
+    const { amen, id, createdAt, ...editable } = req.body; // 반응 수·id·생성일은 여기서 직접 수정 불가
+    qt[idx] = { ...qt[idx], ...editable };
+    await writeData('qt', qt);
+    res.json(qt[idx]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/qt/:id', requirePermission('qt'), async (req, res) => {
+  try {
+    const qt = (await readData('qt')) || [];
+    const filtered = qt.filter((q) => q.id !== req.params.id);
+    await writeData('qt', filtered);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 큐티 섹션 배경 디자인 (site 데이터의 qtBackground 필드에 저장)
+router.put('/qt-background', requirePermission('qt'), async (req, res) => {
+  try {
+    const site = (await readData('site')) || {};
+    site.qtBackground = {
+      type: req.body.type === 'photo' ? 'photo' : 'preset',
+      preset: req.body.preset || 'navy',
+      image: req.body.image || ''
+    };
+    await writeData('site', site);
+    res.json(site.qtBackground);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- 선교사역 (세계지도 핀) ----------
+router.get('/missions', async (req, res) => {
+  try {
+    res.json((await readData('missions')) || []);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/missions', requirePermission('missions'), async (req, res) => {
+  try {
+    const missions = (await readData('missions')) || [];
+    const item = {
+      id: makeId('mission'),
+      order: missions.length,
+      countryCode: req.body.countryCode || '',
+      country: req.body.country || '',
+      lat: Number(req.body.lat) || 0,
+      lon: Number(req.body.lon) || 0,
+      name: req.body.name || '',
+      tag: req.body.tag || '',
+      desc: req.body.desc || '',
+      image: req.body.image || '',
+      createdAt: new Date().toISOString()
+    };
+    missions.push(item);
+    await writeData('missions', missions);
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/missions/:id', requirePermission('missions'), async (req, res) => {
+  try {
+    const missions = (await readData('missions')) || [];
+    const idx = missions.findIndex((m) => m.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: '선교지 정보를 찾을 수 없습니다.' });
+    const { id, createdAt, ...editable } = req.body;
+    missions[idx] = { ...missions[idx], ...editable };
+    await writeData('missions', missions);
+    res.json(missions[idx]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/missions/:id', requirePermission('missions'), async (req, res) => {
+  try {
+    const missions = (await readData('missions')) || [];
+    const filtered = missions.filter((m) => m.id !== req.params.id);
+    await writeData('missions', filtered);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- 동역자의 섬김 ----------
+router.get('/partners', async (req, res) => {
+  try {
+    res.json((await readData('partners')) || []);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/partners', requirePermission('missions'), async (req, res) => {
+  try {
+    const partners = (await readData('partners')) || [];
+    const item = {
+      id: makeId('partner'),
+      order: partners.length,
+      name: req.body.name || '',
+      image: req.body.image || '',
+      startDate: req.body.startDate || '',
+      note: req.body.note || '',
+      createdAt: new Date().toISOString()
+    };
+    partners.push(item);
+    await writeData('partners', partners);
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/partners/:id', requirePermission('missions'), async (req, res) => {
+  try {
+    const partners = (await readData('partners')) || [];
+    const idx = partners.findIndex((p) => p.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: '동역자 정보를 찾을 수 없습니다.' });
+    const { id, createdAt, ...editable } = req.body;
+    partners[idx] = { ...partners[idx], ...editable };
+    await writeData('partners', partners);
+    res.json(partners[idx]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/partners/:id', requirePermission('missions'), async (req, res) => {
+  try {
+    const partners = (await readData('partners')) || [];
+    const filtered = partners.filter((p) => p.id !== req.params.id);
+    await writeData('partners', filtered);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- 통계 ----------
+router.get('/stats', requirePermission('stats'), async (req, res) => {
+  try {
+    res.json((await readData('stats')) || { pageviews: {}, clicks: {} });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- 기부금 영수증 신청 관리 ----------
+router.get('/receipt-requests', requirePermission('receipts'), async (req, res) => {
+  try {
+    res.json((await readData('receiptRequests')) || []);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/receipt-requests/:id', requirePermission('receipts'), async (req, res) => {
+  try {
+    const requests = (await readData('receiptRequests')) || [];
+    const filtered = requests.filter((r) => r.id !== req.params.id);
+    await writeData('receiptRequests', filtered);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- 기도 요청 관리 ----------
+// 로그인한 관리자는 비밀글 여부와 관계없이 전체 내용을 확인할 수 있습니다
+// (다른 방문자에게는 비밀글 내용이 노출되지 않으며, 목회자가 중보기도를 위해 확인하는 용도입니다).
+router.get('/prayers', async (req, res) => {
+  try {
+    const prayers = (await readData('prayers')) || [];
+    const sorted = [...prayers]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .map(({ passwordHash, ...rest }) => rest);
+    res.json(sorted);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/prayers/:id', async (req, res) => {
+  try {
+    const prayers = (await readData('prayers')) || [];
+    const filtered = prayers.filter((p) => p.id !== req.params.id);
+    await writeData('prayers', filtered);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+module.exports = router;
