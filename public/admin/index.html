@@ -36,6 +36,7 @@
       <button class="nav-item" data-panel="panel-menu" data-permission="menu">메뉴 관리</button>
       <button class="nav-item" data-panel="panel-board" data-permission="posts">소식·활동 게시판</button>
       <button class="nav-item" data-panel="panel-prayers">기도 요청</button>
+      <button class="nav-item" data-panel="panel-inquiries">온라인 문의</button>
       <button class="nav-item" data-panel="panel-qt" data-permission="qt">오늘의 큐티</button>
       <button class="nav-item" data-panel="panel-missions" data-permission="missions">선교사역</button>
       <button class="nav-item" data-panel="panel-stats" data-permission="stats">통계</button>
@@ -243,6 +244,19 @@
       <div class="card">
         <button class="btn-secondary" id="prayers-refresh-btn" type="button">새로고침</button>
         <div id="prayers-admin-list" class="post-list" style="margin-top:14px;"></div>
+      </div>
+    </section>
+
+    <!-- 온라인 문의 -->
+    <section class="panel" id="panel-inquiries">
+      <h2>온라인 문의</h2>
+      <p class="panel-desc">
+        홈페이지 '오시는 길 &gt; 온라인 문의하기'로 접수된 내용입니다. 비밀글로 등록된 항목도
+        이 화면에서는 내용이 그대로 보입니다(다른 방문자에게는 비공개).
+      </p>
+      <div class="card">
+        <button class="btn-secondary" id="inquiries-refresh-btn" type="button">새로고침</button>
+        <div id="inquiries-admin-list" class="post-list" style="margin-top:14px;"></div>
       </div>
     </section>
 
@@ -464,8 +478,8 @@
 <script src="/admin/js/admin.js"></script>
 
 <!--
-  기도 요청 관리 패널 전용 스크립트.
-  기존 대시보드 스크립트(/admin/js/admin.js)를 건드리지 않고 이 패널 하나만 독립적으로
+  기도 요청 / 온라인 문의 관리 패널 전용 스크립트.
+  기존 대시보드 스크립트(/admin/js/admin.js)를 건드리지 않고 이 두 패널만 독립적으로
   동작하도록 작성했습니다. 사이드바의 다른 메뉴 전환은 기존 admin.js가 처리합니다.
 -->
 <script>
@@ -474,62 +488,79 @@
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
-  async function loadPrayersAdmin() {
-    const listEl = document.getElementById('prayers-admin-list');
-    if (!listEl) return;
-    listEl.innerHTML = '<p class="hint">불러오는 중...</p>';
-    try {
-      const res = await fetch('/api/admin/prayers');
-      if (res.status === 401) {
-        listEl.innerHTML = '<p class="hint">로그인 후 이용해주세요.</p>';
-        return;
-      }
-      const list = await res.json();
-      if (!Array.isArray(list) || list.length === 0) {
-        listEl.innerHTML = '<p class="hint">등록된 기도 요청이 없습니다.</p>';
-        return;
-      }
-      listEl.innerHTML = list
-        .map(
-          (p) => `
-        <div class="post-row" style="grid-template-columns: auto 1fr auto;" data-id="${p.id}">
-          <span class="badge">${p.secret ? '🔒 비밀글' : '공개'}</span>
-          <div>
-            <div class="title">${escapeHtml(p.name || '익명')}</div>
-            <div class="meta">${escapeHtml((p.content || '').slice(0, 120))}</div>
-          </div>
-          <div style="display:flex; align-items:center; gap:10px;">
-            <span class="date">${escapeHtml(p.date || '')}</span>
-            <button type="button" class="icon-btn prayer-delete-btn" title="삭제">삭제</button>
-          </div>
-        </div>`
-        )
-        .join('');
+  // apiBase: 'prayers' | 'inquiries', listElId/refreshBtnId: 대응하는 패널의 엘리먼트 id
+  function setupSecretBoardAdminPanel({ apiBase, listElId, refreshBtnId, navPanelId }) {
+    async function load() {
+      const listEl = document.getElementById(listElId);
+      if (!listEl) return;
+      listEl.innerHTML = '<p class="hint">불러오는 중...</p>';
+      try {
+        const res = await fetch(`/api/admin/${apiBase}`);
+        if (res.status === 401) {
+          listEl.innerHTML = '<p class="hint">로그인 후 이용해주세요.</p>';
+          return;
+        }
+        const list = await res.json();
+        if (!Array.isArray(list) || list.length === 0) {
+          listEl.innerHTML = '<p class="hint">등록된 내용이 없습니다.</p>';
+          return;
+        }
+        listEl.innerHTML = list
+          .map(
+            (p) => `
+          <div class="post-row" style="grid-template-columns: auto 1fr auto;" data-id="${p.id}">
+            <span class="badge">${p.secret ? '🔒 비밀글' : '공개'}</span>
+            <div>
+              <div class="title">${escapeHtml(p.name || '익명')}</div>
+              <div class="meta">${escapeHtml((p.content || '').slice(0, 120))}</div>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span class="date">${escapeHtml(p.date || '')}</span>
+              <button type="button" class="icon-btn secret-board-delete-btn" title="삭제">삭제</button>
+            </div>
+          </div>`
+          )
+          .join('');
 
-      listEl.querySelectorAll('.prayer-delete-btn').forEach((btn) => {
-        btn.addEventListener('click', async () => {
-          const row = btn.closest('.post-row');
-          const id = row.dataset.id;
-          if (!confirm('이 기도 요청을 삭제할까요? 삭제 후에는 되돌릴 수 없습니다.')) return;
-          try {
-            const res = await fetch(`/api/admin/prayers/${id}`, { method: 'DELETE' });
-            if (!res.ok) throw new Error('삭제 실패');
-            loadPrayersAdmin();
-          } catch (err) {
-            alert('삭제 중 오류가 발생했습니다.');
-          }
+        listEl.querySelectorAll('.secret-board-delete-btn').forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            const row = btn.closest('.post-row');
+            const id = row.dataset.id;
+            if (!confirm('이 항목을 삭제할까요? 삭제 후에는 되돌릴 수 없습니다.')) return;
+            try {
+              const res = await fetch(`/api/admin/${apiBase}/${id}`, { method: 'DELETE' });
+              if (!res.ok) throw new Error('삭제 실패');
+              load();
+            } catch (err) {
+              alert('삭제 중 오류가 발생했습니다.');
+            }
+          });
         });
-      });
-    } catch (err) {
-      listEl.innerHTML = '<p class="hint">불러오는 중 오류가 발생했습니다.</p>';
+      } catch (err) {
+        listEl.innerHTML = '<p class="hint">불러오는 중 오류가 발생했습니다.</p>';
+      }
     }
+
+    const navBtn = document.querySelector(`.nav-item[data-panel="${navPanelId}"]`);
+    if (navBtn) navBtn.addEventListener('click', load);
+
+    const refreshBtn = document.getElementById(refreshBtnId);
+    if (refreshBtn) refreshBtn.addEventListener('click', load);
   }
 
-  const navBtn = document.querySelector('.nav-item[data-panel="panel-prayers"]');
-  if (navBtn) navBtn.addEventListener('click', loadPrayersAdmin);
+  setupSecretBoardAdminPanel({
+    apiBase: 'prayers',
+    listElId: 'prayers-admin-list',
+    refreshBtnId: 'prayers-refresh-btn',
+    navPanelId: 'panel-prayers'
+  });
 
-  const refreshBtn = document.getElementById('prayers-refresh-btn');
-  if (refreshBtn) refreshBtn.addEventListener('click', loadPrayersAdmin);
+  setupSecretBoardAdminPanel({
+    apiBase: 'inquiries',
+    listElId: 'inquiries-admin-list',
+    refreshBtnId: 'inquiries-refresh-btn',
+    navPanelId: 'panel-inquiries'
+  });
 })();
 </script>
 </body>
