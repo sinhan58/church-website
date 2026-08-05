@@ -1,118 +1,77 @@
-# 교회 홈페이지 (관리자 모드 + 유튜브 설교 자동 업데이트)
+[CHANGES.md](https://github.com/user-attachments/files/30731605/CHANGES.md)
+# 이번 작업(3차 수정)에서 변경/추가된 파일
 
-Node.js(Express) 기반의 교회 홈페이지입니다. PC와 모바일 반응형으로 제작되었으며,
-비개발자도 사용할 수 있는 관리자 페이지에서 홈페이지의 거의 모든 내용을 직접 수정할 수 있습니다.
+| 이 폴더의 파일 | 실제 저장소 경로 | 상태 |
+|---|---|---|
+| `public/index.html` | `public/index.html` | 수정 |
+| `public/prayer.html` | `public/prayer.html` | 수정 (2차 신규분, 이름 깜빡임만 추가 수정) |
+| `public/inquiry.html` | `public/inquiry.html` | 수정 (2차 신규분, 이름 깜빡임만 추가 수정) |
+| `public/receipt.html` | `public/receipt.html` | 수정 (마침표 제거 + 이름 깜빡임 수정) |
+| `public/js/main.js` | `public/js/main.js` | 수정 |
+| `public/js/secret-board.js` | `public/js/secret-board.js` | 2차 신규분 (이번엔 변경 없음) |
+| `public/js/receipt.js` | `public/js/receipt.js` | 수정 |
+| `public/js/font-catalog.js` | `public/js/font-catalog.js` | 수정 |
+| `public/css/style.css` | `public/css/style.css` | 수정 |
+| `routes/api.js` | `routes/api.js` | 2차 신규분 (이번엔 변경 없음) |
+| `routes/admin.js` | `routes/admin.js` | 수정 (이미지 압축 로직 추가) |
+| `public/admin/index.html` | `public/admin/index.html` | 2차 신규분 (이번엔 변경 없음) |
+| `data/menu.json` | `data/menu.json` | 2차 신규분 (이번엔 변경 없음) |
+| `data/prayers.json` | `data/prayers.json` | 신규 (1차분) |
+| `data/inquiries.json` | `data/inquiries.json` | 신규 (2차분) |
+| `package.json` | `package.json` | 수정 (sharp 의존성 추가) |
 
-## 주요 기능
+혼동을 줄이려고 이번엔 관련 없는 파일까지 폴더에 다 같이 담았습니다. 지금까지의 전체 변경사항이 다 들어있는
+"완전판"이라고 보시면 됩니다 — 이 폴더 내용을 저장소에 그대로 덮어쓰시면 1차~3차 작업이 전부 한 번에 반영됩니다.
 
-- **반응형 홈페이지**: 교회 소개, 예배 시간, 설교 영상, 소식·활동 게시판, 오시는 길
-- **관리자 모드** (`/admin`)
-  - 교회 이름, 대문(히어로) 문구/이미지, 교회 소개, 목회자 인사말 수정
-  - 예배 시간 추가/수정/삭제
-  - 상단 메뉴 추가/수정/삭제/순서 변경
-  - 소식·활동 게시판 글쓰기/삭제 (이미지 첨부, 상단 고정)
-  - 연락처, 지도, SNS 링크 수정
-  - 이미지 업로드 (드래그 없이 파일 선택으로 즉시 업로드)
-- **유튜브 설교 영상 자동 업데이트**
-  - 서버가 매일 지정된 시간(기본 새벽 4시)에 교회 유튜브 채널의 최신 영상을 자동으로 가져와 홈페이지에 반영합니다.
-  - 관리자 페이지에서 "지금 새로고침" 버튼으로 즉시 갱신도 가능합니다.
-  - 별도의 유튜브 API 키가 필요 없습니다 (유튜브 공개 RSS 피드 사용).
+⚠️ **`public/admin/` 폴더는 여전히 `index.html` 파일 하나만 들어있습니다.** 그 폴더를 통째로 덮어쓰지 마시고
+`public/admin/index.html` 파일 하나만 교체해주세요. (이유는 이전 안내와 동일 — 실제 대시보드 동작 스크립트인
+`public/admin/js/admin.js`는 제가 받은 파일 목록에 없어서 손대지 않았습니다.)
 
-## 폴더 구조
+---
 
-```
-church-website/
-├─ server.js              # Express 서버 진입점
-├─ routes/
-│  ├─ api.js               # 공개 API (홈페이지가 사용)
-│  └─ admin.js              # 관리자 API (로그인 필요)
-├─ middleware/auth.js       # 로그인 여부 확인
-├─ utils/
-│  ├─ db.js                 # data/*.json 읽기/쓰기 헬퍼
-│  └─ youtube.js             # 유튜브 RSS로 최신 영상 가져오기
-├─ data/                    # 실제 콘텐츠 저장 위치 (JSON 파일)
-│  ├─ site.json             # 교회소개/히어로/예배시간/연락처
-│  ├─ menu.json             # 상단 메뉴
-│  ├─ posts.json            # 소식·활동 게시글
-│  └─ sermons.json          # 캐시된 유튜브 영상 목록 (자동 생성/갱신)
-├─ public/
-│  ├─ index.html, css/, js/  # 방문자용 홈페이지
-│  ├─ admin/                 # 관리자 페이지 (로그인 화면 + 대시보드)
-│  └─ uploads/                # 업로드된 이미지 저장 위치
-└─ setup-admin.js            # 관리자 비밀번호 해시 생성 스크립트
-```
+## 이번에 새로 반영한 4가지
 
-## 설치 방법
+### 1. 교회 이름 깜빡임("교회" → "물댄동산교회") 해결
+페이지가 열릴 때 잠깐 "교회"로 보였다가 이름이 채워지던 문제. 아래 파일들의 기본(placeholder) 텍스트를
+전부 실제 이름으로 바꿔서, API 응답이 오기 전부터 이미 맞는 이름이 보이도록 했습니다.
+- `public/index.html`, `public/js/main.js` (헤더 로고, 브라우저 탭 제목, 푸터)
+- `public/prayer.html`, `public/inquiry.html` (헤더 로고, 푸터)
+- `public/receipt.html`, `public/js/receipt.js` (헤더 로고, 푸터) — 겸사겸사 여기 남아있던 로고 옆 마침표(`.`)도 제거했습니다.
 
-1. Node.js 18 이상이 설치되어 있어야 합니다.
-2. 패키지 설치
-   ```bash
-   npm install
-   ```
-3. 환경 변수 설정
-   ```bash
-   cp .env.example .env
-   ```
-   `.env` 파일을 열어 아래 항목을 채워주세요.
+### 2. 골드 색상 명도 대비 개선 (접근성)
+지난 조사에서 말씀드렸던 문제: 흰색/아이보리 배경 위의 금색 글자가 명도 대비 2.2~2.4:1로 낮아서
+잘 안 보일 수 있다는 부분이었습니다.
+- `public/css/style.css`에 밝은 배경 전용의 더 진한 금색(`--gold-deep`)을 새로 추가했습니다.
+- 섹션 소제목(예: "OFFERING", "PRAYER REQUEST"), 게시판 카테고리 배지, 연락처 라벨, 큐티 하트 아이콘 등
+  **밝은 배경 위에 있던 금색 글자들**을 이 색으로 바꿨습니다 (대비 약 4.5~4.9:1로 개선, 기준 통과).
+- 예배안내처럼 원래 남색(어두운) 배경 위에 있던 금색은 원래도 대비가 좋아서 그대로 뒀습니다.
 
-   | 항목 | 설명 |
-   |---|---|
-   | `PORT` | 서버 포트 (기본 3000) |
-   | `SESSION_SECRET` | 임의의 긴 문자열로 변경 |
-   | `ADMIN_USERNAME` | 관리자 로그인 아이디 |
-   | `ADMIN_PASSWORD_HASH` | 아래 4번 항목으로 생성한 해시값 |
-   | `YOUTUBE_CHANNEL_ID` | 교회 유튜브 채널ID (UC로 시작, 아래 참고) |
-   | `YOUTUBE_UPDATE_CRON` | 자동 업데이트 주기 (cron 형식, 기본: 매일 새벽 4시) |
+### 3. 구글 폰트 최적화
+- `public/index.html`에서 무조건 불러오던 폰트 11종 중 기본 2종(노토 세리프/노토 산스)만 남기고 나머지
+  8종은 뺐습니다.
+- `public/js/font-catalog.js`에 `ensureGoogleFont()` 함수를 추가해서, 관리자가 다른 폰트(고운돋움,
+  나눔고딕, 검은고딕 등)를 실제로 선택했을 때만 그 폰트 하나만 그때그때 불러오도록 바꿨습니다.
+- `public/js/main.js`가 사이트 정보를 불러올 때 이 함수를 호출하도록 연결했습니다.
+- 관리자 페이지는 폰트 미리보기가 필요해서 그대로 뒀습니다(방문자용 페이지만 최적화).
 
-4. 관리자 비밀번호 생성
-   ```bash
-   node setup-admin.js 원하는비밀번호
-   ```
-   출력된 해시 문자열을 `.env`의 `ADMIN_PASSWORD_HASH`에 붙여넣으세요.
+### 4. 이미지 자동 압축
+- `routes/admin.js`의 이미지 업로드 로직에 `sharp` 라이브러리를 붙여서, 업로드되는 이미지를 서버에서
+  자동으로 **가로 1920px 초과 시 축소 + 화질 82%로 재압축**하도록 했습니다.
+- 움짤(GIF)이나 이미지가 아닌 첨부파일(주보 PDF 등)은 원본 그대로 두고, 압축 중 오류가 나도 업로드
+  자체는 실패하지 않도록(원본으로 대체 저장) 안전장치를 넣었습니다.
+- `package.json`에 `sharp`를 추가했습니다.
 
-5. 서버 실행
-   ```bash
-   npm start
-   ```
-6. 브라우저에서 확인
-   - 홈페이지: `http://localhost:3000`
-   - 관리자 페이지: `http://localhost:3000/admin`
+  ⚠️ **배포 시 꼭 필요한 작업**: 서버(Render 등)에 새 코드를 올린 뒤 **`npm install`을 다시 실행**해야
+  `sharp` 라이브러리가 실제로 설치됩니다. Render처럼 `package.json`을 보고 자동으로 빌드하는 서비스라면
+  보통 배포 시 자동으로 설치되지만, 혹시 빌드 로그에 sharp 관련 에러가 뜨면 알려주세요.
 
-## 유튜브 채널ID 찾는 방법
+---
 
-1. 교회 유튜브 채널로 이동합니다.
-2. 채널 홈 → "정보(정보 더보기)" 탭을 열면 `UC...`로 시작하는 채널 ID를 확인할 수 있습니다.
-3. 또는 채널 페이지 소스에서 `"channelId":"UC..."` 값을 찾아도 됩니다.
-4. 이 값을 `.env`의 `YOUTUBE_CHANNEL_ID`에 넣고 서버를 재시작하면,
-   서버가 즉시 한 번 갱신을 시도하고 이후 설정한 주기마다 자동으로 최신 영상을 가져옵니다.
-
-> 참고: 채널이 "핸들(@교회이름)"만 있고 채널ID를 못 찾겠다면, 유튜브 채널 URL을
-> 브라우저 주소창에 입력한 뒤 페이지 소스보기(Ctrl+U)에서 `channel_id=` 를 검색하면 찾을 수 있습니다.
-
-## 배포 (실제 서비스 운영 시)
-
-- 이 프로젝트는 Node.js 서버가 계속 실행되어야 하는 구조입니다.
-  Cafe24, 카페24 가상서버, Railway, Render, AWS Lightsail, 가비아 등
-  Node.js를 지원하는 호스팅에 올리시면 됩니다.
-- 운영 시에는 `pm2` 같은 프로세스 매니저로 서버가 죽지 않도록 관리하는 것을 권장합니다.
-  ```bash
-  npm install -g pm2
-  pm2 start server.js --name church-website
-  ```
-- HTTPS 적용을 위해 Nginx 등의 리버스 프록시와 함께 사용하는 것을 권장합니다.
-- 이미지가 많아질 경우 `public/uploads` 폴더를 정기적으로 백업하세요.
-- `data/` 폴더의 JSON 파일들이 실제 데이터베이스 역할을 하므로, 이 폴더도 정기적으로 백업하세요.
-
-## 데이터 저장 방식에 대한 안내
-
-현재 버전은 별도의 데이터베이스 설치 없이 바로 사용할 수 있도록
-`data/` 폴더의 JSON 파일에 콘텐츠를 저장합니다. 소규모 교회 홈페이지 운영에는
-충분하지만, 방문자가 매우 많거나 여러 관리자가 동시에 자주 수정하는 환경이라면
-추후 MySQL/PostgreSQL 등으로 교체하는 것을 고려하실 수 있습니다.
-
-## 커스터마이징
-
-- 색상/폰트/레이아웃: `public/css/style.css` 상단의 `:root` 변수 값을 수정하면
-  전체 색상 테마를 쉽게 바꿀 수 있습니다.
-- 기본 문구/초기 데이터: `data/site.json`, `data/menu.json`, `data/posts.json` 을
-  직접 수정해도 되고, 서버 실행 후 관리자 페이지에서 수정해도 됩니다.
+## 배포 전 체크리스트 (전체 누적)
+1. 표에 따라 파일을 저장소 경로에 덮어쓰기 (`public/admin/`은 `index.html`만!)
+2. `npm install` 재실행 (sharp 설치 확인)
+3. 관리자 페이지 → '선교사역 섹션 타이틀', '지도 임베드 URL' 값 확인/수정 (1차 작업분)
+4. 관리자 페이지 → '메뉴 관리'에서 "기도요청" 메뉴 링크가 `/prayer.html`로 되어 있는지 확인
+5. 새 이미지를 하나 업로드해보고 실제로 용량이 줄어드는지 확인 (예: 5MB 사진 업로드 후 결과 용량 비교)
+6. PC/모바일에서 골드 텍스트(섹션 제목, 배지 등)가 이전보다 또렷하게 보이는지 육안 확인
+7. 새로고침 시 교회 이름이 더 이상 "교회"로 잠깐 보이지 않는지 확인
