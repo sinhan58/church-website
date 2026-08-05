@@ -21,7 +21,7 @@
 
 <header class="site-header" id="site-header">
   <div class="container">
-    <a href="#home" class="brand" id="brand-name">교회<span class="gold-dot">.</span></a>
+    <a href="#home" class="brand" id="brand-name">교회</a>
     <nav class="nav-desktop" id="nav-desktop"></nav>
     <button class="hamburger" id="hamburger" aria-label="메뉴 열기">
       <span></span><span></span><span></span>
@@ -134,6 +134,36 @@
         <button class="board-tab" data-cat="주보">주보</button>
       </div>
       <div class="board-list" id="board-list"></div>
+      <div class="board-pagination" id="board-pagination"></div>
+    </div>
+  </section>
+
+  <!-- PRAYER REQUEST (기도 요청) -->
+  <section class="section section--tight" id="prayer">
+    <div class="container">
+      <div class="section-head">
+        <span class="eyebrow">PRAYER REQUEST</span>
+        <h2>기도 요청</h2>
+        <p>함께 기도할 제목을 나눠주세요. 비밀글로 남기면 목회자만 확인할 수 있어요</p>
+      </div>
+
+      <form class="prayer-form" id="prayer-form">
+        <div class="prayer-form-row">
+          <input type="text" id="pr-name" placeholder="이름 또는 닉네임 (선택)" maxlength="30" />
+          <label class="prayer-secret-toggle">
+            <input type="checkbox" id="pr-secret" />
+            비밀글로 남기기
+          </label>
+        </div>
+        <input type="password" id="pr-password" class="prayer-password-input" placeholder="비밀번호 (4자 이상, 나중에 내용 확인할 때 필요해요)" style="display:none;" />
+        <textarea id="pr-content" rows="4" placeholder="기도 제목을 나눠주세요" maxlength="2000" required></textarea>
+        <div class="prayer-form-foot">
+          <span class="prayer-form-status" id="prayer-form-status"></span>
+          <button type="submit" class="btn btn--gold">기도 요청 남기기</button>
+        </div>
+      </form>
+
+      <div class="prayer-list" id="prayer-list"></div>
     </div>
   </section>
 
@@ -142,7 +172,7 @@
     <div class="container">
       <div class="section-head">
         <span class="eyebrow">MISSIONS</span>
-        <h2 id="missions-title">선교 사역 / 동역의 기쁨</h2>
+        <h2 id="missions-title">선교와 섬김</h2>
         <p class="missions-verse" id="missions-verse"></p>
         <p id="missions-subtitle"></p>
       </div>
@@ -179,7 +209,7 @@
     <div class="container">
       <div class="section-head">
         <span class="eyebrow">OFFERING</span>
-        <h2>헌금 안내</h2>
+        <h2>온라인 헌금 안내</h2>
       </div>
       <div class="offering-card">
         <p class="offering-account-line" id="offering-account-line">
@@ -190,7 +220,6 @@
         </p>
         <p class="offering-note" id="offering-note"></p>
         <div class="offering-receipt-cta">
-          <p>연말정산용 기부금 영수증이 필요하신가요?</p>
           <a href="/receipt.html" class="btn-gold">기부금 영수증 신청하기 →</a>
         </div>
       </div>
@@ -226,7 +255,7 @@
       <span class="footer-brand" id="footer-brand"></span>
       <div class="footer-sns" id="footer-sns"></div>
     </div>
-    <p>&copy; <span id="footer-year"></span> <span id="footer-brand-2"></span>. All rights reserved. &nbsp;·&nbsp; <a class="admin-link" href="/admin">관리자</a></p>
+    <p>&copy; <span id="footer-year"></span> <span id="footer-brand-2"></span>. All rights reserved.</p>
   </div>
 </footer>
 
