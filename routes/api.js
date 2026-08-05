@@ -162,72 +162,84 @@ router.get('/partners', async (req, res) => {
   }
 });
 
-// ---------- 기도 요청 (비밀글 지원) ----------
-// 목록 (공개) - 비밀글은 내용을 감추고 표시만 함
-router.get('/prayers', async (req, res) => {
-  try {
-    const prayers = (await readData('prayers')) || [];
-    const sorted = [...prayers].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-    const publicList = sorted.map((p) => ({
-      id: p.id,
-      name: p.name || '익명',
-      date: p.date,
-      secret: !!p.secret,
-      content: p.secret ? '' : p.content
-    }));
-    res.json(publicList);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// ---------- 비밀글 지원 게시판 (기도 요청 / 온라인 문의 공용) ----------
+// 같은 구조(이름·내용·비밀글 여부·비밀번호)를 쓰는 두 기능을 하나의 팩토리로 관리합니다.
+// key: 'prayers' → 기도 요청, 'inquiries' → 온라인 문의
+function createSecretBoardRouter(key, { requiredMessage }) {
+  const board = express.Router();
 
-// 등록 (공개, 로그인 불필요)
-router.post('/prayers', async (req, res) => {
-  try {
-    const { name, content, secret, password } = req.body;
-    if (!content || !content.trim()) {
-      return res.status(400).json({ error: '기도 내용을 입력해주세요.' });
+  // 목록 (공개) - 비밀글은 내용을 감추고 표시만 함
+  board.get('/', async (req, res) => {
+    try {
+      const items = (await readData(key)) || [];
+      const sorted = [...items].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      res.json(
+        sorted.map((p) => ({
+          id: p.id,
+          name: p.name || '익명',
+          date: p.date,
+          secret: !!p.secret,
+          content: p.secret ? '' : p.content
+        }))
+      );
+    } catch (err) {
+      res.status(500).json({ error: err.message });
     }
-    if (secret && (!password || String(password).length < 4)) {
-      return res.status(400).json({ error: '비밀글은 4자 이상의 비밀번호를 설정해주세요.' });
+  });
+
+  // 등록 (공개, 로그인 불필요)
+  board.post('/', async (req, res) => {
+    try {
+      const { name, content, secret, password } = req.body;
+      if (!content || !content.trim()) {
+        return res.status(400).json({ error: requiredMessage });
+      }
+      if (secret && (!password || String(password).length < 4)) {
+        return res.status(400).json({ error: '비밀글은 4자 이상의 비밀번호를 설정해주세요.' });
+      }
+
+      const items = (await readData(key)) || [];
+      const item = {
+        id: key.slice(0, 2) + '_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+        name: (name || '').trim().slice(0, 30),
+        content: content.trim().slice(0, 2000),
+        secret: !!secret,
+        passwordHash: secret ? bcrypt.hashSync(String(password), 8) : null,
+        date: new Date().toISOString().slice(0, 10),
+        createdAt: new Date().toISOString()
+      };
+      items.unshift(item);
+      await writeData(key, items);
+      res.json({ ok: true, id: item.id });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
     }
+  });
 
-    const prayers = (await readData('prayers')) || [];
-    const item = {
-      id: 'pr_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
-      name: (name || '').trim().slice(0, 30),
-      content: content.trim().slice(0, 2000),
-      secret: !!secret,
-      passwordHash: secret ? bcrypt.hashSync(String(password), 8) : null,
-      date: new Date().toISOString().slice(0, 10),
-      createdAt: new Date().toISOString()
-    };
-    prayers.unshift(item);
-    await writeData('prayers', prayers);
-    res.json({ ok: true, id: item.id });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  // 비밀글 비밀번호 확인 (공개) - 맞으면 내용을 돌려줌
+  board.post('/:id/verify', async (req, res) => {
+    try {
+      const { password } = req.body;
+      const items = (await readData(key)) || [];
+      const item = items.find((p) => p.id === req.params.id);
+      if (!item) return res.status(404).json({ error: '요청을 찾을 수 없습니다.' });
 
-// 비밀글 비밀번호 확인 (공개) - 맞으면 내용을 돌려줌
-router.post('/prayers/:id/verify', async (req, res) => {
-  try {
-    const { password } = req.body;
-    const prayers = (await readData('prayers')) || [];
-    const item = prayers.find((p) => p.id === req.params.id);
-    if (!item) return res.status(404).json({ error: '요청을 찾을 수 없습니다.' });
+      if (!item.secret) {
+        return res.json({ ok: true, content: item.content, name: item.name, date: item.date });
+      }
+      const valid = item.passwordHash && bcrypt.compareSync(String(password || ''), item.passwordHash);
+      if (!valid) return res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
 
-    if (!item.secret) {
-      return res.json({ ok: true, content: item.content, name: item.name, date: item.date });
+      res.json({ ok: true, content: item.content, name: item.name, date: item.date });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
     }
-    const valid = item.passwordHash && bcrypt.compareSync(String(password || ''), item.passwordHash);
-    if (!valid) return res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
+  });
 
-    res.json({ ok: true, content: item.content, name: item.name, date: item.date });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+  return board;
+}
+
+router.use('/prayers', createSecretBoardRouter('prayers', { requiredMessage: '기도 내용을 입력해주세요.' }));
+router.use('/inquiries', createSecretBoardRouter('inquiries', { requiredMessage: '문의 내용을 입력해주세요.' }));
 
 module.exports = router;
