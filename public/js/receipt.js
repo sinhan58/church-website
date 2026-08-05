@@ -8,7 +8,7 @@
     .then((site) => {
       if (site && site.churchName) {
         document.title = `기부금 영수증 신청 | ${site.churchName}`;
-        $('#receipt-brand').innerHTML = `${site.churchName}<span class="gold-dot">.</span>`;
+        $('#receipt-brand').textContent = site.churchName;
         $('#receipt-footer-name').textContent = site.churchName;
       }
     })
