@@ -4,7 +4,17 @@ const bcrypt = require('bcryptjs');
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
-const sharp = require('sharp');
+
+// sharp(이미지 압축용)는 배포 환경에 따라 설치가 안 돼있거나 실패할 수 있어서,
+// 여기서 에러가 나도 로그인을 포함한 관리자 기능 전체가 죽지 않도록 안전하게 불러옵니다.
+// 이 경우 이미지 압축만 건너뛰고(원본 그대로 저장) 나머지 기능은 정상 동작합니다.
+let sharp = null;
+try {
+  sharp = require('sharp');
+} catch (err) {
+  console.error('[admin] sharp 모듈을 불러오지 못했습니다. 이미지 자동 압축 기능은 비활성화됩니다:', err.message);
+}
+
 const { readData, writeData, makeId, saveUploadedFile } = require('../utils/db');
 const { requireAuth, requireMainAdmin, requirePermission } = require('../middleware/auth');
 const { updateSermonsCache, getCachedSermons } = require('../utils/youtube');
@@ -38,7 +48,7 @@ const MAX_IMAGE_DIMENSION = 1920;
 
 async function compressImageIfNeeded(file) {
   const isCompressibleImage = /^image\/(jpeg|png|webp)/.test(file.mimetype);
-  if (!isCompressibleImage) return file.buffer;
+  if (!isCompressibleImage || !sharp) return file.buffer;
 
   try {
     const image = sharp(file.buffer, { failOn: 'none' });
