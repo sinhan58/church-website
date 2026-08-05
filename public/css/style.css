@@ -12,6 +12,10 @@
   --ivory-dim: #f0ebdf;
   --gold: #c9a227;
   --gold-soft: #e4c876;
+  /* 흰색/아이보리 등 밝은 배경 위 골드 "글자"는 --gold만으로는 명도 대비가 낮아(WCAG 기준 미달)
+     잘 안 보일 수 있어서, 밝은 배경 전용으로 더 진하게 만든 색입니다. 어두운(네이비) 배경 위
+     텍스트나 버튼 배경색으로 쓰는 --gold는 그대로 둡니다. */
+  --gold-deep: #8f6b17;
   --ink: #201f1c;
   --muted: #6b6a63;
   --line: #e4ddc9;
@@ -69,10 +73,12 @@ button { font-family: inherit; cursor: pointer; }
   font-size: 0.78rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--gold);
+  color: var(--gold-deep);
   font-weight: 600;
   margin-bottom: 12px;
 }
+/* 어두운(네이비) 배경 섹션에서는 밝은 골드가 대비가 더 좋아서 원래 색 그대로 사용 */
+.section--dark .eyebrow { color: var(--gold); }
 
 .section {
   padding: 96px 0;
@@ -241,6 +247,7 @@ button { font-family: inherit; cursor: pointer; }
 .btn--outline { border-color: rgba(255,255,255,0.5); color: #fff; }
 .btn--outline:hover { background: rgba(255,255,255,0.1); }
 .btn--navy { background: var(--navy-deep); color: #fff; }
+.btn--sm { padding: 9px 18px; font-size: 0.85rem; }
 
 .scroll-cue {
   position: absolute;
@@ -423,7 +430,7 @@ button { font-family: inherit; cursor: pointer; }
   color: var(--ink);
 }
 .file-modal-actions { display: flex; align-items: center; gap: 16px; }
-.file-modal-actions a { font-size: 0.85rem; color: var(--gold); }
+.file-modal-actions a { font-size: 0.85rem; color: var(--gold-deep); }
 .file-modal-close { background: none; border: none; font-size: 1.4rem; color: var(--muted); line-height: 1; }
 #file-modal-frame { flex: 1; overflow: auto; background: #525659; }
 #file-modal-frame iframe { width: 100%; height: 100%; border: 0; }
@@ -474,8 +481,8 @@ button { font-family: inherit; cursor: pointer; }
 .board-info .badge {
   font-size: 0.72rem;
   font-weight: 700;
-  color: var(--gold);
-  border: 1px solid var(--gold);
+  color: var(--gold-deep);
+  border: 1px solid var(--gold-deep);
   border-radius: 999px;
   padding: 4px 12px;
   white-space: nowrap;
@@ -584,7 +591,7 @@ button { font-family: inherit; cursor: pointer; }
   text-decoration: none;
 }
 .attachment-item:hover { border-color: var(--gold); background: #fdf7e6; }
-.attachment-item .icon { color: var(--gold); }
+.attachment-item .icon { color: var(--gold-deep); }
 .attachment-image { width: 100%; border-radius: 8px; display: block; margin-bottom: 12px; }
 
 /* ---------------- Contact ---------------- */
@@ -593,7 +600,7 @@ button { font-family: inherit; cursor: pointer; }
   grid-template-columns: 1fr 1fr;
   gap: 40px;
 }
-.contact-info dt { color: var(--gold); font-size: 0.78rem; letter-spacing: 0.1em; text-transform: uppercase; margin-top: 20px; }
+.contact-info dt { color: var(--gold-deep); font-size: 0.78rem; letter-spacing: 0.1em; text-transform: uppercase; margin-top: 20px; }
 .contact-info dt:first-child { margin-top: 0; }
 .contact-info dd { margin: 4px 0 0; font-size: 1.05rem; color: var(--navy-deep); }
 .contact-address-note {
@@ -605,6 +612,53 @@ button { font-family: inherit; cursor: pointer; }
   margin-top: 6px !important;
 }
 
+/* ---------------- 온라인 헌금 안내 + 기도 요청 (좌우 배치) ---------------- */
+.offering-prayer-grid {
+  display: flex;
+  align-items: stretch;
+  gap: 56px;
+}
+.offering-prayer-col {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+}
+.offering-prayer-col + .offering-prayer-col {
+  border-left: 1px solid var(--line);
+  padding-left: 56px;
+}
+.offering-prayer-grid--single .offering-prayer-col + .offering-prayer-col {
+  border-left: none;
+  padding-left: 0;
+}
+.offering-prayer-grid--single #offering { display: none !important; }
+.offering-prayer-col .eyebrow { display: block; }
+.offering-prayer-col h2 { margin-bottom: 24px; }
+
+.prayer-teaser-card {
+  max-width: 420px;
+  margin: 0 auto;
+  background: var(--ivory-dim);
+  border-radius: var(--radius);
+  padding: 32px 36px;
+}
+.prayer-teaser-card p {
+  color: var(--ink);
+  font-size: 0.95rem;
+  line-height: 1.8;
+  margin: 0 0 22px;
+}
+
+@media (max-width: 860px) {
+  .offering-prayer-grid { flex-direction: column; gap: 48px; }
+  .offering-prayer-col + .offering-prayer-col {
+    border-left: none;
+    border-top: 1px solid var(--line);
+    padding-left: 0;
+    padding-top: 48px;
+  }
+}
+
 .offering-card {
   max-width: 520px;
   margin: 0 auto;
@@ -614,7 +668,7 @@ button { font-family: inherit; cursor: pointer; }
   text-align: center;
 }
 .offering-info { display: flex; flex-direction: column; gap: 14px; margin: 0 0 20px; }
-.offering-info dt { color: var(--gold); font-size: 0.78rem; letter-spacing: 0.1em; text-transform: uppercase; }
+.offering-info dt { color: var(--gold-deep); font-size: 0.78rem; letter-spacing: 0.1em; text-transform: uppercase; }
 .offering-info dd { margin: 4px 0 0; font-size: 1.15rem; font-weight: 600; color: var(--navy-deep); }
 
 .offering-account-line {
@@ -674,7 +728,7 @@ button { font-family: inherit; cursor: pointer; }
   font-weight: 700;
   margin-top: 4px;
 }
-.offering-receipt-status { font-size: 0.85rem; color: var(--gold); margin: 4px 0 0; min-height: 1.2em; }
+.offering-receipt-status { font-size: 0.85rem; color: var(--gold-deep); margin: 4px 0 0; min-height: 1.2em; }
 /* ---------------- 기도 요청 ---------------- */
 .prayer-form {
   max-width: 560px;
@@ -763,7 +817,7 @@ button { font-family: inherit; cursor: pointer; }
 .prayer-name { font-weight: 700; color: var(--navy-deep); font-size: 0.92rem; }
 .prayer-date { color: var(--muted); font-size: 0.8rem; }
 .prayer-content { margin: 0; color: #333; font-size: 0.92rem; line-height: 1.7; word-break: keep-all; overflow-wrap: break-word; }
-.prayer-unlocked-badge { font-size: 0.76rem; color: var(--gold); font-weight: 600; }
+.prayer-unlocked-badge { font-size: 0.76rem; color: var(--gold-deep); font-weight: 600; }
 .prayer-locked { margin: 0 0 10px; color: var(--muted); font-size: 0.88rem; }
 .prayer-unlock-form { display: flex; gap: 8px; }
 .prayer-unlock-form input {
@@ -1053,7 +1107,7 @@ button { font-family: inherit; cursor: pointer; }
 .qt-amen-btn { position: relative; overflow: visible; }
 .qt-amen-btn:hover, .qt-share-btn:hover, .qt-home-btn:hover { border-color: var(--gold); }
 .qt-amen-btn.pressed { border-color: var(--gold); background: var(--gold-soft); color: var(--navy-deep); }
-.qt-heart { color: var(--gold); font-size: 1.05rem; }
+.qt-heart { color: var(--gold-deep); font-size: 1.05rem; }
 @keyframes qtAmenPop {
   0% { transform: scale(1); }
   40% { transform: scale(0.9); }
@@ -1070,7 +1124,7 @@ button { font-family: inherit; cursor: pointer; }
   position: absolute;
   left: 50%;
   top: -6px;
-  color: var(--gold);
+  color: var(--gold-deep);
   font-size: 1rem;
   pointer-events: none;
   animation: qtHeartFloat 0.9s ease forwards;
@@ -1207,7 +1261,7 @@ a:focus-visible, button:focus-visible {
 }
 #partners-list { flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
 .missions-partners-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
-.eyebrow-sm { display: block; font-size: 11px; font-weight: 600; letter-spacing: 1px; color: var(--gold); margin-bottom: 2px; }
+.eyebrow-sm { display: block; font-size: 11px; font-weight: 600; letter-spacing: 1px; color: var(--gold-deep); margin-bottom: 2px; }
 .missions-partners-head h3 { font-family: var(--font-heading); font-size: 16px; font-weight: 500; margin: 0; color: var(--ink); }
 .missions-partners-nav { display: flex; gap: 4px; }
 .icon-btn-round {
