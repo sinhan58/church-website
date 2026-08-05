@@ -56,16 +56,19 @@
     const site = await getJSON('/api/site');
 
     if (site.design) {
+      // 기본 2종(노토 세리프/산스) 외의 폰트를 관리자가 선택한 경우에만 그 폰트를 추가로 불러옴
+      window.ensureGoogleFont && window.ensureGoogleFont(site.design.headingFont);
+      window.ensureGoogleFont && window.ensureGoogleFont(site.design.bodyFont);
       const headingFamily = window.getFontFamily(site.design.headingFont, "'Noto Serif KR', serif");
       const bodyFamily = window.getFontFamily(site.design.bodyFont, "'Pretendard', 'Noto Sans KR', sans-serif");
       document.documentElement.style.setProperty('--font-heading', headingFamily);
       document.documentElement.style.setProperty('--font-body', bodyFamily);
     }
 
-    document.title = site.churchName || '교회 홈페이지';
-    $('#brand-name').textContent = site.churchName || '교회';
-    $('#footer-brand').textContent = site.churchName || '';
-    $('#footer-brand-2').textContent = site.churchName || '';
+    document.title = site.churchName || '물댄동산교회';
+    $('#brand-name').textContent = site.churchName || '물댄동산교회';
+    $('#footer-brand').textContent = site.churchName || '물댄동산교회';
+    $('#footer-brand-2').textContent = site.churchName || '물댄동산교회';
     $('#footer-year').textContent = new Date().getFullYear();
 
     if (site.hero) {
@@ -116,7 +119,6 @@
         $('#contact-address-note').style.display = '';
       }
       $('#contact-phone').textContent = site.contact.phone || '';
-      $('#contact-email').textContent = site.contact.email || '';
       if (site.contact.mapEmbedUrl) {
         $('#map-box').innerHTML = `<iframe src="${site.contact.mapEmbedUrl}" loading="lazy" allowfullscreen></iframe>`;
       }
@@ -132,6 +134,10 @@
       }
       $('#offering-note').textContent = site.offering.note || '';
       $('#offering').style.display = '';
+      $('#offering-prayer-grid').classList.remove('offering-prayer-grid--single');
+    } else {
+      // 헌금 정보가 설정되지 않았으면 기도 요청 카드만 단독으로 넓게 보여준다
+      $('#offering-prayer-grid').classList.add('offering-prayer-grid--single');
     }
 
     const footerSns = $('#footer-sns');
@@ -890,142 +896,8 @@
     }
   }
 
-  // ---------------- 기도 요청 (비밀글 지원) ----------------
-  function prayerCardHTML(p) {
-    const nameStr = escapeHtml(p.name || '익명');
-    const dateStr = escapeHtml(p.date || '');
-    if (p.secret) {
-      return `
-        <div class="prayer-card prayer-card--secret" data-id="${p.id}">
-          <div class="prayer-card-head">
-            <span class="prayer-name">${nameStr}</span>
-            <span class="prayer-date">${dateStr}</span>
-          </div>
-          <p class="prayer-locked">🔒 비밀글입니다. 작성 시 입력한 비밀번호로 확인할 수 있어요.</p>
-          <form class="prayer-unlock-form">
-            <input type="password" placeholder="비밀번호" required />
-            <button type="submit">확인</button>
-          </form>
-          <p class="prayer-unlock-error"></p>
-        </div>`;
-    }
-    return `
-      <div class="prayer-card" data-id="${p.id}">
-        <div class="prayer-card-head">
-          <span class="prayer-name">${nameStr}</span>
-          <span class="prayer-date">${dateStr}</span>
-        </div>
-        <p class="prayer-content">${escapeHtml(p.content || '').replace(/\n/g, '<br>')}</p>
-      </div>`;
-  }
-
-  function bindPrayerUnlockForms() {
-    $$('.prayer-unlock-form').forEach((form) => {
-      form.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const card = form.closest('.prayer-card');
-        const id = card.dataset.id;
-        const pwInput = form.querySelector('input[type="password"]');
-        const errEl = card.querySelector('.prayer-unlock-error');
-        errEl.textContent = '';
-        try {
-          const res = await fetch(`/api/prayers/${id}/verify`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ password: pwInput.value })
-          });
-          const data = await res.json();
-          if (!res.ok) {
-            errEl.textContent = data.error || '비밀번호가 일치하지 않습니다.';
-            return;
-          }
-          card.classList.remove('prayer-card--secret');
-          card.innerHTML = `
-            <div class="prayer-card-head">
-              <span class="prayer-name">${escapeHtml(data.name || '익명')}</span>
-              <span class="prayer-date">${escapeHtml(data.date || '')}</span>
-              <span class="prayer-unlocked-badge">🔓 확인됨</span>
-            </div>
-            <p class="prayer-content">${escapeHtml(data.content || '').replace(/\n/g, '<br>')}</p>`;
-        } catch (err) {
-          errEl.textContent = '확인 중 오류가 발생했습니다.';
-        }
-      });
-    });
-  }
-
-  async function loadPrayers() {
-    const listEl = $('#prayer-list');
-    if (!listEl) return;
-    try {
-      const list = await getJSON('/api/prayers');
-      if (!list || list.length === 0) {
-        listEl.innerHTML = `<p class="prayer-empty">아직 등록된 기도 요청이 없습니다. 첫 번째로 나눠주세요.</p>`;
-        return;
-      }
-      listEl.innerHTML = list.slice(0, 20).map(prayerCardHTML).join('');
-      bindPrayerUnlockForms();
-    } catch (err) {
-      listEl.innerHTML = `<p class="prayer-empty">기도 요청을 불러오지 못했습니다.</p>`;
-    }
-  }
-
-  function setupPrayerForm() {
-    const form = $('#prayer-form');
-    if (!form) return;
-    const secretCheckbox = $('#pr-secret');
-    const passwordInput = $('#pr-password');
-    const statusEl = $('#prayer-form-status');
-
-    secretCheckbox.addEventListener('change', () => {
-      const on = secretCheckbox.checked;
-      passwordInput.style.display = on ? '' : 'none';
-      passwordInput.required = on;
-      if (!on) passwordInput.value = '';
-    });
-
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const content = $('#pr-content').value.trim();
-      const secret = secretCheckbox.checked;
-      const password = passwordInput.value;
-      if (!content) return;
-      if (secret && password.length < 4) {
-        statusEl.textContent = '비밀번호는 4자 이상 입력해주세요.';
-        statusEl.style.color = '#b3413a';
-        return;
-      }
-      statusEl.textContent = '등록 중...';
-      statusEl.style.color = '';
-      try {
-        const res = await fetch('/api/prayers', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name: $('#pr-name').value.trim(), content, secret, password })
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          statusEl.textContent = data.error || '등록에 실패했습니다.';
-          statusEl.style.color = '#b3413a';
-          return;
-        }
-        form.reset();
-        passwordInput.style.display = 'none';
-        statusEl.textContent = '기도 요청이 등록되었습니다 🙏';
-        statusEl.style.color = 'var(--gold)';
-        track('click', { label: 'prayer_submit' });
-        loadPrayers();
-      } catch (err) {
-        statusEl.textContent = '등록 중 오류가 발생했습니다.';
-        statusEl.style.color = '#b3413a';
-      }
-    });
-  }
-
-  setupPrayerForm();
-
   // ---------------- 초기 로드 ----------------
-  Promise.all([loadSite(), loadMenu(), loadSermons(), loadBoard(), loadQT(), loadMissions(), loadPrayers()]).catch((err) => {
+  Promise.all([loadSite(), loadMenu(), loadSermons(), loadBoard(), loadQT(), loadMissions()]).catch((err) => {
     console.error('콘텐츠를 불러오는 중 오류가 발생했습니다:', err);
   });
 })();
