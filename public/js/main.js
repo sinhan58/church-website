@@ -63,7 +63,7 @@
     }
 
     document.title = site.churchName || '교회 홈페이지';
-    $('#brand-name').innerHTML = `${escapeHtml(site.churchName || '교회')}<span class="gold-dot">.</span>`;
+    $('#brand-name').textContent = site.churchName || '교회';
     $('#footer-brand').textContent = site.churchName || '';
     $('#footer-brand-2').textContent = site.churchName || '';
     $('#footer-year').textContent = new Date().getFullYear();
@@ -88,7 +88,7 @@
     }
 
     if (site.missions) {
-      $('#missions-title').textContent = site.missions.title || '선교 사역 / 동역의 기쁨';
+      $('#missions-title').textContent = site.missions.title || '선교와 섬김';
       $('#missions-verse').textContent = '"온 천하에 다니며 만민에게 복음을 전파하라" (마가복음 16:15)';
       $('#missions-subtitle').textContent = site.missions.subtitle || '';
       $('#partners-title').textContent = '동역해주시는 분들';
@@ -280,34 +280,116 @@
     return firstImg ? firstImg.url : '';
   }
 
-  function renderBoard(category) {
-    const list = $('#board-list');
-    const filtered = category === '전체' ? allPosts : allPosts.filter((p) => p.category === category);
+  // 모바일에서 카테고리별로 노출할 최대 개수 (소식 3 / 활동 3 / 주보 최신 1)
+  const BOARD_MOBILE_LIMITS = { 소식: 3, 활동: 3, 주보: 1 };
+  const BOARD_PAGE_SIZE = 9; // PC 한 페이지당 노출 개수
+  const isBoardMobile = () => window.matchMedia('(max-width: 900px)').matches;
 
-    if (filtered.length === 0) {
-      list.innerHTML = `<div class="board-empty">등록된 게시글이 없습니다.</div>`;
+  let boardCategory = '전체';
+  let boardPage = 1;
+
+  function boardCardHTML(p) {
+    const thumb = thumbnailFor(p);
+    return `
+      <div class="board-card" data-id="${p.id}">
+        <div class="board-thumb">
+          ${thumb ? `<img src="${thumb}" alt="${escapeHtml(p.title)}" loading="lazy" />` : `<div class="board-thumb-empty">${escapeHtml((p.category || '')[0] || '소')}</div>`}
+        </div>
+        <div class="board-info">
+          <div class="board-top">
+            <span class="badge">${escapeHtml(p.category)}</span>
+            <span class="date">${escapeHtml(p.date)}</span>
+          </div>
+          <h4>${p.pinned ? '<span class="pin">📌</span>' : ''}${escapeHtml(p.title)}</h4>
+          <p>${escapeHtml(plainPreview(p.content))}</p>
+        </div>
+      </div>`;
+  }
+
+  // 모바일 "전체" 탭: 카테고리별 한도를 지키면서, 기존 정렬(상단고정→최신순) 순서는 그대로 유지
+  function pickWithCategoryLimits(posts, limits) {
+    const counts = {};
+    const result = [];
+    posts.forEach((p) => {
+      const limit = limits[p.category];
+      if (limit === undefined) return; // 정의되지 않은 카테고리는 노출하지 않음(현재는 소식/활동/주보 뿐)
+      counts[p.category] = counts[p.category] || 0;
+      if (counts[p.category] < limit) {
+        result.push(p);
+        counts[p.category]++;
+      }
+    });
+    return result;
+  }
+
+  function renderBoardPagination(totalItems) {
+    const pager = $('#board-pagination');
+    const totalPages = Math.ceil(totalItems / BOARD_PAGE_SIZE);
+
+    if (isBoardMobile() || totalPages <= 1) {
+      pager.innerHTML = '';
       return;
     }
 
-    list.innerHTML = filtered
-      .map((p) => {
-        const thumb = thumbnailFor(p);
-        return `
-        <div class="board-card" data-id="${p.id}">
-          <div class="board-thumb">
-            ${thumb ? `<img src="${thumb}" alt="${escapeHtml(p.title)}" loading="lazy" />` : `<div class="board-thumb-empty">${escapeHtml((p.category || '')[0] || '소')}</div>`}
-          </div>
-          <div class="board-info">
-            <div class="board-top">
-              <span class="badge">${escapeHtml(p.category)}</span>
-              <span class="date">${escapeHtml(p.date)}</span>
-            </div>
-            <h4>${p.pinned ? '<span class="pin">📌</span>' : ''}${escapeHtml(p.title)}</h4>
-            <p>${escapeHtml(plainPreview(p.content))}</p>
-          </div>
-        </div>`;
-      })
-      .join('');
+    const buttons = [];
+    buttons.push(
+      `<button class="board-page-btn board-page-nav" data-page="${boardPage - 1}" ${boardPage === 1 ? 'disabled' : ''} aria-label="이전 페이지">‹</button>`
+    );
+    for (let i = 1; i <= totalPages; i++) {
+      buttons.push(
+        `<button class="board-page-btn${i === boardPage ? ' active' : ''}" data-page="${i}">${i}</button>`
+      );
+    }
+    buttons.push(
+      `<button class="board-page-btn board-page-nav" data-page="${boardPage + 1}" ${boardPage === totalPages ? 'disabled' : ''} aria-label="다음 페이지">›</button>`
+    );
+    pager.innerHTML = buttons.join('');
+
+    $$('.board-page-btn', pager).forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const page = Number(btn.dataset.page);
+        if (!page || page === boardPage) return;
+        boardPage = page;
+        renderBoard();
+        // 페이지를 넘기면 목록 상단이 보이도록 살짝 스크롤 보정
+        $('#board').scrollIntoView({ block: 'start', behavior: 'smooth' });
+      });
+    });
+  }
+
+  function renderBoard() {
+    const list = $('#board-list');
+    const category = boardCategory;
+    const byCategory = category === '전체' ? allPosts : allPosts.filter((p) => p.category === category);
+
+    let pageItems;
+    let totalForPagination;
+
+    if (isBoardMobile()) {
+      // 모바일: 페이지 넘김 없이 카테고리별 개수만 제한해서 보여준다
+      if (category === '전체') {
+        pageItems = pickWithCategoryLimits(allPosts, BOARD_MOBILE_LIMITS);
+      } else {
+        const limit = BOARD_MOBILE_LIMITS[category];
+        pageItems = limit !== undefined ? byCategory.slice(0, limit) : byCategory;
+      }
+      totalForPagination = 0;
+    } else {
+      // PC: 9개씩, 페이지네이션
+      const totalPages = Math.max(1, Math.ceil(byCategory.length / BOARD_PAGE_SIZE));
+      if (boardPage > totalPages) boardPage = totalPages;
+      const start = (boardPage - 1) * BOARD_PAGE_SIZE;
+      pageItems = byCategory.slice(start, start + BOARD_PAGE_SIZE);
+      totalForPagination = byCategory.length;
+    }
+
+    if (pageItems.length === 0) {
+      list.innerHTML = `<div class="board-empty">등록된 게시글이 없습니다.</div>`;
+    } else {
+      list.innerHTML = pageItems.map(boardCardHTML).join('');
+    }
+
+    renderBoardPagination(totalForPagination);
 
     $$('.board-card').forEach((item) => {
       item.addEventListener('click', () => {
@@ -375,14 +457,24 @@
 
   async function loadBoard() {
     allPosts = await getJSON('/api/posts');
-    renderBoard('전체');
+    boardCategory = '전체';
+    boardPage = 1;
+    renderBoard();
 
     $$('.board-tab').forEach((tab) => {
       tab.addEventListener('click', () => {
         $$('.board-tab').forEach((t) => t.classList.remove('active'));
         tab.classList.add('active');
-        renderBoard(tab.dataset.cat);
+        boardCategory = tab.dataset.cat;
+        boardPage = 1;
+        renderBoard();
       });
+    });
+
+    // PC ↔ 모바일 화면 전환 시(창 크기 조절, 기기 회전 등) 표시 방식이 바뀌므로 다시 렌더링
+    window.matchMedia('(max-width: 900px)').addEventListener('change', () => {
+      boardPage = 1;
+      renderBoard();
     });
   }
 
@@ -530,10 +622,12 @@
     }
 
     const [latest, ...rest] = list;
+    const isDesktop = window.matchMedia('(min-width: 861px)').matches;
 
     // 캐러셀에는 오늘 카드 + 최근 지난 큐티 몇 장만(오래된 순 → 오늘 순으로 배치해
     // 오늘 카드가 맨 오른쪽=가운데 정렬 기준이 되도록 함)
-    const carouselPast = rest.slice(0, 5).reverse();
+    // 모바일에서는 좁은 화면에 여러 장이 겹쳐 보이지 않도록 "오늘의 큐티" 카드 1개만 렌더링한다.
+    const carouselPast = isDesktop ? rest.slice(0, 5).reverse() : [];
 
     const archiveCardHtml = (q) => `
       <a class="qt-card qt-card--archive" href="/qt/${q.id}" data-id="${q.id}">
@@ -558,7 +652,6 @@
     $$('#qt-carousel-track .qt-card--today').forEach((c) => c.addEventListener('click', () => track('click', { label: 'qt_card' })));
     $$('#qt-carousel-track .qt-card--archive').forEach((c) => c.addEventListener('click', () => track('click', { label: 'qt_carousel_archive' })));
 
-    const isDesktop = window.matchMedia('(min-width: 861px)').matches;
     const todayIndex = carouselPast.length; // 오늘 카드는 배열 맨 뒤(오른쪽)에 위치
 
     if (carouselPast.length === 0 || !isDesktop) {
@@ -797,8 +890,142 @@
     }
   }
 
+  // ---------------- 기도 요청 (비밀글 지원) ----------------
+  function prayerCardHTML(p) {
+    const nameStr = escapeHtml(p.name || '익명');
+    const dateStr = escapeHtml(p.date || '');
+    if (p.secret) {
+      return `
+        <div class="prayer-card prayer-card--secret" data-id="${p.id}">
+          <div class="prayer-card-head">
+            <span class="prayer-name">${nameStr}</span>
+            <span class="prayer-date">${dateStr}</span>
+          </div>
+          <p class="prayer-locked">🔒 비밀글입니다. 작성 시 입력한 비밀번호로 확인할 수 있어요.</p>
+          <form class="prayer-unlock-form">
+            <input type="password" placeholder="비밀번호" required />
+            <button type="submit">확인</button>
+          </form>
+          <p class="prayer-unlock-error"></p>
+        </div>`;
+    }
+    return `
+      <div class="prayer-card" data-id="${p.id}">
+        <div class="prayer-card-head">
+          <span class="prayer-name">${nameStr}</span>
+          <span class="prayer-date">${dateStr}</span>
+        </div>
+        <p class="prayer-content">${escapeHtml(p.content || '').replace(/\n/g, '<br>')}</p>
+      </div>`;
+  }
+
+  function bindPrayerUnlockForms() {
+    $$('.prayer-unlock-form').forEach((form) => {
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const card = form.closest('.prayer-card');
+        const id = card.dataset.id;
+        const pwInput = form.querySelector('input[type="password"]');
+        const errEl = card.querySelector('.prayer-unlock-error');
+        errEl.textContent = '';
+        try {
+          const res = await fetch(`/api/prayers/${id}/verify`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ password: pwInput.value })
+          });
+          const data = await res.json();
+          if (!res.ok) {
+            errEl.textContent = data.error || '비밀번호가 일치하지 않습니다.';
+            return;
+          }
+          card.classList.remove('prayer-card--secret');
+          card.innerHTML = `
+            <div class="prayer-card-head">
+              <span class="prayer-name">${escapeHtml(data.name || '익명')}</span>
+              <span class="prayer-date">${escapeHtml(data.date || '')}</span>
+              <span class="prayer-unlocked-badge">🔓 확인됨</span>
+            </div>
+            <p class="prayer-content">${escapeHtml(data.content || '').replace(/\n/g, '<br>')}</p>`;
+        } catch (err) {
+          errEl.textContent = '확인 중 오류가 발생했습니다.';
+        }
+      });
+    });
+  }
+
+  async function loadPrayers() {
+    const listEl = $('#prayer-list');
+    if (!listEl) return;
+    try {
+      const list = await getJSON('/api/prayers');
+      if (!list || list.length === 0) {
+        listEl.innerHTML = `<p class="prayer-empty">아직 등록된 기도 요청이 없습니다. 첫 번째로 나눠주세요.</p>`;
+        return;
+      }
+      listEl.innerHTML = list.slice(0, 20).map(prayerCardHTML).join('');
+      bindPrayerUnlockForms();
+    } catch (err) {
+      listEl.innerHTML = `<p class="prayer-empty">기도 요청을 불러오지 못했습니다.</p>`;
+    }
+  }
+
+  function setupPrayerForm() {
+    const form = $('#prayer-form');
+    if (!form) return;
+    const secretCheckbox = $('#pr-secret');
+    const passwordInput = $('#pr-password');
+    const statusEl = $('#prayer-form-status');
+
+    secretCheckbox.addEventListener('change', () => {
+      const on = secretCheckbox.checked;
+      passwordInput.style.display = on ? '' : 'none';
+      passwordInput.required = on;
+      if (!on) passwordInput.value = '';
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const content = $('#pr-content').value.trim();
+      const secret = secretCheckbox.checked;
+      const password = passwordInput.value;
+      if (!content) return;
+      if (secret && password.length < 4) {
+        statusEl.textContent = '비밀번호는 4자 이상 입력해주세요.';
+        statusEl.style.color = '#b3413a';
+        return;
+      }
+      statusEl.textContent = '등록 중...';
+      statusEl.style.color = '';
+      try {
+        const res = await fetch('/api/prayers', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: $('#pr-name').value.trim(), content, secret, password })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          statusEl.textContent = data.error || '등록에 실패했습니다.';
+          statusEl.style.color = '#b3413a';
+          return;
+        }
+        form.reset();
+        passwordInput.style.display = 'none';
+        statusEl.textContent = '기도 요청이 등록되었습니다 🙏';
+        statusEl.style.color = 'var(--gold)';
+        track('click', { label: 'prayer_submit' });
+        loadPrayers();
+      } catch (err) {
+        statusEl.textContent = '등록 중 오류가 발생했습니다.';
+        statusEl.style.color = '#b3413a';
+      }
+    });
+  }
+
+  setupPrayerForm();
+
   // ---------------- 초기 로드 ----------------
-  Promise.all([loadSite(), loadMenu(), loadSermons(), loadBoard(), loadQT(), loadMissions()]).catch((err) => {
+  Promise.all([loadSite(), loadMenu(), loadSermons(), loadBoard(), loadQT(), loadMissions(), loadPrayers()]).catch((err) => {
     console.error('콘텐츠를 불러오는 중 오류가 발생했습니다:', err);
   });
 })();
