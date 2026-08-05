@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>기도 요청</title>
+<meta name="robots" content="noindex" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+<link rel="stylesheet" href="/css/style.css" />
+</head>
+<body data-api-base="prayers">
+
+<header class="site-header scrolled">
+  <div class="container">
+    <a href="/" class="brand" id="board-brand">물댄동산교회</a>
+  </div>
+</header>
+
+<main>
+  <section class="section receipt-page-section">
+    <div class="container receipt-page-container">
+
+      <a href="/#offering-prayer-section" class="qt-back-link">← 헌금안내·기도요청으로</a>
+
+      <div class="section-head" style="text-align:left; margin-bottom:28px;">
+        <span class="eyebrow">PRAYER REQUEST</span>
+        <h2>기도 요청</h2>
+        <p>함께 기도할 제목을 나눠주세요. 비밀글로 남기면 목회자만 확인할 수 있어요.</p>
+      </div>
+
+      <form class="prayer-form" id="board-form">
+        <div class="prayer-form-row">
+          <input type="text" id="board-name" placeholder="이름 또는 닉네임 (선택)" maxlength="30" />
+          <label class="prayer-secret-toggle">
+            <input type="checkbox" id="board-secret" />
+            비밀글로 남기기
+          </label>
+        </div>
+        <input type="password" id="board-password" class="prayer-password-input" placeholder="비밀번호 (4자 이상, 나중에 내용 확인할 때 필요해요)" style="display:none;" />
+        <textarea id="board-content" rows="4" placeholder="기도 제목을 나눠주세요" maxlength="2000" required></textarea>
+        <div class="prayer-form-foot">
+          <span class="prayer-form-status" id="board-form-status"></span>
+          <button type="submit" class="btn btn--gold">기도 요청 남기기</button>
+        </div>
+      </form>
+
+      <div class="prayer-list" id="board-list"></div>
+
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <p>&copy; <span id="board-year"></span> <span id="board-footer-name">물댄동산교회</span>. All rights reserved.</p>
+  </div>
+</footer>
+
+<script src="/js/secret-board.js"></script>
+</body>
+</html>
