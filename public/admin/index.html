@@ -13,7 +13,7 @@
 
 <!-- 로그인 화면 -->
 <div class="login-screen" id="login-screen">
-  <form class="login-box" id="login-form">
+  <form class="login-box" id="login-form" method="post" action="#">
     <h1>관리자 로그인</h1>
     <p class="login-sub">교회 홈페이지 관리자 페이지입니다</p>
     <label>아이디
@@ -26,6 +26,57 @@
     <button type="submit" class="btn-primary">로그인</button>
   </form>
 </div>
+
+<!--
+  응급 안전장치: 원래 이 폼의 제출(가로채기 + 서버 전송)은 /admin/js/admin.js가 처리하도록
+  되어 있는데, 그 스크립트가 어떤 이유로든 실행되지 않으면 브라우저가 그냥 기본 방식대로
+  폼을 제출해버려서 아이디·비밀번호가 그대로 주소창(URL)에 노출되는 심각한 문제가 생깁니다.
+  admin.js가 정상 작동하는지와 무관하게 항상 먼저 실행되어, 최소한 "그냥 페이지 이동으로
+  제출되는 것"만큼은 확실히 막고 로그인 자체도 동작하도록 만든 독립 스크립트입니다.
+-->
+<script>
+(function () {
+  const form = document.getElementById('login-form');
+  const errorEl = document.getElementById('login-error');
+  if (!form) return;
+
+  form.addEventListener('submit', async function (e) {
+    // 가장 먼저, 무조건 기본 제출(페이지 이동 → 주소창에 비밀번호 노출)을 막습니다.
+    // (admin.js에 별도의 제출 처리 로직이 있다면 그건 그대로 이어서 실행됩니다 - 여기서는
+    //  막지 않습니다. 오직 "브라우저 기본 동작으로 새어나가는 것"만 차단합니다.)
+    e.preventDefault();
+
+    if (errorEl) errorEl.textContent = '';
+    const username = form.username.value.trim();
+    const password = form.password.value;
+    if (!username || !password) return;
+
+    try {
+      const res = await fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        if (errorEl) errorEl.textContent = data.error || '아이디 또는 비밀번호가 올바르지 않습니다.';
+        return;
+      }
+
+      // 로그인 성공: 로그인 화면을 감추고 대시보드를 보여줍니다.
+      // (대시보드 내부 데이터 채우기는 /admin/js/admin.js가 정상 작동할 때만 함께 이루어집니다.
+      //  이 화면이 뜨는데도 내용이 비어있다면 admin.js 자체가 로드되지 않고 있다는 뜻입니다.)
+      const loginScreen = document.getElementById('login-screen');
+      const dashboard = document.getElementById('dashboard');
+      if (loginScreen) loginScreen.style.display = 'none';
+      if (dashboard) dashboard.removeAttribute('hidden');
+    } catch (err) {
+      if (errorEl) errorEl.textContent = '로그인 중 오류가 발생했습니다. 잠시 후 다시 시도해주세요.';
+    }
+  }, true); // capture 단계에서 먼저 실행되도록 지정(가장 먼저 preventDefault를 걸기 위함)
+})();
+</script>
 
 <!-- 대시보드 화면 -->
 <div class="dashboard" id="dashboard" hidden>
