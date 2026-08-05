@@ -4,5 +4,6 @@
   { "id": "m3", "label": "예배안내", "link": "#service", "order": 3 },
   { "id": "m4", "label": "설교영상", "link": "#sermons", "order": 4 },
   { "id": "m5", "label": "소식·활동", "link": "#board", "order": 5 },
-  { "id": "m6", "label": "오시는길", "link": "#contact", "order": 6 }
+  { "id": "m6", "label": "기도요청", "link": "#prayer", "order": 6 },
+  { "id": "m7", "label": "오시는길", "link": "#contact", "order": 7 }
 ]
