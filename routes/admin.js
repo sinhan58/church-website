@@ -625,4 +625,30 @@ router.delete('/receipt-requests/:id', requirePermission('receipts'), async (req
   }
 });
 
+// ---------- 기도 요청 관리 ----------
+// 로그인한 관리자는 비밀글 여부와 관계없이 전체 내용을 확인할 수 있습니다
+// (다른 방문자에게는 비밀글 내용이 노출되지 않으며, 목회자가 중보기도를 위해 확인하는 용도입니다).
+router.get('/prayers', async (req, res) => {
+  try {
+    const prayers = (await readData('prayers')) || [];
+    const sorted = [...prayers]
+      .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+      .map(({ passwordHash, ...rest }) => rest);
+    res.json(sorted);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/prayers/:id', async (req, res) => {
+  try {
+    const prayers = (await readData('prayers')) || [];
+    const filtered = prayers.filter((p) => p.id !== req.params.id);
+    await writeData('prayers', filtered);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
