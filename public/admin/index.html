@@ -35,6 +35,7 @@
       <button class="nav-item active" data-panel="panel-site" data-permission="site">기본 정보</button>
       <button class="nav-item" data-panel="panel-menu" data-permission="menu">메뉴 관리</button>
       <button class="nav-item" data-panel="panel-board" data-permission="posts">소식·활동 게시판</button>
+      <button class="nav-item" data-panel="panel-prayers">기도 요청</button>
       <button class="nav-item" data-panel="panel-qt" data-permission="qt">오늘의 큐티</button>
       <button class="nav-item" data-panel="panel-missions" data-permission="missions">선교사역</button>
       <button class="nav-item" data-panel="panel-stats" data-permission="stats">통계</button>
@@ -114,7 +115,14 @@
 오색시장 정문에서 도보 3분"></textarea></div>
         <div class="field"><label>전화번호</label><input id="s-phone" type="text" /></div>
         <div class="field"><label>이메일</label><input id="s-email" type="text" /></div>
-        <div class="field"><label>지도 임베드 URL (구글맵 &lt;iframe&gt; src 주소)</label><input id="s-mapUrl" type="text" placeholder="https://www.google.com/maps/embed?..." /></div>
+        <div class="field">
+          <label>지도 임베드 URL (카카오맵/네이버맵/구글맵 &lt;iframe&gt; src 주소)</label>
+          <input id="s-mapUrl" type="text" placeholder="https://map.kakao.com/..." />
+          <p class="hint" style="margin-top:6px;">
+            카카오맵(map.kakao.com)에서 교회 주소를 검색 → 공유 아이콘 → 'HTML 태그 복사'를 누르면
+            iframe 코드가 나옵니다. 그 코드 안의 src="..." 주소만 복사해서 붙여넣으면 됩니다.
+          </p>
+        </div>
       </div>
 
       <div class="card">
@@ -222,6 +230,19 @@
       <div class="card">
         <h3>게시글 목록</h3>
         <div id="post-list" class="post-list"></div>
+      </div>
+    </section>
+
+    <!-- 기도 요청 -->
+    <section class="panel" id="panel-prayers">
+      <h2>기도 요청</h2>
+      <p class="panel-desc">
+        홈페이지 '기도 요청'에 성도님들이 남긴 내용입니다. 비밀글로 등록된 항목도
+        목회자 확인을 위해 이 화면에서는 내용이 그대로 보입니다(다른 방문자에게는 비공개).
+      </p>
+      <div class="card">
+        <button class="btn-secondary" id="prayers-refresh-btn" type="button">새로고침</button>
+        <div id="prayers-admin-list" class="post-list" style="margin-top:14px;"></div>
       </div>
     </section>
 
@@ -441,5 +462,75 @@
 <script src="/js/font-catalog.js"></script>
 <script src="/js/countries.js"></script>
 <script src="/admin/js/admin.js"></script>
+
+<!--
+  기도 요청 관리 패널 전용 스크립트.
+  기존 대시보드 스크립트(/admin/js/admin.js)를 건드리지 않고 이 패널 하나만 독립적으로
+  동작하도록 작성했습니다. 사이드바의 다른 메뉴 전환은 기존 admin.js가 처리합니다.
+-->
+<script>
+(function () {
+  function escapeHtml(str = '') {
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  async function loadPrayersAdmin() {
+    const listEl = document.getElementById('prayers-admin-list');
+    if (!listEl) return;
+    listEl.innerHTML = '<p class="hint">불러오는 중...</p>';
+    try {
+      const res = await fetch('/api/admin/prayers');
+      if (res.status === 401) {
+        listEl.innerHTML = '<p class="hint">로그인 후 이용해주세요.</p>';
+        return;
+      }
+      const list = await res.json();
+      if (!Array.isArray(list) || list.length === 0) {
+        listEl.innerHTML = '<p class="hint">등록된 기도 요청이 없습니다.</p>';
+        return;
+      }
+      listEl.innerHTML = list
+        .map(
+          (p) => `
+        <div class="post-row" style="grid-template-columns: auto 1fr auto;" data-id="${p.id}">
+          <span class="badge">${p.secret ? '🔒 비밀글' : '공개'}</span>
+          <div>
+            <div class="title">${escapeHtml(p.name || '익명')}</div>
+            <div class="meta">${escapeHtml((p.content || '').slice(0, 120))}</div>
+          </div>
+          <div style="display:flex; align-items:center; gap:10px;">
+            <span class="date">${escapeHtml(p.date || '')}</span>
+            <button type="button" class="icon-btn prayer-delete-btn" title="삭제">삭제</button>
+          </div>
+        </div>`
+        )
+        .join('');
+
+      listEl.querySelectorAll('.prayer-delete-btn').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const row = btn.closest('.post-row');
+          const id = row.dataset.id;
+          if (!confirm('이 기도 요청을 삭제할까요? 삭제 후에는 되돌릴 수 없습니다.')) return;
+          try {
+            const res = await fetch(`/api/admin/prayers/${id}`, { method: 'DELETE' });
+            if (!res.ok) throw new Error('삭제 실패');
+            loadPrayersAdmin();
+          } catch (err) {
+            alert('삭제 중 오류가 발생했습니다.');
+          }
+        });
+      });
+    } catch (err) {
+      listEl.innerHTML = '<p class="hint">불러오는 중 오류가 발생했습니다.</p>';
+    }
+  }
+
+  const navBtn = document.querySelector('.nav-item[data-panel="panel-prayers"]');
+  if (navBtn) navBtn.addEventListener('click', loadPrayersAdmin);
+
+  const refreshBtn = document.getElementById('prayers-refresh-btn');
+  if (refreshBtn) refreshBtn.addEventListener('click', loadPrayersAdmin);
+})();
+</script>
 </body>
 </html>
