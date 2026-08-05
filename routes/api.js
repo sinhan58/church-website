@@ -1,5 +1,6 @@
 const express = require('express');
 const router = express.Router();
+const bcrypt = require('bcryptjs');
 const { readData, writeData } = require('../utils/db');
 const { getCachedSermons } = require('../utils/youtube');
 
@@ -156,6 +157,74 @@ router.get('/missions', async (req, res) => {
 router.get('/partners', async (req, res) => {
   try {
     res.json((await readData('partners')) || []);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- 기도 요청 (비밀글 지원) ----------
+// 목록 (공개) - 비밀글은 내용을 감추고 표시만 함
+router.get('/prayers', async (req, res) => {
+  try {
+    const prayers = (await readData('prayers')) || [];
+    const sorted = [...prayers].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+    const publicList = sorted.map((p) => ({
+      id: p.id,
+      name: p.name || '익명',
+      date: p.date,
+      secret: !!p.secret,
+      content: p.secret ? '' : p.content
+    }));
+    res.json(publicList);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 등록 (공개, 로그인 불필요)
+router.post('/prayers', async (req, res) => {
+  try {
+    const { name, content, secret, password } = req.body;
+    if (!content || !content.trim()) {
+      return res.status(400).json({ error: '기도 내용을 입력해주세요.' });
+    }
+    if (secret && (!password || String(password).length < 4)) {
+      return res.status(400).json({ error: '비밀글은 4자 이상의 비밀번호를 설정해주세요.' });
+    }
+
+    const prayers = (await readData('prayers')) || [];
+    const item = {
+      id: 'pr_' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+      name: (name || '').trim().slice(0, 30),
+      content: content.trim().slice(0, 2000),
+      secret: !!secret,
+      passwordHash: secret ? bcrypt.hashSync(String(password), 8) : null,
+      date: new Date().toISOString().slice(0, 10),
+      createdAt: new Date().toISOString()
+    };
+    prayers.unshift(item);
+    await writeData('prayers', prayers);
+    res.json({ ok: true, id: item.id });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 비밀글 비밀번호 확인 (공개) - 맞으면 내용을 돌려줌
+router.post('/prayers/:id/verify', async (req, res) => {
+  try {
+    const { password } = req.body;
+    const prayers = (await readData('prayers')) || [];
+    const item = prayers.find((p) => p.id === req.params.id);
+    if (!item) return res.status(404).json({ error: '요청을 찾을 수 없습니다.' });
+
+    if (!item.secret) {
+      return res.json({ ok: true, content: item.content, name: item.name, date: item.date });
+    }
+    const valid = item.passwordHash && bcrypt.compareSync(String(password || ''), item.passwordHash);
+    if (!valid) return res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
+
+    res.json({ ok: true, content: item.content, name: item.name, date: item.date });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
