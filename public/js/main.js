@@ -16,58 +16,27 @@
   }
 
   // ---------------- 오시는 길 지도 ----------------
-  // 카카오맵을 관리자 페이지에서 연결해뒀으면(kakaoMapKey/kakaoMapTimestamp) 그걸 우선 사용하고,
+  // 카카오맵을 관리자 페이지에서 연결해뒀으면(kakaoMapImageUrl/kakaoMapLinkUrl) 그걸 우선 사용하고,
   // 없으면 예전 방식대로 iframe 임베드 URL(구글맵 등)을 사용합니다.
-  let kakaoRoughmapLoaderPromise = null;
-  function loadKakaoRoughmapLoader() {
-    if (kakaoRoughmapLoaderPromise) return kakaoRoughmapLoaderPromise;
-    kakaoRoughmapLoaderPromise = new Promise((resolve, reject) => {
-      if (window.daum && window.daum.roughmap) {
-        resolve();
-        return;
-      }
-      const script = document.createElement('script');
-      script.charset = 'UTF-8';
-      script.src = 'https://ssl.daumcdn.net/dmaps/map_js_init/roughmapLoader.js';
-      script.onload = resolve;
-      script.onerror = reject;
-      document.head.appendChild(script);
-    });
-    return kakaoRoughmapLoaderPromise;
-  }
 
   function renderMap(contact) {
     const box = $('#map-box');
     if (!box) return;
 
-    // 형식이 이상한 값은(숫자/영숫자가 아니면) 아예 쓰지 않음 - 만약을 위한 2중 방어
-    const validKey = contact.kakaoMapKey && /^[a-zA-Z0-9]+$/.test(contact.kakaoMapKey) ? contact.kakaoMapKey : '';
-    const validTimestamp = contact.kakaoMapTimestamp && /^\d+$/.test(contact.kakaoMapTimestamp) ? contact.kakaoMapTimestamp : '';
+    // 형식이 이상한 값은 아예 쓰지 않음 (카카오 지도 도메인 https 주소인지 재확인 - 2중 방어)
+    const validImage = contact.kakaoMapImageUrl && /^https:\/\/staticmap\.kakao\.com\//.test(contact.kakaoMapImageUrl)
+      ? contact.kakaoMapImageUrl
+      : '';
+    const validLink = contact.kakaoMapLinkUrl && /^https:\/\/map\.kakao\.com\//.test(contact.kakaoMapLinkUrl)
+      ? contact.kakaoMapLinkUrl
+      : '';
 
-    if (validKey && validTimestamp) {
-      const containerId = 'daumRoughmapContainer' + validTimestamp;
-      box.innerHTML = `<div id="${containerId}" class="root_daum_roughmap root_daum_roughmap_landing"></div>`;
-      loadKakaoRoughmapLoader()
-        .then(() => {
-          try {
-            new window.daum.roughmap.Lander({
-              timestamp: validTimestamp,
-              key: validKey,
-              mapWidth: /^\d+$/.test(contact.kakaoMapWidth) ? contact.kakaoMapWidth : '640',
-              mapHeight: /^\d+$/.test(contact.kakaoMapHeight) ? contact.kakaoMapHeight : '360'
-            }).render();
-          } catch (err) {
-            // 카카오맵 렌더링에 실패하면 구글맵 등 대체 URL로 조용히 전환
-            if (contact.mapEmbedUrl) {
-              box.innerHTML = `<iframe src="${contact.mapEmbedUrl}" loading="lazy" allowfullscreen></iframe>`;
-            }
-          }
-        })
-        .catch(() => {
-          if (contact.mapEmbedUrl) {
-            box.innerHTML = `<iframe src="${contact.mapEmbedUrl}" loading="lazy" allowfullscreen></iframe>`;
-          }
-        });
+    if (validImage && validLink) {
+      box.innerHTML = `
+        <a class="kakao-map-preview" href="${validLink}" target="_blank" rel="noopener">
+          <img src="${validImage}" alt="교회 위치 지도" loading="lazy" />
+          <span class="kakao-map-cta">카카오맵에서 크게 보기 →</span>
+        </a>`;
       return;
     }
 
