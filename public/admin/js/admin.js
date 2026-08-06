@@ -221,7 +221,7 @@
     $('#s-email').value = s.contact?.email || '';
     $('#s-mapUrl').value = s.contact?.mapEmbedUrl || '';
     $('#s-kakaoMapCode').value = '';
-    updateKakaoMapStatus(s.contact?.kakaoMapKey, s.contact?.kakaoMapTimestamp);
+    updateKakaoMapStatus(s.contact?.kakaoMapImageUrl, s.contact?.kakaoMapLinkUrl);
 
     $('#s-offeringBank').value = s.offering?.bank || '';
     $('#s-offeringAccount').value = s.offering?.account || '';
@@ -285,31 +285,26 @@
     // 추가/삭제는 위에서 이벤트 바인딩됨. 저장 시점에 값 취합.
   }
 
-  // ---------------- 카카오맵 (지도 퍼가기 코드 붙여넣기) ----------------
-  // 카카오맵 '공유 > HTML 태그 복사'로 나오는 코드 전체를 그대로 저장하지 않고,
-  // 그 안에서 timestamp/key(필요하면 mapWidth/mapHeight)만 안전하게 뽑아서 저장합니다.
-  // (관리자가 붙여넣은 <script> 코드를 그대로 실행/저장하지 않는 것이 보안상 더 안전합니다.)
+  // ---------------- 카카오맵 (지도 미리보기 이미지 + 링크) ----------------
+  // 카카오맵 '공유 > HTML 태그 복사'로 나오는 코드에서 지도 미리보기 이미지 주소와,
+  // 클릭했을 때 이동할 카카오맵 링크만 안전하게 뽑아서 저장합니다.
+  // (관리자가 붙여넣은 코드를 그대로 저장/실행하지 않는 것이 보안상 더 안전합니다.)
   function parseKakaoMapCode(raw) {
     if (!raw || !raw.trim()) return null;
-    const timestampMatch = raw.match(/"timestamp"\s*:\s*"(\d+)"/);
-    const keyMatch = raw.match(/"key"\s*:\s*"([a-zA-Z0-9]+)"/);
-    if (!timestampMatch || !keyMatch) return { error: true };
-
-    const widthMatch = raw.match(/"mapWidth"\s*:\s*"(\d+)"/);
-    const heightMatch = raw.match(/"mapHeight"\s*:\s*"(\d+)"/);
+    const imgMatch = raw.match(/<img[^>]*\ssrc="(https:\/\/staticmap\.kakao\.com\/[^"]+)"/);
+    const linkMatch = raw.match(/href="(https:\/\/map\.kakao\.com\/[^"]+)"/);
+    if (!imgMatch || !linkMatch) return { error: true };
 
     return {
-      timestamp: timestampMatch[1],
-      key: keyMatch[1],
-      mapWidth: widthMatch ? widthMatch[1] : '',
-      mapHeight: heightMatch ? heightMatch[1] : ''
+      imageUrl: imgMatch[1],
+      linkUrl: linkMatch[1]
     };
   }
 
-  function updateKakaoMapStatus(key, timestamp) {
+  function updateKakaoMapStatus(imageUrl, linkUrl) {
     const el = $('#kakao-map-status');
     if (!el) return;
-    if (key && timestamp) {
+    if (imageUrl && linkUrl) {
       el.textContent = '✅ 카카오맵이 연결되어 있습니다. (새 코드를 붙여넣지 않으면 지금 설정이 유지됩니다)';
       el.style.color = '#2f8f4e';
     } else {
@@ -337,14 +332,12 @@
       const kakaoRaw = $('#s-kakaoMapCode').value;
       const parsedKakao = parseKakaoMapCode(kakaoRaw);
       if (parsedKakao && parsedKakao.error) {
-        statusEl.textContent = '카카오맵 코드를 다시 확인해주세요 (timestamp/key를 찾을 수 없습니다).';
+        statusEl.textContent = '카카오맵 코드를 다시 확인해주세요 (지도 이미지 주소를 찾을 수 없습니다).';
         statusEl.style.color = '#b3413a';
         return;
       }
-      const kakaoMapKey = parsedKakao ? parsedKakao.key : currentSite.contact?.kakaoMapKey || '';
-      const kakaoMapTimestamp = parsedKakao ? parsedKakao.timestamp : currentSite.contact?.kakaoMapTimestamp || '';
-      const kakaoMapWidth = parsedKakao ? parsedKakao.mapWidth : currentSite.contact?.kakaoMapWidth || '';
-      const kakaoMapHeight = parsedKakao ? parsedKakao.mapHeight : currentSite.contact?.kakaoMapHeight || '';
+      const kakaoMapImageUrl = parsedKakao ? parsedKakao.imageUrl : currentSite.contact?.kakaoMapImageUrl || '';
+      const kakaoMapLinkUrl = parsedKakao ? parsedKakao.linkUrl : currentSite.contact?.kakaoMapLinkUrl || '';
 
       const payload = {
         churchName: $('#s-churchName').value.trim(),
@@ -373,10 +366,8 @@
           phone: $('#s-phone').value.trim(),
           email: $('#s-email').value.trim(),
           mapEmbedUrl: $('#s-mapUrl').value.trim(),
-          kakaoMapKey,
-          kakaoMapTimestamp,
-          kakaoMapWidth,
-          kakaoMapHeight
+          kakaoMapImageUrl,
+          kakaoMapLinkUrl
         },
         offering: {
           bank: $('#s-offeringBank').value.trim(),
@@ -399,7 +390,7 @@
         currentSite = await api('/api/admin/site', { method: 'PUT', body: JSON.stringify(payload) });
         statusEl.textContent = '저장되었습니다 ✓';
         $('#s-kakaoMapCode').value = '';
-        updateKakaoMapStatus(currentSite.contact?.kakaoMapKey, currentSite.contact?.kakaoMapTimestamp);
+        updateKakaoMapStatus(currentSite.contact?.kakaoMapImageUrl, currentSite.contact?.kakaoMapLinkUrl);
         setTimeout(() => (statusEl.textContent = ''), 3000);
       } catch (err) {
         statusEl.textContent = '';
