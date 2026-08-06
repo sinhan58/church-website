@@ -314,6 +314,15 @@ router.get('/site', async (req, res) => {
 
 router.put('/site', requirePermission('site'), async (req, res) => {
   try {
+    // 카카오맵 관련 값은 화면에 그대로(HTML) 꽂혀 들어가는 값이라, 숫자/영숫자만 허용해서
+    // 혹시 모를 악성 스크립트 삽입을 막습니다. 형식이 이상하면 그냥 빈 값으로 저장합니다.
+    if (req.body.contact) {
+      const c = req.body.contact;
+      if (c.kakaoMapKey && !/^[a-zA-Z0-9]+$/.test(c.kakaoMapKey)) c.kakaoMapKey = '';
+      if (c.kakaoMapTimestamp && !/^\d+$/.test(c.kakaoMapTimestamp)) c.kakaoMapTimestamp = '';
+      if (c.kakaoMapWidth && !/^\d+$/.test(c.kakaoMapWidth)) c.kakaoMapWidth = '';
+      if (c.kakaoMapHeight && !/^\d+$/.test(c.kakaoMapHeight)) c.kakaoMapHeight = '';
+    }
     const current = (await readData('site')) || {};
     const updated = { ...current, ...req.body };
     await writeData('site', updated);
