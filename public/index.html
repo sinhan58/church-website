@@ -16,6 +16,16 @@
 <meta property="og:type" content="website" />
 <meta property="og:locale" content="ko_KR" />
 <meta name="google-site-verification" content="6F1Ati1QNE8s_yUbFkoHqn354YUirFrOycEBX5uXvxA" />
+
+<!-- PWA: 홈 화면에 추가했을 때 앱처럼 보이도록 하는 설정 -->
+<link rel="manifest" href="/manifest.json" />
+<meta name="theme-color" content="#0d1526" />
+<link rel="icon" href="/icons/icon-192.png" />
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="물댄동산교회" />
+<meta name="mobile-web-app-capable" content="yes" />
 </head>
 <body>
 
@@ -176,7 +186,7 @@
   </section>
 
   <!-- OFFERING (온라인 헌금 안내) + PRAYER REQUEST (기도 요청) : 좌우 배치 -->
-  <section class="section" id="offering-prayer-section">
+  <section class="section" id="offering-prayer-section" style="background:var(--ivory-dim);">
     <div class="container">
       <div class="offering-prayer-grid" id="offering-prayer-grid">
 
