@@ -15,6 +15,67 @@
       .replace(/>/g, '&gt;');
   }
 
+  // ---------------- 오시는 길 지도 ----------------
+  // 카카오맵을 관리자 페이지에서 연결해뒀으면(kakaoMapKey/kakaoMapTimestamp) 그걸 우선 사용하고,
+  // 없으면 예전 방식대로 iframe 임베드 URL(구글맵 등)을 사용합니다.
+  let kakaoRoughmapLoaderPromise = null;
+  function loadKakaoRoughmapLoader() {
+    if (kakaoRoughmapLoaderPromise) return kakaoRoughmapLoaderPromise;
+    kakaoRoughmapLoaderPromise = new Promise((resolve, reject) => {
+      if (window.daum && window.daum.roughmap) {
+        resolve();
+        return;
+      }
+      const script = document.createElement('script');
+      script.charset = 'UTF-8';
+      script.src = 'https://ssl.daumcdn.net/dmaps/map_js_init/roughmapLoader.js';
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+    return kakaoRoughmapLoaderPromise;
+  }
+
+  function renderMap(contact) {
+    const box = $('#map-box');
+    if (!box) return;
+
+    // 형식이 이상한 값은(숫자/영숫자가 아니면) 아예 쓰지 않음 - 만약을 위한 2중 방어
+    const validKey = contact.kakaoMapKey && /^[a-zA-Z0-9]+$/.test(contact.kakaoMapKey) ? contact.kakaoMapKey : '';
+    const validTimestamp = contact.kakaoMapTimestamp && /^\d+$/.test(contact.kakaoMapTimestamp) ? contact.kakaoMapTimestamp : '';
+
+    if (validKey && validTimestamp) {
+      const containerId = 'daumRoughmapContainer' + validTimestamp;
+      box.innerHTML = `<div id="${containerId}" class="root_daum_roughmap root_daum_roughmap_landing"></div>`;
+      loadKakaoRoughmapLoader()
+        .then(() => {
+          try {
+            new window.daum.roughmap.Lander({
+              timestamp: validTimestamp,
+              key: validKey,
+              mapWidth: /^\d+$/.test(contact.kakaoMapWidth) ? contact.kakaoMapWidth : '640',
+              mapHeight: /^\d+$/.test(contact.kakaoMapHeight) ? contact.kakaoMapHeight : '360'
+            }).render();
+          } catch (err) {
+            // 카카오맵 렌더링에 실패하면 구글맵 등 대체 URL로 조용히 전환
+            if (contact.mapEmbedUrl) {
+              box.innerHTML = `<iframe src="${contact.mapEmbedUrl}" loading="lazy" allowfullscreen></iframe>`;
+            }
+          }
+        })
+        .catch(() => {
+          if (contact.mapEmbedUrl) {
+            box.innerHTML = `<iframe src="${contact.mapEmbedUrl}" loading="lazy" allowfullscreen></iframe>`;
+          }
+        });
+      return;
+    }
+
+    if (contact.mapEmbedUrl) {
+      box.innerHTML = `<iframe src="${contact.mapEmbedUrl}" loading="lazy" allowfullscreen></iframe>`;
+    }
+  }
+
   // ---------------- 방문/클릭 통계 수집 ----------------
   function track(type, data = {}) {
     const payload = JSON.stringify({ type, ...data });
@@ -119,9 +180,7 @@
         $('#contact-address-note').style.display = '';
       }
       $('#contact-phone').textContent = site.contact.phone || '';
-      if (site.contact.mapEmbedUrl) {
-        $('#map-box').innerHTML = `<iframe src="${site.contact.mapEmbedUrl}" loading="lazy" allowfullscreen></iframe>`;
-      }
+      renderMap(site.contact);
     }
 
     if (site.offering && site.offering.bank && site.offering.account) {
@@ -894,6 +953,15 @@
       $('.missions-partners').style.display = '';
       renderPartners(partnersList);
     }
+  }
+
+  // ---------------- PWA: 서비스워커 등록 ----------------
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('/sw.js').catch(() => {
+        // 서비스워커 등록에 실패해도 사이트 이용에는 지장이 없으므로 조용히 무시
+      });
+    });
   }
 
   // ---------------- 초기 로드 ----------------
