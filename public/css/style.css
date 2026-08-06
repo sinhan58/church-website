@@ -847,14 +847,39 @@ button { font-family: inherit; cursor: pointer; }
 
 .map-box {
   border-radius: var(--radius);
-  overflow-x: auto;
-  overflow-y: hidden;
+  overflow: hidden;
   min-height: 320px;
   background: var(--ivory-dim);
   border: 1px solid var(--line);
 }
 .map-box iframe { width: 100%; height: 100%; min-height: 320px; border: 0; }
-.map-box .root_daum_roughmap { margin: 0 auto !important; }
+.kakao-map-preview {
+  display: block;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  text-align: center;
+}
+.kakao-map-preview img {
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  object-fit: cover;
+  display: block;
+}
+.kakao-map-cta {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  background: var(--navy-deep);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+}
 .map-placeholder {
   height: 100%;
   min-height: 320px;
