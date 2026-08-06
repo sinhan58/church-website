@@ -746,21 +746,31 @@
     return Math.floor((Date.now() - start.getTime()) / 86400000) + 1;
   }
 
-  function missionCardHTML(m) {
-    const flag = window.isoToFlag ? window.isoToFlag(m.countryCode) : '';
-    return `
-      <div class="mission-pin-card">
-        <div class="mission-pin-card-head">
-          <span class="flag">${flag}</span>
-          <span class="country">${escapeHtml(m.country || '')}</span>
-        </div>
+  // 좌표가 같거나(같은 도시) 매우 가까운 여러 선교지를 하나의 핀+카드로 묶어서 보여줍니다.
+  // 각 항목을 카드 안에서 구분선으로 나눠 나란히 표시합니다.
+  function missionGroupCardHTML(group) {
+    const first = group[0];
+    const flag = window.isoToFlag ? window.isoToFlag(first.countryCode) : '';
+    const items = group
+      .map(
+        (m) => `
         <div class="mission-pin-card-body">
           ${m.image ? `<img src="${m.image}" alt="${escapeHtml(m.name || '')}" />` : `<div class="mission-pin-card-avatar"></div>`}
           <div>
             <p class="name">${escapeHtml(m.name || '')}${m.tag ? ` <span class="tag">${escapeHtml(m.tag)}</span>` : ''}</p>
             <p class="desc">${escapeHtml(m.desc || '').replace(/\n/g, '<br>')}</p>
           </div>
+        </div>`
+      )
+      .join('<hr class="mission-pin-card-divider" />');
+
+    return `
+      <div class="mission-pin-card">
+        <div class="mission-pin-card-head">
+          <span class="flag">${flag}</span>
+          <span class="country">${escapeHtml(first.country || '')}</span>
         </div>
+        ${items}
       </div>`;
   }
 
@@ -831,23 +841,63 @@
           .attr('stroke-width', 0.6);
 
         const pinGroup = svg.append('g');
-        missions.forEach((m) => {
+
+        // 같은 나라/도시라서 좌표가 같거나 아주 가까운 선교지가 여러 개면 핀과 카드가
+        // 겹쳐서 일부만 보이는 문제가 있었습니다. 좌표를 먼저 계산해서, 몇 픽셀 이내로
+        // 겹치는 항목들은 하나의 핀 + 하나의 통합 카드로 묶어서 모두 보이게 합니다.
+        const positioned = missions.map((m) => {
           const [x, y] = projection([m.lon, m.lat]);
+          return { m, x, y };
+        });
+        const collisionGroups = {};
+        const groupOrder = [];
+        positioned.forEach((p) => {
+          const key = `${Math.round(p.x / 8)}_${Math.round(p.y / 8)}`;
+          if (!collisionGroups[key]) {
+            collisionGroups[key] = [];
+            groupOrder.push(key);
+          }
+          collisionGroups[key].push(p);
+        });
+
+        groupOrder.forEach((key) => {
+          const group = collisionGroups[key];
+          // 그룹 내 평균 좌표를 핀 위치로 사용
+          const x = group.reduce((sum, p) => sum + p.x, 0) / group.length;
+          const y = group.reduce((sum, p) => sum + p.y, 0) / group.length;
+          const missionsInGroup = group.map((p) => p.m);
+
           pinGroup
             .append('circle')
             .attr('cx', x)
             .attr('cy', y)
             .attr('r', 7)
             .attr('fill', 'var(--gold)')
+            .attr('stroke', 'var(--ivory)')
+            .attr('stroke-width', 1.5)
             .append('title')
-            .text(m.country || '');
+            .text(missionsInGroup.map((m) => `${m.country || ''}${m.name ? ' - ' + m.name : ''}`).join(', '));
+
+          if (missionsInGroup.length > 1) {
+            pinGroup
+              .append('text')
+              .attr('x', x)
+              .attr('y', y)
+              .attr('text-anchor', 'middle')
+              .attr('dominant-baseline', 'central')
+              .attr('font-size', '9px')
+              .attr('font-weight', '700')
+              .attr('fill', 'var(--navy-deep)')
+              .style('pointer-events', 'none')
+              .text(missionsInGroup.length);
+          }
 
           const flipX = x > width * 0.62;
           const div = document.createElement('div');
           div.className = 'mission-pin-card-wrap' + (flipX ? ' flip' : '');
           div.style.left = (x / width) * 100 + '%';
           div.style.top = (y / height) * 100 + '%';
-          div.innerHTML = missionCardHTML(m);
+          div.innerHTML = missionGroupCardHTML(missionsInGroup);
           mapEl.appendChild(div);
         });
       })
