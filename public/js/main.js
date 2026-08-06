@@ -35,6 +35,10 @@
       box.innerHTML = `
         <a class="kakao-map-preview" href="${validLink}" target="_blank" rel="noopener">
           <img src="${validImage}" alt="교회 위치 지도" loading="lazy" />
+          <svg class="kakao-map-pin" viewBox="0 0 32 44" aria-hidden="true">
+            <path d="M16 0C7.163 0 0 7.163 0 16c0 11 16 28 16 28s16-17 16-28C32 7.163 24.837 0 16 0z" fill="#0d1526"/>
+            <circle cx="16" cy="16" r="6.5" fill="#c9a227"/>
+          </svg>
           <span class="kakao-map-cta">카카오맵에서 크게 보기 →</span>
         </a>`;
       return;
