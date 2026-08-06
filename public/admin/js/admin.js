@@ -220,6 +220,8 @@
     $('#s-phone').value = s.contact?.phone || '';
     $('#s-email').value = s.contact?.email || '';
     $('#s-mapUrl').value = s.contact?.mapEmbedUrl || '';
+    $('#s-kakaoMapCode').value = '';
+    updateKakaoMapStatus(s.contact?.kakaoMapKey, s.contact?.kakaoMapTimestamp);
 
     $('#s-offeringBank').value = s.offering?.bank || '';
     $('#s-offeringAccount').value = s.offering?.account || '';
@@ -283,6 +285,39 @@
     // 추가/삭제는 위에서 이벤트 바인딩됨. 저장 시점에 값 취합.
   }
 
+  // ---------------- 카카오맵 (지도 퍼가기 코드 붙여넣기) ----------------
+  // 카카오맵 '공유 > HTML 태그 복사'로 나오는 코드 전체를 그대로 저장하지 않고,
+  // 그 안에서 timestamp/key(필요하면 mapWidth/mapHeight)만 안전하게 뽑아서 저장합니다.
+  // (관리자가 붙여넣은 <script> 코드를 그대로 실행/저장하지 않는 것이 보안상 더 안전합니다.)
+  function parseKakaoMapCode(raw) {
+    if (!raw || !raw.trim()) return null;
+    const timestampMatch = raw.match(/"timestamp"\s*:\s*"(\d+)"/);
+    const keyMatch = raw.match(/"key"\s*:\s*"([a-zA-Z0-9]+)"/);
+    if (!timestampMatch || !keyMatch) return { error: true };
+
+    const widthMatch = raw.match(/"mapWidth"\s*:\s*"(\d+)"/);
+    const heightMatch = raw.match(/"mapHeight"\s*:\s*"(\d+)"/);
+
+    return {
+      timestamp: timestampMatch[1],
+      key: keyMatch[1],
+      mapWidth: widthMatch ? widthMatch[1] : '',
+      mapHeight: heightMatch ? heightMatch[1] : ''
+    };
+  }
+
+  function updateKakaoMapStatus(key, timestamp) {
+    const el = $('#kakao-map-status');
+    if (!el) return;
+    if (key && timestamp) {
+      el.textContent = '✅ 카카오맵이 연결되어 있습니다. (새 코드를 붙여넣지 않으면 지금 설정이 유지됩니다)';
+      el.style.color = '#2f8f4e';
+    } else {
+      el.textContent = '카카오맵 미설정 — 아래 코드를 붙여넣으면 적용됩니다. (설정 전까지는 위 구글맵 URL이 사용됩니다)';
+      el.style.color = '';
+    }
+  }
+
   function collectServiceTimes() {
     return $$('#service-list .list-row').map((row) => ({
       id: row.dataset.id,
@@ -297,6 +332,19 @@
       statusEl.textContent = '저장 중...';
       const heroImg = $('#s-heroImageFile').dataset.uploadedUrl || currentSite.hero?.backgroundImage || '';
       const aboutImg = $('#s-aboutImageFile').dataset.uploadedUrl || currentSite.about?.image || '';
+
+      // 카카오맵 코드를 새로 붙여넣었으면 파싱해서 사용, 안 붙여넣었으면 기존 값을 그대로 유지
+      const kakaoRaw = $('#s-kakaoMapCode').value;
+      const parsedKakao = parseKakaoMapCode(kakaoRaw);
+      if (parsedKakao && parsedKakao.error) {
+        statusEl.textContent = '카카오맵 코드를 다시 확인해주세요 (timestamp/key를 찾을 수 없습니다).';
+        statusEl.style.color = '#b3413a';
+        return;
+      }
+      const kakaoMapKey = parsedKakao ? parsedKakao.key : currentSite.contact?.kakaoMapKey || '';
+      const kakaoMapTimestamp = parsedKakao ? parsedKakao.timestamp : currentSite.contact?.kakaoMapTimestamp || '';
+      const kakaoMapWidth = parsedKakao ? parsedKakao.mapWidth : currentSite.contact?.kakaoMapWidth || '';
+      const kakaoMapHeight = parsedKakao ? parsedKakao.mapHeight : currentSite.contact?.kakaoMapHeight || '';
 
       const payload = {
         churchName: $('#s-churchName').value.trim(),
@@ -324,7 +372,11 @@
           addressNote: $('#s-addressNote').value.trim(),
           phone: $('#s-phone').value.trim(),
           email: $('#s-email').value.trim(),
-          mapEmbedUrl: $('#s-mapUrl').value.trim()
+          mapEmbedUrl: $('#s-mapUrl').value.trim(),
+          kakaoMapKey,
+          kakaoMapTimestamp,
+          kakaoMapWidth,
+          kakaoMapHeight
         },
         offering: {
           bank: $('#s-offeringBank').value.trim(),
@@ -346,6 +398,8 @@
       try {
         currentSite = await api('/api/admin/site', { method: 'PUT', body: JSON.stringify(payload) });
         statusEl.textContent = '저장되었습니다 ✓';
+        $('#s-kakaoMapCode').value = '';
+        updateKakaoMapStatus(currentSite.contact?.kakaoMapKey, currentSite.contact?.kakaoMapTimestamp);
         setTimeout(() => (statusEl.textContent = ''), 3000);
       } catch (err) {
         statusEl.textContent = '';
