@@ -168,12 +168,28 @@
         <div class="field"><label>전화번호</label><input id="s-phone" type="text" /></div>
         <div class="field"><label>이메일</label><input id="s-email" type="text" /></div>
         <div class="field">
-          <label>지도 임베드 URL (카카오맵/네이버맵/구글맵 &lt;iframe&gt; src 주소)</label>
-          <input id="s-mapUrl" type="text" placeholder="https://map.kakao.com/..." />
+          <label>지도 임베드 URL (구글맵 등 &lt;iframe&gt; 방식 - 카카오맵을 아래에 설정하지 않았을 때 대신 쓰입니다)</label>
+          <input id="s-mapUrl" type="text" placeholder="https://www.google.com/maps/embed?..." />
           <p class="hint" style="margin-top:6px;">
-            카카오맵(map.kakao.com)에서 교회 주소를 검색 → 공유 아이콘 → 'HTML 태그 복사'를 누르면
-            iframe 코드가 나옵니다. 그 코드 안의 src="..." 주소만 복사해서 붙여넣으면 됩니다.
+            구글맵(google.com/maps)에서 교회 주소 검색 → 공유 → '지도 퍼가기' → iframe 코드 안의 src="..." 주소만
+            복사해서 붙여넣으면 됩니다. (카카오맵은 더 이상 이 방식의 코드를 제공하지 않아서, 카카오맵을 쓰시려면
+            바로 아래 '카카오맵 연결' 항목을 이용해주세요.)
           </p>
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>카카오맵 연결</h3>
+        <p class="hint" style="margin-top:0;">
+          1) map.kakao.com에서 교회 주소 검색 → 공유 아이콘 → 'HTML 태그 복사' 클릭<br />
+          2) 뜨는 코드를 <strong>전체 다 선택해서(Ctrl+A) 복사</strong>(Ctrl+C)한 다음, 아래 칸에 그대로
+          붙여넣기(Ctrl+V)만 해주세요. 어느 부분만 골라 복사할 필요 없이 통째로 붙여넣으면 됩니다.<br />
+          3) 이 화면 맨 아래 '저장하기' 버튼을 누르면 자동으로 필요한 부분만 인식해서 반영됩니다.
+        </p>
+        <div class="field">
+          <label>카카오맵 코드 붙여넣기</label>
+          <textarea id="s-kakaoMapCode" rows="6" placeholder="카카오맵에서 복사한 코드를 여기에 그대로 붙여넣으세요"></textarea>
+          <p class="hint" id="kakao-map-status" style="margin-top:6px;"></p>
         </div>
       </div>
 
