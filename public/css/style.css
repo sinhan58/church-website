@@ -880,6 +880,17 @@ button { font-family: inherit; cursor: pointer; }
   border-radius: 999px;
   box-shadow: var(--shadow);
 }
+.kakao-map-pin {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 34px;
+  height: auto;
+  /* 지도 이미지의 정중앙이 실제 위치 좌표라서, 핀의 뾰족한 끝(아래쪽)이 정중앙에 오도록 이동 */
+  transform: translate(-50%, -92%);
+  filter: drop-shadow(0 3px 4px rgba(13,21,38,0.35));
+  pointer-events: none;
+}
 .map-placeholder {
   height: 100%;
   min-height: 320px;
