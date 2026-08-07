@@ -325,22 +325,18 @@
 
     grid.innerHTML = data.videos
       .slice(0, 6)
-      .map(
-        (v, i) => `
-        <div class="sermon-card reveal reveal-delay-${(i % 6) + 1}" data-video-id="${escapeHtml(v.videoId)}" style="--accent-rgb: ${accentForId(v.videoId)};">
+      .map((v, i) => {
+        const posterUrl = `/api/sermon-poster/${encodeURIComponent(v.videoId)}?title=${encodeURIComponent(v.title || '')}`;
+        return `
+        <div class="sermon-card reveal reveal-delay-${(i % 6) + 1}" data-video-id="${escapeHtml(v.videoId)}">
           <div class="sermon-thumb">
-            <img src="${v.thumbnail}" alt="${escapeHtml(v.title)}" loading="lazy" />
-            <span class="sermon-tag">설교</span>
+            <img src="${posterUrl}" alt="${escapeHtml(v.title)}" loading="lazy" onerror="this.onerror=null;this.src='${escapeHtml(v.thumbnail)}';" />
             <button type="button" class="sermon-play" aria-label="재생">
               <svg viewBox="0 0 24 24"><path d="M9.5 7.5v9l8-4.5-8-4.5z"/></svg>
             </button>
-            <div class="sermon-overlay-text">
-              <p class="title">${escapeHtml(v.title)}</p>
-              <p class="date">${formatDate(v.publishedAt)}</p>
-            </div>
           </div>
-        </div>`
-      )
+        </div>`;
+      })
       .join('');
     observeReveals(grid);
 
