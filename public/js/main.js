@@ -293,6 +293,22 @@
     if (e.target.id === 'file-modal') closeFileModal();
   });
 
+  // 카드마다 다른 브랜드 톤을 자동으로 순환시켜서, 매주 비슷한 설교 화면이어도
+  // 카드 느낌이 겹치지 않도록 합니다 (직접 디자인 안 해도 자동으로 다양해짐)
+  const CARD_ACCENT_PALETTE = [
+    '13, 21, 38', // 네이비(기본)
+    '15, 42, 45', // 딥 틸
+    '58, 18, 32', // 와인
+    '20, 38, 26', // 포레스트
+    '36, 26, 53', // 슬레이트 퍼플
+    '42, 32, 21' // 웜 차콜
+  ];
+  function accentForId(id = '') {
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
+    return CARD_ACCENT_PALETTE[hash % CARD_ACCENT_PALETTE.length];
+  }
+
   async function loadSermons() {
     const data = await getJSON('/api/sermons');
     const grid = $('#sermon-grid');
@@ -311,18 +327,17 @@
       .slice(0, 6)
       .map(
         (v, i) => `
-        <div class="sermon-card reveal reveal-delay-${(i % 6) + 1}" data-video-id="${escapeHtml(v.videoId)}">
+        <div class="sermon-card reveal reveal-delay-${(i % 6) + 1}" data-video-id="${escapeHtml(v.videoId)}" style="--accent-rgb: ${accentForId(v.videoId)};">
           <div class="sermon-thumb">
             <img src="${v.thumbnail}" alt="${escapeHtml(v.title)}" loading="lazy" />
-            <div class="play">
-              <span class="play-btn">
-                <svg viewBox="0 0 24 24"><path d="M9.5 7.5v9l8-4.5-8-4.5z"/></svg>
-              </span>
+            <span class="sermon-tag">설교</span>
+            <button type="button" class="sermon-play" aria-label="재생">
+              <svg viewBox="0 0 24 24"><path d="M9.5 7.5v9l8-4.5-8-4.5z"/></svg>
+            </button>
+            <div class="sermon-overlay-text">
+              <p class="title">${escapeHtml(v.title)}</p>
+              <p class="date">${formatDate(v.publishedAt)}</p>
             </div>
-          </div>
-          <div class="sermon-info">
-            <div class="title">${escapeHtml(v.title)}</div>
-            <div class="date">${formatDate(v.publishedAt)}</div>
           </div>
         </div>`
       )
@@ -350,18 +365,16 @@
     grid.innerHTML = praises
       .map(
         (p, i) => `
-        <div class="praise-card reveal reveal-delay-${(i % 6) + 1}" data-video-id="${escapeHtml(p.youtubeId)}">
+        <div class="praise-card reveal reveal-delay-${(i % 6) + 1}" data-video-id="${escapeHtml(p.youtubeId)}" style="--accent-rgb: ${accentForId(p.youtubeId)};">
           <div class="praise-thumb">
             <img src="https://i.ytimg.com/vi/${escapeHtml(p.youtubeId)}/hqdefault.jpg" alt="${escapeHtml(p.title)}" loading="lazy" />
-            <div class="play">
-              <span class="play-btn">
-                <svg viewBox="0 0 24 24"><path d="M9.5 7.5v9l8-4.5-8-4.5z"/></svg>
-              </span>
+            <button type="button" class="praise-play" aria-label="재생">
+              <svg viewBox="0 0 24 24"><path d="M9.5 7.5v9l8-4.5-8-4.5z"/></svg>
+            </button>
+            <div class="praise-overlay-text">
+              <p class="title">${escapeHtml(p.title)}</p>
+              ${p.singer ? `<p class="singer">${escapeHtml(p.singer)}</p>` : ''}
             </div>
-          </div>
-          <div class="praise-info">
-            <div class="title">${escapeHtml(p.title)}</div>
-            ${p.singer ? `<div class="singer">${escapeHtml(p.singer)}</div>` : ''}
           </div>
         </div>`
       )
