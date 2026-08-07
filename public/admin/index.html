@@ -85,10 +85,11 @@
     <nav class="sidebar-nav" id="sidebar-nav">
       <button class="nav-item active" data-panel="panel-site" data-permission="site">기본 정보</button>
       <button class="nav-item" data-panel="panel-menu" data-permission="menu">메뉴 관리</button>
-      <button class="nav-item" data-panel="panel-board" data-permission="posts">소식·활동 게시판</button>
+      <button class="nav-item" data-panel="panel-board" data-permission="posts">소식·친교 게시판</button>
       <button class="nav-item" data-panel="panel-prayers">기도 요청</button>
       <button class="nav-item" data-panel="panel-inquiries">온라인 문의</button>
       <button class="nav-item" data-panel="panel-qt" data-permission="qt">오늘의 큐티</button>
+      <button class="nav-item" data-panel="panel-praise">찬양</button>
       <button class="nav-item" data-panel="panel-missions" data-permission="missions">선교사역</button>
       <button class="nav-item" data-panel="panel-stats" data-permission="stats">통계</button>
       <button class="nav-item" data-panel="panel-receipts" data-permission="receipts">영수증 신청</button>
@@ -132,11 +133,23 @@
         <h3>대문 화면 (히어로)</h3>
         <div class="field"><label>대표 성경 말씀</label><textarea id="s-heroVerse" rows="2"></textarea></div>
         <div class="field"><label>말씀 출처 (예: 마태복음 11:28)</label><input id="s-heroVerseRef" type="text" /></div>
-        <div class="field"><label>부제목</label><input id="s-heroSubtitle" type="text" /></div>
+        <div class="field">
+          <label>부제목</label>
+          <textarea id="s-heroSubtitle" rows="2"></textarea>
+          <p class="hint" style="margin-top:6px;">줄을 나누고 싶은 곳에서 Enter를 눌러 줄바꿈하면 화면에도 그대로 두 줄로 나옵니다.</p>
+        </div>
         <div class="field">
           <label>배경 이미지</label>
           <input type="file" id="s-heroImageFile" accept="image/*" />
           <img class="preview" id="s-heroImagePreview" />
+        </div>
+      </div>
+
+      <div class="card">
+        <h3>설교 영상 섹션</h3>
+        <div class="field">
+          <label>안내 문구 (섹션 제목 아래에 작게 나오는 설명)</label>
+          <input id="s-sermonsIntro" type="text" placeholder="매주 유튜브 채널에 올라오는 설교 영상이 자동으로 갱신됩니다" />
         </div>
       </div>
 
@@ -240,14 +253,14 @@
 
     <!-- 게시판 관리 -->
     <section class="panel" id="panel-board">
-      <h2>소식 · 활동 게시판</h2>
+      <h2>소식 · 친교 게시판</h2>
       <p class="panel-desc">교회 소식과 활동 게시글을 작성, 수정, 삭제합니다. 상단 고정도 가능합니다.</p>
 
       <div class="card">
         <h3 id="post-form-title">새 글 작성</h3>
         <div class="field-row">
           <div class="field"><label>구분</label>
-            <select id="p-category"><option value="소식">소식</option><option value="활동">활동</option><option value="주보">주보</option></select>
+            <select id="p-category"><option value="소식">소식</option><option value="활동">친교</option><option value="주보">주보</option></select>
           </div>
           <div class="field"><label>날짜</label><input id="p-date" type="date" /></div>
         </div>
@@ -381,6 +394,33 @@
       <div class="card">
         <h3>큐티 목록</h3>
         <div id="qt-list" class="post-list"></div>
+      </div>
+    </section>
+
+    <!-- 찬양 -->
+    <section class="panel" id="panel-praise">
+      <h2>찬양</h2>
+      <p class="panel-desc">함께 듣고 싶은 찬양 유튜브 영상을 등록해두면, 홈페이지 '찬양' 섹션에 목록으로 노출됩니다.</p>
+
+      <div class="card">
+        <h3 id="praise-form-title">새 찬양 등록</h3>
+        <div class="field"><label>제목</label><input id="praise-title" type="text" placeholder="주 은혜임을" /></div>
+        <div class="field"><label>부른이 (선택)</label><input id="praise-singer" type="text" placeholder="어노인팅" /></div>
+        <div class="field">
+          <label>유튜브 주소</label>
+          <input id="praise-youtubeUrl" type="text" placeholder="https://www.youtube.com/watch?v=..." />
+          <p class="hint" style="margin-top:6px;">유튜브에서 영상 공유 → 링크 복사한 걸 그대로 붙여넣으면 됩니다.</p>
+        </div>
+        <div class="post-form-actions">
+          <button class="btn-primary" id="add-praise-btn">찬양 등록</button>
+          <button class="btn-secondary" id="cancel-praise-edit-btn" hidden>취소</button>
+        </div>
+        <span class="save-status" id="praise-save-status"></span>
+      </div>
+
+      <div class="card">
+        <h3>찬양 목록</h3>
+        <div id="praise-list" class="post-list"></div>
       </div>
     </section>
 
@@ -520,7 +560,7 @@
           <div class="permission-checks">
             <label><input type="checkbox" id="acc-perm-site" /> 기본 정보</label>
             <label><input type="checkbox" id="acc-perm-menu" /> 메뉴 관리</label>
-            <label><input type="checkbox" id="acc-perm-posts" /> 소식·활동 게시판</label>
+            <label><input type="checkbox" id="acc-perm-posts" /> 소식·친교 게시판</label>
             <label><input type="checkbox" id="acc-perm-sermons" /> 설교 영상</label>
             <label><input type="checkbox" id="acc-perm-qt" /> 오늘의 큐티</label>
             <label><input type="checkbox" id="acc-perm-missions" /> 선교사역</label>
