@@ -242,4 +242,15 @@ function createSecretBoardRouter(key, { requiredMessage }) {
 router.use('/prayers', createSecretBoardRouter('prayers', { requiredMessage: '기도 내용을 입력해주세요.' }));
 router.use('/inquiries', createSecretBoardRouter('inquiries', { requiredMessage: '문의 내용을 입력해주세요.' }));
 
+// ---------- 찬양 ----------
+router.get('/praises', async (req, res) => {
+  try {
+    const praises = (await readData('praises')) || [];
+    const sorted = [...praises].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    res.json(sorted);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 module.exports = router;
