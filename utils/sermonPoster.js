@@ -81,7 +81,8 @@ function mulberry32(a) {
 function parseSermonTitle(raw = '') {
   let t = raw.replace(/주일예배/g, '');
   t = t.replace(/\b\d{8}\b/g, '').trim().replace(/^[-_·\s]+|[-_·\s]+$/g, '');
-  const m = t.match(/^([가-힣]+\s?\d+장\s?(?:\d+(?:[~\-,]\s?\d+)*\s?절)+)\s*(.*)$/);
+  // "9장 1~9절, 15절"처럼 쉼표로 구절이 여러 개 이어지는 경우까지 전부 구절 참조로 인식합니다.
+  const m = t.match(/^([가-힣]+\s?\d+장\s?\d+(?:[~\-]\d+)?절(?:,\s?\d+(?:[~\-]\d+)?절)*)\s*(.*)$/);
   if (m) return { verseRef: m[1].trim(), title: m[2].trim() || t };
   return { verseRef: '', title: t };
 }
