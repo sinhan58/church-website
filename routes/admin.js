@@ -470,6 +470,17 @@ router.post('/sermons/refresh', requirePermission('sermons'), async (req, res) =
   }
 });
 
+// 설교 카드(목사님 사진+제목 자동합성 이미지) 캐시를 비웁니다.
+// 디자인을 바꿨거나, 예전에 문제가 있던 채로 저장된 카드를 강제로 다시 만들고 싶을 때 사용합니다.
+router.delete('/sermon-posters', requirePermission('sermons'), async (req, res) => {
+  try {
+    await writeData('sermonPosters', {});
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ---------- 오늘의 큐티 관리 ----------
 router.get('/qt', async (req, res) => {
   try {
