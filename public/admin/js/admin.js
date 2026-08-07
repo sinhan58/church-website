@@ -114,6 +114,7 @@
     loadPostList();
     loadSermonPreview();
     setupImageUploadFields();
+    setupSermonPhotoUpload();
     setupSiteSave();
     setupServiceTimeEditor();
     setupMenuEditor();
@@ -174,6 +175,50 @@
     });
   }
 
+  // ---------------- 설교 카드용 목사님 사진 목록 ----------------
+  let sermonCardPhotos = [];
+
+  function renderSermonPhotoList() {
+    const wrap = $('#s-sermonPhotoList');
+    if (sermonCardPhotos.length === 0) {
+      wrap.innerHTML = '<p class="hint" style="margin:0;">기본 사진 3장만 사용됩니다. 추가로 올리시면 여기에 표시됩니다.</p>';
+      return;
+    }
+    wrap.innerHTML = sermonCardPhotos
+      .map(
+        (url, i) => `
+        <div style="position:relative;" data-idx="${i}">
+          <img src="${url}" style="width:72px;height:72px;object-fit:cover;border-radius:6px;border:1px solid #ddd;" />
+          <button type="button" class="remove-sermon-photo" data-idx="${i}"
+            style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:#c0392b;color:#fff;border:none;font-size:12px;cursor:pointer;">×</button>
+        </div>`
+      )
+      .join('');
+    $$('.remove-sermon-photo', wrap).forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const idx = Number(btn.dataset.idx);
+        sermonCardPhotos.splice(idx, 1);
+        renderSermonPhotoList();
+      });
+    });
+  }
+
+  function setupSermonPhotoUpload() {
+    $('#s-sermonPhotoFile').addEventListener('change', async () => {
+      const input = $('#s-sermonPhotoFile');
+      const file = input.files[0];
+      if (!file) return;
+      try {
+        const url = await uploadImage(file);
+        sermonCardPhotos.push(url);
+        renderSermonPhotoList();
+        input.value = '';
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  }
+
   // ---------------- 기본 정보 (사이트) ----------------
   let currentSite = null;
 
@@ -211,6 +256,8 @@
     if (s.hero?.backgroundImage) $('#s-heroImagePreview').src = s.hero.backgroundImage;
 
     $('#s-sermonsIntro').value = s.sermonsIntro || '';
+    sermonCardPhotos = Array.isArray(s.sermonCardPhotos) ? [...s.sermonCardPhotos] : [];
+    renderSermonPhotoList();
     $('#s-aboutGreeting').value = s.about?.greeting || '';
     $('#s-aboutBody').value = s.about?.body || '';
     $('#s-aboutHistory').value = s.about?.history || '';
@@ -345,6 +392,7 @@
       const payload = {
         churchName: $('#s-churchName').value.trim(),
         sermonsIntro: $('#s-sermonsIntro').value.trim(),
+        sermonCardPhotos: sermonCardPhotos,
         design: {
           headingFont: $('#s-headingFont').value,
           bodyFont: $('#s-bodyFont').value
