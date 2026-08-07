@@ -543,7 +543,103 @@ router.put('/qt-background', requirePermission('qt'), async (req, res) => {
   }
 });
 
-// ---------- 선교사역 (세계지도 핀) ----------
+// 유튜브 URL이나 영상ID를 그대로 받아서 11자리 영상ID만 뽑아냅니다.
+function extractYoutubeId(input = '') {
+  const s = String(input).trim();
+  if (/^[a-zA-Z0-9_-]{11}$/.test(s)) return s; // 이미 순수 영상ID인 경우
+  const patterns = [
+    /youtu\.be\/([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/
+  ];
+  for (const p of patterns) {
+    const m = s.match(p);
+    if (m) return m[1];
+  }
+  return '';
+}
+
+// ---------- 찬양 관리 ----------
+router.get('/praises', async (req, res) => {
+  try {
+    const praises = (await readData('praises')) || [];
+    res.json([...praises].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/praises', async (req, res) => {
+  try {
+    const youtubeId = extractYoutubeId(req.body.youtubeUrl || req.body.youtubeId || '');
+    if (!youtubeId) {
+      return res.status(400).json({ error: '유튜브 주소(또는 영상ID)를 다시 확인해주세요.' });
+    }
+    const praises = (await readData('praises')) || [];
+    const item = {
+      id: makeId('praise'),
+      title: req.body.title || '',
+      singer: req.body.singer || '',
+      youtubeId,
+      order: praises.length,
+      createdAt: new Date().toISOString()
+    };
+    praises.push(item);
+    await writeData('praises', praises);
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/praises/:id', async (req, res) => {
+  try {
+    const praises = (await readData('praises')) || [];
+    const idx = praises.findIndex((p) => p.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: '찬양을 찾을 수 없습니다.' });
+
+    const editable = { title: req.body.title, singer: req.body.singer };
+    if (req.body.youtubeUrl || req.body.youtubeId) {
+      const youtubeId = extractYoutubeId(req.body.youtubeUrl || req.body.youtubeId);
+      if (!youtubeId) return res.status(400).json({ error: '유튜브 주소(또는 영상ID)를 다시 확인해주세요.' });
+      editable.youtubeId = youtubeId;
+    }
+    praises[idx] = { ...praises[idx], ...editable };
+    await writeData('praises', praises);
+    res.json(praises[idx]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/praises/:id', async (req, res) => {
+  try {
+    const praises = (await readData('praises')) || [];
+    const filtered = praises.filter((p) => p.id !== req.params.id);
+    await writeData('praises', filtered);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/praises-reorder', async (req, res) => {
+  try {
+    const praises = (await readData('praises')) || [];
+    const order = req.body.order || [];
+    const updated = praises.map((p) => {
+      const pos = order.indexOf(p.id);
+      return pos === -1 ? p : { ...p, order: pos };
+    });
+    await writeData('praises', updated);
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
 router.get('/missions', async (req, res) => {
   try {
     res.json((await readData('missions')) || []);
