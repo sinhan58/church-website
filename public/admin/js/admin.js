@@ -123,6 +123,8 @@
     setupQtEditor();
     loadQtList();
     setupQtBackgroundEditor();
+    setupPraiseEditor();
+    loadPraiseList();
     setupMissionEditor();
     loadMissionList();
     setupPartnerEditor();
@@ -208,6 +210,7 @@
     $('#s-heroSubtitle').value = s.hero?.subtitle || '';
     if (s.hero?.backgroundImage) $('#s-heroImagePreview').src = s.hero.backgroundImage;
 
+    $('#s-sermonsIntro').value = s.sermonsIntro || '';
     $('#s-aboutGreeting').value = s.about?.greeting || '';
     $('#s-aboutBody').value = s.about?.body || '';
     $('#s-aboutHistory').value = s.about?.history || '';
@@ -341,6 +344,7 @@
 
       const payload = {
         churchName: $('#s-churchName').value.trim(),
+        sermonsIntro: $('#s-sermonsIntro').value.trim(),
         design: {
           headingFont: $('#s-headingFont').value,
           bodyFont: $('#s-bodyFont').value
@@ -500,6 +504,9 @@
     return (div.textContent || '').replace(/\s+/g, ' ').trim();
   }
 
+  const CATEGORY_LABELS = { 활동: '친교' };
+  const categoryLabel = (cat) => CATEGORY_LABELS[cat] || cat;
+
   function renderPostList(posts) {
     currentPosts = posts;
     const container = $('#post-list');
@@ -512,7 +519,7 @@
         const preview = plainTextFromHtml(p.content);
         return `
         <div class="post-row${p.id === editingPostId ? ' editing' : ''}" data-id="${p.id}">
-          <span class="badge">${escapeAttr(p.category)}</span>
+          <span class="badge">${escapeAttr(categoryLabel(p.category))}</span>
           <div>
             <div class="title">${p.pinned ? '📌 ' : ''}${escapeHtml(p.title)}</div>
             <div class="meta">${escapeHtml(preview.slice(0, 60))}${preview.length > 60 ? '…' : ''}</div>
@@ -730,6 +737,112 @@
     $('#qt-verseText').value = item.verseText || '';
     $('#qt-body').value = item.body || '';
     $('#panel-qt').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  // ---------------- 찬양 ----------------
+  let currentPraiseList = [];
+  let editingPraiseId = null;
+
+  async function loadPraiseList() {
+    const list = await api('/api/admin/praises');
+    renderPraiseList(list);
+  }
+
+  function renderPraiseList(list) {
+    currentPraiseList = list;
+    const container = $('#praise-list');
+    if (!list || list.length === 0) {
+      container.innerHTML = `<p class="hint">등록된 찬양이 없습니다.</p>`;
+      return;
+    }
+    container.innerHTML = list
+      .map(
+        (p) => `
+        <div class="post-row${p.id === editingPraiseId ? ' editing' : ''}" data-id="${p.id}">
+          <span class="badge">찬양</span>
+          <div>
+            <div class="title">${escapeHtml(p.title || '')}</div>
+            <div class="meta">${escapeHtml(p.singer || '')}</div>
+          </div>
+          <button type="button" class="icon-btn edit-praise">수정</button>
+          <button type="button" class="icon-btn remove-praise">삭제</button>
+        </div>`
+      )
+      .join('');
+
+    $$('#praise-list .remove-praise').forEach((btn) =>
+      btn.addEventListener('click', async (e) => {
+        if (!confirm('이 찬양을 삭제하시겠습니까?')) return;
+        const id = e.target.closest('.post-row').dataset.id;
+        await api(`/api/admin/praises/${id}`, { method: 'DELETE' });
+        if (id === editingPraiseId) resetPraiseForm();
+        loadPraiseList();
+      })
+    );
+
+    $$('#praise-list .edit-praise').forEach((btn) =>
+      btn.addEventListener('click', (e) => {
+        const id = e.target.closest('.post-row').dataset.id;
+        const item = currentPraiseList.find((p) => p.id === id);
+        if (item) loadPraiseIntoForm(item);
+      })
+    );
+  }
+
+  function resetPraiseForm() {
+    editingPraiseId = null;
+    $('#praise-form-title').textContent = '새 찬양 등록';
+    $('#add-praise-btn').textContent = '찬양 등록';
+    $('#cancel-praise-edit-btn').hidden = true;
+    $('#praise-title').value = '';
+    $('#praise-singer').value = '';
+    $('#praise-youtubeUrl').value = '';
+  }
+
+  function loadPraiseIntoForm(item) {
+    editingPraiseId = item.id;
+    $('#praise-form-title').textContent = '찬양 수정';
+    $('#add-praise-btn').textContent = '수정 저장';
+    $('#cancel-praise-edit-btn').hidden = false;
+    $('#praise-title').value = item.title || '';
+    $('#praise-singer').value = item.singer || '';
+    $('#praise-youtubeUrl').value = item.youtubeId ? `https://www.youtube.com/watch?v=${item.youtubeId}` : '';
+    $('#panel-praise').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function setupPraiseEditor() {
+    $('#cancel-praise-edit-btn').addEventListener('click', () => {
+      resetPraiseForm();
+      loadPraiseList();
+    });
+
+    $('#add-praise-btn').addEventListener('click', async () => {
+      const title = $('#praise-title').value.trim();
+      const youtubeUrl = $('#praise-youtubeUrl').value.trim();
+      if (!title) return alert('제목을 입력해주세요.');
+      if (!youtubeUrl) return alert('유튜브 주소를 입력해주세요.');
+
+      const payload = {
+        title,
+        singer: $('#praise-singer').value.trim(),
+        youtubeUrl
+      };
+
+      const statusEl = $('#praise-save-status');
+      try {
+        if (editingPraiseId) {
+          await api(`/api/admin/praises/${editingPraiseId}`, { method: 'PUT', body: JSON.stringify(payload) });
+        } else {
+          await api('/api/admin/praises', { method: 'POST', body: JSON.stringify(payload) });
+        }
+        statusEl.textContent = '저장 완료 ✓';
+        setTimeout(() => (statusEl.textContent = ''), 3000);
+        resetPraiseForm();
+        loadPraiseList();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
   }
 
   function setupQtEditor() {
