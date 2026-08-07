@@ -15,6 +15,36 @@
       .replace(/>/g, '&gt;');
   }
 
+  // ---------------- 스크롤 등장 애니메이션 ----------------
+  // .reveal 클래스가 붙은 요소가 화면에 들어오면 .is-visible을 붙여 서서히 나타나게 합니다.
+  // 게시판/설교영상처럼 나중에(비동기로) 그려지는 요소도 다시 넣어줄 수 있게 함수로 뒀습니다.
+  const revealObserver =
+    'IntersectionObserver' in window
+      ? new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (entry.isIntersecting) {
+                entry.target.classList.add('is-visible');
+                revealObserver.unobserve(entry.target);
+              }
+            });
+          },
+          { threshold: 0.12, rootMargin: '0px 0px -40px 0px' }
+        )
+      : null;
+
+  function observeReveals(root = document) {
+    const targets = root.querySelectorAll ? root.querySelectorAll('.reveal:not(.reveal-bound)') : [];
+    targets.forEach((el) => {
+      el.classList.add('reveal-bound');
+      if (revealObserver) {
+        revealObserver.observe(el);
+      } else {
+        el.classList.add('is-visible'); // IntersectionObserver 미지원 브라우저는 그냥 바로 보이게
+      }
+    });
+  }
+
   // ---------------- 오시는 길 지도 ----------------
   // 카카오맵을 관리자 페이지에서 연결해뒀으면(kakaoMapImageUrl/kakaoMapLinkUrl) 그걸 우선 사용하고,
   // 없으면 예전 방식대로 iframe 임베드 URL(구글맵 등)을 사용합니다.
@@ -103,12 +133,15 @@
     $('#brand-name').textContent = site.churchName || '물댄동산교회';
     $('#footer-brand').textContent = site.churchName || '물댄동산교회';
     $('#footer-brand-2').textContent = site.churchName || '물댄동산교회';
+    if (site.sermonsIntro) {
+      $('#sermons-intro').textContent = site.sermonsIntro;
+    }
     $('#footer-year').textContent = new Date().getFullYear();
 
     if (site.hero) {
       $('#hero-verse').textContent = site.hero.verse || '';
       $('#hero-verse-ref').textContent = site.hero.verseRef || '';
-      $('#hero-subtitle').textContent = site.hero.subtitle || '';
+      $('#hero-subtitle').innerHTML = escapeHtml(site.hero.subtitle || '').replace(/\n/g, '<br>');
       if (site.hero.backgroundImage) {
         $('.hero').style.background =
           `linear-gradient(180deg, rgba(13,21,38,0.72), rgba(13,21,38,0.86)), url('${site.hero.backgroundImage}') center/cover no-repeat`;
@@ -205,9 +238,24 @@
 
   function openVideoModal(videoId) {
     const modal = $('#video-modal');
+    const inner = $('#video-modal-inner');
+    inner.style.aspectRatio = '16 / 9';
+    inner.classList.remove('video-modal-inner--portrait');
     $('#video-modal-frame').innerHTML =
       `<iframe src="https://www.youtube.com/embed/${videoId}?autoplay=1" title="설교 영상" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
     modal.classList.add('open');
+
+    // 쇼츠처럼 세로 영상이면 실제 비율을 확인해서 화면을 세로로 꽉 채워 보여줍니다
+    // (실패해도 기본 16:9로 그대로 보이니 문제없음)
+    fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`)
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && data.width && data.height && data.height > data.width) {
+          inner.style.aspectRatio = `${data.width} / ${data.height}`;
+          inner.classList.add('video-modal-inner--portrait');
+        }
+      })
+      .catch(() => {});
   }
   function closeVideoModal() {
     $('#video-modal').classList.remove('open');
@@ -262,12 +310,14 @@
     grid.innerHTML = data.videos
       .slice(0, 6)
       .map(
-        (v) => `
-        <div class="sermon-card" data-video-id="${escapeHtml(v.videoId)}">
+        (v, i) => `
+        <div class="sermon-card reveal reveal-delay-${(i % 6) + 1}" data-video-id="${escapeHtml(v.videoId)}">
           <div class="sermon-thumb">
             <img src="${v.thumbnail}" alt="${escapeHtml(v.title)}" loading="lazy" />
             <div class="play">
-              <svg viewBox="0 0 24 24" fill="white"><circle cx="12" cy="12" r="11" fill="rgba(13,21,38,0.55)"/><path d="M9.5 7.5v9l8-4.5-8-4.5z" fill="white"/></svg>
+              <span class="play-btn">
+                <svg viewBox="0 0 24 24"><path d="M9.5 7.5v9l8-4.5-8-4.5z"/></svg>
+              </span>
             </div>
           </div>
           <div class="sermon-info">
@@ -277,10 +327,50 @@
         </div>`
       )
       .join('');
+    observeReveals(grid);
 
     $$('.sermon-card').forEach((card) => {
       card.addEventListener('click', () => {
         track('click', { label: 'sermon_card' });
+        openVideoModal(card.dataset.videoId);
+      });
+    });
+  }
+
+  // ---------------- 찬양 ----------------
+  async function loadPraises() {
+    const praises = await getJSON('/api/praises');
+    const section = $('#praise');
+    const grid = $('#praise-grid');
+    if (!praises || praises.length === 0) {
+      section.style.display = 'none';
+      return;
+    }
+    section.style.display = '';
+    grid.innerHTML = praises
+      .map(
+        (p, i) => `
+        <div class="praise-card reveal reveal-delay-${(i % 6) + 1}" data-video-id="${escapeHtml(p.youtubeId)}">
+          <div class="praise-thumb">
+            <img src="https://i.ytimg.com/vi/${escapeHtml(p.youtubeId)}/hqdefault.jpg" alt="${escapeHtml(p.title)}" loading="lazy" />
+            <div class="play">
+              <span class="play-btn">
+                <svg viewBox="0 0 24 24"><path d="M9.5 7.5v9l8-4.5-8-4.5z"/></svg>
+              </span>
+            </div>
+          </div>
+          <div class="praise-info">
+            <div class="title">${escapeHtml(p.title)}</div>
+            ${p.singer ? `<div class="singer">${escapeHtml(p.singer)}</div>` : ''}
+          </div>
+        </div>`
+      )
+      .join('');
+    observeReveals(grid);
+
+    $$('.praise-card').forEach((card) => {
+      card.addEventListener('click', () => {
+        track('click', { label: 'praise_card' });
         openVideoModal(card.dataset.videoId);
       });
     });
@@ -326,16 +416,20 @@
   let boardCategory = '전체';
   let boardPage = 1;
 
-  function boardCardHTML(p) {
+  // 저장된 값은 예전 그대로(호환성) 두고, 화면에 보여줄 라벨만 바꿉니다.
+  const CATEGORY_LABELS = { 활동: '친교' };
+  const categoryLabel = (cat) => CATEGORY_LABELS[cat] || cat;
+
+  function boardCardHTML(p, i = 0) {
     const thumb = thumbnailFor(p);
     return `
-      <div class="board-card" data-id="${p.id}">
+      <div class="board-card reveal reveal-delay-${(i % 6) + 1}" data-id="${p.id}">
         <div class="board-thumb">
           ${thumb ? `<img src="${thumb}" alt="${escapeHtml(p.title)}" loading="lazy" />` : `<div class="board-thumb-empty">${escapeHtml((p.category || '')[0] || '소')}</div>`}
         </div>
         <div class="board-info">
           <div class="board-top">
-            <span class="badge">${escapeHtml(p.category)}</span>
+            <span class="badge">${escapeHtml(categoryLabel(p.category))}</span>
             <span class="date">${escapeHtml(p.date)}</span>
           </div>
           <h4>${p.pinned ? '<span class="pin">📌</span>' : ''}${escapeHtml(p.title)}</h4>
@@ -424,10 +518,11 @@
     if (pageItems.length === 0) {
       list.innerHTML = `<div class="board-empty">등록된 게시글이 없습니다.</div>`;
     } else {
-      list.innerHTML = pageItems.map(boardCardHTML).join('');
+      list.innerHTML = pageItems.map((p, i) => boardCardHTML(p, i)).join('');
     }
 
     renderBoardPagination(totalForPagination);
+    observeReveals(list);
 
     $$('.board-card').forEach((item) => {
       item.addEventListener('click', () => {
@@ -441,7 +536,7 @@
     const post = allPosts.find((p) => p.id === id);
     if (!post) return;
 
-    $('#post-modal-badge').textContent = post.category || '';
+    $('#post-modal-badge').textContent = categoryLabel(post.category) || '';
     $('#post-modal-date').textContent = post.date || '';
     $('#post-modal-title').textContent = post.title || '';
     $('#post-modal-content').innerHTML = renderContent(post.content);
@@ -988,7 +1083,8 @@
   }
 
   // ---------------- 초기 로드 ----------------
-  Promise.all([loadSite(), loadMenu(), loadSermons(), loadBoard(), loadQT(), loadMissions()]).catch((err) => {
+  observeReveals(); // 정적으로 이미 있는 섹션 제목/카드 등에 스크롤 등장 애니메이션 연결
+  Promise.all([loadSite(), loadMenu(), loadSermons(), loadPraises(), loadBoard(), loadQT(), loadMissions()]).catch((err) => {
     console.error('콘텐츠를 불러오는 중 오류가 발생했습니다:', err);
   });
 })();
