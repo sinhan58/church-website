@@ -151,6 +151,17 @@
           <label>안내 문구 (섹션 제목 아래에 작게 나오는 설명)</label>
           <input id="s-sermonsIntro" type="text" placeholder="매주 유튜브 채널에 올라오는 설교 영상이 자동으로 갱신됩니다" />
         </div>
+        <div class="field">
+          <label>설교 카드용 목사님 사진 (선택)</label>
+          <p class="hint" style="margin-top:0;">
+            설교 영상 카드에 목사님 사진 + 자동 배경 + 설교 제목이 합성되어 노출됩니다. 기본 사진 3장이
+            이미 들어가 있고, 여기서 사진을 추가로 올리시면 그것들과 함께 영상마다 자동으로 섞여서
+            사용됩니다. (배경이 복잡한 사진을 올리시면 배경이 그대로 나옵니다 — 깔끔한 인물 사진일수록
+            잘 어울려요)
+          </p>
+          <input type="file" id="s-sermonPhotoFile" accept="image/*" />
+          <div id="s-sermonPhotoList" style="display:flex; flex-wrap:wrap; gap:10px; margin-top:10px;"></div>
+        </div>
       </div>
 
       <div class="card">
