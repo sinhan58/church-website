@@ -2,14 +2,44 @@
 // - 목사님 사진(배경 제거된 PNG) + 그라데이션/보케 배경 + 설교 제목을 합성합니다.
 // - 유튜브 영상마다(videoId 기준) 색상/사진/배치가 자동으로 순환되어, 매번 디자인을
 //   따로 하지 않아도 다양한 느낌의 카드가 나옵니다.
-// - 폰트는 파일 경로 대신 base64로 SVG에 직접 심어서, 서버 환경에 한글 폰트가
-//   따로 설치되어 있지 않아도 항상 정상적으로 렌더링됩니다.
+//
+// 한글 폰트 로딩 방식에 대한 중요한 참고사항:
+// 처음에는 SVG의 @font-face로 폰트를 base64로 직접 심는 방식을 썼는데, 배포 서버(Render)의
+// librsvg 버전에서는 이 방식이 제대로 동작하지 않아 글자가 16진수 코드 박스로 깨져 나오는
+// 문제가 있었습니다. 그래서 지금은 폰트를 시스템 폰트처럼 등록(fontconfig)해서, SVG에서는
+// 그냥 font-family 이름으로만 참조하는 훨씬 더 폭넓게 호환되는 방식으로 바꿨습니다.
+
+const path = require('path');
+const fs = require('fs');
+const os = require('os');
+
+const FONT_DIR = path.join(__dirname, 'fonts');
+const FONT_FAMILY = 'Noto Sans CJK KR Black'; // 폰트 파일 안에 실제로 저장된 이름
+
+// sharp(내부적으로 librsvg 사용)가 SVG 안의 한글 글자를 그릴 때 이 폰트를 찾을 수 있도록,
+// 임시 폴더에 fontconfig 설정 파일을 만들어서 등록합니다. (서버에 관리자 권한으로 폰트를
+// 설치할 필요 없이, 이 앱 실행 중에만 적용되는 방식이라 안전합니다.)
+try {
+  const fontconfigDir = path.join(os.tmpdir(), 'church-sermon-poster-fontconfig');
+  const cacheDir = path.join(os.tmpdir(), 'church-sermon-poster-fontconfig-cache');
+  if (!fs.existsSync(fontconfigDir)) fs.mkdirSync(fontconfigDir, { recursive: true });
+  if (!fs.existsSync(cacheDir)) fs.mkdirSync(cacheDir, { recursive: true });
+
+  const fontconfigFile = path.join(fontconfigDir, 'fonts.conf');
+  const xml = `<?xml version="1.0"?>
+<!DOCTYPE fontconfig SYSTEM "fonts.dtd">
+<fontconfig>
+  <dir>${FONT_DIR}</dir>
+  <cachedir>${cacheDir}</cachedir>
+</fontconfig>`;
+  fs.writeFileSync(fontconfigFile, xml);
+  process.env.FONTCONFIG_FILE = fontconfigFile;
+} catch (err) {
+  console.error('[sermonPoster] 폰트 설정 실패 - 시스템 기본 폰트로 대체될 수 있습니다:', err.message);
+}
 
 const sharp = require('sharp');
-const fs = require('fs');
-const path = require('path');
 
-const FONT_PATH = path.join(__dirname, 'fonts', 'NotoSansKR-Black.otf');
 const PHOTOS_DIR = path.join(__dirname, 'assets', 'sermon-card-photos');
 
 // 기본으로 내장된 목사님 사진(배경 제거 완료본). 관리자 페이지에서 추가로 올린 사진이 있으면
@@ -17,12 +47,6 @@ const PHOTOS_DIR = path.join(__dirname, 'assets', 'sermon-card-photos');
 const BUILTIN_PHOTOS = ['pastor-1.png', 'pastor-2.png', 'pastor-3.png']
   .map((f) => path.join(PHOTOS_DIR, f))
   .filter((p) => fs.existsSync(p));
-
-let FONT_BASE64 = null;
-function getFontBase64() {
-  if (!FONT_BASE64) FONT_BASE64 = fs.readFileSync(FONT_PATH).toString('base64');
-  return FONT_BASE64;
-}
 
 const W = 1200;
 const H = 675;
@@ -113,8 +137,6 @@ function buildBackgroundSvg({ accentFrom, accentTo, seed }) {
 }
 
 function buildTextOverlaySvg({ title, verseRef, pastorName, churchName, photoOnRight, textMaxWidth, hasPhoto }) {
-  const fontBase64 = getFontBase64();
-
   let titleFontSize = 92;
   let lineHeight = 106;
   let titleLines = wrapByWidth(title, titleFontSize, textMaxWidth, 0.86);
@@ -131,14 +153,14 @@ function buildTextOverlaySvg({ title, verseRef, pastorName, churchName, photoOnR
   let y = 172;
   let titleTspans = '';
   for (const line of titleLines) {
-    titleTspans += `<text x="${startX}" y="${y}" font-size="${titleFontSize}" font-family="NotoKR" font-weight="900" fill="${WHITE}" text-anchor="${textAnchor}">${escapeXml(line)}</text>`;
+    titleTspans += `<text x="${startX}" y="${y}" font-size="${titleFontSize}" font-family="Noto Sans CJK KR Black" font-weight="900" fill="${WHITE}" text-anchor="${textAnchor}">${escapeXml(line)}</text>`;
     y += lineHeight;
   }
 
   y += 18;
   let verseSvg = '';
   if (verseRef) {
-    verseSvg = `<text x="${startX}" y="${y}" font-size="30" font-family="NotoKR" fill="${GOLD}" text-anchor="${textAnchor}">${escapeXml(verseRef)}</text>`;
+    verseSvg = `<text x="${startX}" y="${y}" font-size="30" font-family="Noto Sans CJK KR Black" fill="${GOLD}" text-anchor="${textAnchor}">${escapeXml(verseRef)}</text>`;
     y += 48;
   }
 
@@ -146,9 +168,9 @@ function buildTextOverlaySvg({ title, verseRef, pastorName, churchName, photoOnR
   const lineY = y;
   y += 26;
 
-  const nameSvg = `<text x="${startX}" y="${y}" font-size="26" font-family="NotoKR" fill="${WHITE}" text-anchor="${textAnchor}">${escapeXml(pastorName)}</text>`;
+  const nameSvg = `<text x="${startX}" y="${y}" font-size="26" font-family="Noto Sans CJK KR Black" fill="${WHITE}" text-anchor="${textAnchor}">${escapeXml(pastorName)}</text>`;
   y += 38;
-  const churchSvg = `<text x="${startX}" y="${y}" font-size="19" font-family="NotoKR" fill="#c8c8c3" text-anchor="${textAnchor}">${escapeXml(churchName)}</text>`;
+  const churchSvg = `<text x="${startX}" y="${y}" font-size="19" font-family="Noto Sans CJK KR Black" fill="#c8c8c3" text-anchor="${textAnchor}">${escapeXml(churchName)}</text>`;
 
   const sideBar = hasPhoto
     ? photoOnRight
@@ -158,14 +180,9 @@ function buildTextOverlaySvg({ title, verseRef, pastorName, churchName, photoOnR
 
   return `
   <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <style>
-        @font-face { font-family: 'NotoKR'; src: url(data:font/otf;base64,${fontBase64}); font-weight: 900; }
-      </style>
-    </defs>
     <rect x="18" y="18" width="${W - 36}" height="${H - 36}" fill="none" stroke="${GOLD}" stroke-width="2"/>
     ${sideBar}
-    <text x="${startX}" y="70" font-size="20" font-family="NotoKR" fill="${GOLD}" text-anchor="${textAnchor}" letter-spacing="2">SERMONS</text>
+    <text x="${startX}" y="70" font-size="20" font-family="Noto Sans CJK KR Black" fill="${GOLD}" text-anchor="${textAnchor}" letter-spacing="2">SERMONS</text>
     <rect x="${startX}" y="84" width="52" height="4" fill="${GOLD}"/>
     ${titleTspans}
     ${verseSvg}
