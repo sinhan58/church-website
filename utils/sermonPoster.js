@@ -207,7 +207,8 @@ async function generateSermonPoster({
   rawTitle,
   extraPhotoUrls = [],
   pastorName = '',
-  churchName = ''
+  churchName = '',
+  videoIndex = null
 }) {
   const { verseRef, title } = parseSermonTitle(rawTitle);
   const h = hashStr(videoId);
@@ -216,13 +217,15 @@ async function generateSermonPoster({
   const textMaxWidth = 580;
 
   // 사진 후보: 기본 내장 사진 + 관리자가 추가로 올린 사진
-  const photoBuffers = [];
   const localPool = BUILTIN_PHOTOS;
   let photoBuffer = null;
   const allCount = localPool.length + extraPhotoUrls.length;
 
   if (allCount > 0) {
-    const pick = h % allCount;
+    // 같은 화면에 여러 영상이 함께 노출되므로(예: 최신 3개), 화면에 보이는 카드끼리 같은
+    // 사진이 겹치지 않도록 videoIndex(목록에서 몇 번째 영상인지)를 기준으로 순서대로
+    // 사진을 배정합니다. videoIndex가 없을 때만 videoId 해시로 대체합니다.
+    const pick = videoIndex !== null && videoIndex !== undefined ? videoIndex % allCount : h % allCount;
     if (pick < localPool.length) {
       photoBuffer = fs.readFileSync(localPool[pick]);
     } else {
