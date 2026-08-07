@@ -518,6 +518,7 @@ button { font-family: inherit; cursor: pointer; }
   aspect-ratio: 16/9;
   position: relative;
 }
+.video-modal-inner #video-modal-frame { width: 100%; height: 100%; }
 .video-modal-inner iframe { width: 100%; height: 100%; border: 0; border-radius: var(--radius); }
 /* 쇼츠 등 세로 영상은 가로 폭 대신 세로 높이를 기준으로 최대한 크게 보여줍니다 */
 .video-modal-inner.video-modal-inner--portrait {
