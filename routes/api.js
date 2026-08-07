@@ -17,6 +17,8 @@ router.get('/sermon-poster/:videoId', async (req, res) => {
       return res.status(400).json({ error: '잘못된 영상 ID입니다.' });
     }
     const rawTitle = String(req.query.title || '').slice(0, 200);
+    const idxRaw = Number(req.query.idx);
+    const videoIndex = Number.isInteger(idxRaw) && idxRaw >= 0 ? idxRaw : null;
 
     const posters = (await readData('sermonPosters')) || {};
     const cached = posters[videoId];
@@ -29,7 +31,7 @@ router.get('/sermon-poster/:videoId', async (req, res) => {
     const churchName = site.churchName || '';
     const extraPhotoUrls = Array.isArray(site.sermonCardPhotos) ? site.sermonCardPhotos : [];
 
-    const buffer = await generateSermonPoster({ videoId, rawTitle, extraPhotoUrls, pastorName, churchName });
+    const buffer = await generateSermonPoster({ videoId, rawTitle, extraPhotoUrls, pastorName, churchName, videoIndex });
 
     const filename = `sermon-poster-${videoId}-${Date.now()}.png`;
     const url = await saveUploadedFile(buffer, filename, 'image/png', uploadsDir);
