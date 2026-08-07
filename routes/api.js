@@ -1,8 +1,48 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
-const { readData, writeData } = require('../utils/db');
+const path = require('path');
+const { readData, writeData, saveUploadedFile } = require('../utils/db');
 const { getCachedSermons } = require('../utils/youtube');
+const { generateSermonPoster } = require('../utils/sermonPoster');
+
+const uploadsDir = path.join(__dirname, '..', 'public', 'uploads');
+
+// ---------- 설교 카드 자동 생성 (목사님 사진+그라데이션+제목 합성) ----------
+// 한 번 생성된 영상은 결과를 저장해두고 재사용합니다(같은 이미지를 매번 다시 만들지 않음).
+router.get('/sermon-poster/:videoId', async (req, res) => {
+  try {
+    const { videoId } = req.params;
+    if (!/^[a-zA-Z0-9_-]{6,20}$/.test(videoId)) {
+      return res.status(400).json({ error: '잘못된 영상 ID입니다.' });
+    }
+    const rawTitle = String(req.query.title || '').slice(0, 200);
+
+    const posters = (await readData('sermonPosters')) || {};
+    const cached = posters[videoId];
+    if (cached && cached.title === rawTitle && cached.url) {
+      return res.redirect(cached.url);
+    }
+
+    const site = (await readData('site')) || {};
+    const pastorName = site.about?.pastorName || '';
+    const churchName = site.churchName || '';
+    const extraPhotoUrls = Array.isArray(site.sermonCardPhotos) ? site.sermonCardPhotos : [];
+
+    const buffer = await generateSermonPoster({ videoId, rawTitle, extraPhotoUrls, pastorName, churchName });
+
+    const filename = `sermon-poster-${videoId}-${Date.now()}.png`;
+    const url = await saveUploadedFile(buffer, filename, 'image/png', uploadsDir);
+
+    posters[videoId] = { url, title: rawTitle, createdAt: new Date().toISOString() };
+    await writeData('sermonPosters', posters);
+
+    res.redirect(url);
+  } catch (err) {
+    console.error('설교 카드 생성 오류:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
 
 // 사이트 기본 정보 (교회소개, 예배시간, 연락처 등)
 router.get('/site', async (req, res) => {
