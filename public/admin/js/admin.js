@@ -1356,6 +1356,20 @@
         alert(err.message);
       }
     });
+
+    $('#clear-sermon-posters-btn').addEventListener('click', async () => {
+      if (!confirm('저장된 설교 카드 이미지를 전부 지우고 다시 만들까요?')) return;
+      const statusEl = $('#sermon-posters-clear-status');
+      statusEl.textContent = '처리 중...';
+      try {
+        await api('/api/admin/sermon-posters', { method: 'DELETE' });
+        statusEl.textContent = '완료 ✓ (홈페이지를 새로고침하면 다시 만들어집니다)';
+        setTimeout(() => (statusEl.textContent = ''), 5000);
+      } catch (err) {
+        statusEl.textContent = '';
+        alert(err.message);
+      }
+    });
   }
 
   // ---------------- 계정 관리 ----------------
