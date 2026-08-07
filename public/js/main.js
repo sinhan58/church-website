@@ -326,7 +326,7 @@
     grid.innerHTML = data.videos
       .slice(0, 3)
       .map((v, i) => {
-        const posterUrl = `/api/sermon-poster/${encodeURIComponent(v.videoId)}?title=${encodeURIComponent(v.title || '')}`;
+        const posterUrl = `/api/sermon-poster/${encodeURIComponent(v.videoId)}?title=${encodeURIComponent(v.title || '')}&idx=${i}`;
         return `
         <div class="sermon-card reveal reveal-delay-${(i % 6) + 1}" data-video-id="${escapeHtml(v.videoId)}">
           <div class="sermon-thumb">
