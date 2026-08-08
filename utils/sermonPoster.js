@@ -208,7 +208,8 @@ async function generateSermonPoster({
   extraPhotoUrls = [],
   pastorName = '',
   churchName = '',
-  videoIndex = null
+  videoIndex = null,
+  format = 'jpeg'
 }) {
   const { verseRef, title } = parseSermonTitle(rawTitle);
   const h = hashStr(videoId);
@@ -269,7 +270,63 @@ async function generateSermonPoster({
 
   layers.push({ input: Buffer.from(textSvg), top: 0, left: 0 });
 
-  return sharp(Buffer.from(bgSvg)).composite(layers).png().toBuffer();
+  const composed = sharp(Buffer.from(bgSvg)).composite(layers);
+  // 사진 배경이라 투명도가 필요 없어서, 기본은 용량이 훨씬 작고 전송이 빠른 JPG로 만듭니다.
+  return format === 'png' ? composed.png().toBuffer() : composed.jpeg({ quality: 86 }).toBuffer();
 }
 
-module.exports = { generateSermonPoster, parseSermonTitle };
+// ---------------- 캐시 저장 / 미리 만들어두기 ----------------
+// 위 generateSermonPoster는 순수하게 "이미지 버퍼만 만드는" 함수이고,
+// 아래 두 함수는 그걸 실제로 저장소에 올리고 캐시 기록을 남기는 역할까지 합니다.
+// (api.js의 방문자 요청 처리와, admin.js의 관리자 새로고침 양쪽에서 공용으로 씁니다)
+const { readData, writeData, saveUploadedFile } = require('./db');
+
+async function buildAndCacheSermonPoster({ videoId, rawTitle, videoIndex, uploadsDir }) {
+  const site = (await readData('site')) || {};
+  const pastorName = site.about?.pastorName || '';
+  const churchName = site.churchName || '';
+  const extraPhotoUrls = Array.isArray(site.sermonCardPhotos) ? site.sermonCardPhotos : [];
+
+  const buffer = await generateSermonPoster({
+    videoId,
+    rawTitle,
+    extraPhotoUrls,
+    pastorName,
+    churchName,
+    videoIndex,
+    format: 'jpeg'
+  });
+
+  const filename = `sermon-poster-${videoId}-${Date.now()}.jpg`;
+  const url = await saveUploadedFile(buffer, filename, 'image/jpeg', uploadsDir);
+
+  const posters = (await readData('sermonPosters')) || {};
+  posters[videoId] = { url, title: rawTitle, createdAt: new Date().toISOString() };
+  await writeData('sermonPosters', posters);
+
+  return { buffer, url };
+}
+
+// 방문자가 아무도 기다리지 않도록, 목록에 있는 영상 중 아직 카드 이미지가 없는 것들을
+// 미리 만들어둡니다. 실패해도 조용히 넘어갑니다(다음에 다시 시도하면 되므로).
+async function pregenerateMissingSermonPosters(videos, uploadsDir) {
+  try {
+    const posters = (await readData('sermonPosters')) || {};
+    const targets = videos.slice(0, 6);
+    for (let i = 0; i < targets.length; i++) {
+      const v = targets[i];
+      const cached = posters[v.videoId];
+      if (cached && cached.title === v.title && cached.url) continue;
+      await buildAndCacheSermonPoster({ videoId: v.videoId, rawTitle: v.title, videoIndex: i, uploadsDir });
+    }
+  } catch (err) {
+    console.error('[sermonPoster] 설교 카드 미리 생성 중 오류(다음 요청 시 다시 시도됩니다):', err.message);
+  }
+}
+
+module.exports = {
+  generateSermonPoster,
+  parseSermonTitle,
+  buildAndCacheSermonPoster,
+  pregenerateMissingSermonPosters
+};
