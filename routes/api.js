@@ -2,14 +2,16 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const path = require('path');
-const { readData, writeData, saveUploadedFile } = require('../utils/db');
+const { readData, writeData } = require('../utils/db');
 const { getCachedSermons } = require('../utils/youtube');
-const { generateSermonPoster } = require('../utils/sermonPoster');
+const { buildAndCacheSermonPoster, pregenerateMissingSermonPosters } = require('../utils/sermonPoster');
 
 const uploadsDir = path.join(__dirname, '..', 'public', 'uploads');
 
 // ---------- 설교 카드 자동 생성 (목사님 사진+그라데이션+제목 합성) ----------
 // 한 번 생성된 영상은 결과를 저장해두고 재사용합니다(같은 이미지를 매번 다시 만들지 않음).
+// 설교 목록을 불러올 때(아래 /sermons) 화면에 없는 카드도 미리 만들어두기 때문에,
+// 대부분의 방문자는 이미 만들어진 이미지를 바로 받아가게 됩니다.
 router.get('/sermon-poster/:videoId', async (req, res) => {
   try {
     const { videoId } = req.params;
@@ -26,20 +28,12 @@ router.get('/sermon-poster/:videoId', async (req, res) => {
       return res.redirect(cached.url);
     }
 
-    const site = (await readData('site')) || {};
-    const pastorName = site.about?.pastorName || '';
-    const churchName = site.churchName || '';
-    const extraPhotoUrls = Array.isArray(site.sermonCardPhotos) ? site.sermonCardPhotos : [];
-
-    const buffer = await generateSermonPoster({ videoId, rawTitle, extraPhotoUrls, pastorName, churchName, videoIndex });
-
-    const filename = `sermon-poster-${videoId}-${Date.now()}.png`;
-    const url = await saveUploadedFile(buffer, filename, 'image/png', uploadsDir);
-
-    posters[videoId] = { url, title: rawTitle, createdAt: new Date().toISOString() };
-    await writeData('sermonPosters', posters);
-
-    res.redirect(url);
+    // 캐시에 없는(아직 한 번도 안 만들어진) 경우에만 여기서 실시간으로 만듭니다.
+    // 저장 후 다시 안내(redirect)하는 왕복을 줄이려고, 만든 이미지를 이 요청에서 바로 내려줍니다.
+    const { buffer } = await buildAndCacheSermonPoster({ videoId, rawTitle, videoIndex, uploadsDir });
+    res.set('Content-Type', 'image/jpeg');
+    res.set('Cache-Control', 'public, max-age=31536000, immutable');
+    res.send(buffer);
   } catch (err) {
     console.error('설교 카드 생성 오류:', err);
     res.status(500).json({ error: err.message });
@@ -95,7 +89,12 @@ router.get('/posts/:id', async (req, res) => {
 // 설교 영상 (유튜브 자동 캐시)
 router.get('/sermons', async (req, res) => {
   try {
-    res.json(await getCachedSermons());
+    const data = await getCachedSermons();
+    res.json(data);
+    // 응답은 먼저 보내고, 카드 이미지 준비는 뒤에서(방문자를 기다리게 하지 않고) 진행합니다.
+    if (data && Array.isArray(data.videos)) {
+      pregenerateMissingSermonPosters(data.videos, uploadsDir);
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
