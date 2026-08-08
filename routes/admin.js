@@ -18,6 +18,7 @@ try {
 const { readData, writeData, makeId, saveUploadedFile } = require('../utils/db');
 const { requireAuth, requireMainAdmin, requirePermission } = require('../middleware/auth');
 const { updateSermonsCache, getCachedSermons } = require('../utils/youtube');
+const { pregenerateMissingSermonPosters } = require('../utils/sermonPoster');
 
 const uploadsDir = path.join(__dirname, '..', 'public', 'uploads');
 
@@ -465,6 +466,11 @@ router.post('/sermons/refresh', requirePermission('sermons'), async (req, res) =
     const channelId = req.body.channelId || process.env.YOUTUBE_CHANNEL_ID;
     const data = await updateSermonsCache(channelId);
     res.json(data);
+    // 관리자가 새로고침한 시점에 카드 이미지까지 미리 만들어두면, 방문자는 항상 이미
+    // 완성된 이미지만 받아가게 됩니다. (응답은 먼저 보내고 뒤에서 이어서 처리)
+    if (data && Array.isArray(data.videos)) {
+      pregenerateMissingSermonPosters(data.videos, uploadsDir);
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -476,6 +482,11 @@ router.delete('/sermon-posters', requirePermission('sermons'), async (req, res) 
   try {
     await writeData('sermonPosters', {});
     res.json({ ok: true });
+    // 캐시를 비운 뒤 바로 다시 만들어둬서, 다음 방문자가 빈 상태를 보지 않게 합니다.
+    const data = await getCachedSermons();
+    if (data && Array.isArray(data.videos)) {
+      pregenerateMissingSermonPosters(data.videos, uploadsDir);
+    }
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
