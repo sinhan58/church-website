@@ -97,9 +97,11 @@ app.listen(PORT, () => {
 });
 
 // ---------- 유튜브 설교 영상 자동 업데이트 스케줄러 ----------
-const cronExpr = process.env.YOUTUBE_UPDATE_CRON || '0 4 * * *'; // 기본: 매일 새벽 4시
+// 월~토: 새벽 4시 / 일요일: 오후 1시
+const cronExprWeekday = process.env.YOUTUBE_UPDATE_CRON_WEEKDAY || '0 4 * * 1-6';
+const cronExprSunday = process.env.YOUTUBE_UPDATE_CRON_SUNDAY || '0 13 * * 0';
 if (process.env.YOUTUBE_CHANNEL_ID) {
-  cron.schedule(cronExpr, async () => {
+  const runUpdate = async () => {
     try {
       console.log('⏳ 유튜브 설교 영상 자동 업데이트 실행...');
       await updateSermonsCache(process.env.YOUTUBE_CHANNEL_ID);
@@ -107,7 +109,10 @@ if (process.env.YOUTUBE_CHANNEL_ID) {
     } catch (err) {
       console.error('❌ 유튜브 업데이트 실패:', err.message);
     }
-  });
+  };
+
+  cron.schedule(cronExprWeekday, runUpdate);
+  cron.schedule(cronExprSunday, runUpdate);
 
   // 서버 시작 시에도 한 번 즉시 갱신 시도 (실패해도 서버는 계속 실행)
   updateSermonsCache(process.env.YOUTUBE_CHANNEL_ID).catch((err) =>
