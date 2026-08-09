@@ -387,6 +387,15 @@
 
       <div class="card">
         <h3 id="qt-form-title">새 큐티 작성</h3>
+        <div class="field">
+          <label>카톡 붙여넣기로 자동 채우기</label>
+          <p class="hint">카카오톡으로 받은 큐티 원문 전체를 아래에 붙여넣고 "자동 채우기"를 누르면 아래 입력칸이 채워집니다. 채워진 내용은 저장 전에 직접 확인·수정할 수 있습니다.</p>
+          <textarea id="qt-paste" rows="10" placeholder="카카오톡 큐티 원문 전체를 여기에 붙여넣으세요."></textarea>
+          <div class="post-form-actions">
+            <button type="button" class="btn-secondary" id="qt-parse-btn">자동 채우기</button>
+          </div>
+          <span class="hint" id="qt-parse-status"></span>
+        </div>
         <div class="field-row">
           <div class="field"><label>날짜</label><input id="qt-date" type="date" /></div>
           <div class="field"><label>목사님 성함</label><input id="qt-pastor" type="text" placeholder="이기삼 목사" /></div>

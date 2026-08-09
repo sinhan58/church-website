@@ -122,6 +122,7 @@
     setupSermonRefresh();
     setupAccountPanel();
     setupQtEditor();
+    setupQtPasteParser();
     loadQtList();
     setupQtBackgroundEditor();
     setupPraiseEditor();
@@ -134,6 +135,7 @@
     loadReceiptRequests().catch(() => {}); // 영수증 신청 권한이 없는 부관리자는 조용히 건너뜀
     $('#p-date').value = new Date().toISOString().slice(0, 10);
     $('#qt-date').value = new Date().toISOString().slice(0, 10);
+    $('#qt-pastor').value = localStorage.getItem('qtLastPastor') || '';
   }
 
   // ---------------- 권한별 메뉴 표시 ----------------
@@ -766,11 +768,13 @@
     $('#add-qt-btn').textContent = '큐티 등록';
     $('#cancel-qt-edit-btn').hidden = true;
     $('#qt-date').value = new Date().toISOString().slice(0, 10);
-    $('#qt-pastor').value = '';
+    $('#qt-pastor').value = localStorage.getItem('qtLastPastor') || '';
     $('#qt-title').value = '';
     $('#qt-verseRef').value = '';
     $('#qt-verseText').value = '';
     $('#qt-body').value = '';
+    $('#qt-paste').value = '';
+    $('#qt-parse-status').textContent = '';
   }
 
   function loadQtIntoForm(item) {
@@ -784,6 +788,8 @@
     $('#qt-verseRef').value = item.verseRef || '';
     $('#qt-verseText').value = item.verseText || '';
     $('#qt-body').value = item.body || '';
+    $('#qt-paste').value = '';
+    $('#qt-parse-status').textContent = '';
     $('#panel-qt').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
@@ -919,6 +925,7 @@
         } else {
           await api('/api/admin/qt', { method: 'POST', body: JSON.stringify(payload) });
         }
+        localStorage.setItem('qtLastPastor', payload.pastor);
         statusEl.textContent = '저장 완료 ✓';
         setTimeout(() => (statusEl.textContent = ''), 3000);
         resetQtForm();
@@ -926,6 +933,60 @@
       } catch (err) {
         alert(err.message);
       }
+    });
+  }
+
+  // 카톡 붙여넣기 자동 채우기: 빈 줄로 구분된 블록 단위로 나눠 각 입력칸에 배분한다.
+  function splitQtPasteBlocks(raw) {
+    const normalized = String(raw || '').replace(/\r\n?/g, '\n').trim();
+    if (!normalized) return [];
+    return normalized
+      .split(/\n[ \t]*\n+/)
+      .map((block) => block.trim())
+      .filter((block) => block.length > 0);
+  }
+
+  function normalizeQtVerseRef(raw) {
+    const match = raw.match(/^([^\d\n]+?)\s*(\d+)\s*[:：]\s*(\d+)(?:\s*[-~]\s*(\d+))?\s*$/);
+    if (!match) return raw;
+    const [, book, chapter, v1, v2] = match;
+    const verses = v2 ? `${v1}~${v2}` : v1;
+    return `${book.trim()} ${chapter}장 ${verses}절`;
+  }
+
+  function parseQtPaste(raw) {
+    const blocks = splitQtPasteBlocks(raw);
+    if (blocks.length < 4) return null;
+
+    const firstLine = blocks[0];
+    const verseRef = normalizeQtVerseRef(blocks[1]);
+    const verseText = blocks[2];
+    const titleRaw = blocks[3];
+    const restBlocks = blocks.slice(4);
+
+    const bracketMatch = titleRaw.match(/^[\[【]([\s\S]*?)[\]】]$/);
+    const title = bracketMatch ? bracketMatch[1].trim() : titleRaw;
+
+    const body = [firstLine, ...restBlocks].join('\n\n');
+
+    return { title, verseRef, verseText, body };
+  }
+
+  function setupQtPasteParser() {
+    const btn = $('#qt-parse-btn');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      const statusEl = $('#qt-parse-status');
+      const parsed = parseQtPaste($('#qt-paste').value);
+      if (!parsed) {
+        statusEl.textContent = '형식을 인식하지 못했습니다. 직접 입력해주세요.';
+        return;
+      }
+      $('#qt-title').value = parsed.title;
+      $('#qt-verseRef').value = parsed.verseRef;
+      $('#qt-verseText').value = parsed.verseText;
+      $('#qt-body').value = parsed.body;
+      statusEl.textContent = '자동으로 채웠습니다. 내용을 확인한 후 저장해주세요.';
     });
   }
 
