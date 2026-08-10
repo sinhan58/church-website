@@ -209,15 +209,40 @@ button { font-family: inherit; cursor: pointer; }
 /* ---------------- Hero ---------------- */
 .hero {
   position: relative;
-  min-height: 100vh;
+  min-height: 100vh; /* 구형 브라우저용 대체값 */
+  min-height: 100svh; /* 모바일 주소창이 접히기 전(가장 작은) 화면 높이로 고정 — 주소창이
+                          나중에 접혀도 화면 높이를 다시 계산하지 않아 크기가 두 번 조정되는
+                          현상이 없어집니다 */
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(180deg, rgba(13,21,38,0.72), rgba(13,21,38,0.86)), var(--navy-deep) center/cover no-repeat;
+  background: var(--navy-deep); /* 사진이 없거나 아직 안 불러와졌을 때의 기본 배경색 */
   color: #fff;
   text-align: center;
   overflow: hidden;
 }
+/* 글씨가 잘 보이도록 어둡게 깔아주는 그라데이션은 사진과 분리된 고정 레이어로 둡니다
+   (사진이 나중에 바뀌어도 이 오버레이 자체는 흔들리지 않습니다) */
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(13,21,38,0.72), rgba(13,21,38,0.86));
+  z-index: 1;
+}
+/* 관리자가 등록한 대문 사진을 담는 전용 레이어. 기본은 투명 상태(opacity:0)로 시작해서
+   JS가 사진을 다 불러온 뒤 .is-visible을 붙이면 그제서야 부드럽게 페이드인됩니다.
+   (사진이 로딩되자마자 '빡' 하고 즉시 나타나던 현상을 없애기 위함) */
+.hero-bg-photo {
+  position: absolute;
+  inset: 0;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  opacity: 0;
+  transition: opacity 0.8s ease;
+}
+.hero-bg-photo.is-visible { opacity: 1; }
 .hero-inner {
   position: relative;
   z-index: 2;
