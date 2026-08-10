@@ -436,10 +436,10 @@ button { font-family: inherit; cursor: pointer; }
 }
 .video-modal.open { display: flex; }
 .video-modal-inner {
-  width: 100%;
-  max-width: 900px;
-  aspect-ratio: 16/9;
   position: relative;
+  /* 가로/세로 크기는 이제 JS가 화면 크기에 맞춰 직접 계산해서 넣어줍니다
+     (가로만 기준으로 잡으면 화면이 넓고 낮을 때 세로가 작아 보이는 문제가 있어서,
+     가로·세로 중 더 빠듯한 쪽에 맞춰 최대한 크게 키우는 방식으로 바꿨습니다) */
 }
 .video-modal-inner iframe { width: 100%; height: 100%; border: 0; border-radius: var(--radius); }
 .video-modal-close {
@@ -703,10 +703,10 @@ button { font-family: inherit; cursor: pointer; }
 .post-modal-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
 .post-modal-head .date { color: var(--muted); font-size: 0.85rem; }
 #post-modal-title { margin: 0 0 18px; font-size: 1.3rem; color: var(--navy-deep); }
-.post-modal-image { display: none; width: 100%; border-radius: var(--radius); margin-bottom: 18px; }
+.post-modal-image { display: none; width: 100%; border-radius: var(--radius); margin-bottom: 18px; cursor: zoom-in; }
 .post-modal-image[src]:not([src=""]) { display: block; }
 .post-modal-content { line-height: 1.75; color: #2b2b2b; white-space: pre-wrap; word-break: keep-all; overflow-wrap: break-word; }
-.post-modal-content img { max-width: 100%; border-radius: 8px; }
+.post-modal-content img { max-width: 100%; border-radius: 8px; cursor: zoom-in; }
 .post-modal-attachments { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line); }
 .post-modal-attachments:empty { display: none; }
 .attachment-item {
@@ -721,7 +721,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 .attachment-item:hover { border-color: var(--gold); background: #fdf7e6; }
 .attachment-item .icon { color: var(--gold-deep); }
-.attachment-image { width: 100%; border-radius: 8px; display: block; margin-bottom: 12px; }
+.attachment-image { width: 100%; border-radius: 8px; display: block; margin-bottom: 12px; cursor: zoom-in; }
 
 /* ---------------- Contact ---------------- */
 .contact-grid {
