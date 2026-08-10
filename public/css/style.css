@@ -38,21 +38,6 @@
   }
 }
 
-/* ---------------- 스크롤 등장 애니메이션 (공용) ---------------- */
-/* main.js의 IntersectionObserver가 화면에 들어오는 요소에 is-visible 클래스를 붙여줍니다 */
-.reveal {
-  opacity: 0;
-  transform: translateY(28px);
-  transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1), transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
-}
-.reveal.is-visible { opacity: 1; transform: translateY(0); }
-.reveal-delay-1.is-visible { transition-delay: 0.08s; }
-.reveal-delay-2.is-visible { transition-delay: 0.16s; }
-.reveal-delay-3.is-visible { transition-delay: 0.24s; }
-.reveal-delay-4.is-visible { transition-delay: 0.32s; }
-.reveal-delay-5.is-visible { transition-delay: 0.4s; }
-.reveal-delay-6.is-visible { transition-delay: 0.48s; }
-
 html { scroll-behavior: smooth; }
 
 body {
@@ -118,14 +103,26 @@ button { font-family: inherit; cursor: pointer; }
   top: 0; left: 0; right: 0;
   z-index: 100;
   background: rgba(13, 21, 38, 0.0);
-  transition: background 0.3s ease, box-shadow 0.3s ease, backdrop-filter 0.3s ease;
+  transition: background 0.3s ease, box-shadow 0.3s ease;
   padding: 20px 0;
 }
 .site-header.scrolled {
-  background: rgba(13, 21, 38, 0.94);
-  backdrop-filter: blur(6px);
+  /* 모바일 번쩍임 방지를 위해 흐림 효과(backdrop-filter) 대신 살짝 더 진한
+     불투명 배경만 사용합니다. 이미 94~96%가 불투명해서 육안상 차이는 거의 없습니다. */
+  background: rgba(13, 21, 38, 0.96);
   box-shadow: 0 4px 20px rgba(0,0,0,0.15);
   padding: 12px 0;
+}
+
+/* PC 등 성능 여유가 있는 화면에서는 원래의 유리 느낌(흐림 효과)을 그대로 살립니다 */
+@media (min-width: 861px) {
+  .site-header {
+    transition: background 0.3s ease, box-shadow 0.3s ease, backdrop-filter 0.3s ease;
+  }
+  .site-header.scrolled {
+    background: rgba(13, 21, 38, 0.94);
+    backdrop-filter: blur(6px);
+  }
 }
 .site-header .container {
   display: flex;
@@ -214,12 +211,10 @@ button { font-family: inherit; cursor: pointer; }
   z-index: 2;
   max-width: 720px;
   padding: 0 24px;
+  animation: heroRise 1s ease both;
 }
-.hero-inner .verse-card { animation: heroRise 0.9s ease both; animation-delay: 0.1s; }
-.hero-inner .hero-subtitle { animation: heroRise 0.9s ease both; animation-delay: 0.32s; }
-.hero-inner .hero-cta { animation: heroRise 0.9s ease both; animation-delay: 0.54s; }
 @keyframes heroRise {
-  from { opacity: 0; transform: translateY(22px); }
+  from { opacity: 0; transform: translateY(18px); }
   to { opacity: 1; transform: translateY(0); }
 }
 .verse-card {
@@ -356,142 +351,40 @@ button { font-family: inherit; cursor: pointer; }
   overflow: hidden;
   background: #fff;
   box-shadow: var(--shadow);
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
-  cursor: pointer;
+  transition: transform 0.25s ease;
 }
-.sermon-card:hover { transform: translateY(-6px); box-shadow: 0 16px 34px rgba(13,21,38,0.18); }
+.sermon-card:hover { transform: translateY(-4px); }
 .sermon-thumb {
   position: relative;
   aspect-ratio: 16/9;
   overflow: hidden;
   background: var(--navy-soft);
 }
-.sermon-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.5s ease;
+.sermon-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.sermon-thumb .play {
+  position: absolute; inset: 0;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(13,21,38,0.25);
 }
-.sermon-card:hover .sermon-thumb img { transform: scale(1.05); }
-/* 카드 안 제목·구절·이름·테두리는 서버에서 이미지 자체에 그려서 보내주기 때문에
-   여기서는 재생 버튼만 살짝 얹어주면 됩니다. */
-.sermon-play {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  z-index: 2;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(250,247,240,0.92);
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  transition: transform 0.25s ease, background 0.25s ease;
-  box-shadow: 0 4px 10px rgba(13,21,38,0.25);
+.sermon-thumb .play svg { width: 52px; height: 52px; }
+.sermon-info { padding: 18px 20px 22px; }
+.sermon-info .title {
+  font-weight: 600;
+  font-size: 0.98rem;
+  color: var(--navy-deep);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  margin-bottom: 8px;
 }
-.sermon-card:hover .sermon-play { transform: scale(1.12); background: var(--gold); }
-.sermon-play svg { width: 14px; height: 14px; margin-left: 2px; }
-.sermon-play path { fill: var(--navy-deep); }
+.sermon-info .date { color: var(--muted); font-size: 0.82rem; }
 .sermon-empty {
   text-align: center;
   color: var(--muted);
   padding: 40px 20px;
   border: 1px dashed var(--line);
   border-radius: var(--radius);
-}
-
-/* ---------------- 찬양 ---------------- */
-.praise-grid {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 20px;
-}
-.praise-card {
-  border-radius: var(--radius);
-  overflow: hidden;
-  background: #fff;
-  box-shadow: var(--shadow);
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
-  cursor: pointer;
-  --accent-rgb: 13, 21, 38;
-}
-.praise-card:hover { transform: translateY(-6px); box-shadow: 0 16px 34px rgba(13,21,38,0.18); }
-.praise-thumb {
-  position: relative;
-  aspect-ratio: 1/1;
-  overflow: hidden;
-  background: var(--navy-soft);
-}
-.praise-thumb img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  transition: transform 0.5s ease;
-}
-.praise-card:hover .praise-thumb img { transform: scale(1.08); }
-.praise-thumb::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    180deg,
-    rgba(var(--accent-rgb), 0.3) 0%,
-    rgba(var(--accent-rgb), 0.05) 30%,
-    rgba(var(--accent-rgb), 0.55) 65%,
-    rgba(var(--accent-rgb), 0.92) 100%
-  );
-  z-index: 1;
-  pointer-events: none;
-}
-.praise-play {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 2;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(250,247,240,0.92);
-  border: none;
-  padding: 0;
-  cursor: pointer;
-  transition: transform 0.25s ease, background 0.25s ease;
-}
-.praise-card:hover .praise-play { transform: scale(1.12); background: var(--gold); }
-.praise-play svg { width: 11px; height: 11px; margin-left: 1px; }
-.praise-play path { fill: var(--navy-deep); }
-.praise-overlay-text {
-  position: absolute;
-  left: 0; right: 0; bottom: 0;
-  z-index: 2;
-  padding: 10px 12px 10px;
-}
-.praise-overlay-text .title {
-  color: #fff;
-  font-weight: 700;
-  font-size: 0.85rem;
-  line-height: 1.35;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  text-shadow: 0 1px 6px rgba(0,0,0,0.35);
-  margin-bottom: 3px;
-}
-.praise-overlay-text .singer { color: rgba(250,247,240,0.75); font-size: 0.72rem; }
-
-@media (max-width: 900px) {
-  .praise-grid { grid-template-columns: repeat(3, 1fr); }
-}
-@media (max-width: 560px) {
-  .praise-grid { grid-template-columns: repeat(2, 1fr); gap: 14px; }
 }
 
 /* video modal */
@@ -507,20 +400,11 @@ button { font-family: inherit; cursor: pointer; }
 .video-modal.open { display: flex; }
 .video-modal-inner {
   width: 100%;
-  max-width: 1100px;
-  max-height: 88vh;
+  max-width: 900px;
   aspect-ratio: 16/9;
   position: relative;
 }
-.video-modal-inner #video-modal-frame { width: 100%; height: 100%; }
 .video-modal-inner iframe { width: 100%; height: 100%; border: 0; border-radius: var(--radius); }
-/* 쇼츠 등 세로 영상은 가로 폭 대신 세로 높이를 기준으로 최대한 크게 보여줍니다 */
-.video-modal-inner.video-modal-inner--portrait {
-  width: auto;
-  max-width: 92vw;
-  height: 88vh;
-  max-height: 88vh;
-}
 .video-modal-close {
   position: absolute;
   top: -44px; right: 0;
@@ -750,8 +634,6 @@ button { font-family: inherit; cursor: pointer; }
   flex: 1;
   min-width: 0;
   text-align: center;
-  display: flex;
-  flex-direction: column;
 }
 .offering-prayer-col + .offering-prayer-col {
   border-left: 1px solid var(--line);
@@ -767,17 +649,10 @@ button { font-family: inherit; cursor: pointer; }
 
 .prayer-teaser-card {
   max-width: 420px;
-  width: 100%;
   margin: 0 auto;
-  background: var(--ivory);
-  border: 1px solid var(--line);
+  background: var(--ivory-dim);
   border-radius: var(--radius);
   padding: 32px 36px;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  box-sizing: border-box;
 }
 .prayer-teaser-card p {
   color: var(--ink);
@@ -798,18 +673,11 @@ button { font-family: inherit; cursor: pointer; }
 
 .offering-card {
   max-width: 520px;
-  width: 100%;
   margin: 0 auto;
-  background: var(--ivory);
-  border: 1px solid var(--line);
+  background: var(--ivory-dim);
   border-radius: var(--radius);
   padding: 32px 36px;
   text-align: center;
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  box-sizing: border-box;
 }
 .offering-info { display: flex; flex-direction: column; gap: 14px; margin: 0 0 20px; }
 .offering-info dt { color: var(--gold-deep); font-size: 0.78rem; letter-spacing: 0.1em; text-transform: uppercase; }
@@ -1377,7 +1245,6 @@ a:focus-visible, button:focus-visible {
 .mission-pin-card-head .flag { font-size: 15px; }
 .mission-pin-card-head .country { font-size: 11px; font-weight: 600; color: var(--muted); }
 .mission-pin-card-body { display: flex; gap: 10px; align-items: flex-start; }
-.mission-pin-card-divider { border: none; border-top: 1px solid var(--line); margin: 10px 0; }
 .mission-pin-card-body img,
 .mission-pin-card-avatar {
   width: 32px;
