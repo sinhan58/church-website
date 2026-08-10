@@ -67,7 +67,7 @@ ${fontStyleTag}
   </div>
 </header>
 
-<main>
+<main class="page-enter">
   <section class="section qt-detail-section">
     <div class="container qt-detail-container">
 
