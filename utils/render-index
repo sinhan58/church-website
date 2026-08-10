@@ -8,14 +8,37 @@ const { getFontStyleAndLinks } = require('./font-catalog');
 const templatePath = path.join(__dirname, '..', 'public', 'index.html');
 let template = fs.readFileSync(templatePath, 'utf-8');
 
+function escapeHtml(str = '') {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// 관리자 페이지 '메뉴 관리'에서 저장한 메뉴 목록으로 <nav> 링크들을 만듭니다.
+// main.js도 같은 내용을 다시 한번 채워 넣지만(비어있지 않으면 그대로 덮어써도 눈에 티가
+// 안 남), 여기서 서버가 미리 채워 보내는 이유는 페이지가 열리는 첫 순간부터 이미 메뉴가
+// 자리 잡혀 있어서 "메뉴가 비어있다가 갑자기 나타나는" 어수선함이 없도록 하기 위함입니다.
+function renderMenuLinks(menu = []) {
+  return menu
+    .map((m) => `<a href="${escapeHtml(m.link)}">${escapeHtml(m.label)}</a>`)
+    .join('');
+}
+
 // 홈페이지 HTML을 완성해서 돌려줍니다. site.design(관리자가 고른 글씨체 설정)을
-// </head> 바로 앞에 심어서, 방문자가 페이지를 받는 시점부터 이미 올바른 글씨체가
-// 적용된 상태로 첫 화면이 그려지도록 합니다 (기본 글씨체로 잠깐 보였다가 바뀌는
-// 깜빡임이 없어집니다).
-function renderIndexPage({ site } = {}) {
+// </head> 바로 앞에 심고, menu(관리자가 등록한 메뉴 목록)를 <nav>에 직접 채워서,
+// 방문자가 페이지를 받는 시점부터 이미 완성된 화면(글씨체 + 메뉴)이 그려지도록 합니다.
+function renderIndexPage({ site, menu } = {}) {
   const { styleTag, extraLinks } = getFontStyleAndLinks(site?.design || {});
-  const injected = `${extraLinks}\n${styleTag}\n</head>`;
-  return template.replace('</head>', injected);
+  const headInjected = `${extraLinks}\n${styleTag}\n</head>`;
+
+  const menuHtml = renderMenuLinks(menu || []);
+
+  return template
+    .replace('</head>', headInjected)
+    .replace('<nav class="nav-desktop" id="nav-desktop"></nav>', `<nav class="nav-desktop" id="nav-desktop">${menuHtml}</nav>`)
+    .replace('<nav class="nav-mobile" id="nav-mobile"></nav>', `<nav class="nav-mobile" id="nav-mobile">${menuHtml}</nav>`);
 }
 
 module.exports = { renderIndexPage };
