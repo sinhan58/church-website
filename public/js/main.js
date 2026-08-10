@@ -87,6 +87,22 @@
   }
   track('pageview', { path: location.pathname });
 
+  // ---------------- 모달 열림 중 배경 스크롤 막기 ----------------
+  // 게시글 상세 보기 위에 사진 확대 창이 겹쳐 뜨는 것처럼 모달이 동시에 여러 개
+  // 열릴 수 있어서, 단순 on/off 대신 몇 개가 열려있는지 세어서 마지막 하나가
+  // 닫힐 때만 배경 스크롤을 다시 풀어줍니다.
+  let openModalCount = 0;
+  function lockScroll() {
+    openModalCount++;
+    document.body.classList.add('modal-open');
+  }
+  function unlockScroll() {
+    openModalCount = Math.max(0, openModalCount - 1);
+    if (openModalCount === 0) {
+      document.body.classList.remove('modal-open');
+    }
+  }
+
   // ---------------- 헤더 스크롤 효과 ----------------
   const header = $('#site-header');
   let headerTicking = false;
@@ -269,6 +285,7 @@
     $('#video-modal-frame').innerHTML =
       `<iframe src="https://www.youtube.com/embed/${videoId}?autoplay=1" title="설교 영상" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
     modal.classList.add('open');
+    lockScroll();
 
     fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`)
       .then((res) => (res.ok ? res.json() : null))
@@ -283,6 +300,7 @@
   function closeVideoModal() {
     $('#video-modal').classList.remove('open');
     $('#video-modal-frame').innerHTML = '';
+    unlockScroll();
   }
   $('#video-modal-close').addEventListener('click', closeVideoModal);
   $('#video-modal').addEventListener('click', (e) => {
@@ -306,10 +324,12 @@
     $('#file-modal-name').textContent = name;
     $('#file-modal-download').href = url;
     $('#file-modal').classList.add('open');
+    lockScroll();
   }
   function closeFileModal() {
     $('#file-modal').classList.remove('open');
     $('#file-modal-frame').innerHTML = '';
+    unlockScroll();
   }
   $('#file-modal-close')?.addEventListener('click', closeFileModal);
   $('#file-modal')?.addEventListener('click', (e) => {
@@ -321,10 +341,12 @@
     $('#image-lightbox-img').src = url;
     $('#image-lightbox-img').alt = alt || '';
     $('#image-lightbox').classList.add('open');
+    lockScroll();
   }
   function closeImageLightbox() {
     $('#image-lightbox').classList.remove('open');
     $('#image-lightbox-img').src = '';
+    unlockScroll();
   }
   $('#image-lightbox-close')?.addEventListener('click', closeImageLightbox);
   $('#image-lightbox')?.addEventListener('click', (e) => {
@@ -624,10 +646,12 @@
     });
 
     $('#post-modal').classList.add('open');
+    lockScroll();
   }
 
   function closePostModal() {
     $('#post-modal').classList.remove('open');
+    unlockScroll();
   }
   $('#post-modal-close').addEventListener('click', closePostModal);
   $('#post-modal').addEventListener('click', (e) => {
