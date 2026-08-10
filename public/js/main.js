@@ -588,7 +588,10 @@ updateHeaderState(); // 페이지가 열리자마자(스크롤 이벤트를 기�
     $('#post-modal-date').textContent = post.date || '';
     $('#post-modal-title').textContent = post.title || '';
     $('#post-modal-content').innerHTML = renderContent(post.content);
-
+// 본문 안에 있는 이미지들도 클릭하면 확대해서 볼 수 있게 합니다.
+    $$('#post-modal-content img').forEach((img) => {
+      img.addEventListener('click', () => openFileModal(img.src, post.title || '이미지'));
+    });
     const imgEl = $('#post-modal-image');
     if (post.image) {
       imgEl.src = post.image;
