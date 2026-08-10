@@ -623,6 +623,9 @@ updateHeaderState(); // 페이지가 열리자마자(스크롤 이벤트를 기�
       .join('');
 
     attachBox.innerHTML = imagesHtml + filesHtml;
+    $$('#post-modal-attachments .attachment-image').forEach((img) => {
+      img.addEventListener('click', () => openFileModal(img.src, img.alt || '이미지'));
+    });
     $$('#post-modal-attachments [data-preview="1"]').forEach((el) => {
       el.addEventListener('click', (e) => {
         e.preventDefault();
