@@ -49,6 +49,16 @@ body {
   font-size: 16px;
 }
 
+/* 홈페이지에서 콘텐츠를 눌러 다른 페이지(큐티 상세, 기도 요청, 온라인 문의, 영수증 신청 등)로
+   넘어갔을 때, 화면이 뚝 떠 있지 않고 아래에서 위로 살짝 밀려 올라오며 부드럽게 나타나도록 합니다. */
+main {
+  animation: pageEnter 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(28px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 h1, h2, h3, h4 {
   font-family: var(--font-heading);
   font-weight: 700;
@@ -1151,6 +1161,8 @@ button { font-family: inherit; cursor: pointer; }
   font-weight: 700;
   color: var(--navy-deep);
   margin: 0 0 8px;
+  word-break: keep-all;
+  overflow-wrap: break-word;
 }
 .qt-card-ref { font-size: 0.85rem; color: var(--muted); margin: 0 0 16px; }
 .qt-card-foot {
@@ -1200,7 +1212,7 @@ button { font-family: inherit; cursor: pointer; }
 .qt-back-link { display: inline-block; font-size: 0.85rem; color: var(--muted); margin-bottom: 28px; }
 .qt-detail-head { text-align: center; margin-bottom: 32px; }
 .qt-detail-meta { font-size: 0.85rem; color: var(--muted); margin: 4px 0 10px; }
-.qt-detail-title { font-size: 1.5rem; margin: 0; }
+.qt-detail-title { font-size: 1.5rem; margin: 0; word-break: keep-all; overflow-wrap: break-word; }
 .qt-verse-card {
   background: var(--ivory-dim);
   border-radius: var(--radius);
