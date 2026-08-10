@@ -16,8 +16,6 @@
   }
 
   // ---------------- 스크롤 등장 애니메이션 ----------------
-  // .reveal 클래스가 붙은 요소가 화면에 들어오면 .is-visible을 붙여 서서히 나타나게 합니다.
-  // 게시판/설교영상처럼 나중에(비동기로) 그려지는 요소도 다시 넣어줄 수 있게 함수로 뒀습니다.
   const revealObserver =
     'IntersectionObserver' in window
       ? new IntersectionObserver(
@@ -40,20 +38,15 @@
       if (revealObserver) {
         revealObserver.observe(el);
       } else {
-        el.classList.add('is-visible'); // IntersectionObserver 미지원 브라우저는 그냥 바로 보이게
+        el.classList.add('is-visible');
       }
     });
   }
-
-  // ---------------- 오시는 길 지도 ----------------
-  // 카카오맵을 관리자 페이지에서 연결해뒀으면(kakaoMapImageUrl/kakaoMapLinkUrl) 그걸 우선 사용하고,
-  // 없으면 예전 방식대로 iframe 임베드 URL(구글맵 등)을 사용합니다.
 
   function renderMap(contact) {
     const box = $('#map-box');
     if (!box) return;
 
-    // 형식이 이상한 값은 아예 쓰지 않음 (카카오 지도 도메인 https 주소인지 재확인 - 2중 방어)
     const validImage = contact.kakaoMapImageUrl && /^https:\/\/staticmap\.kakao\.com\//.test(contact.kakaoMapImageUrl)
       ? contact.kakaoMapImageUrl
       : '';
@@ -79,7 +72,6 @@
     }
   }
 
-  // ---------------- 방문/클릭 통계 수집 ----------------
   function track(type, data = {}) {
     const payload = JSON.stringify({ type, ...data });
     if (navigator.sendBeacon) {
@@ -115,7 +107,8 @@
       requestAnimationFrame(updateHeaderState);
     }
   }, { passive: true });
-updateHeaderState(); // 페이지가 열리자마자(스크롤 이벤트를 기다리지 않고) 한 번 즉시 확인
+  updateHeaderState();
+
   // ---------------- 모바일 메뉴 ----------------
   const hamburger = $('#hamburger');
   const navMobile = $('#nav-mobile');
@@ -135,7 +128,6 @@ updateHeaderState(); // 페이지가 열리자마자(스크롤 이벤트를 기�
     const site = await getJSON('/api/site');
 
     if (site.design) {
-      // 기본 2종(노토 세리프/산스) 외의 폰트를 관리자가 선택한 경우에만 그 폰트를 추가로 불러옴
       window.ensureGoogleFont && window.ensureGoogleFont(site.design.headingFont);
       window.ensureGoogleFont && window.ensureGoogleFont(site.design.bodyFont);
       const headingFamily = window.getFontFamily(site.design.headingFont, "'Noto Serif KR', serif");
@@ -158,8 +150,6 @@ updateHeaderState(); // 페이지가 열리자마자(스크롤 이벤트를 기�
       $('#hero-verse-ref').textContent = site.hero.verseRef || '';
       $('#hero-subtitle').innerHTML = escapeHtml(site.hero.subtitle || '').replace(/\n/g, '<br>');
       if (site.hero.backgroundImage) {
-        // 사진을 완전히 다 불러온 뒤에 적용해서, 다운로드 도중의 어중간한 모습 없이
-        // 한 번에 부드럽게 페이드인되도록 합니다.
         const bgPhoto = $('#hero-bg-photo');
         const preload = new Image();
         preload.onload = () => {
@@ -223,7 +213,6 @@ updateHeaderState(); // 페이지가 열리자마자(스크롤 이벤트를 기�
       $('#offering').style.display = '';
       $('#offering-prayer-grid').classList.remove('offering-prayer-grid--single');
     } else {
-      // 헌금 정보가 설정되지 않았으면 기도 요청 카드만 단독으로 넓게 보여준다
       $('#offering-prayer-grid').classList.add('offering-prayer-grid--single');
     }
 
@@ -258,9 +247,6 @@ updateHeaderState(); // 페이지가 열리자마자(스크롤 이벤트를 기�
     return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
   }
 
-  // 가로는 화면 너비에, 세로는 화면 높이에 맞춰 "둘 중 더 빠듯한 쪽" 기준으로 최대한
-  // 크게 계산합니다. (예전엔 가로 기준으로만 크기를 잡아서, 화면이 넓고 낮은 모니터에서
-  // 세로가 실제보다 작아 보였습니다)
   function sizeVideoModal(ratioW, ratioH) {
     const inner = $('#video-modal-inner');
     const maxW = Math.min(window.innerWidth * 0.92, 1100);
@@ -284,8 +270,6 @@ updateHeaderState(); // 페이지가 열리자마자(스크롤 이벤트를 기�
       `<iframe src="https://www.youtube.com/embed/${videoId}?autoplay=1" title="설교 영상" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
     modal.classList.add('open');
 
-    // 쇼츠처럼 세로 영상이면 실제 비율을 확인해서 화면을 세로로 꽉 채워 보여줍니다
-    // (실패해도 기본 16:9로 그대로 보이니 문제없음)
     fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`)
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
@@ -332,15 +316,28 @@ updateHeaderState(); // 페이지가 열리자마자(스크롤 이벤트를 기�
     if (e.target.id === 'file-modal') closeFileModal();
   });
 
-  // 카드마다 다른 브랜드 톤을 자동으로 순환시켜서, 매주 비슷한 설교 화면이어도
-  // 카드 느낌이 겹치지 않도록 합니다 (직접 디자인 안 해도 자동으로 다양해짐)
+  // ---------------- 사진 확대 보기 ----------------
+  function openImageLightbox(url, alt) {
+    $('#image-lightbox-img').src = url;
+    $('#image-lightbox-img').alt = alt || '';
+    $('#image-lightbox').classList.add('open');
+  }
+  function closeImageLightbox() {
+    $('#image-lightbox').classList.remove('open');
+    $('#image-lightbox-img').src = '';
+  }
+  $('#image-lightbox-close')?.addEventListener('click', closeImageLightbox);
+  $('#image-lightbox')?.addEventListener('click', (e) => {
+    if (e.target.id === 'image-lightbox') closeImageLightbox();
+  });
+
   const CARD_ACCENT_PALETTE = [
-    '13, 21, 38', // 네이비(기본)
-    '15, 42, 45', // 딥 틸
-    '58, 18, 32', // 와인
-    '20, 38, 26', // 포레스트
-    '36, 26, 53', // 슬레이트 퍼플
-    '42, 32, 21' // 웜 차콜
+    '13, 21, 38',
+    '15, 42, 45',
+    '58, 18, 32',
+    '20, 38, 26',
+    '36, 26, 53',
+    '42, 32, 21'
   ];
   function accentForId(id = '') {
     let hash = 0;
@@ -427,13 +424,11 @@ updateHeaderState(); // 페이지가 열리자마자(스크롤 이벤트를 기�
   // ---------------- 게시판 (소식·활동) ----------------
   let allPosts = [];
 
-  // 저장된 content가 HTML(리치 에디터로 작성)이면 그대로, 순수 텍스트(줄바꿈만 있는 옛 글)면 줄바꿈을 <br>로 변환
   function renderContent(content = '') {
     if (/<[a-z][\s\S]*>/i.test(content)) return content;
     return escapeHtml(content).replace(/\n/g, '<br>');
   }
 
-  // 목록에 보여줄 미리보기용 순수 텍스트 (HTML 태그 제거 + 길이 제한)
   function plainPreview(content = '', maxLen = 90) {
     const div = document.createElement('div');
     div.innerHTML = content;
@@ -449,22 +444,19 @@ updateHeaderState(); // 페이지가 열리자마자(스크롤 이벤트를 기�
     return /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(a.url || a.name || '');
   }
 
-  // 목록 카드에 쓸 대표 이미지: 대표 이미지 → 없으면 첫 이미지 첨부파일
   function thumbnailFor(post) {
     if (post.image) return post.image;
     const firstImg = (post.attachments || []).find(isImageAttachment);
     return firstImg ? firstImg.url : '';
   }
 
-  // 모바일에서 카테고리별로 노출할 최대 개수 (소식 3 / 활동 3 / 주보 최신 1)
   const BOARD_MOBILE_LIMITS = { 소식: 3, 활동: 3, 주보: 1 };
-  const BOARD_PAGE_SIZE = 9; // PC 한 페이지당 노출 개수
+  const BOARD_PAGE_SIZE = 9;
   const isBoardMobile = () => window.matchMedia('(max-width: 900px)').matches;
 
   let boardCategory = '전체';
   let boardPage = 1;
 
-  // 저장된 값은 예전 그대로(호환성) 두고, 화면에 보여줄 라벨만 바꿉니다.
   const CATEGORY_LABELS = { 활동: '친교' };
   const categoryLabel = (cat) => CATEGORY_LABELS[cat] || cat;
 
@@ -486,13 +478,12 @@ updateHeaderState(); // 페이지가 열리자마자(스크롤 이벤트를 기�
       </div>`;
   }
 
-  // 모바일 "전체" 탭: 카테고리별 한도를 지키면서, 기존 정렬(상단고정→최신순) 순서는 그대로 유지
   function pickWithCategoryLimits(posts, limits) {
     const counts = {};
     const result = [];
     posts.forEach((p) => {
       const limit = limits[p.category];
-      if (limit === undefined) return; // 정의되지 않은 카테고리는 노출하지 않음(현재는 소식/활동/주보 뿐)
+      if (limit === undefined) return;
       counts[p.category] = counts[p.category] || 0;
       if (counts[p.category] < limit) {
         result.push(p);
@@ -531,7 +522,6 @@ updateHeaderState(); // 페이지가 열리자마자(스크롤 이벤트를 기�
         if (!page || page === boardPage) return;
         boardPage = page;
         renderBoard();
-        // 페이지를 넘기면 목록 상단이 보이도록 살짝 스크롤 보정
         $('#board').scrollIntoView({ block: 'start', behavior: 'smooth' });
       });
     });
@@ -546,7 +536,6 @@ updateHeaderState(); // 페이지가 열리자마자(스크롤 이벤트를 기�
     let totalForPagination;
 
     if (isBoardMobile()) {
-      // 모바일: 페이지 넘김 없이 카테고리별 개수만 제한해서 보여준다
       if (category === '전체') {
         pageItems = pickWithCategoryLimits(allPosts, BOARD_MOBILE_LIMITS);
       } else {
@@ -555,7 +544,6 @@ updateHeaderState(); // 페이지가 열리자마자(스크롤 이벤트를 기�
       }
       totalForPagination = 0;
     } else {
-      // PC: 9개씩, 페이지네이션
       const totalPages = Math.max(1, Math.ceil(byCategory.length / BOARD_PAGE_SIZE));
       if (boardPage > totalPages) boardPage = totalPages;
       const start = (boardPage - 1) * BOARD_PAGE_SIZE;
@@ -588,15 +576,17 @@ updateHeaderState(); // 페이지가 열리자마자(스크롤 이벤트를 기�
     $('#post-modal-date').textContent = post.date || '';
     $('#post-modal-title').textContent = post.title || '';
     $('#post-modal-content').innerHTML = renderContent(post.content);
-// 본문 안에 있는 이미지들도 클릭하면 확대해서 볼 수 있게 합니다.
+
+    // 본문 안에 있는 이미지들도 클릭하면 확대해서 볼 수 있게 합니다.
     $$('#post-modal-content img').forEach((img) => {
-      img.addEventListener('click', () => openFileModal(img.src, post.title || '이미지'));
+      img.addEventListener('click', () => openImageLightbox(img.src, ''));
     });
+
     const imgEl = $('#post-modal-image');
     if (post.image) {
       imgEl.src = post.image;
       imgEl.alt = post.title || '';
-      imgEl.onclick = () => openFileModal(post.image, post.title || '이미지'); // 클릭하면 크게 확대
+      imgEl.onclick = () => openImageLightbox(post.image, post.title || '');
     } else {
       imgEl.removeAttribute('src');
       imgEl.onclick = null;
@@ -624,7 +614,7 @@ updateHeaderState(); // 페이지가 열리자마자(스크롤 이벤트를 기�
 
     attachBox.innerHTML = imagesHtml + filesHtml;
     $$('#post-modal-attachments .attachment-image').forEach((img) => {
-      img.addEventListener('click', () => openFileModal(img.src, img.alt || '이미지'));
+      img.addEventListener('click', () => openImageLightbox(img.src, img.alt || ''));
     });
     $$('#post-modal-attachments [data-preview="1"]').forEach((el) => {
       el.addEventListener('click', (e) => {
@@ -660,7 +650,6 @@ updateHeaderState(); // 페이지가 열리자마자(스크롤 이벤트를 기�
       });
     });
 
-    // PC ↔ 모바일 화면 전환 시(창 크기 조절, 기기 회전 등) 표시 방식이 바뀌므로 다시 렌더링
     window.matchMedia('(max-width: 900px)').addEventListener('change', () => {
       boardPage = 1;
       renderBoard();
@@ -689,12 +678,9 @@ updateHeaderState(); // 페이지가 열리자마자(스크롤 이벤트를 기�
     return `${d.getMonth() + 1}월 ${d.getDate()}일`;
   }
 
-  // 캐러셀을 "겹쳐진 카드가 옆으로 스르륵 밀려나는" 커버플로우 방식으로 제어한다.
-  // activeIndex에 해당하는 카드가 가운데(delta=0)에 오고, 나머지는 좌우로 카드 너비의
-  // 약 2/3만큼 떨어져(=1/3 겹쳐) 배치된다. 인덱스가 바뀌면 CSS transition이 슬라이드 애니메이션을 만든다.
   function createCoverflow(carousel, cardEls, initialIndex, { onChange } = {}) {
     const CARD_WIDTH = 340;
-    const STEP = Math.round(CARD_WIDTH * 0.64); // 카드 너비의 약 1/3만큼 겹치도록
+    const STEP = Math.round(CARD_WIDTH * 0.64);
     let activeIndex = initialIndex;
 
     function layout() {
@@ -718,8 +704,6 @@ updateHeaderState(); // 페이지가 열리자마자(스크롤 이벤트를 기�
       layout();
     }
 
-    // 가운데(활성) 카드가 아닌 카드를 클릭하면 그 카드가 가운데로 이동하고,
-    // 이미 가운데인 카드를 클릭하면 원래 링크(상세 페이지)로 정상 이동한다.
     cardEls.forEach((card, i) => {
       card.addEventListener('click', (e) => {
         if (i !== activeIndex) {
@@ -729,7 +713,6 @@ updateHeaderState(); // 페이지가 열리자마자(스크롤 이벤트를 기�
       });
     });
 
-    // 드래그/스와이프로도 넘길 수 있게 처리
     let isDown = false;
     let dragged = false;
     let startX = 0;
@@ -739,24 +722,15 @@ updateHeaderState(); // 페이지가 열리자마자(스크롤 이벤트를 기�
       dragged = false;
       startX = e.clientX;
       carousel.classList.add('dragging');
-      // 여기서 바로 setPointerCapture를 걸면, 단순 클릭이어도 mouseup/click 이벤트의
-      // 대상이 카드(<a>)가 아니라 캐러셀로 바뀌어 카드의 기본 동작(페이지 이동)이
-      // 막혀버린다. 그래서 캡처는 아래 pointermove에서 "진짜 드래그"로 확정된
-      // 순간에만 건다.
     });
     carousel.addEventListener('pointermove', (e) => {
       if (!isDown) return;
-      // 클릭 시 손이 미세하게 떨리는 정도(수 px)는 드래그로 오인하지 않도록 기준을 넉넉히 잡는다.
       if (!dragged && Math.abs(e.clientX - startX) > 15) {
         dragged = true;
-        // 진짜 드래그로 확정된 시점에만 캡처를 걸어, 커서가 캐러셀 영역 밖으로
-        // 나가도 드래그를 계속 추적할 수 있게 한다.
         carousel.setPointerCapture(e.pointerId);
       }
     });
     const finishDrag = (e) => {
-      // 포인터 캡처를 풀어줘야 클릭이 끝나는 지점(mouseup)이 실제 카드(<a>) 위로
-      // 정상적으로 인식되어, 카드 클릭 시 상세 페이지 이동(전체 보기)이 막히지 않는다.
       if (carousel.hasPointerCapture && carousel.hasPointerCapture(e.pointerId)) {
         carousel.releasePointerCapture(e.pointerId);
       }
@@ -813,9 +787,6 @@ updateHeaderState(); // 페이지가 열리자마자(스크롤 이벤트를 기�
     const [latest, ...rest] = list;
     const isDesktop = window.matchMedia('(min-width: 861px)').matches;
 
-    // 캐러셀에는 오늘 카드 + 최근 지난 큐티 몇 장만(오래된 순 → 오늘 순으로 배치해
-    // 오늘 카드가 맨 오른쪽=가운데 정렬 기준이 되도록 함)
-    // 모바일에서는 좁은 화면에 여러 장이 겹쳐 보이지 않도록 "오늘의 큐티" 카드 1개만 렌더링한다.
     const carouselPast = isDesktop ? rest.slice(0, 5).reverse() : [];
 
     const archiveCardHtml = (q) => `
@@ -841,7 +812,7 @@ updateHeaderState(); // 페이지가 열리자마자(스크롤 이벤트를 기�
     $$('#qt-carousel-track .qt-card--today').forEach((c) => c.addEventListener('click', () => track('click', { label: 'qt_card' })));
     $$('#qt-carousel-track .qt-card--archive').forEach((c) => c.addEventListener('click', () => track('click', { label: 'qt_carousel_archive' })));
 
-    const todayIndex = carouselPast.length; // 오늘 카드는 배열 맨 뒤(오른쪽)에 위치
+    const todayIndex = carouselPast.length;
 
     if (carouselPast.length === 0 || !isDesktop) {
       stage.classList.add('qt-stage--single');
@@ -897,8 +868,6 @@ updateHeaderState(); // 페이지가 열리자마자(스크롤 이벤트를 기�
     return Math.floor((Date.now() - start.getTime()) / 86400000) + 1;
   }
 
-  // 좌표가 같거나(같은 도시) 매우 가까운 여러 선교지를 하나의 핀+카드로 묶어서 보여줍니다.
-  // 각 항목을 카드 안에서 구분선으로 나눠 나란히 표시합니다.
   function missionGroupCardHTML(group) {
     const first = group[0];
     const flag = window.isoToFlag ? window.isoToFlag(first.countryCode) : '';
@@ -968,7 +937,7 @@ updateHeaderState(); // 페이지가 열리자마자(스크롤 이벤트를 기�
         const pointFeatures = {
           type: 'FeatureCollection',
           features: [
-            { type: 'Feature', geometry: { type: 'Point', coordinates: [127.8, 36.5] } }, // 대한민국 기준점
+            { type: 'Feature', geometry: { type: 'Point', coordinates: [127.8, 36.5] } },
             ...missions.map((m) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [m.lon, m.lat] } }))
           ]
         };
@@ -993,9 +962,6 @@ updateHeaderState(); // 페이지가 열리자마자(스크롤 이벤트를 기�
 
         const pinGroup = svg.append('g');
 
-        // 같은 나라/도시라서 좌표가 같거나 아주 가까운 선교지가 여러 개면 핀과 카드가
-        // 겹쳐서 일부만 보이는 문제가 있었습니다. 좌표를 먼저 계산해서, 몇 픽셀 이내로
-        // 겹치는 항목들은 하나의 핀 + 하나의 통합 카드로 묶어서 모두 보이게 합니다.
         const positioned = missions.map((m) => {
           const [x, y] = projection([m.lon, m.lat]);
           return { m, x, y };
@@ -1013,7 +979,6 @@ updateHeaderState(); // 페이지가 열리자마자(스크롤 이벤트를 기�
 
         groupOrder.forEach((key) => {
           const group = collisionGroups[key];
-          // 그룹 내 평균 좌표를 핀 위치로 사용
           const x = group.reduce((sum, p) => sum + p.x, 0) / group.length;
           const y = group.reduce((sum, p) => sum + p.y, 0) / group.length;
           const missionsInGroup = group.map((p) => p.m);
@@ -1132,14 +1097,12 @@ updateHeaderState(); // 페이지가 열리자마자(스크롤 이벤트를 기�
   // ---------------- PWA: 서비스워커 등록 ----------------
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js').catch(() => {
-        // 서비스워커 등록에 실패해도 사이트 이용에는 지장이 없으므로 조용히 무시
-      });
+      navigator.serviceWorker.register('/sw.js').catch(() => {});
     });
   }
 
   // ---------------- 초기 로드 ----------------
-  observeReveals(); // 정적으로 이미 있는 섹션 제목/카드 등에 스크롤 등장 애니메이션 연결
+  observeReveals();
   Promise.all([loadSite(), loadMenu(), loadSermons(), loadPraises(), loadBoard(), loadQT(), loadMissions()]).catch((err) => {
     console.error('콘텐츠를 불러오는 중 오류가 발생했습니다:', err);
   });
