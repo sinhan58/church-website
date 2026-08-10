@@ -79,8 +79,8 @@ app.get('/qt/:id', async (req, res, next) => {
 // "기본 글씨체 → 설정한 글씨체"로 바뀌는 깜빡임을 보지 않도록 직접 렌더링)
 app.get('/', async (req, res, next) => {
   try {
-    const site = await readData('site');
-    res.send(renderIndexPage({ site: site || {} }));
+    const [site, menu] = await Promise.all([readData('site'), readData('menu')]);
+    res.send(renderIndexPage({ site: site || {}, menu: menu || [] }));
   } catch (err) {
     next(err);
   }
@@ -104,8 +104,8 @@ app.get('/admin', (req, res) => {
 // 그 외 경로는 메인 홈페이지로 (마찬가지로 글씨체를 미리 반영해서 보냅니다)
 app.get('*', async (req, res, next) => {
   try {
-    const site = await readData('site');
-    res.send(renderIndexPage({ site: site || {} }));
+    const [site, menu] = await Promise.all([readData('site'), readData('menu')]);
+    res.send(renderIndexPage({ site: site || {}, menu: menu || [] }));
   } catch (err) {
     next(err);
   }
