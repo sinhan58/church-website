@@ -593,8 +593,10 @@ updateHeaderState(); // 페이지가 열리자마자(스크롤 이벤트를 기�
     if (post.image) {
       imgEl.src = post.image;
       imgEl.alt = post.title || '';
+      imgEl.onclick = () => openFileModal(post.image, post.title || '이미지'); // 클릭하면 크게 확대
     } else {
       imgEl.removeAttribute('src');
+      imgEl.onclick = null;
     }
 
     const attachBox = $('#post-modal-attachments');
