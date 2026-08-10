@@ -115,7 +115,7 @@
       requestAnimationFrame(updateHeaderState);
     }
   }, { passive: true });
-
+updateHeaderState(); // 페이지가 열리자마자(스크롤 이벤트를 기다리지 않고) 한 번 즉시 확인
   // ---------------- 모바일 메뉴 ----------------
   const hamburger = $('#hamburger');
   const navMobile = $('#nav-mobile');
