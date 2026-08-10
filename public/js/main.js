@@ -97,9 +97,24 @@
 
   // ---------------- 헤더 스크롤 효과 ----------------
   const header = $('#site-header');
+  let headerTicking = false;
+
+  function updateHeaderState() {
+    const isScrolled = header.classList.contains('scrolled');
+    if (!isScrolled && window.scrollY > 60) {
+      header.classList.add('scrolled');
+    } else if (isScrolled && window.scrollY < 30) {
+      header.classList.remove('scrolled');
+    }
+    headerTicking = false;
+  }
+
   window.addEventListener('scroll', () => {
-    header.classList.toggle('scrolled', window.scrollY > 40);
-  });
+    if (!headerTicking) {
+      headerTicking = true;
+      requestAnimationFrame(updateHeaderState);
+    }
+  }, { passive: true });
 
   // ---------------- 모바일 메뉴 ----------------
   const hamburger = $('#hamburger');
