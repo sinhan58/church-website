@@ -641,7 +641,14 @@ button { font-family: inherit; cursor: pointer; }
   justify-content: center;
   padding: 24px;
 }
-.post-modal.open { display: flex; }
+.post-modal.open {
+  display: flex;
+  animation: modalOverlayIn 0.25s ease both;
+}
+@keyframes modalOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
 .post-modal-inner {
   width: 100%;
   max-width: 640px;
@@ -651,6 +658,11 @@ button { font-family: inherit; cursor: pointer; }
   border-radius: var(--radius);
   padding: 32px;
   position: relative;
+  animation: modalContentIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes modalContentIn {
+  from { opacity: 0; transform: translateY(24px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 .post-modal-close {
   position: absolute;
