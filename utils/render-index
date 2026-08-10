@@ -1,0 +1,21 @@
+const fs = require('fs');
+const path = require('path');
+const { getFontStyleAndLinks } = require('./font-catalog');
+
+// public/index.html은 요청마다 내용이 바뀌는 파일이 아니라(글자 하나까지 똑같은 정적
+// 템플릿), 서버가 켜질 때 딱 한 번만 읽어서 메모리에 담아두고 재사용합니다.
+// (요청이 올 때마다 디스크에서 다시 읽지 않아도 되니 더 빠릅니다)
+const templatePath = path.join(__dirname, '..', 'public', 'index.html');
+let template = fs.readFileSync(templatePath, 'utf-8');
+
+// 홈페이지 HTML을 완성해서 돌려줍니다. site.design(관리자가 고른 글씨체 설정)을
+// </head> 바로 앞에 심어서, 방문자가 페이지를 받는 시점부터 이미 올바른 글씨체가
+// 적용된 상태로 첫 화면이 그려지도록 합니다 (기본 글씨체로 잠깐 보였다가 바뀌는
+// 깜빡임이 없어집니다).
+function renderIndexPage({ site } = {}) {
+  const { styleTag, extraLinks } = getFontStyleAndLinks(site?.design || {});
+  const injected = `${extraLinks}\n${styleTag}\n</head>`;
+  return template.replace('</head>', injected);
+}
+
+module.exports = { renderIndexPage };
