@@ -258,11 +258,28 @@ updateHeaderState(); // 페이지가 열리자마자(스크롤 이벤트를 기�
     return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
   }
 
+  // 가로는 화면 너비에, 세로는 화면 높이에 맞춰 "둘 중 더 빠듯한 쪽" 기준으로 최대한
+  // 크게 계산합니다. (예전엔 가로 기준으로만 크기를 잡아서, 화면이 넓고 낮은 모니터에서
+  // 세로가 실제보다 작아 보였습니다)
+  function sizeVideoModal(ratioW, ratioH) {
+    const inner = $('#video-modal-inner');
+    const maxW = Math.min(window.innerWidth * 0.92, 1100);
+    const maxH = window.innerHeight * 0.85;
+    let w = maxW;
+    let h = (w * ratioH) / ratioW;
+    if (h > maxH) {
+      h = maxH;
+      w = (h * ratioW) / ratioH;
+    }
+    inner.style.width = `${w}px`;
+    inner.style.height = `${h}px`;
+  }
+
   function openVideoModal(videoId) {
     const modal = $('#video-modal');
     const inner = $('#video-modal-inner');
-    inner.style.aspectRatio = '16 / 9';
     inner.classList.remove('video-modal-inner--portrait');
+    sizeVideoModal(16, 9);
     $('#video-modal-frame').innerHTML =
       `<iframe src="https://www.youtube.com/embed/${videoId}?autoplay=1" title="설교 영상" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
     modal.classList.add('open');
@@ -273,7 +290,7 @@ updateHeaderState(); // 페이지가 열리자마자(스크롤 이벤트를 기�
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
         if (data && data.width && data.height && data.height > data.width) {
-          inner.style.aspectRatio = `${data.width} / ${data.height}`;
+          sizeVideoModal(data.width, data.height);
           inner.classList.add('video-modal-inner--portrait');
         }
       })
