@@ -158,8 +158,15 @@ updateHeaderState(); // 페이지가 열리자마자(스크롤 이벤트를 기�
       $('#hero-verse-ref').textContent = site.hero.verseRef || '';
       $('#hero-subtitle').innerHTML = escapeHtml(site.hero.subtitle || '').replace(/\n/g, '<br>');
       if (site.hero.backgroundImage) {
-        $('.hero').style.background =
-          `linear-gradient(180deg, rgba(13,21,38,0.72), rgba(13,21,38,0.86)), url('${site.hero.backgroundImage}') center/cover no-repeat`;
+        // 사진을 완전히 다 불러온 뒤에 적용해서, 다운로드 도중의 어중간한 모습 없이
+        // 한 번에 부드럽게 페이드인되도록 합니다.
+        const bgPhoto = $('#hero-bg-photo');
+        const preload = new Image();
+        preload.onload = () => {
+          bgPhoto.style.backgroundImage = `url('${site.hero.backgroundImage}')`;
+          bgPhoto.classList.add('is-visible');
+        };
+        preload.src = site.hero.backgroundImage;
       }
     }
 
