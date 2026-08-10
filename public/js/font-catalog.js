@@ -57,6 +57,6 @@ window.ensureGoogleFont = function (id) {
   loadedFontIds.add(id);
   const link = document.createElement('link');
   link.rel = 'stylesheet';
-  link.href = `https://fonts.googleapis.com/css2?family=${spec}&display=swap`;
+  link.href = `https://fonts.googleapis.com/css2?family=${spec}&display=optional`;
   document.head.appendChild(link);
 };
