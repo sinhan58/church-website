@@ -42,6 +42,7 @@ function renderQtDetailPage({ site, item, prev, next, siteUrl }) {
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
+<script>if ('scrollRestoration' in history) { history.scrollRestoration = 'manual'; }</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>${escapeHtml(pageTitle)}</title>
 <meta name="description" content="${escapeHtml(description)}" />
