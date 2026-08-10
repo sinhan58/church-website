@@ -1,0 +1,18 @@
+{
+  "name": "물댄동산교회",
+  "short_name": "물댄동산교회",
+  "description": "물댄동산교회 홈페이지 - 예배 안내, 설교 영상, 오늘의 큐티, 교회 소식",
+  "start_url": "/?pwa=1",
+  "id": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#faf7f0",
+  "theme_color": "#0d1526",
+  "lang": "ko",
+  "icons": [
+    { "src": "/icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
