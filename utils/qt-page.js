@@ -1,3 +1,5 @@
+const { getFontStyleAndLinks } = require('./font-catalog');
+
 function escapeHtml(str = '') {
   return String(str)
     .replace(/&/g, '&amp;')
@@ -27,6 +29,9 @@ function renderQtDetailPage({ site, item, prev, next, siteUrl }) {
   const pageUrl = `${siteUrl}/qt/${item.id}`;
   const ogImage = site.about?.image || `${siteUrl}/uploads/0001.png`;
 
+  // 관리자가 '기본 정보 > 글꼴 설정'에서 고른 글씨체를 반영합니다. (홈페이지와 같은 공용 모듈 사용)
+  const { styleTag: fontStyleTag, extraLinks: extraFontLinks } = getFontStyleAndLinks(site.design || {});
+
   const navHtml = `
     <div class="qt-detail-nav">
       ${prev ? `<a href="/qt/${prev.id}">← ${escapeHtml(formatDateLabel(prev.date))} 큐티</a>` : '<span></span>'}
@@ -50,7 +55,9 @@ function renderQtDetailPage({ site, item, prev, next, siteUrl }) {
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+${extraFontLinks}
 <link rel="stylesheet" href="/css/style.css" />
+${fontStyleTag}
 </head>
 <body>
 
