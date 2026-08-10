@@ -1,4 +1,4 @@
-require('dotenv').config();
+\require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
 const path = require('path');
@@ -9,6 +9,7 @@ const adminRoutes = require('./routes/admin');
 const { updateSermonsCache } = require('./utils/youtube');
 const { readData } = require('./utils/db');
 const { renderQtDetailPage } = require('./utils/qt-page');
+const { renderIndexPage } = require('./utils/render-index');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -74,8 +75,22 @@ app.get('/qt/:id', async (req, res, next) => {
   }
 });
 
-// 정적 파일 (홈페이지 + 관리자 화면 + 업로드 이미지)
-app.use(express.static(path.join(__dirname, 'public')));
+// 홈페이지 (관리자가 고른 글씨체를 서버에서 미리 반영해서 보내, 방문자가
+// "기본 글씨체 → 설정한 글씨체"로 바뀌는 깜빡임을 보지 않도록 직접 렌더링)
+app.get('/', async (req, res, next) => {
+  try {
+    const site = await readData('site');
+    res.send(renderIndexPage({ site: site || {} }));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// 정적 파일 (홈페이지 외 나머지 화면 + 관리자 화면 + 업로드 이미지)
+// index:false로 꺼둔 이유: 그대로 두면 '/' 요청을 이 static 미들웨어가 먼저 가로채서
+// public/index.html을 그냥 파일 그대로 보내버려, 위에서 만든 '/' 라우트가 아예 실행되지
+// 않습니다. 그래서 '/' 하나는 위 라우트가 전담하고, 그 외 정적 파일들은 그대로 이걸로 서빙합니다.
+app.use(express.static(path.join(__dirname, 'public'), { index: false }));
 
 // API 라우트
 app.use('/api', apiRoutes);
@@ -86,9 +101,14 @@ app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin', 'index.html'));
 });
 
-// 그 외 경로는 메인 홈페이지로
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+// 그 외 경로는 메인 홈페이지로 (마찬가지로 글씨체를 미리 반영해서 보냅니다)
+app.get('*', async (req, res, next) => {
+  try {
+    const site = await readData('site');
+    res.send(renderIndexPage({ site: site || {} }));
+  } catch (err) {
+    next(err);
+  }
 });
 
 app.listen(PORT, () => {
