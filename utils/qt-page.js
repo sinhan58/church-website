@@ -64,7 +64,7 @@ ${fontStyleTag}
 
 <header class="site-header scrolled">
   <div class="container">
-    <a href="/" class="brand">${escapeHtml(churchName)}<span class="gold-dot">.</span></a>
+    <a href="/" class="brand">${escapeHtml(churchName)}</a>
   </div>
 </header>
 
