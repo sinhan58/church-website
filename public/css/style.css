@@ -441,6 +441,13 @@ button { font-family: inherit; cursor: pointer; }
      (가로만 기준으로 잡으면 화면이 넓고 낮을 때 세로가 작아 보이는 문제가 있어서,
      가로·세로 중 더 빠듯한 쪽에 맞춰 최대한 크게 키우는 방식으로 바꿨습니다) */
 }
+#video-modal-frame {
+  /* 이 div에 높이가 지정되어 있지 않으면, 안의 iframe이 height:100%를 줘도 기준
+     삼을 높이가 없어서 브라우저 기본 높이(아주 작음)로 떨어집니다. 부모(.video-modal-inner,
+     JS가 크기를 정확히 계산해서 넣어줌)에 꽉 채우도록 절대 위치로 고정해 해결합니다. */
+  position: absolute;
+  inset: 0;
+}
 .video-modal-inner iframe { width: 100%; height: 100%; border: 0; border-radius: var(--radius); }
 .video-modal-close {
   position: absolute;
@@ -722,6 +729,38 @@ button { font-family: inherit; cursor: pointer; }
 .attachment-item:hover { border-color: var(--gold); background: #fdf7e6; }
 .attachment-item .icon { color: var(--gold-deep); }
 .attachment-image { width: 100%; border-radius: 8px; display: block; margin-bottom: 12px; cursor: zoom-in; }
+
+/* 사진 확대 보기 (다른 모든 모달보다 위에 뜨도록 z-index를 가장 높게 둡니다) */
+.image-lightbox {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(13,21,38,0.92);
+  z-index: 400;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  cursor: zoom-out;
+}
+.image-lightbox.open { display: flex; }
+.image-lightbox img {
+  max-width: min(1100px, 90vw);
+  max-height: 85vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: var(--radius);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+}
+.image-lightbox-close {
+  position: absolute;
+  top: 20px; right: 24px;
+  color: #fff;
+  font-size: 2rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+  line-height: 1;
+}
 
 /* ---------------- Contact ---------------- */
 .contact-grid {
