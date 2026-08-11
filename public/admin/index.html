@@ -139,10 +139,11 @@
           <p class="hint" style="margin-top:6px;">줄을 나누고 싶은 곳에서 Enter를 눌러 줄바꿈하면 화면에도 그대로 두 줄로 나옵니다.</p>
         </div>
         <div class="field">
-          <label>배경 이미지</label>
-          <input type="file" id="s-heroImageFile" accept="image/*" />
-          <img class="preview" id="s-heroImagePreview" />
-        </div>
+  <label>배경 이미지 (여러 장 등록 가능)</label>
+  <input type="file" id="s-heroImageFile" accept="image/*" />
+  <div id="s-heroImageList" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;"></div>
+  <p class="hint" style="margin-top:6px;">사진을 여러 장 올리시면 홈페이지 대문에서 6초마다 자연스럽게 다음 사진으로 넘어갑니다. 한 장만 올리면 예전처럼 고정된 사진으로 보여요.</p>
+</div>
       </div>
 
       <div class="card">
