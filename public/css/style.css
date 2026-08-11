@@ -781,14 +781,17 @@ button { font-family: inherit; cursor: pointer; }
 }
 .image-lightbox-close {
   position: absolute;
-  top: 20px; right: 24px;
+  bottom: 28px;
+  left: 50%;
+  top: auto; right: auto;
+  transform: translateX(-50%);
   color: #fff;
   font-size: 0.95rem;
   background: rgba(255,255,255,0.15);
   border: none;
   cursor: pointer;
   line-height: 1;
-  padding: 8px 18px;
+  padding: 10px 24px;
   border-radius: 999px;
 }
 
