@@ -11,19 +11,23 @@ const FONT_CATALOG = {
   'pretendard': { family: "'Pretendard', 'Noto Sans KR', sans-serif" }, // 별도 CDN으로 항상 로드됨
   'noto-sans-kr': { family: "'Noto Sans KR', sans-serif" }, // 기본 <link>로 항상 로드됨
   'noto-serif-kr': { family: "'Noto Serif KR', serif" }, // 기본 <link>로 항상 로드됨
-  'gowun-dodum': { family: "'Gowun Dodum', sans-serif", google: 'Gowun+Dodum' },
-  'gowun-batang': { family: "'Gowun Batang', serif", google: 'Gowun+Batang' },
-  'nanum-gothic': { family: "'Nanum Gothic', sans-serif", google: 'Nanum+Gothic:wght@400;700;800' },
-  'nanum-myeongjo': { family: "'Nanum Myeongjo', serif", google: 'Nanum+Myeongjo:wght@400;700;800' },
-  'black-han-sans': { family: "'Black Han Sans', sans-serif", google: 'Black+Han+Sans' },
-  'do-hyeon': { family: "'Do Hyeon', sans-serif", google: 'Do+Hyeon' },
-  'song-myung': { family: "'Song Myung', serif", google: 'Song+Myung' },
-  'poor-story': { family: "'Poor Story', cursive", google: 'Poor+Story' },
-  'gothic-a1': { family: "'Gothic A1', sans-serif", google: 'Gothic+A1:wght@400;700;900' },
-  'ibm-plex-sans-kr': { family: "'IBM Plex Sans KR', sans-serif", google: 'IBM+Plex+Sans+KR:wght@400;500;700' },
-  'hahmlet': { family: "'Hahmlet', serif", google: 'Hahmlet:wght@400;600;700' },
-  'jua': { family: "'Jua', sans-serif", google: 'Jua' },
-  'sunflower': { family: "'Sunflower', sans-serif", google: 'Sunflower:wght@300;500;700' }
+  // 아래 장식적인 글씨체들은 자주 안 쓰이는 글자 일부가 빠져있을 수 있어서, 그런 글자를
+  // 만나면 곧장 기기 기본 글씨체(두껍게 보임)로 넘어가지 않도록 'Noto Sans/Serif KR'을
+  // 중간 완충 글씨체로 끼워 넣습니다. (이 완충 글씨체는 모든 페이지에 항상 로딩되어
+  // 있어서 추가 비용 없이 훨씬 자연스럽게 이어집니다)
+  'gowun-dodum': { family: "'Gowun Dodum', 'Noto Sans KR', sans-serif", google: 'Gowun+Dodum' },
+  'gowun-batang': { family: "'Gowun Batang', 'Noto Serif KR', serif", google: 'Gowun+Batang' },
+  'nanum-gothic': { family: "'Nanum Gothic', 'Noto Sans KR', sans-serif", google: 'Nanum+Gothic:wght@400;700;800' },
+  'nanum-myeongjo': { family: "'Nanum Myeongjo', 'Noto Serif KR', serif", google: 'Nanum+Myeongjo:wght@400;700;800' },
+  'black-han-sans': { family: "'Black Han Sans', 'Noto Sans KR', sans-serif", google: 'Black+Han+Sans' },
+  'do-hyeon': { family: "'Do Hyeon', 'Noto Sans KR', sans-serif", google: 'Do+Hyeon' },
+  'song-myung': { family: "'Song Myung', 'Noto Serif KR', serif", google: 'Song+Myung' },
+  'poor-story': { family: "'Poor Story', 'Noto Sans KR', cursive", google: 'Poor+Story' },
+  'gothic-a1': { family: "'Gothic A1', 'Noto Sans KR', sans-serif", google: 'Gothic+A1:wght@400;700;900' },
+  'ibm-plex-sans-kr': { family: "'IBM Plex Sans KR', 'Noto Sans KR', sans-serif", google: 'IBM+Plex+Sans+KR:wght@400;500;700' },
+  'hahmlet': { family: "'Hahmlet', 'Noto Serif KR', serif", google: 'Hahmlet:wght@400;600;700' },
+  'jua': { family: "'Jua', 'Noto Sans KR', sans-serif", google: 'Jua' },
+  'sunflower': { family: "'Sunflower', 'Noto Sans KR', sans-serif", google: 'Sunflower:wght@300;500;700' }
 };
 
 function getFontFamily(id, fallback) {
