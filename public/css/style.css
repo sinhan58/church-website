@@ -120,7 +120,10 @@ button { font-family: inherit; cursor: pointer; }
   position: fixed;
   top: 0; left: 0; right: 0;
   z-index: 100;
-  background: rgba(13, 21, 38, 0.0);
+  /* 완전히 투명하게 두면(0.0) 뒤에 있는 다른 글자·이미지가 헤더 글씨와 겹쳐 보여
+     헷갈릴 수 있어서, 스크롤하기 전에도 은은한 그라데이션을 항상 깔아둡니다.
+     대문 사진은 여전히 비치되, 뒤 콘텐츠가 헤더 글자와 뒤섞여 보이는 문제를 없앱니다. */
+  background: linear-gradient(180deg, rgba(13,21,38,0.45) 0%, rgba(13,21,38,0.15) 70%, rgba(13,21,38,0) 100%);
   transition: background 0.3s ease, box-shadow 0.3s ease;
   padding: 20px 0;
 }
@@ -1620,4 +1623,3 @@ a:focus-visible, button:focus-visible {
   white-space: nowrap;
 }
 .missions-partners-page { text-align: center; font-size: 10.5px; color: var(--muted); margin: 10px 0 0; }
-
