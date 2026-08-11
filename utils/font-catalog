@@ -40,7 +40,7 @@ function getFontFamily(id, fallback) {
 function getExtraFontLinkTag(id) {
   const entry = FONT_CATALOG[id];
   if (!entry || !entry.google) return '';
-  return `<link rel="stylesheet" class="gfont-link" href="https://fonts.googleapis.com/css2?family=${entry.google}&display=optional">`;
+  return `<link rel="stylesheet" class="gfont-link" href="https://fonts.googleapis.com/css2?family=${entry.google}&display=block">`;
 }
 
 // site.design(관리자가 저장한 글씨체 설정)을 받아서, HTML <head>에 그대로 삽입할 수 있는
