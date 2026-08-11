@@ -117,7 +117,7 @@ button { font-family: inherit; cursor: pointer; }
 
 /* ---------------- Header / Nav ---------------- */
 .site-header {
-  position: absolute; /* 임시 테스트: 원래는 fixed */
+  position: fixed;
   top: 0; left: 0; right: 0;
   z-index: 100;
   background: rgba(13, 21, 38, 0.0);
@@ -1563,3 +1563,4 @@ a:focus-visible, button:focus-visible {
   white-space: nowrap;
 }
 .missions-partners-page { text-align: center; font-size: 10.5px; color: var(--muted); margin: 10px 0 0; }
+
