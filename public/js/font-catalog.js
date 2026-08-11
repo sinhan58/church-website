@@ -15,7 +15,12 @@ window.FONT_CATALOG = [
   { id: 'black-han-sans', label: '검은고딕 (굵고 강한 느낌)', family: "'Black Han Sans', sans-serif" },
   { id: 'do-hyeon', label: '도현 (캐주얼한 고딕)', family: "'Do Hyeon', sans-serif" },
   { id: 'song-myung', label: '송명 (붓글씨 느낌 명조)', family: "'Song Myung', serif" },
-  { id: 'poor-story', label: '푸어스토리 (손글씨 느낌)', family: "'Poor Story', cursive" }
+  { id: 'poor-story', label: '푸어스토리 (손글씨 느낌)', family: "'Poor Story', cursive" },
+  { id: 'gothic-a1', label: '고딕 A1 (다양한 굵기의 모던 고딕)', family: "'Gothic A1', sans-serif" },
+  { id: 'ibm-plex-sans-kr', label: 'IBM 플렉스 산스 (깔끔한 모던 고딕)', family: "'IBM Plex Sans KR', sans-serif" },
+  { id: 'hahmlet', label: '함렛 (세련된 명조)', family: "'Hahmlet', serif" },
+  { id: 'jua', label: '주아 (통통하고 친근한 고딕)', family: "'Jua', sans-serif" },
+  { id: 'sunflower', label: '해바라기 (둥글둥글한 고딕)', family: "'Sunflower', sans-serif" }
 ];
 
 window.getFontFamily = function (id, fallback) {
@@ -40,7 +45,12 @@ const GOOGLE_FONT_SPECS = {
   'black-han-sans': 'Black+Han+Sans',
   'do-hyeon': 'Do+Hyeon',
   'song-myung': 'Song+Myung',
-  'poor-story': 'Poor+Story'
+  'poor-story': 'Poor+Story',
+  'gothic-a1': 'Gothic+A1:wght@400;700;900',
+  'ibm-plex-sans-kr': 'IBM+Plex+Sans+KR:wght@400;500;700',
+  'hahmlet': 'Hahmlet:wght@400;600;700',
+  'jua': 'Jua',
+  'sunflower': 'Sunflower:wght@300;500;700'
   // 'pretendard'는 별도 CDN(jsdelivr)에서 이미 항상 불러오고 있어서 여기 포함하지 않습니다.
 };
 
