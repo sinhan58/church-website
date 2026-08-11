@@ -1401,6 +1401,26 @@ a:focus-visible, button:focus-visible {
   outline-offset: 2px;
 }
 
+/* ---------------- 스크롤 등장 애니메이션 ----------------
+   카드/섹션이 화면에 스크롤되어 들어오면 서서히 나타나고, 화면 밖으로 나가면 다시
+   사라졌다가, 스크롤을 다시 내리면 또 나타납니다(반복). main.js의 IntersectionObserver가
+   .reveal 요소에 .is-visible을 추가/제거하는 방식으로 이 효과를 켜고 끕니다. */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.reveal-delay-1 { transition-delay: 0.05s; }
+.reveal-delay-2 { transition-delay: 0.1s; }
+.reveal-delay-3 { transition-delay: 0.15s; }
+.reveal-delay-4 { transition-delay: 0.2s; }
+.reveal-delay-5 { transition-delay: 0.25s; }
+.reveal-delay-6 { transition-delay: 0.3s; }
+
 /* ---------- 선교사역 (세계지도 + 동역자의 섬김) ---------- */
 .missions-verse {
   font-family: var(--font-heading);
