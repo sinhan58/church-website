@@ -36,7 +36,7 @@ window.getFontFamily = function (id, fallback) {
 // 필요가 없어서 초기 로딩이 가벼워집니다.
 // ---------------------------------------------------------------------------
 const GOOGLE_FONT_SPECS = {
-  'noto-sans-kr': 'Noto+Sans+KR:wght@400;500;600',
+  'noto-sans-kr': 'Noto+Sans+KR:wght@400;500;600;700',
   'noto-serif-kr': 'Noto+Serif+KR:wght@500;700',
   'gowun-dodum': 'Gowun+Dodum',
   'gowun-batang': 'Gowun+Batang',
