@@ -1564,9 +1564,3 @@ a:focus-visible, button:focus-visible {
 }
 .missions-partners-page { text-align: center; font-size: 10.5px; color: var(--muted); margin: 10px 0 0; }
 
-
-/* ===== 임시 진단용: 모든 애니메이션·전환 효과를 강제로 끕니다 (원인 테스트 후 삭제) ===== */
-*, *::before, *::after {
-  animation: none !important;
-  transition: none !important;
-}
