@@ -696,7 +696,7 @@ button { font-family: inherit; cursor: pointer; }
   overflow-y: auto;
   background: #fff;
   border-radius: var(--radius);
-  padding: 32px;
+  padding: 32px 32px 84px; /* 하단에 떠있는 닫기 버튼과 내용이 겹치지 않도록 아래쪽 여백을 넉넉히 둡니다 */
   position: relative;
   animation: modalContentIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
@@ -705,13 +705,28 @@ button { font-family: inherit; cursor: pointer; }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
 .post-modal-close {
+  /* 화면 오른쪽 위 대신, 엄지로 누르기 편한 하단 중앙에 두고 스크롤해도 항상 같은 자리에
+     떠있도록 합니다. (.post-modal-inner가 스크롤 컨테이너라서, absolute 위치는 스크롤되는
+     내용이 아니라 이 창의 테두리 기준으로 고정됩니다) */
   position: absolute;
-  top: 16px; right: 16px;
-  font-size: 1.6rem;
-  background: none;
-  border: none;
-  color: var(--muted);
+  bottom: 16px;
+  left: 50%;
+  top: auto;
+  right: auto;
+  transform: translateX(-50%);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.4rem;
   line-height: 1;
+  background: #fff;
+  color: var(--navy-deep);
+  border: 1px solid var(--line);
+  box-shadow: 0 6px 18px rgba(13,21,38,0.18);
+  z-index: 5;
 }
 .post-modal-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
 .post-modal-head .date { color: var(--muted); font-size: 0.85rem; }
