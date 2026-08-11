@@ -140,6 +140,55 @@
   });
 
   // ---------------- 사이트 기본 정보 ----------------
+  // 대문(히어로) 배경 사진 슬라이드쇼: 사진을 여러 장 등록하면 몇 초마다 자연스럽게
+  // 다음 사진으로 넘어갑니다. 두 개의 레이어(a/b)를 번갈아 써서, 다음 사진이 완전히
+  // 준비된 뒤에 부드럽게 겹쳐 나타나도록(크로스페이드) 합니다. 사진이 1장이면 그냥
+  // 고정된 사진으로 보이고(자동 전환 없음), 여러 장이면 6초 간격으로 넘어갑니다.
+  let heroSlideTimer = null;
+  let heroSlideActiveLayer = 'a';
+
+  function preloadImage(url) {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => resolve();
+      img.onerror = () => resolve(); // 사진 하나가 깨져도 슬라이드쇼 전체가 멈추지 않도록
+      img.src = url;
+    });
+  }
+
+  async function startHeroSlideshow(images) {
+    const list = (images || []).filter(Boolean);
+    if (list.length === 0) return;
+
+    const layerA = $('#hero-bg-photo-a');
+    const layerB = $('#hero-bg-photo-b');
+    if (heroSlideTimer) {
+      clearInterval(heroSlideTimer);
+      heroSlideTimer = null;
+    }
+
+    await preloadImage(list[0]);
+    layerA.style.backgroundImage = `url('${list[0]}')`;
+    layerA.classList.add('is-visible');
+    layerB.classList.remove('is-visible');
+    heroSlideActiveLayer = 'a';
+
+    if (list.length <= 1) return; // 사진이 1장뿐이면 자동 전환 없이 고정
+
+    let index = 0;
+    heroSlideTimer = setInterval(async () => {
+      const nextIndex = (index + 1) % list.length;
+      await preloadImage(list[nextIndex]);
+      const showing = heroSlideActiveLayer === 'a' ? layerA : layerB;
+      const hidden = heroSlideActiveLayer === 'a' ? layerB : layerA;
+      hidden.style.backgroundImage = `url('${list[nextIndex]}')`;
+      hidden.classList.add('is-visible');
+      showing.classList.remove('is-visible');
+      heroSlideActiveLayer = heroSlideActiveLayer === 'a' ? 'b' : 'a';
+      index = nextIndex;
+    }, 6000);
+  }
+
   async function loadSite() {
     const site = await getJSON('/api/site');
 
@@ -165,14 +214,11 @@
       $('#hero-verse').textContent = site.hero.verse || '';
       $('#hero-verse-ref').textContent = site.hero.verseRef || '';
       $('#hero-subtitle').innerHTML = escapeHtml(site.hero.subtitle || '').replace(/\n/g, '<br>');
-      if (site.hero.backgroundImage) {
-        const bgPhoto = $('#hero-bg-photo');
-        const preload = new Image();
-        preload.onload = () => {
-          bgPhoto.style.backgroundImage = `url('${site.hero.backgroundImage}')`;
-          bgPhoto.classList.add('is-visible');
-        };
-        preload.src = site.hero.backgroundImage;
+      if (Array.isArray(site.hero.backgroundImages) && site.hero.backgroundImages.length) {
+        startHeroSlideshow(site.hero.backgroundImages);
+      } else if (site.hero.backgroundImage) {
+        // 예전 방식(사진 1장)으로 저장된 경우를 위한 호환 처리
+        startHeroSlideshow([site.hero.backgroundImage]);
       }
     }
 
