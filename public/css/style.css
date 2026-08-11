@@ -319,7 +319,11 @@ button { font-family: inherit; cursor: pointer; }
   width: 1px; height: 36px;
   background: rgba(255,255,255,0.5);
   margin: 8px auto 0;
-  animation: scrollLine 1.8s ease infinite;
+  /* 끝없이 반복하지 않고 4번만 움직인 뒤 멈춥니다. "아래로 스크롤하세요"라는 힌트는
+     처음 몇 초만 보여도 충분하고, 계속 움직이는 요소가 있으면 배터리도 더 쓰고
+     화면 밝기 전환 같은 시스템 처리와 겹칠 때 버벅임의 원인이 될 수 있습니다. */
+  animation: scrollLine 1.8s ease 4;
+  animation-fill-mode: forwards;
 }
 @keyframes scrollLine {
   0% { transform: scaleY(0); transform-origin: top; opacity: 0; }
