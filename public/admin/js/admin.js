@@ -164,17 +164,32 @@
   }
   function bindImageField(inputId, previewId) {
     const input = $('#' + inputId);
-    input.addEventListener('change', async () => {
+    input.addEventListener('change', () => {
       const file = input.files[0];
       if (!file) return;
-      try {
-        const url = await uploadImage(file);
-        input.dataset.uploadedUrl = url;
-        $('#' + previewId).src = url;
-      } catch (err) {
-        alert(err.message);
-      }
+      input.disabled = true; // 업로드 도중 같은 칸에서 또 파일을 고르지 못하게 잠급니다
+      const uploadPromise = uploadImage(file)
+        .then((url) => {
+          input.dataset.uploadedUrl = url;
+          $('#' + previewId).src = url;
+        })
+        .catch((err) => {
+          alert(err.message);
+        })
+        .finally(() => {
+          input.disabled = false;
+        });
+      input._uploadPromise = uploadPromise; // 저장 버튼이 이 업로드가 끝날 때까지 기다릴 수 있도록 보관
     });
+  }
+
+  // 저장 버튼을 눌렀을 때, 방금 고른 사진의 업로드가 아직 끝나지 않았다면 끝날 때까지
+  // 기다려줍니다. (업로드가 끝나기 전에 저장을 눌러서 사진 없이 저장되는 문제 방지)
+  async function waitForPendingUpload(inputId) {
+    const input = $('#' + inputId);
+    if (input && input._uploadPromise) {
+      await input._uploadPromise;
+    }
   }
 
   // ---------------- 설교 카드용 목사님 사진 목록 ----------------
@@ -205,19 +220,27 @@
     });
   }
 
+  // 히어로 사진·설교 카드 사진처럼 "여러 장 추가" 방식은 배열에 바로 담기 때문에,
+  // 저장 버튼이 눌릴 때 이 배열들에 대한 업로드가 아직 진행 중이면 끝날 때까지 기다립니다.
+  let sitePendingUploads = [];
+  async function waitForSiteUploads() {
+    await Promise.all(sitePendingUploads);
+    sitePendingUploads = [];
+  }
+
   function setupSermonPhotoUpload() {
-    $('#s-sermonPhotoFile').addEventListener('change', async () => {
+    $('#s-sermonPhotoFile').addEventListener('change', () => {
       const input = $('#s-sermonPhotoFile');
       const file = input.files[0];
       if (!file) return;
-      try {
-        const url = await uploadImage(file);
-        sermonCardPhotos.push(url);
-        renderSermonPhotoList();
-        input.value = '';
-      } catch (err) {
-        alert(err.message);
-      }
+      const p = uploadImage(file)
+        .then((url) => {
+          sermonCardPhotos.push(url);
+          renderSermonPhotoList();
+          input.value = '';
+        })
+        .catch((err) => alert(err.message));
+      sitePendingUploads.push(p);
     });
   }
 
@@ -250,18 +273,18 @@
   }
 
   function setupHeroImageUpload() {
-    $('#s-heroImageFile').addEventListener('change', async () => {
+    $('#s-heroImageFile').addEventListener('change', () => {
       const input = $('#s-heroImageFile');
       const file = input.files[0];
       if (!file) return;
-      try {
-        const url = await uploadImage(file);
-        heroBackgroundImages.push(url);
-        renderHeroImageList();
-        input.value = '';
-      } catch (err) {
-        alert(err.message);
-      }
+      const p = uploadImage(file)
+        .then((url) => {
+          heroBackgroundImages.push(url);
+          renderHeroImageList();
+          input.value = '';
+        })
+        .catch((err) => alert(err.message));
+      sitePendingUploads.push(p);
     });
   }
 
@@ -424,6 +447,8 @@
     $('#save-site-btn').addEventListener('click', async () => {
       const statusEl = $('#site-save-status');
       statusEl.textContent = '저장 중...';
+      await waitForPendingUpload('s-aboutImageFile');
+      await waitForSiteUploads();
       const aboutImg = $('#s-aboutImageFile').dataset.uploadedUrl || currentSite.about?.image || '';
 
       // 카카오맵 코드를 새로 붙여넣었으면 파싱해서 사용, 안 붙여넣었으면 기존 값을 그대로 유지
@@ -736,6 +761,7 @@
       const content = postEditor.root.innerHTML;
       const isEmpty = postEditor.getText().trim().length === 0;
       if (!title || isEmpty) return alert('제목과 내용을 입력해주세요.');
+      await waitForPendingUpload('p-imageFile');
 
       const payload = {
         category: $('#p-category').value,
@@ -1131,6 +1157,7 @@
     $('#add-mission-btn').addEventListener('click', async () => {
       const name = $('#m-name').value.trim();
       if (!name) return alert('선교사님 성함을 입력해주세요.');
+      await waitForPendingUpload('m-imageFile');
       const countryCode = $('#m-countryCode').value;
       const country = window.findCountryByCode(countryCode);
 
@@ -1246,6 +1273,7 @@
     $('#add-partner-btn').addEventListener('click', async () => {
       const name = $('#pt-name').value.trim();
       if (!name) return alert('이름 또는 기관명을 입력해주세요.');
+      await waitForPendingUpload('pt-imageFile');
 
       const payload = {
         name,
@@ -1282,6 +1310,7 @@
     $('#qt-bg-type').addEventListener('change', toggleQtBgFields);
 
     $('#save-qt-bg-btn').addEventListener('click', async () => {
+      await waitForPendingUpload('qt-bg-photoFile');
       const payload = {
         type: $('#qt-bg-type').value,
         preset: $('#qt-bg-preset').value,
