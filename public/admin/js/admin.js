@@ -115,6 +115,7 @@
     loadSermonPreview();
     setupImageUploadFields();
     setupSermonPhotoUpload();
+    setupHeroImageUpload();
     setupSiteSave();
     setupServiceTimeEditor();
     setupMenuEditor();
@@ -155,7 +156,6 @@
 
   // ---------------- 이미지 업로드 필드 공통 처리 ----------------
   function setupImageUploadFields() {
-    bindImageField('s-heroImageFile', 's-heroImagePreview');
     bindImageField('s-aboutImageFile', 's-aboutImagePreview');
     bindImageField('p-imageFile', 'p-imagePreview');
     bindImageField('qt-bg-photoFile', 'qt-bg-photoPreview');
@@ -221,6 +221,50 @@
     });
   }
 
+  // ---------------- 대문(히어로) 배경 사진 목록 ----------------
+  let heroBackgroundImages = [];
+
+  function renderHeroImageList() {
+    const wrap = $('#s-heroImageList');
+    if (heroBackgroundImages.length === 0) {
+      wrap.innerHTML = '';
+      return;
+    }
+    wrap.innerHTML = heroBackgroundImages
+      .map(
+        (url, i) => `
+        <div style="position:relative;" data-idx="${i}">
+          <img src="${url}" style="width:96px;height:64px;object-fit:cover;border-radius:6px;border:1px solid #ddd;" />
+          <button type="button" class="remove-hero-photo" data-idx="${i}"
+            style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:#c0392b;color:#fff;border:none;font-size:12px;cursor:pointer;">×</button>
+        </div>`
+      )
+      .join('');
+    $$('.remove-hero-photo', wrap).forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const idx = Number(btn.dataset.idx);
+        heroBackgroundImages.splice(idx, 1);
+        renderHeroImageList();
+      });
+    });
+  }
+
+  function setupHeroImageUpload() {
+    $('#s-heroImageFile').addEventListener('change', async () => {
+      const input = $('#s-heroImageFile');
+      const file = input.files[0];
+      if (!file) return;
+      try {
+        const url = await uploadImage(file);
+        heroBackgroundImages.push(url);
+        renderHeroImageList();
+        input.value = '';
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  }
+
   // ---------------- 기본 정보 (사이트) ----------------
   let currentSite = null;
 
@@ -255,7 +299,10 @@
     $('#s-heroVerse').value = s.hero?.verse || '';
     $('#s-heroVerseRef').value = s.hero?.verseRef || '';
     $('#s-heroSubtitle').value = s.hero?.subtitle || '';
-    if (s.hero?.backgroundImage) $('#s-heroImagePreview').src = s.hero.backgroundImage;
+    heroBackgroundImages = Array.isArray(s.hero?.backgroundImages) && s.hero.backgroundImages.length
+      ? s.hero.backgroundImages.slice()
+      : (s.hero?.backgroundImage ? [s.hero.backgroundImage] : []);
+    renderHeroImageList();
 
     $('#s-sermonsIntro').value = s.sermonsIntro || '';
     sermonCardPhotos = Array.isArray(s.sermonCardPhotos) ? [...s.sermonCardPhotos] : [];
@@ -377,7 +424,6 @@
     $('#save-site-btn').addEventListener('click', async () => {
       const statusEl = $('#site-save-status');
       statusEl.textContent = '저장 중...';
-      const heroImg = $('#s-heroImageFile').dataset.uploadedUrl || currentSite.hero?.backgroundImage || '';
       const aboutImg = $('#s-aboutImageFile').dataset.uploadedUrl || currentSite.about?.image || '';
 
       // 카카오맵 코드를 새로 붙여넣었으면 파싱해서 사용, 안 붙여넣었으면 기존 값을 그대로 유지
@@ -403,7 +449,8 @@
           verse: $('#s-heroVerse').value.trim(),
           verseRef: $('#s-heroVerseRef').value.trim(),
           subtitle: $('#s-heroSubtitle').value.trim(),
-          backgroundImage: heroImg
+          backgroundImages: heroBackgroundImages,
+          backgroundImage: heroBackgroundImages[0] || '' // 예전 방식과의 호환을 위해 첫 사진도 같이 저장
         },
         about: {
           greeting: $('#s-aboutGreeting').value.trim(),
