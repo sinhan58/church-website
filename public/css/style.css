@@ -769,8 +769,16 @@ button { font-family: inherit; cursor: pointer; }
   padding: 40px;
   cursor: zoom-out;
 }
-.image-lightbox.open { display: flex; }
+.image-lightbox.open {
+  display: flex;
+  animation: lightboxFadeIn 0.25s ease both;
+}
+@keyframes lightboxFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
 .image-lightbox img {
+  animation: lightboxImageIn 0.3s ease both;
   max-width: min(1100px, 90vw);
   max-height: 85vh;
   width: auto;
@@ -778,6 +786,10 @@ button { font-family: inherit; cursor: pointer; }
   object-fit: contain;
   border-radius: var(--radius);
   box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+}
+@keyframes lightboxImageIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
 }
 .image-lightbox-close {
   position: absolute;
