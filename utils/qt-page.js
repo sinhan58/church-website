@@ -63,8 +63,8 @@ ${fontStyleTag}
 <!-- PWA: 홈 화면에 추가했을 때 앱처럼 보이도록 하는 설정 -->
 <link rel="manifest" href="/manifest.json" />
 <meta name="theme-color" content="#0d1526" />
-<link rel="icon" href="/icons/icon-192.png" />
-<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png" />
+<link rel="icon" href="/icons/icon-192-v2.png" />
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon-v2.png" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 </head>
