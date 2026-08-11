@@ -16,15 +16,14 @@
   }
 
   // ---------------- 스크롤 등장 애니메이션 ----------------
+  // 화면에 들어오면 나타나고, 화면 밖으로 나가면 사라졌다가, 다시 스크롤해서
+  // 들어오면 또 나타나도록 반복합니다 (한 번 보고 나면 계속 그대로 두지 않음).
   const revealObserver =
     'IntersectionObserver' in window
       ? new IntersectionObserver(
           (entries) => {
             entries.forEach((entry) => {
-              if (entry.isIntersecting) {
-                entry.target.classList.add('is-visible');
-                revealObserver.unobserve(entry.target);
-              }
+              entry.target.classList.toggle('is-visible', entry.isIntersecting);
             });
           },
           { threshold: 0.12, rootMargin: '0px 0px -40px 0px' }
@@ -144,8 +143,16 @@
   // 다음 사진으로 넘어갑니다. 두 개의 레이어(a/b)를 번갈아 써서, 다음 사진이 완전히
   // 준비된 뒤에 부드럽게 겹쳐 나타나도록(크로스페이드) 합니다. 사진이 1장이면 그냥
   // 고정된 사진으로 보이고(자동 전환 없음), 여러 장이면 6초 간격으로 넘어갑니다.
+  //
+  // 대문 영역이 화면에 실제로 보일 때만 타이머가 돌아가고, 스크롤해서 안 보이는
+  // 동안에는 멈춥니다. (안 보이는 동안에도 계속 돌아가면 불필요하게 화면을 계속
+  // 갱신하게 되어, 일부 기기에서 시스템의 화면 밝기 자동 조절 처리와 겹쳐 화면
+  // 전체가 깜빡이는 현상이 있었습니다)
   let heroSlideTimer = null;
   let heroSlideActiveLayer = 'a';
+  let heroSlideList = [];
+  let heroSlideIndex = 0;
+  let heroVisibilityObserver = null;
 
   function preloadImage(url) {
     return new Promise((resolve) => {
@@ -156,37 +163,67 @@
     });
   }
 
-  async function startHeroSlideshow(images) {
-    const list = (images || []).filter(Boolean);
-    if (list.length === 0) return;
-
+  async function tickHeroSlide() {
+    if (heroSlideList.length <= 1) return;
     const layerA = $('#hero-bg-photo-a');
     const layerB = $('#hero-bg-photo-b');
+    const nextIndex = (heroSlideIndex + 1) % heroSlideList.length;
+    await preloadImage(heroSlideList[nextIndex]);
+    const showing = heroSlideActiveLayer === 'a' ? layerA : layerB;
+    const hidden = heroSlideActiveLayer === 'a' ? layerB : layerA;
+    hidden.style.backgroundImage = `url('${heroSlideList[nextIndex]}')`;
+    hidden.classList.add('is-visible');
+    showing.classList.remove('is-visible');
+    heroSlideActiveLayer = heroSlideActiveLayer === 'a' ? 'b' : 'a';
+    heroSlideIndex = nextIndex;
+  }
+
+  function resumeHeroSlideshow() {
+    if (heroSlideTimer || heroSlideList.length <= 1) return;
+    heroSlideTimer = setInterval(tickHeroSlide, 6000);
+  }
+
+  function pauseHeroSlideshow() {
     if (heroSlideTimer) {
       clearInterval(heroSlideTimer);
       heroSlideTimer = null;
     }
+  }
 
-    await preloadImage(list[0]);
-    layerA.style.backgroundImage = `url('${list[0]}')`;
+  async function startHeroSlideshow(images) {
+    heroSlideList = (images || []).filter(Boolean);
+    if (heroSlideList.length === 0) return;
+
+    const layerA = $('#hero-bg-photo-a');
+    const layerB = $('#hero-bg-photo-b');
+    pauseHeroSlideshow();
+
+    await preloadImage(heroSlideList[0]);
+    layerA.style.backgroundImage = `url('${heroSlideList[0]}')`;
     layerA.classList.add('is-visible');
     layerB.classList.remove('is-visible');
     heroSlideActiveLayer = 'a';
+    heroSlideIndex = 0;
 
-    if (list.length <= 1) return; // 사진이 1장뿐이면 자동 전환 없이 고정
+    if (heroSlideList.length <= 1) return; // 사진이 1장뿐이면 자동 전환 없이 고정
 
-    let index = 0;
-    heroSlideTimer = setInterval(async () => {
-      const nextIndex = (index + 1) % list.length;
-      await preloadImage(list[nextIndex]);
-      const showing = heroSlideActiveLayer === 'a' ? layerA : layerB;
-      const hidden = heroSlideActiveLayer === 'a' ? layerB : layerA;
-      hidden.style.backgroundImage = `url('${list[nextIndex]}')`;
-      hidden.classList.add('is-visible');
-      showing.classList.remove('is-visible');
-      heroSlideActiveLayer = heroSlideActiveLayer === 'a' ? 'b' : 'a';
-      index = nextIndex;
-    }, 6000);
+    const heroEl = $('#home');
+    if ('IntersectionObserver' in window && heroEl) {
+      if (!heroVisibilityObserver) {
+        heroVisibilityObserver = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((entry) => {
+              if (entry.isIntersecting) resumeHeroSlideshow();
+              else pauseHeroSlideshow();
+            });
+          },
+          { threshold: 0.01 }
+        );
+      }
+      heroVisibilityObserver.observe(heroEl);
+    } else {
+      resumeHeroSlideshow(); // 구형 브라우저는 화면 감지가 안 되니 그냥 계속 돌립니다
+    }
   }
 
   async function loadSite() {
