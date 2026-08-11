@@ -353,6 +353,7 @@
     $('#s-snsYoutube').value = s.sns?.youtube || '';
     $('#s-snsInstagram').value = s.sns?.instagram || '';
     $('#s-snsFacebook').value = s.sns?.facebook || '';
+    $('#s-snsBand').value = s.sns?.band || '';
 
     $('#s-missionsTitle').value = s.missions?.title || '';
     $('#s-missionsSubtitle').value = s.missions?.subtitle || '';
@@ -504,7 +505,8 @@
         sns: {
           youtube: $('#s-snsYoutube').value.trim(),
           instagram: $('#s-snsInstagram').value.trim(),
-          facebook: $('#s-snsFacebook').value.trim()
+          facebook: $('#s-snsFacebook').value.trim(),
+          band: $('#s-snsBand').value.trim()
         },
         missions: {
           title: $('#s-missionsTitle').value.trim(),
