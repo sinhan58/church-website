@@ -90,7 +90,7 @@ function renderQtDetailPage({ site, item, prev, next, siteUrl }) {
 <meta property="og:type" content="article" />
 <meta property="og:locale" content="ko_KR" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link class="gfont-link" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;600;700&display=optional" rel="stylesheet">
+<link class="gfont-link" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;600;700&display=block" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
 ${extraFontLinks}
 <link rel="stylesheet" href="/css/style.css" />
