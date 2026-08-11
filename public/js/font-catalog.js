@@ -8,19 +8,19 @@ window.FONT_CATALOG = [
   { id: 'pretendard', label: '프리텐다드 (기본 · 깔끔한 고딕)', family: "'Pretendard', 'Noto Sans KR', sans-serif" },
   { id: 'noto-sans-kr', label: '노토 산스 (표준 고딕)', family: "'Noto Sans KR', sans-serif" },
   { id: 'noto-serif-kr', label: '노토 세리프 (기본 명조)', family: "'Noto Serif KR', serif" },
-  { id: 'gowun-dodum', label: '고운돋움 (부드러운 고딕)', family: "'Gowun Dodum', sans-serif" },
-  { id: 'gowun-batang', label: '고운바탕 (부드러운 명조)', family: "'Gowun Batang', serif" },
-  { id: 'nanum-gothic', label: '나눔고딕', family: "'Nanum Gothic', sans-serif" },
-  { id: 'nanum-myeongjo', label: '나눔명조', family: "'Nanum Myeongjo', serif" },
-  { id: 'black-han-sans', label: '검은고딕 (굵고 강한 느낌)', family: "'Black Han Sans', sans-serif" },
-  { id: 'do-hyeon', label: '도현 (캐주얼한 고딕)', family: "'Do Hyeon', sans-serif" },
-  { id: 'song-myung', label: '송명 (붓글씨 느낌 명조)', family: "'Song Myung', serif" },
-  { id: 'poor-story', label: '푸어스토리 (손글씨 느낌)', family: "'Poor Story', cursive" },
-  { id: 'gothic-a1', label: '고딕 A1 (다양한 굵기의 모던 고딕)', family: "'Gothic A1', sans-serif" },
-  { id: 'ibm-plex-sans-kr', label: 'IBM 플렉스 산스 (깔끔한 모던 고딕)', family: "'IBM Plex Sans KR', sans-serif" },
-  { id: 'hahmlet', label: '함렛 (세련된 명조)', family: "'Hahmlet', serif" },
-  { id: 'jua', label: '주아 (통통하고 친근한 고딕)', family: "'Jua', sans-serif" },
-  { id: 'sunflower', label: '해바라기 (둥글둥글한 고딕)', family: "'Sunflower', sans-serif" }
+  { id: 'gowun-dodum', label: '고운돋움 (부드러운 고딕)', family: "'Gowun Dodum', 'Noto Sans KR', sans-serif" },
+  { id: 'gowun-batang', label: '고운바탕 (부드러운 명조)', family: "'Gowun Batang', 'Noto Serif KR', serif" },
+  { id: 'nanum-gothic', label: '나눔고딕', family: "'Nanum Gothic', 'Noto Sans KR', sans-serif" },
+  { id: 'nanum-myeongjo', label: '나눔명조', family: "'Nanum Myeongjo', 'Noto Serif KR', serif" },
+  { id: 'black-han-sans', label: '검은고딕 (굵고 강한 느낌)', family: "'Black Han Sans', 'Noto Sans KR', sans-serif" },
+  { id: 'do-hyeon', label: '도현 (캐주얼한 고딕)', family: "'Do Hyeon', 'Noto Sans KR', sans-serif" },
+  { id: 'song-myung', label: '송명 (붓글씨 느낌 명조)', family: "'Song Myung', 'Noto Serif KR', serif" },
+  { id: 'poor-story', label: '푸어스토리 (손글씨 느낌)', family: "'Poor Story', 'Noto Sans KR', cursive" },
+  { id: 'gothic-a1', label: '고딕 A1 (다양한 굵기의 모던 고딕)', family: "'Gothic A1', 'Noto Sans KR', sans-serif" },
+  { id: 'ibm-plex-sans-kr', label: 'IBM 플렉스 산스 (깔끔한 모던 고딕)', family: "'IBM Plex Sans KR', 'Noto Sans KR', sans-serif" },
+  { id: 'hahmlet', label: '함렛 (세련된 명조)', family: "'Hahmlet', 'Noto Serif KR', serif" },
+  { id: 'jua', label: '주아 (통통하고 친근한 고딕)', family: "'Jua', 'Noto Sans KR', sans-serif" },
+  { id: 'sunflower', label: '해바라기 (둥글둥글한 고딕)', family: "'Sunflower', 'Noto Sans KR', sans-serif" }
 ];
 
 window.getFontFamily = function (id, fallback) {
