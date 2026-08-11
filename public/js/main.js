@@ -319,15 +319,28 @@
     const icons = {
       youtube: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.6 7.2c-.2-1-1-1.7-1.9-1.9C18 5 12 5 12 5s-6 0-7.7.3c-1 .2-1.7 1-1.9 1.9C2 8.9 2 12 2 12s0 3.1.3 4.8c.2 1 1 1.7 1.9 1.9C6 19 12 19 12 19s6 0 7.7-.3c1-.2 1.7-1 1.9-1.9.3-1.7.3-4.8.3-4.8s0-3.1-.3-4.8ZM10 15.3V8.7L15.8 12 10 15.3Z"/></svg>',
       instagram: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none"/></svg>',
-      facebook: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 9h3V5.6c-.5-.1-1.6-.2-2.8-.2-2.8 0-4.7 1.7-4.7 4.9V13H6.8v3.8H9.5V22h3.7v-5.2h2.9l.5-3.8h-3.4V10.6c0-1.1.3-1.6 1.8-1.6Z"/></svg>'
+      facebook: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 9h3V5.6c-.5-.1-1.6-.2-2.8-.2-2.8 0-4.7 1.7-4.7 4.9V13H6.8v3.8H9.5V22h3.7v-5.2h2.9l.5-3.8h-3.4V10.6c0-1.1.3-1.6 1.8-1.6Z"/></svg>',
+      band: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M7.5 9.2c1.6 0 2.6-.9 2.6-2.3 0-1.3-1-2.1-2.5-2.1-1.9 0-3.6 1.1-4.8 2.8l1.5 1.1c.8-1.1 1.9-1.9 3.1-1.9.7 0 1.1.3 1.1.8 0 .6-.6.9-1.6 1.2C4.8 9.4 3 10.6 3 12.8c0 1.7 1.3 2.7 3.1 2.7 1.7 0 3.3-.9 4.5-2.2l-1.4-1.2c-.9 1-2 1.6-3 1.6-.7 0-1.2-.3-1.2-.9 0-.8.9-1.2 2.5-1.6M17.9 9.9c1.4-.5 2.2-1.4 2.2-2.6 0-1.6-1.4-2.6-3.6-2.6-2.1 0-4 1-5.3 2.6l1.5 1.1c1-1.1 2.2-1.8 3.5-1.8.9 0 1.5.4 1.5 1 0 .7-.7 1.1-2 1.5l-1.7.5.4 1.7 1.9-.5c1.6-.4 2.5 0 2.5.9 0 .8-.8 1.3-2 1.3-1.3 0-2.7-.6-3.7-1.7l-1.5 1.2c1.3 1.5 3.2 2.4 5.1 2.4 2.5 0 4.2-1.2 4.2-3 0-1.4-1-2.3-2.6-2.6Z"/></svg>'
     };
     const links = [];
     if (site.sns) {
       if (site.sns.youtube) links.push(`<a href="${site.sns.youtube}" target="_blank" rel="noopener" aria-label="유튜브">${icons.youtube}</a>`);
       if (site.sns.instagram) links.push(`<a href="${site.sns.instagram}" target="_blank" rel="noopener" aria-label="인스타그램">${icons.instagram}</a>`);
       if (site.sns.facebook) links.push(`<a href="${site.sns.facebook}" target="_blank" rel="noopener" aria-label="페이스북">${icons.facebook}</a>`);
+      if (site.sns.band) links.push(`<a href="${site.sns.band}" target="_blank" rel="noopener" aria-label="네이버 밴드">${icons.band}</a>`);
     }
     footerSns.innerHTML = links.join('');
+
+    // 오른쪽 하단에 떠있는 밴드 바로가기 버튼 (밴드 주소를 등록해두신 경우에만 보임)
+    const bandFab = $('#band-fab');
+    if (bandFab) {
+      if (site.sns && site.sns.band) {
+        bandFab.href = site.sns.band;
+        bandFab.style.display = 'flex';
+      } else {
+        bandFab.style.display = 'none';
+      }
+    }
   }
 
   // ---------------- 메뉴 ----------------
