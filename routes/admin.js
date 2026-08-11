@@ -42,10 +42,17 @@ const attachmentUpload = multer({
 });
 
 // 업로드된 이미지를 적당한 크기/용량으로 자동 압축합니다.
-// - 가로 1920px보다 크면 1920px로 축소 (세로는 비율 유지, 더 작은 원본은 확대하지 않음)
-// - jpeg/png/webp는 화질 82 정도로 재압축해서 용량을 크게 줄임
-// - 움짤(gif)이나 이미지가 아닌 파일(주보 PDF 등)은 원본 그대로 둠
-const MAX_IMAGE_DIMENSION = 1920;
+// - 가로 1600px보다 크면 1600px로 축소 (세로는 비율 유지, 더 작은 원본은 확대하지 않음)
+//   ※ 사이트에서 사진이 실제로 화면에 보이는 가장 큰 크기(사진 확대 보기)가 1100px
+//     안팎이라, 1600px면 고화질 화면에서도 충분히 선명하면서 용량은 확실히 줄어듭니다.
+// - jpeg/webp는 화질 78 정도로 재압축해서 용량을 크게 줄임
+// - PNG로 올라온 파일이라도, 실제로 투명한 부분(알파 채널)이 없는 '사진'이면 JPEG로
+//   바꿔서 저장합니다. PNG는 무손실 압축이라 사진처럼 색이 복잡한 이미지에 쓰면 같은
+//   화질이어도 용량이 몇 배씩 부풀어 오릅니다 (예: 8.7MB PNG 사진이 압축 후에도 PNG로
+//   저장되면 1.8MB로 밖에 안 줄지만, JPEG로 바꾸면 0.2MB까지 줄어듭니다). 로고처럼
+//   실제로 투명 배경이 있는 PNG는 그대로 PNG로 유지해서 투명도가 깨지지 않게 합니다.
+// - 움짤(gif)은 원본 그대로 둠
+const MAX_IMAGE_DIMENSION = 1600;
 
 async function compressImageIfNeeded(file) {
   const isCompressibleImage = /^image\/(jpeg|png|webp)/.test(file.mimetype);
@@ -60,12 +67,16 @@ async function compressImageIfNeeded(file) {
       pipeline = pipeline.resize({ width: MAX_IMAGE_DIMENSION, withoutEnlargement: true });
     }
 
-    if (metadata.format === 'png') {
-      pipeline = pipeline.png({ quality: 82, compressionLevel: 9 });
-    } else if (metadata.format === 'webp') {
-      pipeline = pipeline.webp({ quality: 82 });
+    // 진짜로 투명한 부분이 있는 PNG만 PNG로 유지하고, 나머지(사진 등)는 전부
+    // 용량이 훨씬 작은 JPEG로 저장합니다.
+    const hasRealTransparency = metadata.format === 'png' && metadata.hasAlpha;
+
+    if (metadata.format === 'webp') {
+      pipeline = pipeline.webp({ quality: 78 });
+    } else if (hasRealTransparency) {
+      pipeline = pipeline.png({ quality: 78, compressionLevel: 9 });
     } else {
-      pipeline = pipeline.jpeg({ quality: 82, mozjpeg: true });
+      pipeline = pipeline.jpeg({ quality: 78, mozjpeg: true });
     }
 
     return await pipeline.toBuffer();
@@ -78,9 +89,23 @@ async function compressImageIfNeeded(file) {
 
 // 업로드된 파일 하나를 저장하고(Supabase Storage 또는 로컬 디스크) 접근 가능한 URL을 돌려줍니다.
 async function storeFile(file) {
-  const ext = path.extname(file.originalname);
-  const filename = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`;
   const buffer = await compressImageIfNeeded(file);
+  // JPEG로 형식이 바뀐 경우를 대비해, 압축 후 실제 내용을 보고 확장자를 다시 정합니다.
+  const isCompressibleImage = /^image\/(jpeg|png|webp)/.test(file.mimetype);
+  let ext = path.extname(file.originalname);
+  if (isCompressibleImage && sharp && buffer !== file.buffer) {
+    // compressImageIfNeeded가 PNG→JPEG로 바꿨을 수 있으니, 원래 확장자 대신
+    // 실제로 압축된 파일 형식에 맞는 확장자를 사용합니다.
+    try {
+      const meta = await sharp(buffer).metadata();
+      if (meta.format === 'jpeg') ext = '.jpg';
+      else if (meta.format === 'png') ext = '.png';
+      else if (meta.format === 'webp') ext = '.webp';
+    } catch {
+      // 확인 실패해도 원래 확장자로 진행 (치명적이지 않음)
+    }
+  }
+  const filename = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`;
   return saveUploadedFile(buffer, filename, file.mimetype, uploadsDir);
 }
 
