@@ -1116,7 +1116,7 @@
     $('#m-name').value = item.name || '';
     $('#m-desc').value = item.desc || '';
     $('#m-imageFile').dataset.uploadedUrl = item.image || '';
-    if (item.image) $('#m-imagePreview').src = item.image;
+    $('#m-imagePreview').src = item.image || ''; // 사진이 없는 항목이면 이전 항목의 미리보기가 남아있지 않도록 확실히 비웁니다
     $('#panel-missions').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
@@ -1233,7 +1233,7 @@
     $('#pt-startDate').value = item.startDate || '';
     $('#pt-note').value = item.note || '';
     $('#pt-imageFile').dataset.uploadedUrl = item.image || '';
-    if (item.image) $('#pt-imagePreview').src = item.image;
+    $('#pt-imagePreview').src = item.image || ''; // 사진이 없는 항목이면 이전 항목의 미리보기가 남아있지 않도록 확실히 비웁니다
     $('#panel-missions').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
