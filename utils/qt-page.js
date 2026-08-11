@@ -43,6 +43,42 @@ function renderQtDetailPage({ site, item, prev, next, siteUrl }) {
 <head>
 <meta charset="UTF-8" />
 <script>if ('scrollRestoration' in history) { history.scrollRestoration = 'manual'; }</script>
+<!-- 글씨체 준비될 때까지 잠깐 화면 숨기기 (최대 0.5초) -->
+<script>document.documentElement.classList.add('fonts-loading');</script>
+<style>
+  html.fonts-loading body { opacity: 0; }
+  body { transition: opacity 0.25s ease; }
+</style>
+<script>
+(function () {
+  var done = false;
+  function reveal() {
+    if (done) return;
+    done = true;
+    document.documentElement.classList.remove('fonts-loading');
+  }
+
+  function waitForLinkLoad(link) {
+    return new Promise(function (resolve) {
+      if (link.sheet) { resolve(); return; }
+      link.addEventListener('load', resolve, { once: true });
+      link.addEventListener('error', resolve, { once: true });
+    });
+  }
+
+  var fontLinks = Array.prototype.slice.call(document.querySelectorAll('link.gfont-link'));
+  var linksReady = fontLinks.length ? Promise.all(fontLinks.map(waitForLinkLoad)) : Promise.resolve();
+  var fontsApiReady = ('fonts' in document) ? document.fonts.ready : Promise.resolve();
+  var ready = linksReady.then(function () { return fontsApiReady; });
+
+  Promise.race([
+    ready,
+    new Promise(function (resolve) { setTimeout(resolve, 800); })
+  ]).then(reveal);
+
+  setTimeout(reveal, 1500);
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>${escapeHtml(pageTitle)}</title>
 <meta name="description" content="${escapeHtml(description)}" />
@@ -54,7 +90,7 @@ function renderQtDetailPage({ site, item, prev, next, siteUrl }) {
 <meta property="og:type" content="article" />
 <meta property="og:locale" content="ko_KR" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;600;700&display=optional" rel="stylesheet">
+<link class="gfont-link" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;600;700&display=optional" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
 ${extraFontLinks}
 <link rel="stylesheet" href="/css/style.css" />
