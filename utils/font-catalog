@@ -18,7 +18,12 @@ const FONT_CATALOG = {
   'black-han-sans': { family: "'Black Han Sans', sans-serif", google: 'Black+Han+Sans' },
   'do-hyeon': { family: "'Do Hyeon', sans-serif", google: 'Do+Hyeon' },
   'song-myung': { family: "'Song Myung', serif", google: 'Song+Myung' },
-  'poor-story': { family: "'Poor Story', cursive", google: 'Poor+Story' }
+  'poor-story': { family: "'Poor Story', cursive", google: 'Poor+Story' },
+  'gothic-a1': { family: "'Gothic A1', sans-serif", google: 'Gothic+A1:wght@400;700;900' },
+  'ibm-plex-sans-kr': { family: "'IBM Plex Sans KR', sans-serif", google: 'IBM+Plex+Sans+KR:wght@400;500;700' },
+  'hahmlet': { family: "'Hahmlet', serif", google: 'Hahmlet:wght@400;600;700' },
+  'jua': { family: "'Jua', sans-serif", google: 'Jua' },
+  'sunflower': { family: "'Sunflower', sans-serif", google: 'Sunflower:wght@300;500;700' }
 };
 
 function getFontFamily(id, fallback) {
