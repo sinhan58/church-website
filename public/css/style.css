@@ -1143,9 +1143,11 @@ button { font-family: inherit; cursor: pointer; }
   border-radius: 50%;
   border: 1px solid rgba(201,162,39,0.4);
   color: #d7d9e4;
+  overflow: hidden;
   transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
 }
 .footer-sns a svg { width: 18px; height: 18px; }
+.footer-sns a span { font-size: 0.6rem !important; }
 .footer-sns a:hover { background: var(--gold); border-color: var(--gold); color: var(--navy-deep); }
 .admin-link { color: #6b6e80; }
 
@@ -1414,10 +1416,20 @@ button { font-family: inherit; cursor: pointer; }
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 .band-fab:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(0,0,0,0.3); }
-.band-fab svg { width: 20px; height: 20px; flex-shrink: 0; }
+.band-fab-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  color: #00c73c;
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 0.72rem;
+  letter-spacing: -0.02em;
+}
 @media (max-width: 560px) {
-  .band-fab { right: 14px; bottom: 14px; padding: 12px; }
-  .band-fab span { display: none; } /* 좁은 화면에서는 아이콘만 */
+  .band-fab { right: 14px; bottom: 14px; padding: 8px; }
+  .band-fab > span:not(.band-fab-badge) { display: none; } /* 좁은 화면에서는 BAND 배지만 */
 }
 
 /* Focus visibility for accessibility */
