@@ -92,13 +92,6 @@
         $$('.panel').forEach((p) => p.classList.remove('active'));
         btn.classList.add('active');
         $('#' + btn.dataset.panel).classList.add('active');
-
-        // 기도 요청·온라인 문의 탭은 클릭할 때마다 최신 내용을 다시 불러옵니다.
-        if (btn.dataset.panel === 'panel-prayers') {
-          $('#prayers-refresh-btn')?.click();
-        } else if (btn.dataset.panel === 'panel-inquiries') {
-          $('#inquiries-refresh-btn')?.click();
-        }
       });
     });
   }
