@@ -856,6 +856,22 @@ function createSecretBoardAdminRouter(key) {
     }
   });
 
+  // 답글 저장 (목회자/관리자가 작성) - 작성자는 본인 비밀번호로 다시 열어보면 답글을 볼 수 있음
+  board.put('/:id/reply', async (req, res) => {
+    try {
+      const items = (await readData(key)) || [];
+      const idx = items.findIndex((p) => p.id === req.params.id);
+      if (idx === -1) return res.status(404).json({ error: '글을 찾을 수 없습니다.' });
+      items[idx].reply = (req.body.reply || '').trim();
+      items[idx].repliedAt = items[idx].reply ? new Date().toISOString() : null;
+      await writeData(key, items);
+      const { passwordHash, ...safe } = items[idx];
+      res.json(safe);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
   return board;
 }
 
