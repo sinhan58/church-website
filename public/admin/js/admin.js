@@ -99,36 +99,50 @@
   let postEditor = null;
 
   // ---------------- 기도 요청 / 온라인 문의 (관리자 확인) ----------------
-  // key: 'prayers' 또는 'inquiries'. inquiries만 답글 입력창을 보여줍니다.
-  function setupSecretBoardAdminPanel(key, { listElId, refreshBtnId, withReply }) {
+  // key: 'prayers' 또는 'inquiries'. inquiries만 답글 입력창 + 답변완료 배지를 보여줍니다.
+  function setupSecretBoardAdminPanel(key, { listElId, refreshBtnId, withReply, showSecretBadge }) {
     const listEl = $('#' + listElId);
     const refreshBtn = $('#' + refreshBtnId);
     if (!listEl || !refreshBtn) return;
+
+    function statusBadgeHTML(item) {
+      if (!withReply) return '';
+      const answered = !!(item.reply && item.reply.trim());
+      const bg = answered ? '#2f6d3a' : '#b3413a';
+      const label = answered ? '답변완료' : '미답변';
+      return `<span class="status-badge" data-id="${item.id}" style="margin-left:8px; padding:2px 10px; border-radius:999px; font-size:0.76rem; font-weight:700; background:${bg}; color:#fff;">${label}</span>`;
+    }
 
     function cardHTML(item) {
       const dateStr = escapeHtml(item.date || '');
       const nameStr = escapeHtml(item.name || '익명');
       const contentStr = escapeHtml(item.content || '').replace(/\n/g, '<br>');
+      const secretBadge = showSecretBadge && item.secret ? '<span class="badge" style="margin-left:8px;">🔒 비밀글</span>' : '';
       const replyBlock = withReply
         ? `
           <div style="margin-top:10px; padding-top:10px; border-top:1px dashed #ddd;">
             <textarea class="reply-input" data-id="${item.id}" rows="2" placeholder="답글을 입력하세요 (작성자가 본인 비밀번호로 다시 열어보면 보여요)" style="width:100%; box-sizing:border-box; padding:8px; border:1px solid #ddd; border-radius:6px; font-family:inherit; font-size:0.85rem;">${escapeHtml(item.reply || '')}</textarea>
             <button type="button" class="btn-secondary reply-save-btn" data-id="${item.id}" style="margin-top:6px;">답글 저장</button>
-            <span class="reply-status" data-id="${item.id}" style="margin-left:8px; font-size:0.82rem; color:var(--gold-deep, #8f6b17);"></span>
+            <span class="reply-status" data-id="${item.id}" style="margin-left:8px; font-size:0.82rem; color:#8f6b17;"></span>
           </div>`
         : '';
       return `
         <div class="post-row" data-id="${item.id}" style="display:block; padding:14px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
             <div>
               <strong>${nameStr}</strong>
               <span class="hint" style="margin-left:8px;">${dateStr}</span>
-              ${item.secret ? '<span class="badge" style="margin-left:8px;">🔒 비밀글</span>' : ''}
+              ${secretBadge}${statusBadgeHTML(item)}
             </div>
-            <button type="button" class="btn-secondary board-delete-btn" data-id="${item.id}">삭제</button>
+            <div style="display:flex; gap:6px;">
+              <button type="button" class="btn-secondary board-toggle-btn" data-id="${item.id}">내용보기</button>
+              <button type="button" class="btn-secondary board-delete-btn" data-id="${item.id}">삭제</button>
+            </div>
           </div>
-          <p style="margin:10px 0 0; white-space:pre-wrap; word-break:keep-all;">${contentStr}</p>
-          ${replyBlock}
+          <div class="board-detail" data-id="${item.id}" style="display:none; margin-top:10px;">
+            <p style="margin:0; white-space:pre-wrap; word-break:keep-all;">${contentStr}</p>
+            ${replyBlock}
+          </div>
         </div>`;
     }
 
@@ -148,6 +162,16 @@
     }
 
     function bindRowActions() {
+      $$('.board-toggle-btn', listEl).forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const id = btn.dataset.id;
+          const detail = listEl.querySelector(`.board-detail[data-id="${id}"]`);
+          const isOpen = detail.style.display !== 'none';
+          detail.style.display = isOpen ? 'none' : 'block';
+          btn.textContent = isOpen ? '내용보기' : '접기';
+        });
+      });
+
       $$('.board-delete-btn', listEl).forEach((btn) => {
         btn.addEventListener('click', async () => {
           if (!confirm('이 글을 삭제하시겠습니까?')) return;
@@ -159,20 +183,30 @@
           }
         });
       });
+
       if (withReply) {
         $$('.reply-save-btn', listEl).forEach((btn) => {
           btn.addEventListener('click', async () => {
             const id = btn.dataset.id;
             const textarea = listEl.querySelector(`.reply-input[data-id="${id}"]`);
             const statusEl = listEl.querySelector(`.reply-status[data-id="${id}"]`);
+            const replyText = textarea.value.trim();
             statusEl.textContent = '저장 중...';
             try {
               await api(`/api/admin/${key}/${id}/reply`, {
                 method: 'PUT',
-                body: JSON.stringify({ reply: textarea.value.trim() })
+                body: JSON.stringify({ reply: replyText })
               });
               statusEl.textContent = '저장 완료 ✓';
               setTimeout(() => (statusEl.textContent = ''), 2500);
+              // 목록을 통째로 다시 불러오지 않고, 방금 저장한 행의 배지만 바로 바꿔줍니다.
+              // (전체 새로고침을 하면 펼쳐둔 내용이 다시 접혀버려서 불편하기 때문)
+              const badgeEl = listEl.querySelector(`.status-badge[data-id="${id}"]`);
+              if (badgeEl) {
+                const answered = !!replyText;
+                badgeEl.textContent = answered ? '답변완료' : '미답변';
+                badgeEl.style.background = answered ? '#2f6d3a' : '#b3413a';
+              }
             } catch (err) {
               statusEl.textContent = '저장 실패: ' + err.message;
             }
@@ -189,7 +223,8 @@
     setupSecretBoardAdminPanel('prayers', {
       listElId: 'prayers-admin-list',
       refreshBtnId: 'prayers-refresh-btn',
-      withReply: false
+      withReply: false,
+      showSecretBadge: true // 기도 요청은 비밀글 여부를 직접 선택하므로 표시가 의미 있음
     });
   }
 
@@ -197,7 +232,8 @@
     setupSecretBoardAdminPanel('inquiries', {
       listElId: 'inquiries-admin-list',
       refreshBtnId: 'inquiries-refresh-btn',
-      withReply: true
+      withReply: true,
+      showSecretBadge: false // 온라인 문의는 항상 비밀글이라 표시가 불필요함
     });
   }
 
