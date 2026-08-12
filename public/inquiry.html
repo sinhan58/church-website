@@ -52,7 +52,7 @@
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 </head>
-<body data-api-base="inquiries" data-success-message="문의가 등록되었습니다 🙏">
+<body data-api-base="inquiries" data-success-message="문의가 등록되었습니다 🙏" data-always-secret="true" data-mask-names="true">
 
 <header class="site-header scrolled">
   <div class="container">
@@ -60,31 +60,28 @@
   </div>
 </header>
 
-<main>
+<main class="page-enter">
   <section class="section receipt-page-section">
     <div class="container receipt-page-container">
-
-      <a href="/#contact" class="qt-back-link">← 오시는 길로</a>
 
       <div class="section-head" style="text-align:left; margin-bottom:28px;">
         <span class="eyebrow">INQUIRY</span>
         <h2>온라인 문의</h2>
-        <p>궁금한 점이나 하고 싶은 이야기를 남겨주세요. 비밀글로 남기면 목회자·관리자만 확인할 수 있어요.</p>
+        <p>궁금한 점이나 하고 싶은 이야기를 남겨주세요.</p>
       </div>
 
       <form class="prayer-form" id="board-form">
         <div class="prayer-form-row">
           <input type="text" id="board-name" placeholder="이름 또는 닉네임 (선택)" maxlength="30" />
-          <label class="prayer-secret-toggle">
-            <input type="checkbox" id="board-secret" checked />
-            비밀글로 남기기
-          </label>
         </div>
-        <input type="password" id="board-password" class="prayer-password-input" placeholder="비밀번호 (4자 이상, 나중에 내용 확인할 때 필요해요)" style="display:none;" />
+        <input type="password" id="board-password" class="prayer-password-input" placeholder="비밀번호 (4자 이상, 필수 — 나중에 내용 확인할 때 필요해요)" required />
         <textarea id="board-content" rows="4" placeholder="문의하실 내용을 남겨주세요" maxlength="2000" required></textarea>
         <div class="prayer-form-foot">
           <span class="prayer-form-status" id="board-form-status"></span>
-          <button type="submit" class="btn btn--gold">문의 남기기</button>
+          <div style="display:flex; gap:8px;">
+            <a href="/" class="btn btn--navy btn--sm">닫기</a>
+            <button type="submit" class="btn btn--gold">문의 남기기</button>
+          </div>
         </div>
       </form>
 
