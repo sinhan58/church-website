@@ -214,13 +214,14 @@ function createSecretBoardRouter(key, { requiredMessage }) {
     try {
       const items = (await readData(key)) || [];
       const sorted = [...items].sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
-      res.json(
+     res.json(
         sorted.map((p) => ({
           id: p.id,
           name: p.name || '익명',
           date: p.date,
           secret: !!p.secret,
-          content: p.secret ? '' : p.content
+          content: p.secret ? '' : p.content,
+          hasReply: !!(p.reply && p.reply.trim())
         }))
       );
     } catch (err) {
