@@ -1,14 +1,31 @@
 // 기도 요청(prayer.html) / 온라인 문의(inquiry.html) 공용 스크립트
 // <body data-api-base="prayers 또는 inquiries" data-success-message="...">로 동작을 구분합니다.
+// data-always-secret="true" 이면 비밀글 선택 없이 항상 비밀번호로 잠그고,
+// data-mask-names="true" 이면 목록에 표시되는 이름을 항상 일부 가립니다(예: 홍**).
 (function () {
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel) => Array.from(document.querySelectorAll(sel));
 
   const apiBase = document.body.dataset.apiBase || 'prayers';
   const successMessage = document.body.dataset.successMessage || '등록되었습니다 🙏';
+  const alwaysSecret = document.body.dataset.alwaysSecret === 'true';
+  const maskNames = document.body.dataset.maskNames === 'true';
 
   function escapeHtml(str = '') {
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  }
+
+  // 이름 마스킹: 첫 글자만 남기고 나머지는 별표 처리 (예: "홍길동" → "홍**")
+  function maskName(name = '') {
+    const trimmed = (name || '').trim();
+    if (!trimmed) return '익명';
+    if (trimmed.length <= 1) return trimmed;
+    return trimmed[0] + '*'.repeat(trimmed.length - 1);
+  }
+
+  function displayName(name) {
+    const base = name || '익명';
+    return maskNames ? maskName(base) : base;
   }
 
   $('#board-year').textContent = new Date().getFullYear();
@@ -25,7 +42,7 @@
     .catch(() => {});
 
   function cardHTML(p) {
-    const nameStr = escapeHtml(p.name || '익명');
+    const nameStr = escapeHtml(displayName(p.name));
     const dateStr = escapeHtml(p.date || '');
     if (p.secret) {
       return `
@@ -75,7 +92,7 @@
           card.classList.remove('prayer-card--secret');
           card.innerHTML = `
             <div class="prayer-card-head">
-              <span class="prayer-name">${escapeHtml(data.name || '익명')}</span>
+              <span class="prayer-name">${escapeHtml(displayName(data.name))}</span>
               <span class="prayer-date">${escapeHtml(data.date || '')}</span>
               <span class="prayer-unlocked-badge">🔓 확인됨</span>
             </div>
@@ -107,25 +124,31 @@
   function setupForm() {
     const form = $('#board-form');
     if (!form) return;
-    const secretCheckbox = $('#board-secret');
+    const secretCheckbox = $('#board-secret'); // alwaysSecret 페이지(온라인 문의)에는 이제 이 요소가 없음
     const passwordInput = $('#board-password');
     const statusEl = $('#board-form-status');
 
-    // 페이지 로드 시 체크박스 기본값(inquiry.html은 기본 체크됨)에 맞춰 비밀번호 입력란을 미리 보여줌
-    passwordInput.style.display = secretCheckbox.checked ? '' : 'none';
-    passwordInput.required = secretCheckbox.checked;
+    if (alwaysSecret) {
+      // 체크박스 자체가 없으므로, 비밀번호 입력란을 항상 필수로 보여줍니다.
+      passwordInput.style.display = '';
+      passwordInput.required = true;
+    } else {
+      // 페이지 로드 시 체크박스 기본값(inquiry.html은 기본 체크됨)에 맞춰 비밀번호 입력란을 미리 보여줌
+      passwordInput.style.display = secretCheckbox.checked ? '' : 'none';
+      passwordInput.required = secretCheckbox.checked;
 
-    secretCheckbox.addEventListener('change', () => {
-      const on = secretCheckbox.checked;
-      passwordInput.style.display = on ? '' : 'none';
-      passwordInput.required = on;
-      if (!on) passwordInput.value = '';
-    });
+      secretCheckbox.addEventListener('change', () => {
+        const on = secretCheckbox.checked;
+        passwordInput.style.display = on ? '' : 'none';
+        passwordInput.required = on;
+        if (!on) passwordInput.value = '';
+      });
+    }
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const content = $('#board-content').value.trim();
-      const secret = secretCheckbox.checked;
+      const secret = alwaysSecret ? true : secretCheckbox.checked;
       const password = passwordInput.value;
       if (!content) return;
       if (secret && password.length < 4) {
@@ -148,7 +171,11 @@
           return;
         }
         form.reset();
-        passwordInput.style.display = secretCheckbox.checked ? '' : 'none';
+        if (alwaysSecret) {
+          passwordInput.style.display = '';
+        } else {
+          passwordInput.style.display = secretCheckbox.checked ? '' : 'none';
+        }
         statusEl.textContent = successMessage;
         statusEl.style.color = 'var(--gold)';
         loadList();
