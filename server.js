@@ -10,6 +10,10 @@ const { updateSermonsCache } = require('./utils/youtube');
 const { readData } = require('./utils/db');
 const { renderQtDetailPage } = require('./utils/qt-page');
 const { renderIndexPage } = require('./utils/render-index');
+const { createStaticPageRenderer } = require('./utils/render-static-page');
+const renderPrayerPage = createStaticPageRenderer('prayer.html');
+const renderInquiryPage = createStaticPageRenderer('inquiry.html');
+const renderReceiptPage = createStaticPageRenderer('receipt.html');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -81,6 +85,32 @@ app.get('/', async (req, res, next) => {
   try {
     const [site, menu] = await Promise.all([readData('site'), readData('menu')]);
     res.send(renderIndexPage({ site: site || {}, menu: menu || [] }));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// 기도 요청 / 온라인 문의 / 영수증 신청 (역시 관리자가 고른 글씨체를 미리 반영해서 보냄)
+app.get('/prayer.html', async (req, res, next) => {
+  try {
+    const site = await readData('site');
+    res.send(renderPrayerPage({ site: site || {} }));
+  } catch (err) {
+    next(err);
+  }
+});
+app.get('/inquiry.html', async (req, res, next) => {
+  try {
+    const site = await readData('site');
+    res.send(renderInquiryPage({ site: site || {} }));
+  } catch (err) {
+    next(err);
+  }
+});
+app.get('/receipt.html', async (req, res, next) => {
+  try {
+    const site = await readData('site');
+    res.send(renderReceiptPage({ site: site || {} }));
   } catch (err) {
     next(err);
   }
