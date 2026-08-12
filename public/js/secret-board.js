@@ -15,12 +15,12 @@
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
-  // 이름 마스킹: 첫 글자만 남기고 나머지는 별표 처리 (예: "홍길동" → "홍**")
+  // 이름 마스킹: 앞 두 글자를 별표로 가림 (예: "홍길동" → "**동", "김철" → "**")
   function maskName(name = '') {
     const trimmed = (name || '').trim();
     if (!trimmed) return '익명';
-    if (trimmed.length <= 1) return trimmed;
-    return trimmed[0] + '*'.repeat(trimmed.length - 1);
+    if (trimmed.length <= 2) return '*'.repeat(trimmed.length);
+    return '*'.repeat(2) + trimmed.slice(2);
   }
 
   function displayName(name) {
@@ -45,13 +45,16 @@
     const nameStr = escapeHtml(displayName(p.name));
     const dateStr = escapeHtml(p.date || '');
     if (p.secret) {
+      const answeredBadge = p.hasReply
+        ? '<span class="prayer-unlocked-badge" style="background:#2f6d3a;color:#fff;border-radius:999px;padding:2px 10px;">답변완료</span>'
+        : '';
       return `
         <div class="prayer-card prayer-card--secret" data-id="${p.id}">
           <div class="prayer-card-head">
             <span class="prayer-name">${nameStr}</span>
             <span class="prayer-date">${dateStr}</span>
+            ${answeredBadge}
           </div>
-          <p class="prayer-locked">🔒 비밀글입니다. 작성 시 입력한 비밀번호로 확인할 수 있어요.</p>
           <form class="prayer-unlock-form">
             <input type="password" placeholder="비밀번호" required />
             <button type="submit">확인</button>
