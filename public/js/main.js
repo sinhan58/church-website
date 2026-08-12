@@ -321,7 +321,7 @@
       instagram: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none"/></svg>',
       facebook: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 9h3V5.6c-.5-.1-1.6-.2-2.8-.2-2.8 0-4.7 1.7-4.7 4.9V13H6.8v3.8H9.5V22h3.7v-5.2h2.9l.5-3.8h-3.4V10.6c0-1.1.3-1.6 1.8-1.6Z"/></svg>',
       // 정확한 밴드 로고 모양 대신, 확실하게 깨지지 않는 단순한 글자 배지로 표시합니다.
-      band: '<span style="font-weight:800;font-size:0.72rem;letter-spacing:-0.02em;">BAND</span>'
+      band: '<span style="display:flex;flex-direction:column;align-items:center;line-height:1;gap:1px;"><span style="font-weight:800;font-size:0.5rem;letter-spacing:-0.02em;">BAND</span><span style="font-weight:700;font-size:0.55rem;">밴드</span></span>'
     };
 
     // 주소 맨 앞에 https:// 가 빠져있으면 자동으로 붙여줍니다. (빠진 채로 저장되면
