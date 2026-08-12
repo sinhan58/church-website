@@ -266,12 +266,12 @@ function createSecretBoardRouter(key, { requiredMessage }) {
       if (!item) return res.status(404).json({ error: '요청을 찾을 수 없습니다.' });
 
       if (!item.secret) {
-        return res.json({ ok: true, content: item.content, name: item.name, date: item.date });
+        return res.json({ ok: true, content: item.content, name: item.name, date: item.date, reply: item.reply || '' });
       }
       const valid = item.passwordHash && bcrypt.compareSync(String(password || ''), item.passwordHash);
       if (!valid) return res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
 
-      res.json({ ok: true, content: item.content, name: item.name, date: item.date });
+      res.json({ ok: true, content: item.content, name: item.name, date: item.date, reply: item.reply || '' });
     } catch (err) {
       res.status(500).json({ error: err.message });
     }
