@@ -90,13 +90,20 @@
             return;
           }
           card.classList.remove('prayer-card--secret');
+          const replyHtml = data.reply
+            ? `<div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--line);">
+                 <p style="margin:0 0 4px; font-size:0.8rem; font-weight:700; color:var(--gold-deep);">담당자 답글</p>
+                 <p class="prayer-content" style="margin:0;">${escapeHtml(data.reply).replace(/\n/g, '<br>')}</p>
+               </div>`
+            : '';
           card.innerHTML = `
             <div class="prayer-card-head">
               <span class="prayer-name">${escapeHtml(displayName(data.name))}</span>
               <span class="prayer-date">${escapeHtml(data.date || '')}</span>
               <span class="prayer-unlocked-badge">🔓 확인됨</span>
             </div>
-            <p class="prayer-content">${escapeHtml(data.content || '').replace(/\n/g, '<br>')}</p>`;
+            <p class="prayer-content">${escapeHtml(data.content || '').replace(/\n/g, '<br>')}</p>
+            ${replyHtml}`;
         } catch (err) {
           errEl.textContent = '확인 중 오류가 발생했습니다.';
         }
