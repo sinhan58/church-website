@@ -98,6 +98,109 @@
 
   let postEditor = null;
 
+  // ---------------- 기도 요청 / 온라인 문의 (관리자 확인) ----------------
+  // key: 'prayers' 또는 'inquiries'. inquiries만 답글 입력창을 보여줍니다.
+  function setupSecretBoardAdminPanel(key, { listElId, refreshBtnId, withReply }) {
+    const listEl = $('#' + listElId);
+    const refreshBtn = $('#' + refreshBtnId);
+    if (!listEl || !refreshBtn) return;
+
+    function cardHTML(item) {
+      const dateStr = escapeHtml(item.date || '');
+      const nameStr = escapeHtml(item.name || '익명');
+      const contentStr = escapeHtml(item.content || '').replace(/\n/g, '<br>');
+      const replyBlock = withReply
+        ? `
+          <div style="margin-top:10px; padding-top:10px; border-top:1px dashed #ddd;">
+            <textarea class="reply-input" data-id="${item.id}" rows="2" placeholder="답글을 입력하세요 (작성자가 본인 비밀번호로 다시 열어보면 보여요)" style="width:100%; box-sizing:border-box; padding:8px; border:1px solid #ddd; border-radius:6px; font-family:inherit; font-size:0.85rem;">${escapeHtml(item.reply || '')}</textarea>
+            <button type="button" class="btn-secondary reply-save-btn" data-id="${item.id}" style="margin-top:6px;">답글 저장</button>
+            <span class="reply-status" data-id="${item.id}" style="margin-left:8px; font-size:0.82rem; color:var(--gold-deep, #8f6b17);"></span>
+          </div>`
+        : '';
+      return `
+        <div class="post-row" data-id="${item.id}" style="display:block; padding:14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:10px;">
+            <div>
+              <strong>${nameStr}</strong>
+              <span class="hint" style="margin-left:8px;">${dateStr}</span>
+              ${item.secret ? '<span class="badge" style="margin-left:8px;">🔒 비밀글</span>' : ''}
+            </div>
+            <button type="button" class="btn-secondary board-delete-btn" data-id="${item.id}">삭제</button>
+          </div>
+          <p style="margin:10px 0 0; white-space:pre-wrap; word-break:keep-all;">${contentStr}</p>
+          ${replyBlock}
+        </div>`;
+    }
+
+    async function load() {
+      listEl.innerHTML = `<p class="hint">불러오는 중...</p>`;
+      try {
+        const list = await api(`/api/admin/${key}`);
+        if (!list || list.length === 0) {
+          listEl.innerHTML = `<p class="hint">등록된 글이 없습니다.</p>`;
+          return;
+        }
+        listEl.innerHTML = list.map(cardHTML).join('');
+        bindRowActions();
+      } catch (err) {
+        listEl.innerHTML = `<p class="hint">불러오지 못했습니다: ${escapeHtml(err.message)}</p>`;
+      }
+    }
+
+    function bindRowActions() {
+      $$('.board-delete-btn', listEl).forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('이 글을 삭제하시겠습니까?')) return;
+          try {
+            await api(`/api/admin/${key}/${btn.dataset.id}`, { method: 'DELETE' });
+            load();
+          } catch (err) {
+            alert(err.message);
+          }
+        });
+      });
+      if (withReply) {
+        $$('.reply-save-btn', listEl).forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            const id = btn.dataset.id;
+            const textarea = listEl.querySelector(`.reply-input[data-id="${id}"]`);
+            const statusEl = listEl.querySelector(`.reply-status[data-id="${id}"]`);
+            statusEl.textContent = '저장 중...';
+            try {
+              await api(`/api/admin/${key}/${id}/reply`, {
+                method: 'PUT',
+                body: JSON.stringify({ reply: textarea.value.trim() })
+              });
+              statusEl.textContent = '저장 완료 ✓';
+              setTimeout(() => (statusEl.textContent = ''), 2500);
+            } catch (err) {
+              statusEl.textContent = '저장 실패: ' + err.message;
+            }
+          });
+        });
+      }
+    }
+
+    refreshBtn.addEventListener('click', load);
+    load();
+  }
+
+  function setupPrayersAdminPanel() {
+    setupSecretBoardAdminPanel('prayers', {
+      listElId: 'prayers-admin-list',
+      refreshBtnId: 'prayers-refresh-btn',
+      withReply: false
+    });
+  }
+
+  function setupInquiriesAdminPanel() {
+    setupSecretBoardAdminPanel('inquiries', {
+      listElId: 'inquiries-admin-list',
+      refreshBtnId: 'inquiries-refresh-btn',
+      withReply: true
+    });
+  }
+
   function initDashboard() {
     if (dashboardInitialized) return;
     dashboardInitialized = true;
@@ -134,6 +237,8 @@
     loadPartnerList();
     loadStats().catch(() => {}); // 통계 권한이 없는 부관리자는 조용히 건너뜀
     loadReceiptRequests().catch(() => {}); // 영수증 신청 권한이 없는 부관리자는 조용히 건너뜀
+    setupPrayersAdminPanel();
+    setupInquiriesAdminPanel();
     $('#p-date').value = new Date().toISOString().slice(0, 10);
     $('#qt-date').value = new Date().toISOString().slice(0, 10);
     $('#qt-pastor').value = localStorage.getItem('qtLastPastor') || '';
