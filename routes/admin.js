@@ -922,6 +922,18 @@ router.put('/quiz/:id', requirePermission('qt'), async (req, res) => {
   }
 });
 
+router.get('/quiz/:id/submissions', requirePermission('qt'), async (req, res) => {
+  try {
+    const submissions = (await readData('quizSubmissions')) || [];
+    const list = submissions
+      .filter((s) => s.quizId === req.params.id)
+      .sort((a, b) => b.score - a.score || b.firstTryCount - a.firstTryCount);
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.delete('/quiz/:id', requirePermission('qt'), async (req, res) => {
   try {
     const quizzes = (await readData('quizzes')) || [];
