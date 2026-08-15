@@ -32,6 +32,32 @@
     return quiz.verses.reduce((sum, v) => sum + v.blanks.length, 0);
   }
 
+  // ---------------- 객관식 선택지 자동 생성 ----------------
+  // 이 퀴즈 전체에서 등장하는 다른 빈칸들의 정답을 오답 후보로 재활용합니다.
+  // (미리 오답을 따로 안 만들어도, 같은 문제 안의 다른 정답들만으로 선택지를 만듭니다)
+  function shuffle(arr) {
+    const copy = arr.slice();
+    for (let i = copy.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy;
+  }
+
+  function buildChoicesForQuiz() {
+    const allAnswers = [];
+    quiz.verses.forEach((v) => v.blanks.forEach((b) => allAnswers.push(b.answer)));
+
+    quiz.verses.forEach((v) => {
+      v.blanks.forEach((b) => {
+        // 자기 자신과 같은 단어는 오답 후보에서 제외하고, 중복 없는 후보군을 만듭니다.
+        const pool = [...new Set(allAnswers.filter((a) => a !== b.answer))];
+        const distractors = shuffle(pool).slice(0, 2); // 오답은 최대 2개
+        b.choices = shuffle([b.answer, ...distractors]);
+      });
+    });
+  }
+
   // ---------------- 0단계: 불러오기 ----------------
   async function init() {
     try {
@@ -42,6 +68,7 @@
         return;
       }
       quiz = data;
+      buildChoicesForQuiz();
       renderNameAndRead();
       loadLeaderboard();
     } catch (err) {
@@ -107,7 +134,11 @@
         const m = part.match(/^\{\{(b\d+)\}\}$/);
         if (!m) return escapeHtml(part);
         const blankId = m[1];
-        return `<input type="text" class="quiz-blank-input" data-blank-id="${blankId}" autocomplete="off" />`;
+        const blank = verse.blanks.find((b) => b.id === blankId);
+        const choicesHtml = blank.choices
+          .map((c) => `<button type="button" class="quiz-choice-btn" data-value="${escapeHtml(c)}">${escapeHtml(c)}</button>`)
+          .join('');
+        return `<span class="quiz-blank-choices" data-blank-id="${blankId}">${choicesHtml}</span>`;
       })
       .join('');
 
@@ -136,6 +167,15 @@
       </div>`;
 
     $('#quiz-check-btn').addEventListener('click', () => checkVerse(verse));
+
+    $$('.quiz-choice-btn', mainEl).forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const group = btn.closest('.quiz-blank-choices');
+        if (group.classList.contains('locked')) return;
+        $$('.quiz-choice-btn', group).forEach((b) => b.classList.remove('selected'));
+        btn.classList.add('selected');
+      });
+    });
   }
 
   // 정답 비교: 공백 제거 후 단순 일치 비교
@@ -176,27 +216,30 @@
       noticeEl.textContent = '';
     }
 
-    const inputs = $$('.quiz-blank-input', mainEl);
+    const groups = $$('.quiz-blank-choices', mainEl);
     const feedbackEl = $('#quiz-verse-feedback');
     let allDone = true;
     let anyWrong = false;
 
-    inputs.forEach((input) => {
-      if (input.disabled) return; // 이미 정답 확정된 칸은 건드리지 않음
-      const blankId = input.dataset.blankId;
+    groups.forEach((group) => {
+      if (group.classList.contains('locked')) return; // 이미 정답 확정된 빈칸은 건드리지 않음
+      const blankId = group.dataset.blankId;
       const blank = verse.blanks.find((b) => b.id === blankId);
-      const given = input.value;
+      const selectedBtn = group.querySelector('.quiz-choice-btn.selected');
+      const given = selectedBtn ? selectedBtn.dataset.value : '';
       const ok = isCorrect(given, blank.answer);
 
       recordBlankAttempt(verse.id, blankId, ok);
+      group.classList.add('locked');
+      $$('.quiz-choice-btn', group).forEach((btn) => (btn.disabled = true));
 
       if (ok) {
-        input.classList.add('correct');
-        input.classList.remove('wrong');
-        input.disabled = true;
+        group.classList.add('correct');
+        group.classList.remove('wrong');
+        if (selectedBtn) selectedBtn.classList.add('correct-pick');
       } else {
-        input.classList.add('wrong');
-        input.disabled = true; // '다시 풀기'를 누르기 전까지는 못 고치도록 잠급니다
+        group.classList.add('wrong');
+        if (selectedBtn) selectedBtn.classList.add('wrong-pick');
         anyWrong = true;
         allDone = false;
       }
@@ -236,11 +279,13 @@
       hintBox.textContent = `${verse.verseLabel}절 원문: ${verse.fullText}`;
       hintBox.classList.add('open');
 
-      $$('.quiz-blank-input.wrong', mainEl).forEach((input) => {
-        markHintUsed(verse.id, input.dataset.blankId);
-        input.value = '';
-        input.classList.remove('wrong');
-        input.disabled = false;
+      $$('.quiz-blank-choices.wrong', mainEl).forEach((group) => {
+        markHintUsed(verse.id, group.dataset.blankId);
+        group.classList.remove('wrong', 'locked');
+        $$('.quiz-choice-btn', group).forEach((btn) => {
+          btn.disabled = false;
+          btn.classList.remove('selected', 'wrong-pick', 'correct-pick');
+        });
       });
 
       row.remove();
@@ -250,13 +295,11 @@
       btn.style.display = '';
       btn.textContent = '다시 채점하기';
       btn.onclick = () => checkVerse(verse);
-      const firstWrong = $('.quiz-blank-input:not([disabled])', mainEl);
-      if (firstWrong) firstWrong.focus();
     });
 
     row.querySelector('.skip-btn').addEventListener('click', () => {
-      $$('.quiz-blank-input.wrong', mainEl).forEach((input) => {
-        finalizeSkippedBlank(verse.id, input.dataset.blankId);
+      $$('.quiz-blank-choices.wrong', mainEl).forEach((group) => {
+        finalizeSkippedBlank(verse.id, group.dataset.blankId);
       });
       row.remove();
       const feedbackEl = $('#quiz-verse-feedback');
