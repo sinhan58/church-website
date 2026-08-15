@@ -203,7 +203,7 @@ router.get('/quiz/current', async (req, res) => {
     res.json({
       id: latest.id, reference: latest.reference, weekLabel: latest.weekLabel,
       verses: latest.verses.map((v) => ({
-        id: v.id, verseLabel: v.verseLabel, markedText: v.markedText, fullText: v.fullText,
+        id: v.id, reference: v.reference || latest.reference, verseLabel: v.verseLabel, markedText: v.markedText, fullText: v.fullText,
         blanks: v.blanks.map((b) => ({ id: b.id, answer: b.answer }))
       }))
     });
