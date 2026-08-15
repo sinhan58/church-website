@@ -49,8 +49,11 @@
     }
   }
 
-  // ---------------- 1단계: 이름 입력 + 본문 읽기 ----------------
+  // ---------------- 1단계: 본문 읽기 ----------------
   function renderNameAndRead() {
+    const layout = $('.quiz-layout');
+    if (layout) layout.classList.add('reading-stage');
+
     const readHtml = quiz.verses
       .map((v) => `<div class="quiz-read-verse"><span class="num">${escapeHtml(v.verseLabel)}</span>${escapeHtml(v.fullText)}</div>`)
       .join('');
@@ -60,10 +63,6 @@
         <p class="quiz-ref">${escapeHtml(quiz.reference)}</p>
         <p class="quiz-week-label">${escapeHtml(quiz.weekLabel || '')}</p>
 
-        <div class="quiz-name-field">
-          <input type="text" id="quiz-name-input" placeholder="이름을 입력해주세요" maxlength="20" />
-        </div>
-
         <div class="quiz-read-text">${readHtml}</div>
 
         <div class="quiz-btn-row">
@@ -71,39 +70,8 @@
         </div>
       </div>`;
 
-    $('#quiz-start-btn').addEventListener('click', async () => {
-      const nameInput = $('#quiz-name-input');
-      const name = nameInput.value.trim();
-      if (!name) {
-        nameInput.focus();
-        nameInput.style.borderColor = '#b3413a';
-        return;
-      }
-
-      const startBtn = $('#quiz-start-btn');
-      const originalLabel = startBtn.textContent;
-      startBtn.disabled = true;
-      startBtn.textContent = '확인 중...';
-
-      const alreadyJoined = await hasAlreadyParticipated(name);
-
-      startBtn.disabled = false;
-      startBtn.textContent = originalLabel;
-
-      if (alreadyJoined) {
-        nameInput.style.borderColor = '#b3413a';
-        let noticeEl = $('#quiz-name-notice');
-        if (!noticeEl) {
-          noticeEl = document.createElement('p');
-          noticeEl.id = 'quiz-name-notice';
-          noticeEl.style.cssText = 'color:#b3413a; font-size:0.85rem; margin-top:8px;';
-          nameInput.insertAdjacentElement('afterend', noticeEl);
-        }
-        noticeEl.textContent = '이미 이 이름으로 참여하셨어요. 동명이인이시면 이름 뒤에 구분(예: 홍길동2)을 붙여서 다시 시도해주세요.';
-        return;
-      }
-
-      participantName = name;
+    $('#quiz-start-btn').addEventListener('click', () => {
+      if (layout) layout.classList.remove('reading-stage');
       verseIndex = 0;
       verseResults = [];
       renderVerseStep();
@@ -143,8 +111,18 @@
       })
       .join('');
 
+    // 첫 번째 절에서만, 문제 바로 위에 이름 입력란을 눈에 띄게 보여줍니다.
+    const nameFieldHtml =
+      verseIndex === 0
+        ? `<div class="quiz-name-field">
+             <input type="text" id="quiz-name-input" placeholder="이름을 입력해주세요" maxlength="20" />
+             <p class="quiz-name-notice" id="quiz-name-notice"></p>
+           </div>`
+        : '';
+
     mainEl.innerHTML = `
       <div class="quiz-card">
+        ${nameFieldHtml}
         <p class="quiz-progress">${verseIndex + 1} / ${quiz.verses.length} 절</p>
         <div class="quiz-verse-text">
           <span class="num" style="color:var(--gold-deep); font-weight:700; margin-right:6px;">${escapeHtml(verse.verseLabel)}</span>
@@ -165,7 +143,39 @@
     return (given || '').trim() === (answer || '').trim();
   }
 
-  function checkVerse(verse) {
+  async function checkVerse(verse) {
+    // 첫 번째 절이면, 채점하기 전에 먼저 이름을 확인합니다.
+    if (verseIndex === 0 && !participantName) {
+      const nameInput = $('#quiz-name-input');
+      const noticeEl = $('#quiz-name-notice');
+      const name = nameInput.value.trim();
+      if (!name) {
+        nameInput.focus();
+        nameInput.style.borderColor = '#b3413a';
+        noticeEl.textContent = '이름을 먼저 입력해주세요.';
+        return;
+      }
+
+      const checkBtn = $('#quiz-check-btn');
+      const originalLabel = checkBtn.textContent;
+      checkBtn.disabled = true;
+      checkBtn.textContent = '이름 확인 중...';
+      const alreadyJoined = await hasAlreadyParticipated(name);
+      checkBtn.disabled = false;
+      checkBtn.textContent = originalLabel;
+
+      if (alreadyJoined) {
+        nameInput.style.borderColor = '#b3413a';
+        noticeEl.textContent = '이미 이 이름으로 참여하셨어요. 동명이인이시면 이름 뒤에 구분(예: 홍길동2)을 붙여서 다시 시도해주세요.';
+        return;
+      }
+
+      participantName = name;
+      nameInput.disabled = true;
+      nameInput.style.borderColor = '';
+      noticeEl.textContent = '';
+    }
+
     const inputs = $$('.quiz-blank-input', mainEl);
     const feedbackEl = $('#quiz-verse-feedback');
     let allDone = true;
