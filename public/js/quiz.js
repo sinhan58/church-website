@@ -71,7 +71,7 @@
         </div>
       </div>`;
 
-    $('#quiz-start-btn').addEventListener('click', () => {
+    $('#quiz-start-btn').addEventListener('click', async () => {
       const nameInput = $('#quiz-name-input');
       const name = nameInput.value.trim();
       if (!name) {
@@ -79,6 +79,30 @@
         nameInput.style.borderColor = '#b3413a';
         return;
       }
+
+      const startBtn = $('#quiz-start-btn');
+      const originalLabel = startBtn.textContent;
+      startBtn.disabled = true;
+      startBtn.textContent = '확인 중...';
+
+      const alreadyJoined = await hasAlreadyParticipated(name);
+
+      startBtn.disabled = false;
+      startBtn.textContent = originalLabel;
+
+      if (alreadyJoined) {
+        nameInput.style.borderColor = '#b3413a';
+        let noticeEl = $('#quiz-name-notice');
+        if (!noticeEl) {
+          noticeEl = document.createElement('p');
+          noticeEl.id = 'quiz-name-notice';
+          noticeEl.style.cssText = 'color:#b3413a; font-size:0.85rem; margin-top:8px;';
+          nameInput.insertAdjacentElement('afterend', noticeEl);
+        }
+        noticeEl.textContent = '이미 이 이름으로 참여하셨어요. 동명이인이시면 이름 뒤에 구분(예: 홍길동2)을 붙여서 다시 시도해주세요.';
+        return;
+      }
+
       participantName = name;
       verseIndex = 0;
       verseResults = [];
@@ -86,8 +110,27 @@
     });
   }
 
+  // 이번 주 퀴즈에 같은 이름으로 이미 참여했는지 순위표를 기준으로 확인합니다.
+  async function hasAlreadyParticipated(name) {
+    try {
+      const res = await fetch(`/api/quiz/${quiz.id}/leaderboard`);
+      const list = await res.json();
+      const normalized = name.trim();
+      return (list || []).some((p) => (p.name || '').trim() === normalized);
+    } catch (err) {
+      return false; // 확인에 실패해도 참여 자체는 막지 않음
+    }
+  }
+
+  function scrollQuizTop() {
+    const card = mainEl.closest('.container') || mainEl;
+    const top = card.getBoundingClientRect().top + window.scrollY - 90; // 고정 헤더 높이만큼 여유
+    window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+  }
+
   // ---------------- 2단계: 한 절씩 풀기 ----------------
   function renderVerseStep() {
+    scrollQuizTop();
     const verse = quiz.verses[verseIndex];
     const parts = verse.markedText.split(/(\{\{b\d+\}\})/g);
 
@@ -143,9 +186,9 @@
         input.disabled = true;
       } else {
         input.classList.add('wrong');
+        input.disabled = true; // '다시 풀기'를 누르기 전까지는 못 고치도록 잠급니다
         anyWrong = true;
         allDone = false;
-        showRetryOptions(input, verse, blank);
       }
     });
 
@@ -155,60 +198,57 @@
       $('#quiz-check-btn').textContent = '다음 절로';
       $('#quiz-check-btn').onclick = goToNextVerse;
     } else if (anyWrong) {
-      feedbackEl.textContent = '아쉬워요. 틀린 빈칸은 힌트를 보고 다시 풀거나, 다음으로 넘어갈 수 있어요.';
+      feedbackEl.textContent = '아쉬워요.';
       feedbackEl.className = 'quiz-verse-feedback retry';
-      $('#quiz-check-btn').style.display = 'none'; // 틀린 칸이 있으면, 각 칸의 버튼으로만 진행
+      $('#quiz-check-btn').style.display = 'none';
+      showRetryOptions(verse);
     }
   }
 
-  // 틀린 빈칸 아래에 [힌트 보고 다시 풀기] / [다음 넘어가기] 버튼을 답니다.
-  function showRetryOptions(input, verse, blank) {
-    // 이미 버튼이 달려있으면 중복으로 안 만듦
-    if (input.nextElementSibling && input.nextElementSibling.classList.contains('quiz-blank-retry-row')) {
-      input.nextElementSibling.remove();
-    }
-    const row = document.createElement('span');
+  // 틀린 빈칸이 하나라도 있으면, 피드백 문구 바로 아래에 버튼 두 개만 공통으로 둡니다.
+  // (빈칸마다 각각 버튼을 붙이지 않고, 절 전체 기준으로 한 번에 처리)
+  function showRetryOptions(verse) {
+    const existing = $('#quiz-retry-actions');
+    if (existing) existing.remove();
+
+    const row = document.createElement('div');
+    row.id = 'quiz-retry-actions';
     row.className = 'quiz-blank-retry-row';
+    row.style.display = 'flex';
+    row.style.marginBottom = '16px';
     row.innerHTML = `
       <button type="button" class="hint-btn">힌트 보고 다시 풀기</button>
       <button type="button" class="skip-btn">다음 넘어가기</button>`;
-    input.insertAdjacentElement('afterend', row);
+    $('#quiz-verse-feedback').insertAdjacentElement('afterend', row);
 
     row.querySelector('.hint-btn').addEventListener('click', () => {
       const hintBox = $('#quiz-hint-box');
       hintBox.textContent = `${verse.verseLabel}절 원문: ${verse.fullText}`;
       hintBox.classList.add('open');
-      markHintUsed(verse.id, blank.id);
-      input.value = '';
-      input.classList.remove('wrong');
-      input.disabled = false;
-      input.focus();
+
+      $$('.quiz-blank-input.wrong', mainEl).forEach((input) => {
+        markHintUsed(verse.id, input.dataset.blankId);
+        input.value = '';
+        input.classList.remove('wrong');
+        input.disabled = false;
+      });
+
       row.remove();
-      recheckAvailable();
+      $('#quiz-verse-feedback').textContent = '다시 풀어보세요.';
+      $('#quiz-verse-feedback').className = 'quiz-verse-feedback retry';
+      const btn = $('#quiz-check-btn');
+      btn.style.display = '';
+      btn.textContent = '다시 채점하기';
+      btn.onclick = () => checkVerse(verse);
+      const firstWrong = $('.quiz-blank-input:not([disabled])', mainEl);
+      if (firstWrong) firstWrong.focus();
     });
 
     row.querySelector('.skip-btn').addEventListener('click', () => {
-      input.disabled = true;
+      $$('.quiz-blank-input.wrong', mainEl).forEach((input) => {
+        finalizeSkippedBlank(verse.id, input.dataset.blankId);
+      });
       row.remove();
-      finalizeSkippedBlank(verse.id, blank.id);
-      maybeFinishVerse(verse);
-    });
-  }
-
-  function recheckAvailable() {
-    // 다시 풀 수 있는 칸이 생겼으니, 채점 버튼을 다시 보여줍니다.
-    const btn = $('#quiz-check-btn');
-    btn.style.display = '';
-    btn.textContent = '다시 채점하기';
-    btn.onclick = () => {
-      const verse = quiz.verses[verseIndex];
-      checkVerse(verse);
-    };
-  }
-
-  function maybeFinishVerse(verse) {
-    const remaining = $$('.quiz-blank-input', mainEl).filter((i) => !i.disabled);
-    if (remaining.length === 0) {
       const feedbackEl = $('#quiz-verse-feedback');
       feedbackEl.textContent = '이 절을 마쳤어요.';
       feedbackEl.className = 'quiz-verse-feedback ok';
@@ -216,7 +256,7 @@
       btn.style.display = '';
       btn.textContent = '다음 절로';
       btn.onclick = goToNextVerse;
-    }
+    });
   }
 
   function goToNextVerse() {
@@ -304,7 +344,11 @@
           총 ${totalBlanks}칸 중 ${correctCount}칸 정답 (한 번에 맞힌 칸 ${firstTryCount}개)
         </p>
         <p style="text-align:center; color:var(--muted); font-size:0.85rem;">참여해주셔서 감사해요, ${escapeHtml(participantName)}님!</p>
+        <div style="text-align:center; margin-top:20px;">
+          <a href="/#qt" class="btn btn--navy">홈으로</a>
+        </div>
       </div>`;
+    scrollQuizTop();
 
     try {
       await fetch(`/api/quiz/${quiz.id}/submit`, {
