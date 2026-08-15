@@ -14,6 +14,7 @@ const { createStaticPageRenderer } = require('./utils/render-static-page');
 const renderPrayerPage = createStaticPageRenderer('prayer.html');
 const renderInquiryPage = createStaticPageRenderer('inquiry.html');
 const renderReceiptPage = createStaticPageRenderer('receipt.html');
+const renderQuizPage = createStaticPageRenderer('quiz.html');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -111,6 +112,14 @@ app.get('/receipt.html', async (req, res, next) => {
   try {
     const site = await readData('site');
     res.send(renderReceiptPage({ site: site || {} }));
+  } catch (err) {
+    next(err);
+  }
+});
+app.get('/quiz.html', async (req, res, next) => {
+  try {
+    const site = await readData('site');
+    res.send(renderQuizPage({ site: site || {} }));
   } catch (err) {
     next(err);
   }
