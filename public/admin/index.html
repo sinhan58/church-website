@@ -30,19 +30,32 @@
 <div class="dashboard" id="dashboard" hidden>
   <aside class="sidebar">
     <div class="sidebar-brand">교회 관리자</div>
+    <button class="sidebar-toggle-btn" id="sidebar-toggle-btn" type="button">
+      <span>☰ 메뉴</span>
+      <span id="sidebar-toggle-current"></span>
+    </button>
     <nav class="sidebar-nav" id="sidebar-nav">
-      <button class="nav-item active" data-panel="panel-site" data-permission="site">기본 정보</button>
-      <button class="nav-item" data-panel="panel-menu" data-permission="menu">메뉴 관리</button>
-      <button class="nav-item" data-panel="panel-board" data-permission="posts">소식·친교 게시판</button>
-      <button class="nav-item" data-panel="panel-prayers">기도 요청</button>
-      <button class="nav-item" data-panel="panel-inquiries">온라인 문의</button>
-      <button class="nav-item" data-panel="panel-qt" data-permission="qt">오늘의 큐티</button>
-      <button class="nav-item" data-panel="panel-praise">찬양</button>
-      <button class="nav-item" data-panel="panel-missions" data-permission="missions">선교사역</button>
-      <button class="nav-item" data-panel="panel-stats" data-permission="stats">통계</button>
-      <button class="nav-item" data-panel="panel-receipts" data-permission="receipts">영수증 신청</button>
-      <button class="nav-item" data-panel="panel-sermons" data-permission="sermons">설교 영상(유튜브)</button>
-      <button class="nav-item" data-panel="panel-account">계정 관리</button>
+      <div class="nav-group">
+        <div class="nav-group-title">콘텐츠 관리</div>
+        <button class="nav-item active" data-panel="panel-site" data-permission="site">기본 정보</button>
+        <button class="nav-item" data-panel="panel-menu" data-permission="menu">메뉴 관리</button>
+        <button class="nav-item" data-panel="panel-sermons" data-permission="sermons">설교 영상(유튜브)</button>
+        <button class="nav-item" data-panel="panel-praise">찬양</button>
+        <button class="nav-item" data-panel="panel-qt" data-permission="qt">오늘의 큐티</button>
+        <button class="nav-item" data-panel="panel-missions" data-permission="missions">선교사역</button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-title">소통·게시판</div>
+        <button class="nav-item" data-panel="panel-board" data-permission="posts">소식·친교 게시판</button>
+        <button class="nav-item" data-panel="panel-prayers">기도 요청</button>
+        <button class="nav-item" data-panel="panel-inquiries">온라인 문의</button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-title">운영 관리</div>
+        <button class="nav-item" data-panel="panel-receipts" data-permission="receipts">영수증 신청</button>
+        <button class="nav-item" data-panel="panel-stats" data-permission="stats">통계</button>
+        <button class="nav-item" data-panel="panel-account">계정 관리</button>
+      </div>
     </nav>
     <div class="sidebar-footer">
       <a href="/" target="_blank" class="view-site-link">홈페이지 보기 ↗</a>
