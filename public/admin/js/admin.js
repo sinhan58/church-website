@@ -277,11 +277,48 @@
     const previewBtn = $('#quiz-preview-btn');
     const previewBox = $('#quiz-preview-box');
     const registerBtn = $('#quiz-register-btn');
+    const cancelEditBtn = $('#quiz-cancel-edit-btn');
+    const formTitleEl = $('#quiz-form-title');
     const statusEl = $('#quiz-save-status');
     const listEl = $('#quiz-admin-list');
     const refreshBtn = $('#quiz-list-refresh-btn');
 
     if (!refInput) return; // 권한이 없어 패널 자체가 없는 부관리자는 조용히 건너뜀
+
+    let editingQuizId = null; // null이면 '새로 등록', 값이 있으면 '그 퀴즈 수정 중'
+
+    // 서버에 저장된 markedText({{b1}} 등)+blanks(정답)를 다시 "(정답)" 형태의
+    // 원본 붙여넣기 텍스트로 되돌립니다. '수정하기'를 눌렀을 때 폼에 그대로 채워 넣기 위함입니다.
+    function reconstructRawText(v) {
+      let text = v.markedText;
+      v.blanks.forEach((b) => {
+        text = text.replace(`{{${b.id}}}`, `(${b.answer})`);
+      });
+      return text;
+    }
+
+    function resetForm() {
+      editingQuizId = null;
+      refInput.value = '';
+      weekInput.value = '';
+      pasteInput.value = '';
+      previewBox.style.display = 'none';
+      registerBtn.textContent = '이번 주 퀴즈로 등록';
+      if (formTitleEl) formTitleEl.textContent = '새 퀴즈 등록';
+      if (cancelEditBtn) cancelEditBtn.hidden = true;
+    }
+
+    function loadQuizIntoForm(q) {
+      editingQuizId = q.id;
+      refInput.value = q.reference || '';
+      weekInput.value = q.weekLabel || '';
+      pasteInput.value = q.verses.map((v) => `${v.verseLabel} ${reconstructRawText(v)}`).join('\n');
+      previewBox.style.display = 'none';
+      registerBtn.textContent = '수정 내용 저장';
+      if (formTitleEl) formTitleEl.textContent = '퀴즈 수정 중';
+      if (cancelEditBtn) cancelEditBtn.hidden = false;
+      refInput.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
 
     function doPreview() {
       const verses = parseQuizPaste(pasteInput.value);
@@ -302,27 +339,36 @@
 
     previewBtn.addEventListener('click', doPreview);
 
+    if (cancelEditBtn) {
+      cancelEditBtn.addEventListener('click', resetForm);
+    }
+
     registerBtn.addEventListener('click', async () => {
       const reference = refInput.value.trim();
       const verses = parseQuizPaste(pasteInput.value);
       if (!reference) return alert('본문 출처를 입력해주세요.');
       if (verses.length === 0) return alert('본문 내용을 붙여넣어주세요.');
 
-      statusEl.textContent = '등록 중...';
+      const isEditing = !!editingQuizId;
+      statusEl.textContent = isEditing ? '수정 저장 중...' : '등록 중...';
       try {
-        await api('/api/admin/quiz', {
-          method: 'POST',
-          body: JSON.stringify({ reference, weekLabel: weekInput.value.trim(), verses })
-        });
-        statusEl.textContent = '등록 완료 ✓';
+        if (isEditing) {
+          await api(`/api/admin/quiz/${editingQuizId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ reference, weekLabel: weekInput.value.trim(), verses })
+          });
+        } else {
+          await api('/api/admin/quiz', {
+            method: 'POST',
+            body: JSON.stringify({ reference, weekLabel: weekInput.value.trim(), verses })
+          });
+        }
+        statusEl.textContent = isEditing ? '수정 완료 ✓' : '등록 완료 ✓';
         setTimeout(() => (statusEl.textContent = ''), 2500);
-        refInput.value = '';
-        weekInput.value = '';
-        pasteInput.value = '';
-        previewBox.style.display = 'none';
+        resetForm();
         loadQuizList();
       } catch (err) {
-        statusEl.textContent = '등록 실패: ' + err.message;
+        statusEl.textContent = (isEditing ? '수정 실패: ' : '등록 실패: ') + err.message;
       }
     });
 
@@ -336,7 +382,10 @@
               <span class="hint" style="margin-left:8px;">${escapeHtml(q.weekLabel || '')}</span>
               <span class="hint" style="margin-left:8px;">${q.verses.length}절 · 빈칸 ${blankCount}개</span>
             </div>
-            <button type="button" class="btn-secondary quiz-delete-btn" data-id="${q.id}">삭제</button>
+            <div style="display:flex; gap:6px;">
+              <button type="button" class="btn-secondary quiz-edit-btn" data-id="${q.id}">수정</button>
+              <button type="button" class="btn-secondary quiz-delete-btn" data-id="${q.id}">삭제</button>
+            </div>
           </div>
         </div>`;
     }
@@ -350,11 +399,18 @@
           return;
         }
         listEl.innerHTML = list.map(quizRowHTML).join('');
+        $$('.quiz-edit-btn', listEl).forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const quiz = list.find((q) => q.id === btn.dataset.id);
+            if (quiz) loadQuizIntoForm(quiz);
+          });
+        });
         $$('.quiz-delete-btn', listEl).forEach((btn) => {
           btn.addEventListener('click', async () => {
             if (!confirm('이 퀴즈를 삭제하시겠습니까? (참여 기록은 남아있어요)')) return;
             try {
               await api(`/api/admin/quiz/${btn.dataset.id}`, { method: 'DELETE' });
+              if (editingQuizId === btn.dataset.id) resetForm();
               loadQuizList();
             } catch (err) {
               alert(err.message);
