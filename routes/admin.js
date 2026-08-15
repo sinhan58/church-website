@@ -827,6 +827,82 @@ router.delete('/receipt-requests/:id', requirePermission('receipts'), async (req
   }
 });
 
+// ---------- 말씀 퀴즈 관리 ----------
+router.get('/quiz', async (req, res) => {
+  try {
+    const quizzes = (await readData('quizzes')) || [];
+    res.json([...quizzes].reverse());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// verses: [{ verseLabel: '3', rawText: '그러므로 여호와의 (말씀)에 내가...' }, ...]
+// rawText 안의 (단어)가 빈칸이 됩니다. 관리자 페이지에서 붙여넣기 텍스트를 미리 이 구조로 잘라서 보냅니다.
+router.post('/quiz', requirePermission('qt'), async (req, res) => {
+  try {
+    const { reference, weekLabel, verses } = req.body;
+    if (!reference || !Array.isArray(verses) || verses.length === 0) {
+      return res.status(400).json({ error: '본문 출처와 절 내용을 입력해주세요.' });
+    }
+
+    const parsedVerses = verses.map((v, i) => {
+      const blanks = [];
+      let blankIndex = 0;
+      const rawText = v.rawText || '';
+      const markedText = rawText.replace(/\(([^)]+)\)/g, (match, word) => {
+        blankIndex += 1;
+        const id = `b${blankIndex}`;
+        blanks.push({ id, answer: word.trim() });
+        return `{{${id}}}`;
+      });
+      const fullText = rawText.replace(/[()]/g, '');
+      return { id: `v${i + 1}`, verseLabel: v.verseLabel || String(i + 1), markedText, fullText, blanks };
+    });
+
+    if (parsedVerses.every((v) => v.blanks.length === 0)) {
+      return res.status(400).json({ error: '빈칸으로 만들 단어를 괄호로 표시해주세요. 예: (말씀)' });
+    }
+
+    const quizzes = (await readData('quizzes')) || [];
+    const quiz = {
+      id: makeId('quiz'),
+      reference,
+      weekLabel: weekLabel || new Date().toISOString().slice(0, 10),
+      verses: parsedVerses,
+      createdAt: new Date().toISOString()
+    };
+    quizzes.push(quiz);
+    await writeData('quizzes', quizzes);
+    res.json(quiz);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/quiz/:id', requirePermission('qt'), async (req, res) => {
+  try {
+    const quizzes = (await readData('quizzes')) || [];
+    const filtered = quizzes.filter((q) => q.id !== req.params.id);
+    await writeData('quizzes', filtered);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/quiz/:id/leaderboard', async (req, res) => {
+  try {
+    const submissions = (await readData('quizSubmissions')) || [];
+    const list = submissions
+      .filter((s) => s.quizId === req.params.id)
+      .sort((a, b) => b.score - a.score || b.firstTryCount - a.firstTryCount);
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // ---------- 기도 요청 / 온라인 문의 관리 (공용) ----------
 // 로그인한 관리자는 비밀글 여부와 관계없이 전체 내용을 확인할 수 있습니다
 // (다른 방문자에게는 비밀글 내용이 노출되지 않으며, 목회자가 확인하는 용도입니다).
