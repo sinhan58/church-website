@@ -312,14 +312,7 @@
       $$('.quiz-blank-choices.wrong', mainEl).forEach((group) => {
         finalizeSkippedBlank(verse.id, group.dataset.blankId);
       });
-      row.remove();
-      const feedbackEl = $('#quiz-verse-feedback');
-      feedbackEl.textContent = '이 절을 마쳤어요.';
-      feedbackEl.className = 'quiz-verse-feedback ok';
-      const btn = $('#quiz-check-btn');
-      btn.style.display = '';
-      btn.textContent = '다음 절로';
-      btn.onclick = goToNextVerse;
+      goToNextVerse();
     });
   }
 
