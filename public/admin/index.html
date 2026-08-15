@@ -418,6 +418,16 @@
         <button class="btn-secondary" id="quiz-list-refresh-btn" type="button">새로고침</button>
         <div id="quiz-admin-list" class="post-list" style="margin-top:14px;"></div>
       </div>
+
+      <div class="card">
+        <h3>참여 통계</h3>
+        <div class="field">
+          <label>퀴즈 선택</label>
+          <select id="quiz-stats-select"><option value="">등록된 퀴즈가 없습니다</option></select>
+        </div>
+        <div id="quiz-stats-summary"></div>
+        <div id="quiz-stats-list" style="margin-top:16px;"></div>
+      </div>
     </section>
 
     <!-- 찬양 -->
@@ -617,7 +627,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.min.js"></script>
 <script src="/js/font-catalog.js"></script>
 <script src="/js/countries.js"></script>
-<script src="/admin/js/admin.js?v=8"></script>
+<script src="/admin/js/admin.js?v=9"></script>
 
 </body>
 </html>
