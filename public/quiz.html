@@ -55,10 +55,21 @@
 <style>
   /* ---------------- 말씀 퀴즈 전용 스타일 ---------------- */
   .quiz-page-section { padding: 64px 0 96px; }
-  .quiz-page-container { max-width: 720px; }
+  .quiz-page-container { max-width: 1080px; }
 
   .quiz-layout { display: grid; grid-template-columns: 1fr 260px; gap: 32px; align-items: start; }
   @media (max-width: 860px) { .quiz-layout { grid-template-columns: 1fr; } }
+
+  /* 본문 읽기 단계에서는 옆의 참여자 순위 칸을 잠깐 숨기고, 말씀 박스가 화면 폭을
+     훨씬 넉넉하게 쓰도록 합니다 (본문이 길 때 특히 읽기 편하도록). 풀이 단계로
+     넘어가면 다시 원래의 2단 배치로 돌아옵니다. */
+  .quiz-layout.reading-stage { grid-template-columns: 1fr; }
+  .quiz-layout.reading-stage .quiz-side-card { display: none; }
+
+  /* 페이지 내용이 화면보다 짧아도 하단 남색 푸터가 화면 맨 아래에 붙어있도록 고정합니다. */
+  body { display: flex; flex-direction: column; min-height: 100vh; }
+  main { flex: 1 0 auto; }
+  .site-footer { flex-shrink: 0; }
 
   .quiz-card {
     background: #fff;
@@ -70,11 +81,19 @@
   .quiz-ref { font-family: var(--font-heading); font-size: 1.3rem; color: var(--navy-deep); margin: 0 0 4px; }
   .quiz-week-label { color: var(--muted); font-size: 0.85rem; margin: 0 0 24px; }
 
-  .quiz-name-field { margin-bottom: 20px; }
+  .quiz-name-field {
+    margin-bottom: 22px;
+    padding: 16px;
+    background: var(--ivory-dim);
+    border-radius: 8px;
+    border: 1px solid var(--line);
+  }
   .quiz-name-field input {
     width: 100%; padding: 12px 14px; border: 1px solid var(--line); border-radius: 6px;
-    font-size: 1rem; font-family: inherit; box-sizing: border-box;
+    font-size: 1rem; font-family: inherit; box-sizing: border-box; background: #fff;
   }
+  .quiz-name-field input:disabled { background: #f0ede3; color: var(--muted); }
+  .quiz-name-notice { margin: 8px 0 0; font-size: 0.82rem; color: #b3413a; min-height: 1.2em; }
 
   .quiz-read-text { line-height: 2; font-size: 1.05rem; word-break: keep-all; color: var(--ink); }
   .quiz-read-verse { margin-bottom: 14px; }
