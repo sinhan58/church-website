@@ -139,32 +139,35 @@
         <h2>오늘의 큐티</h2>
         <p>담임목사님의 매일 아침 묵상을 함께 나눠요</p>
       </div>
-      <div class="qt-stage" id="qt-stage">
-        <svg id="qt-decor" viewBox="0 0 680 300" aria-hidden="true">
-          <circle cx="580" cy="60" r="100" fill="rgba(201,162,39,0.16)" />
-          <circle cx="80" cy="250" r="130" fill="rgba(201,162,39,0.1)" />
-          <line x1="150" y1="70" x2="150" y2="120" stroke="rgba(228,200,118,0.5)" stroke-width="3" stroke-linecap="round" />
-          <line x1="122" y1="95" x2="178" y2="95" stroke="rgba(228,200,118,0.5)" stroke-width="3" stroke-linecap="round" />
-        </svg>
-        <button class="qt-carousel-nav qt-carousel-nav--prev" id="qt-nav-prev" aria-label="이전 큐티 보기">&#8249;</button>
-        <div class="qt-carousel" id="qt-carousel">
-          <div class="qt-carousel-track" id="qt-carousel-track"></div>
-        </div>
-        <button class="qt-carousel-nav qt-carousel-nav--next" id="qt-nav-next" aria-label="다음 큐티 보기">&#8250;</button>
-      </div>
-      <div class="qt-archive-toggle-wrap">
-        <button class="qt-archive-toggle" id="qt-archive-toggle">지난 큐티 보기 ▾</button>
-      </div>
-      <div class="qt-archive-list" id="qt-archive-list"></div>
 
-      <a href="/quiz.html" class="quiz-teaser-card reveal" id="quiz-teaser-card" style="display:none;">
-        <span class="quiz-teaser-icon">✏️</span>
-        <span class="quiz-teaser-text">
-          <strong>이번 주 말씀 퀴즈</strong>
-          <span>빈칸 채우고 참여해보세요</span>
-        </span>
-        <span class="quiz-teaser-arrow">→</span>
-      </a>
+      <div class="qt-quiz-layout">
+        <div class="qt-quiz-main">
+          <div class="qt-stage" id="qt-stage">
+            <svg id="qt-decor" viewBox="0 0 680 300" aria-hidden="true">
+              <circle cx="580" cy="60" r="100" fill="rgba(201,162,39,0.16)" />
+              <circle cx="80" cy="250" r="130" fill="rgba(201,162,39,0.1)" />
+              <line x1="150" y1="70" x2="150" y2="120" stroke="rgba(228,200,118,0.5)" stroke-width="3" stroke-linecap="round" />
+              <line x1="122" y1="95" x2="178" y2="95" stroke="rgba(228,200,118,0.5)" stroke-width="3" stroke-linecap="round" />
+            </svg>
+            <button class="qt-carousel-nav qt-carousel-nav--prev" id="qt-nav-prev" aria-label="이전 큐티 보기">&#8249;</button>
+            <div class="qt-carousel" id="qt-carousel">
+              <div class="qt-carousel-track" id="qt-carousel-track"></div>
+            </div>
+            <button class="qt-carousel-nav qt-carousel-nav--next" id="qt-nav-next" aria-label="다음 큐티 보기">&#8250;</button>
+          </div>
+          <div class="qt-archive-toggle-wrap">
+            <button class="qt-archive-toggle" id="qt-archive-toggle">지난 큐티 보기 ▾</button>
+          </div>
+          <div class="qt-archive-list" id="qt-archive-list"></div>
+        </div>
+
+        <a href="/quiz.html" class="quiz-teaser-card reveal" id="quiz-teaser-card" style="display:none;">
+          <span class="quiz-teaser-icon">✏️</span>
+          <strong>이번 주<br />말씀 퀴즈</strong>
+          <span class="quiz-teaser-sub">빈칸 채우고<br />참여해보세요</span>
+          <span class="quiz-teaser-arrow">도전하기 →</span>
+        </a>
+      </div>
     </div>
   </section>
 
