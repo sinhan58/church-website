@@ -880,6 +880,48 @@ router.post('/quiz', requirePermission('qt'), async (req, res) => {
   }
 });
 
+router.put('/quiz/:id', requirePermission('qt'), async (req, res) => {
+  try {
+    const { reference, weekLabel, verses } = req.body;
+    if (!reference || !Array.isArray(verses) || verses.length === 0) {
+      return res.status(400).json({ error: '본문 출처와 절 내용을 입력해주세요.' });
+    }
+
+    const parsedVerses = verses.map((v, i) => {
+      const blanks = [];
+      let blankIndex = 0;
+      const rawText = v.rawText || '';
+      const markedText = rawText.replace(/\(([^)]+)\)/g, (match, word) => {
+        blankIndex += 1;
+        const id = `b${blankIndex}`;
+        blanks.push({ id, answer: word.trim() });
+        return `{{${id}}}`;
+      });
+      const fullText = rawText.replace(/[()]/g, '');
+      return { id: `v${i + 1}`, verseLabel: v.verseLabel || String(i + 1), markedText, fullText, blanks };
+    });
+
+    if (parsedVerses.every((v) => v.blanks.length === 0)) {
+      return res.status(400).json({ error: '빈칸으로 만들 단어를 괄호로 표시해주세요. 예: (말씀)' });
+    }
+
+    const quizzes = (await readData('quizzes')) || [];
+    const idx = quizzes.findIndex((q) => q.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: '퀴즈를 찾을 수 없습니다.' });
+
+    quizzes[idx] = {
+      ...quizzes[idx],
+      reference,
+      weekLabel: weekLabel || quizzes[idx].weekLabel,
+      verses: parsedVerses
+    };
+    await writeData('quizzes', quizzes);
+    res.json(quizzes[idx]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.delete('/quiz/:id', requirePermission('qt'), async (req, res) => {
   try {
     const quizzes = (await readData('quizzes')) || [];
