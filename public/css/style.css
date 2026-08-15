@@ -1442,6 +1442,26 @@ button { font-family: inherit; cursor: pointer; }
   .band-fab > span:not(.band-fab-badge) { display: none; } /* 좁은 화면에서는 BAND 배지만 */
 }
 
+/* ---------------- 말씀 퀴즈 홈 티저 카드 ---------------- */
+.quiz-teaser-card {
+  margin-top: 24px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 20px 24px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+.quiz-teaser-card:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(13,21,38,0.12); }
+.quiz-teaser-icon { font-size: 1.8rem; flex-shrink: 0; }
+.quiz-teaser-text { flex: 1; display: flex; flex-direction: column; gap: 2px; }
+.quiz-teaser-text strong { color: var(--navy-deep); font-size: 1rem; }
+.quiz-teaser-text span { color: var(--muted); font-size: 0.85rem; }
+.quiz-teaser-arrow { color: var(--gold-deep); font-size: 1.2rem; flex-shrink: 0; }
+
 /* Focus visibility for accessibility */
 a:focus-visible, button:focus-visible {
   outline: 2px solid var(--gold);
@@ -1630,4 +1650,3 @@ a:focus-visible, button:focus-visible {
   white-space: nowrap;
 }
 .missions-partners-page { text-align: center; font-size: 10.5px; color: var(--muted); margin: 10px 0 0; }
-
