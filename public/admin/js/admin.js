@@ -254,20 +254,35 @@
 
   // ---------------- 말씀 퀴즈 관리 ----------------
   // 서버(routes/admin.js)와 같은 규칙으로 괄호 안 단어를 빈칸으로 파싱합니다.
-  function parseQuizPaste(raw) {
+  // 괄호가 없는 줄 = 새 성경 출처(참조) 시작, 괄호가 있는 줄 = 그 출처의 문제 내용.
+  // 참조 줄 없이 바로 내용부터 시작하면, 폼에 입력해둔 '본문 출처' 값을 기본으로 사용합니다.
+  function parseQuizPaste(raw, defaultReference) {
     const lines = raw.split('\n').map((l) => l.trim()).filter(Boolean);
     const verses = [];
+    let currentRef = null;
+
     lines.forEach((line) => {
-      const m = line.match(/^(\S+)\s+(.*)$/);
-      if (!m) return;
-      verses.push({ verseLabel: m[1], rawText: m[2] });
+      const hasBlank = /\(([^)]*)\)/.test(line);
+      if (!hasBlank) {
+        currentRef = line;
+        return;
+      }
+      const reference = currentRef || defaultReference || '';
+      const m = line.match(/^(\d+)\s+(.*)$/);
+      if (m) {
+        verses.push({ reference, verseLabel: m[1], rawText: m[2] });
+      } else {
+        verses.push({ reference, verseLabel: '', rawText: line });
+      }
     });
+
     return verses;
   }
 
   function renderQuizPreviewVerse(v) {
     const withBlanks = (v.rawText || '').replace(/\(([^)]+)\)/g, () => '____');
-    return `<p style="margin:0 0 10px; line-height:1.8;"><strong>${escapeHtml(v.verseLabel)}</strong> ${escapeHtml(withBlanks)}</p>`;
+    const label = [v.reference, v.verseLabel].filter(Boolean).join(' ');
+    return `<p style="margin:0 0 10px; line-height:1.8;"><strong>${escapeHtml(label)}</strong> ${escapeHtml(withBlanks)}</p>`;
   }
 
   function setupQuizAdminPanel() {
@@ -312,7 +327,19 @@
       editingQuizId = q.id;
       refInput.value = q.reference || '';
       weekInput.value = q.weekLabel || '';
-      pasteInput.value = q.verses.map((v) => `${v.verseLabel} ${reconstructRawText(v)}`).join('\n');
+
+      const lines = [];
+      let lastRef = null;
+      q.verses.forEach((v) => {
+        if (v.reference && v.reference !== lastRef) {
+          lines.push(v.reference);
+          lastRef = v.reference;
+        }
+        const prefix = v.verseLabel ? `${v.verseLabel} ` : '';
+        lines.push(`${prefix}${reconstructRawText(v)}`);
+      });
+      pasteInput.value = lines.join('\n');
+
       previewBox.style.display = 'none';
       registerBtn.textContent = '수정 내용 저장';
       if (formTitleEl) formTitleEl.textContent = '퀴즈 수정 중';
@@ -321,7 +348,7 @@
     }
 
     function doPreview() {
-      const verses = parseQuizPaste(pasteInput.value);
+      const verses = parseQuizPaste(pasteInput.value, refInput.value.trim());
       if (verses.length === 0) {
         previewBox.style.display = 'block';
         previewBox.innerHTML = `<p class="hint">붙여넣은 내용에서 절을 찾지 못했어요. "3 그러므로..." 처럼 절 번호로 시작하는지 확인해주세요.</p>`;
@@ -345,7 +372,7 @@
 
     registerBtn.addEventListener('click', async () => {
       const reference = refInput.value.trim();
-      const verses = parseQuizPaste(pasteInput.value);
+      const verses = parseQuizPaste(pasteInput.value, refInput.value.trim());
       if (!reference) return alert('본문 출처를 입력해주세요.');
       if (verses.length === 0) return alert('본문 내용을 붙여넣어주세요.');
 
