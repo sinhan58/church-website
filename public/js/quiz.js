@@ -176,7 +176,7 @@
         </div>
       </div>`;
 
-    $('#quiz-check-btn').addEventListener('click', () => checkVerse(verse));
+    $('#quiz-check-btn').onclick = () => checkVerse(verse);
 
     $$('.quiz-choice-btn', mainEl).forEach((btn) => {
       btn.addEventListener('click', () => {
