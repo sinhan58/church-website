@@ -857,7 +857,14 @@ router.post('/quiz', requirePermission('qt'), async (req, res) => {
         return `{{${id}}}`;
       });
       const fullText = rawText.replace(/[()]/g, '');
-      return { id: `v${i + 1}`, verseLabel: v.verseLabel || String(i + 1), markedText, fullText, blanks };
+      return {
+        id: `v${i + 1}`,
+        reference: v.reference || reference,
+        verseLabel: v.verseLabel || '',
+        markedText,
+        fullText,
+        blanks
+      };
     });
 
     if (parsedVerses.every((v) => v.blanks.length === 0)) {
@@ -898,7 +905,14 @@ router.put('/quiz/:id', requirePermission('qt'), async (req, res) => {
         return `{{${id}}}`;
       });
       const fullText = rawText.replace(/[()]/g, '');
-      return { id: `v${i + 1}`, verseLabel: v.verseLabel || String(i + 1), markedText, fullText, blanks };
+      return {
+        id: `v${i + 1}`,
+        reference: v.reference || reference,
+        verseLabel: v.verseLabel || '',
+        markedText,
+        fullText,
+        blanks
+      };
     });
 
     if (parsedVerses.every((v) => v.blanks.length === 0)) {
