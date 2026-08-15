@@ -124,6 +124,28 @@
   }, { passive: true });
   updateHeaderState();
 
+  // ---------------- 관리자 페이지 숨겨진 입구 ----------------
+  // 방문자 눈에 띄지 않도록 "관리자" 링크는 없앴습니다. 대신 헤더의 교회 이름(로고)을
+  // 3초 안에 5번 연속 클릭/탭하면 관리자 로그인 화면으로 이동합니다. (클릭 기반이라
+  // 휴대폰 터치·PC 마우스 클릭 둘 다 똑같이 작동합니다)
+  const brandLink = $('#brand-name');
+  if (brandLink) {
+    let brandTapCount = 0;
+    let brandTapTimer = null;
+    brandLink.addEventListener('click', (e) => {
+      brandTapCount += 1;
+      clearTimeout(brandTapTimer);
+      brandTapTimer = setTimeout(() => {
+        brandTapCount = 0;
+      }, 3000);
+      if (brandTapCount >= 5) {
+        e.preventDefault(); // 홈 화면 스크롤 이동 대신 관리자 페이지로 이동
+        brandTapCount = 0;
+        window.location.href = '/admin';
+      }
+    });
+  }
+
   // ---------------- 모바일 메뉴 ----------------
   const hamburger = $('#hamburger');
   const navMobile = $('#nav-mobile');
