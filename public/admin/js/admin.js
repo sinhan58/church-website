@@ -252,6 +252,124 @@
     });
   }
 
+  // ---------------- 말씀 퀴즈 관리 ----------------
+  // 서버(routes/admin.js)와 같은 규칙으로 괄호 안 단어를 빈칸으로 파싱합니다.
+  function parseQuizPaste(raw) {
+    const lines = raw.split('\n').map((l) => l.trim()).filter(Boolean);
+    const verses = [];
+    lines.forEach((line) => {
+      const m = line.match(/^(\S+)\s+(.*)$/);
+      if (!m) return;
+      verses.push({ verseLabel: m[1], rawText: m[2] });
+    });
+    return verses;
+  }
+
+  function renderQuizPreviewVerse(v) {
+    const withBlanks = (v.rawText || '').replace(/\(([^)]+)\)/g, () => '____');
+    return `<p style="margin:0 0 10px; line-height:1.8;"><strong>${escapeHtml(v.verseLabel)}</strong> ${escapeHtml(withBlanks)}</p>`;
+  }
+
+  function setupQuizAdminPanel() {
+    const refInput = $('#quiz-reference-input');
+    const weekInput = $('#quiz-week-input');
+    const pasteInput = $('#quiz-paste-input');
+    const previewBtn = $('#quiz-preview-btn');
+    const previewBox = $('#quiz-preview-box');
+    const registerBtn = $('#quiz-register-btn');
+    const statusEl = $('#quiz-save-status');
+    const listEl = $('#quiz-admin-list');
+    const refreshBtn = $('#quiz-list-refresh-btn');
+
+    if (!refInput) return; // 권한이 없어 패널 자체가 없는 부관리자는 조용히 건너뜀
+
+    function doPreview() {
+      const verses = parseQuizPaste(pasteInput.value);
+      if (verses.length === 0) {
+        previewBox.style.display = 'block';
+        previewBox.innerHTML = `<p class="hint">붙여넣은 내용에서 절을 찾지 못했어요. "3 그러므로..." 처럼 절 번호로 시작하는지 확인해주세요.</p>`;
+        return;
+      }
+      const totalBlanks = verses.reduce((sum, v) => {
+        const matches = v.rawText.match(/\(([^)]+)\)/g) || [];
+        return sum + matches.length;
+      }, 0);
+      previewBox.style.display = 'block';
+      previewBox.innerHTML = `
+        <p class="hint" style="margin-bottom:10px;">${verses.length}개 절 · 빈칸 ${totalBlanks}개로 인식됐어요.</p>
+        ${verses.map(renderQuizPreviewVerse).join('')}`;
+    }
+
+    previewBtn.addEventListener('click', doPreview);
+
+    registerBtn.addEventListener('click', async () => {
+      const reference = refInput.value.trim();
+      const verses = parseQuizPaste(pasteInput.value);
+      if (!reference) return alert('본문 출처를 입력해주세요.');
+      if (verses.length === 0) return alert('본문 내용을 붙여넣어주세요.');
+
+      statusEl.textContent = '등록 중...';
+      try {
+        await api('/api/admin/quiz', {
+          method: 'POST',
+          body: JSON.stringify({ reference, weekLabel: weekInput.value.trim(), verses })
+        });
+        statusEl.textContent = '등록 완료 ✓';
+        setTimeout(() => (statusEl.textContent = ''), 2500);
+        refInput.value = '';
+        weekInput.value = '';
+        pasteInput.value = '';
+        previewBox.style.display = 'none';
+        loadQuizList();
+      } catch (err) {
+        statusEl.textContent = '등록 실패: ' + err.message;
+      }
+    });
+
+    function quizRowHTML(q) {
+      const blankCount = q.verses.reduce((sum, v) => sum + v.blanks.length, 0);
+      return `
+        <div class="post-row" data-id="${q.id}" style="display:block; padding:14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+            <div>
+              <strong>${escapeHtml(q.reference)}</strong>
+              <span class="hint" style="margin-left:8px;">${escapeHtml(q.weekLabel || '')}</span>
+              <span class="hint" style="margin-left:8px;">${q.verses.length}절 · 빈칸 ${blankCount}개</span>
+            </div>
+            <button type="button" class="btn-secondary quiz-delete-btn" data-id="${q.id}">삭제</button>
+          </div>
+        </div>`;
+    }
+
+    async function loadQuizList() {
+      listEl.innerHTML = `<p class="hint">불러오는 중...</p>`;
+      try {
+        const list = await api('/api/admin/quiz');
+        if (!list || list.length === 0) {
+          listEl.innerHTML = `<p class="hint">등록된 퀴즈가 없습니다.</p>`;
+          return;
+        }
+        listEl.innerHTML = list.map(quizRowHTML).join('');
+        $$('.quiz-delete-btn', listEl).forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            if (!confirm('이 퀴즈를 삭제하시겠습니까? (참여 기록은 남아있어요)')) return;
+            try {
+              await api(`/api/admin/quiz/${btn.dataset.id}`, { method: 'DELETE' });
+              loadQuizList();
+            } catch (err) {
+              alert(err.message);
+            }
+          });
+        });
+      } catch (err) {
+        listEl.innerHTML = `<p class="hint">불러오지 못했습니다: ${escapeHtml(err.message)}</p>`;
+      }
+    }
+
+    refreshBtn.addEventListener('click', loadQuizList);
+    loadQuizList();
+  }
+
   function initDashboard() {
     if (dashboardInitialized) return;
     dashboardInitialized = true;
@@ -295,6 +413,7 @@
     loadReceiptRequests().catch(() => {}); // 영수증 신청 권한이 없는 부관리자는 조용히 건너뜀
     setupPrayersAdminPanel();
     setupInquiriesAdminPanel();
+    setupQuizAdminPanel();
     $('#p-date').value = new Date().toISOString().slice(0, 10);
     $('#qt-date').value = new Date().toISOString().slice(0, 10);
     $('#qt-pastor').value = localStorage.getItem('qtLastPastor') || '';
