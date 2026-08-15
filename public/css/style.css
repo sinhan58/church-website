@@ -1442,25 +1442,44 @@ button { font-family: inherit; cursor: pointer; }
   .band-fab > span:not(.band-fab-badge) { display: none; } /* 좁은 화면에서는 BAND 배지만 */
 }
 
-/* ---------------- 말씀 퀴즈 홈 티저 카드 ---------------- */
+/* ---------------- 오늘의 큐티 + 말씀 퀴즈 (3:1 배치) ---------------- */
+.qt-quiz-layout {
+  display: grid;
+  grid-template-columns: 3fr 1fr;
+  gap: 28px;
+  align-items: stretch;
+}
+@media (max-width: 860px) {
+  .qt-quiz-layout { grid-template-columns: 1fr; }
+}
+
 .quiz-teaser-card {
-  margin-top: 24px;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 16px;
-  background: #fff;
-  border: 1px solid var(--line);
+  justify-content: center;
+  text-align: center;
+  gap: 10px;
+  background: linear-gradient(160deg, var(--navy-deep) 0%, var(--navy-soft) 100%);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  padding: 20px 24px;
+  padding: 28px 18px;
+  color: #fff;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
-.quiz-teaser-card:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(13,21,38,0.12); }
-.quiz-teaser-icon { font-size: 1.8rem; flex-shrink: 0; }
-.quiz-teaser-text { flex: 1; display: flex; flex-direction: column; gap: 2px; }
-.quiz-teaser-text strong { color: var(--navy-deep); font-size: 1rem; }
-.quiz-teaser-text span { color: var(--muted); font-size: 0.85rem; }
-.quiz-teaser-arrow { color: var(--gold-deep); font-size: 1.2rem; flex-shrink: 0; }
+.quiz-teaser-card:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(13,21,38,0.25); }
+.quiz-teaser-icon { font-size: 2rem; }
+.quiz-teaser-card strong { font-family: var(--font-heading); font-size: 1.05rem; line-height: 1.4; }
+.quiz-teaser-sub { color: #d7d9e4; font-size: 0.82rem; line-height: 1.5; }
+.quiz-teaser-arrow {
+  margin-top: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--navy-deep);
+  background: var(--gold);
+  padding: 8px 16px;
+  border-radius: 999px;
+}
 
 /* Focus visibility for accessibility */
 a:focus-visible, button:focus-visible {
