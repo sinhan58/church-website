@@ -154,7 +154,7 @@ ${fontStyleTag}
 
 <footer class="site-footer">
   <div class="container">
-    <p>&copy; ${new Date().getFullYear()} ${escapeHtml(churchName)}. All rights reserved. &nbsp;·&nbsp; <a class="admin-link" href="/admin">관리자</a></p>
+    <p>&copy; ${new Date().getFullYear()} ${escapeHtml(churchName)}. All rights reserved.</p>
   </div>
 </footer>
 
