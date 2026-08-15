@@ -1256,7 +1256,25 @@
 
   // ---------------- 초기 로드 ----------------
   observeReveals();
-  Promise.all([loadSite(), loadMenu(), loadSermons(), loadPraises(), loadBoard(), loadQT(), loadMissions()]).catch((err) => {
+  // ---------------- 말씀 퀴즈 티저 카드 ----------------
+  // 관리자가 이번 주 퀴즈를 등록해뒀을 때만 카드가 보이게 합니다. (없으면 빈 링크가
+  // 보이지 않도록 기본은 숨김 상태로 시작해서, 있을 때만 드러냅니다)
+  async function loadQuizTeaser() {
+    const card = $('#quiz-teaser-card');
+    if (!card) return;
+    try {
+      const res = await fetch('/api/quiz/current');
+      const data = await res.json();
+      if (data) {
+        card.style.display = '';
+        observeReveals(card.parentElement);
+      }
+    } catch (err) {
+      // 실패해도 조용히 숨긴 채로 둡니다.
+    }
+  }
+
+  Promise.all([loadSite(), loadMenu(), loadSermons(), loadPraises(), loadBoard(), loadQT(), loadMissions(), loadQuizTeaser()]).catch((err) => {
     console.error('콘텐츠를 불러오는 중 오류가 발생했습니다:', err);
   });
 })();
