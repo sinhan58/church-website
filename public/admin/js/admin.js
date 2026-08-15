@@ -86,12 +86,27 @@
   // ---------------- 사이드바 탭 전환 ----------------
   let dashboardInitialized = false;
   function setupNav() {
+    const sidebarNav = $('#sidebar-nav');
+    const toggleBtn = $('#sidebar-toggle-btn');
+    const toggleCurrentLabel = $('#sidebar-toggle-current');
+
+    // 모바일: 메뉴 접기/펴기 버튼
+    if (toggleBtn && sidebarNav) {
+      toggleBtn.addEventListener('click', () => {
+        sidebarNav.classList.toggle('open');
+      });
+    }
+
     $$('.nav-item').forEach((btn) => {
       btn.addEventListener('click', () => {
         $$('.nav-item').forEach((b) => b.classList.remove('active'));
         $$('.panel').forEach((p) => p.classList.remove('active'));
         btn.classList.add('active');
         $('#' + btn.dataset.panel).classList.add('active');
+
+        // 모바일에서 메뉴를 고르면 자동으로 접어서, 바로 그 화면 내용이 보이게 합니다.
+        if (toggleCurrentLabel) toggleCurrentLabel.textContent = btn.textContent;
+        if (sidebarNav) sidebarNav.classList.remove('open');
       });
     });
   }
@@ -246,6 +261,11 @@
       placeholder: '내용을 입력하세요. Enter로 줄바꿈, 위 도구모음으로 글자 크기·굵기·색상을 바꿀 수 있습니다.'
     });
     setupNav();
+    const initialActiveNav = $('.nav-item.active');
+    const toggleCurrentLabelInit = $('#sidebar-toggle-current');
+    if (initialActiveNav && toggleCurrentLabelInit) {
+      toggleCurrentLabelInit.textContent = initialActiveNav.textContent;
+    }
     filterNavByPermission();
     setupFontPickers();
     loadSiteIntoForm();
