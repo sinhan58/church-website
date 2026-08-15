@@ -394,6 +394,7 @@
       listEl.innerHTML = `<p class="hint">불러오는 중...</p>`;
       try {
         const list = await api('/api/admin/quiz');
+        populateQuizStatsSelect(list);
         if (!list || list.length === 0) {
           listEl.innerHTML = `<p class="hint">등록된 퀴즈가 없습니다.</p>`;
           return;
@@ -424,6 +425,108 @@
 
     refreshBtn.addEventListener('click', loadQuizList);
     loadQuizList();
+    setupQuizStats();
+  }
+
+  // ---------------- 말씀 퀴즈: 참여 통계 ----------------
+  function quizBadgeFor(percent) {
+    if (percent >= 90) return { label: '말씀 박사 🏆' };
+    if (percent >= 70) return { label: '은혜의 지식 📖' };
+    if (percent >= 50) return { label: '성실한 도전자 🌱' };
+    return { label: '다음 주 다시 도전 💪' };
+  }
+
+  function populateQuizStatsSelect(list) {
+    const select = $('#quiz-stats-select');
+    if (!select) return;
+    const prevValue = select.value;
+    if (!list || list.length === 0) {
+      select.innerHTML = `<option value="">등록된 퀴즈가 없습니다</option>`;
+      return;
+    }
+    select.innerHTML = list
+      .map((q) => `<option value="${q.id}">${escapeHtml(q.reference)}${q.weekLabel ? ' · ' + escapeHtml(q.weekLabel) : ''}</option>`)
+      .join('');
+    // 이전에 보고 있던 퀴즈가 목록에 여전히 있으면 선택 유지, 없으면 가장 최근(맨 위) 퀴즈로
+    if (prevValue && list.some((q) => q.id === prevValue)) {
+      select.value = prevValue;
+    }
+    loadQuizStats(select.value);
+  }
+
+  async function loadQuizStats(quizId) {
+    const summaryEl = $('#quiz-stats-summary');
+    const listEl = $('#quiz-stats-list');
+    if (!summaryEl || !listEl) return;
+    if (!quizId) {
+      summaryEl.innerHTML = '';
+      listEl.innerHTML = '';
+      return;
+    }
+    summaryEl.innerHTML = `<p class="hint">불러오는 중...</p>`;
+    listEl.innerHTML = '';
+    try {
+      const subs = await api(`/api/admin/quiz/${quizId}/submissions`);
+      if (!subs || subs.length === 0) {
+        summaryEl.innerHTML = `<p class="hint">아직 참여자가 없어요.</p>`;
+        return;
+      }
+
+      const count = subs.length;
+      const avg = Math.round(subs.reduce((sum, s) => sum + s.score, 0) / count);
+      const highest = Math.max(...subs.map((s) => s.score));
+
+      const badgeCounts = {};
+      subs.forEach((s) => {
+        const label = quizBadgeFor(s.score).label;
+        badgeCounts[label] = (badgeCounts[label] || 0) + 1;
+      });
+
+      summaryEl.innerHTML = `
+        <div class="stats-cards" style="margin-top:12px;">
+          <div class="stat-card"><div class="num">${count}</div><div class="label">참여자 수</div></div>
+          <div class="stat-card"><div class="num">${avg}점</div><div class="label">평균 점수</div></div>
+          <div class="stat-card"><div class="num">${highest}점</div><div class="label">최고 점수</div></div>
+        </div>
+        <div class="stats-bar-list" style="margin-top:16px;">
+          ${Object.entries(badgeCounts)
+            .map(
+              ([label, n]) => `
+              <div class="stats-bar-row">
+                <div class="stats-bar-label">${label}</div>
+                <div class="stats-bar-track"><div class="stats-bar-fill" style="width:${Math.round((n / count) * 100)}%;"></div></div>
+                <div class="stats-bar-count">${n}명</div>
+              </div>`
+            )
+            .join('')}
+        </div>`;
+
+      listEl.innerHTML = `
+        <h3 style="font-size:0.95rem; margin:20px 0 10px;">참여자 상세 목록</h3>
+        <div class="post-list">
+          ${subs
+            .map(
+              (s) => `
+              <div class="post-row" style="display:flex; padding:12px 14px;">
+                <div style="flex:1;">
+                  <strong>${escapeHtml(s.name)}</strong>
+                  <span class="hint" style="margin-left:8px;">${new Date(s.submittedAt).toLocaleString('ko-KR')}</span>
+                </div>
+                <div class="hint">${s.correctCount}/${s.totalBlanks}칸 · 한번에 ${s.firstTryCount}개</div>
+                <div style="font-weight:700; color:var(--navy-deep); margin-left:14px;">${s.score}점</div>
+              </div>`
+            )
+            .join('')}
+        </div>`;
+    } catch (err) {
+      summaryEl.innerHTML = `<p class="hint">불러오지 못했습니다: ${escapeHtml(err.message)}</p>`;
+    }
+  }
+
+  function setupQuizStats() {
+    const select = $('#quiz-stats-select');
+    if (!select) return;
+    select.addEventListener('change', () => loadQuizStats(select.value));
   }
 
   function initDashboard() {
