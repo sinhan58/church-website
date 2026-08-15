@@ -280,7 +280,68 @@ function createSecretBoardRouter(key, { requiredMessage }) {
 
   return board;
 }
+// ---------- 말씀 퀴즈 (공개) ----------
+router.get('/quiz/current', async (req, res) => {
+  try {
+    const quizzes = (await readData('quizzes')) || [];
+    if (quizzes.length === 0) return res.json(null);
+    const latest = quizzes[quizzes.length - 1];
+    res.json({
+      id: latest.id,
+      reference: latest.reference,
+      weekLabel: latest.weekLabel,
+      verses: latest.verses.map((v) => ({
+        id: v.id,
+        verseLabel: v.verseLabel,
+        markedText: v.markedText,
+        fullText: v.fullText,
+        blanks: v.blanks.map((b) => ({ id: b.id, answer: b.answer }))
+      }))
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
+router.post('/quiz/:id/submit', async (req, res) => {
+  try {
+    const quizzes = (await readData('quizzes')) || [];
+    const quiz = quizzes.find((q) => q.id === req.params.id);
+    if (!quiz) return res.status(404).json({ error: '퀴즈를 찾을 수 없습니다.' });
+    const { name, score, correctCount, totalBlanks, firstTryCount } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ error: '이름을 입력해주세요.' });
+
+    const submissions = (await readData('quizSubmissions')) || [];
+    const submission = {
+      id: makeId('qzsub'),
+      quizId: quiz.id,
+      name: name.trim().slice(0, 20),
+      score: Number(score) || 0,
+      correctCount: Number(correctCount) || 0,
+      totalBlanks: Number(totalBlanks) || 0,
+      firstTryCount: Number(firstTryCount) || 0,
+      submittedAt: new Date().toISOString()
+    };
+    submissions.unshift(submission);
+    await writeData('quizSubmissions', submissions);
+    res.json(submission);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/quiz/:id/leaderboard', async (req, res) => {
+  try {
+    const submissions = (await readData('quizSubmissions')) || [];
+    const list = submissions
+      .filter((s) => s.quizId === req.params.id)
+      .sort((a, b) => b.score - a.score || b.firstTryCount - a.firstTryCount)
+      .map((s) => ({ name: s.name, score: s.score }));
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 router.use('/prayers', createSecretBoardRouter('prayers', { requiredMessage: '기도 내용을 입력해주세요.' }));
 router.use('/inquiries', createSecretBoardRouter('inquiries', { requiredMessage: '문의 내용을 입력해주세요.' }));
 
