@@ -84,7 +84,24 @@ label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--muted
   flex-shrink: 0;
 }
 .sidebar-brand { font-weight: 700; font-size: 1.05rem; padding: 0 8px 20px; }
+
+/* 모바일에서만 보이는 메뉴 접기/펴기 버튼 (PC에서는 항상 숨김) */
+.sidebar-toggle-btn { display: none; }
+
 .sidebar-nav { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+
+/* 메뉴를 성격별로 묶는 그룹 + 소제목 */
+.nav-group { display: flex; flex-direction: column; gap: 2px; margin-bottom: 16px; }
+.nav-group:last-child { margin-bottom: 0; }
+.nav-group-title {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.38);
+  padding: 8px 12px 6px;
+}
+
 .nav-item {
   text-align: left;
   background: none;
@@ -97,7 +114,7 @@ label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--muted
 }
 .nav-item:hover { background: rgba(255,255,255,0.06); }
 .nav-item.active { background: var(--gold); color: var(--navy-deep); font-weight: 700; }
-.sidebar-footer { display: flex; flex-direction: column; gap: 8px; }
+.sidebar-footer { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
 .view-site-link { color: #cfd2e0; font-size: 0.85rem; padding: 8px; }
 .logout-btn {
   background: none;
@@ -294,12 +311,45 @@ label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--muted
 .stats-bar-fill { height: 100%; background: var(--gold); border-radius: 999px; }
 .stats-bar-count { width: 36px; text-align: right; font-size: 0.82rem; color: var(--muted); }
 
+/* ---------------- 모바일: 가로 스크롤 대신 세로로 쌓이는 접이식 메뉴 ---------------- */
 @media (max-width: 720px) {
   .dashboard { flex-direction: column; }
-  .sidebar { width: 100%; flex-direction: row; align-items: center; padding: 12px 16px; overflow-x: auto; }
-  .sidebar-brand { display: none; }
-  .sidebar-nav { flex-direction: row; flex: none; }
-  .sidebar-footer { flex-direction: row; margin-left: auto; }
+
+  .sidebar {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+    padding: 14px 16px;
+  }
+  .sidebar-brand { display: block; padding-bottom: 10px; }
+
+  /* 메뉴가 12개 넘게 세로로 쌓이면 화면을 다 차지하니, 기본은 접어두고
+     버튼을 눌러야 펼쳐지도록 합니다. */
+  .sidebar-toggle-btn {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    background: rgba(255,255,255,0.08);
+    color: #fff;
+    border: none;
+    padding: 12px 14px;
+    border-radius: var(--radius);
+    font-weight: 700;
+    font-size: 0.92rem;
+    margin-bottom: 8px;
+  }
+  .sidebar-nav {
+    display: none;
+    flex-direction: column;
+    max-height: 60vh;
+    overflow-y: auto;
+  }
+  .sidebar-nav.open { display: flex; }
+
+  .sidebar-footer { flex-direction: row; margin-top: 10px; }
+  .view-site-link { flex: 1; }
+
   .content { padding: 24px 18px; }
   .field-row { flex-direction: column; gap: 0; }
   .post-row { grid-template-columns: 1fr; }
