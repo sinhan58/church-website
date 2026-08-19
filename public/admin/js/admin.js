@@ -379,25 +379,26 @@
       const isEditing = !!editingQuizId;
       statusEl.textContent = isEditing ? '수정 저장 중...' : '등록 중...';
       try {
+        let savedQuiz;
         if (isEditing) {
-          await api(`/api/admin/quiz/${editingQuizId}`, {
+          savedQuiz = await api(`/api/admin/quiz/${editingQuizId}`, {
             method: 'PUT',
             body: JSON.stringify({ reference, weekLabel: weekInput.value.trim(), verses })
           });
         } else {
-          const savedQuiz = await api('/api/admin/quiz', {
+          savedQuiz = await api('/api/admin/quiz', {
             method: 'POST',
             body: JSON.stringify({ reference, weekLabel: weekInput.value.trim(), verses })
           });
-          await maybeScheduleLinkedPush({
-            checkboxId: 'quiz-schedule-push-check',
-            timeInputId: 'quiz-schedule-push-time',
-            linkedType: 'quiz',
-            linkedId: savedQuiz.id,
-            title: `이번 주 말씀 퀴즈: ${reference}`,
-            url: '/quiz.html'
-          });
         }
+        await maybeScheduleLinkedPush({
+          checkboxId: 'quiz-schedule-push-check',
+          timeInputId: 'quiz-schedule-push-time',
+          linkedType: 'quiz',
+          linkedId: savedQuiz.id,
+          title: `이번 주 말씀 퀴즈: ${reference}`,
+          url: '/quiz.html'
+        });
         statusEl.textContent = isEditing ? '수정 완료 ✓' : '등록 완료 ✓';
         setTimeout(() => (statusEl.textContent = ''), 2500);
         resetForm();
@@ -1669,15 +1670,15 @@
           savedItem = await api(`/api/admin/qt/${editingQtId}`, { method: 'PUT', body: JSON.stringify(payload) });
         } else {
           savedItem = await api('/api/admin/qt', { method: 'POST', body: JSON.stringify(payload) });
-          await maybeScheduleLinkedPush({
-            checkboxId: 'qt-schedule-push-check',
-            timeInputId: 'qt-schedule-push-time',
-            linkedType: 'qt',
-            linkedId: savedItem.id,
-            title: `오늘의 큐티: ${title}`,
-            url: '/#qt'
-          });
         }
+        await maybeScheduleLinkedPush({
+          checkboxId: 'qt-schedule-push-check',
+          timeInputId: 'qt-schedule-push-time',
+          linkedType: 'qt',
+          linkedId: savedItem.id,
+          title: `오늘의 큐티: ${title}`,
+          url: '/#qt'
+        });
         localStorage.setItem('qtLastPastor', payload.pastor);
         statusEl.textContent = '저장 완료 ✓';
         setTimeout(() => (statusEl.textContent = ''), 3000);
