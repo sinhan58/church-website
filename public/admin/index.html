@@ -54,6 +54,7 @@
       <div class="nav-group">
         <div class="nav-group-title">운영 관리</div>
         <button class="nav-item" data-panel="panel-receipts" data-permission="receipts">영수증 신청</button>
+        <button class="nav-item" data-panel="panel-push" data-permission="site">푸시 알림</button>
         <button class="nav-item" data-panel="panel-stats" data-permission="stats">통계</button>
         <button class="nav-item" data-panel="panel-account">계정 관리</button>
       </div>
@@ -546,6 +547,31 @@
       </div>
     </section>
 
+    <!-- 푸시 알림 -->
+    <section class="panel" id="panel-push">
+      <h2>푸시 알림</h2>
+      <p class="panel-desc">
+        홈 화면에 사이트를 추가하고 알림을 허용한 방문자에게 알림을 보냅니다. 새 설교·큐티·소식이
+        올라왔을 때 직접 눌러서 보내주세요 (자동으로는 발송되지 않아요).
+      </p>
+      <div class="card">
+        <div class="field">
+          <label>알림 제목</label>
+          <input type="text" id="push-title-input" placeholder="예: 새로운 설교 영상이 올라왔어요" maxlength="60" />
+        </div>
+        <div class="field">
+          <label>알림 내용 (선택)</label>
+          <input type="text" id="push-body-input" placeholder="예: 이번 주 말씀을 확인해보세요" maxlength="120" />
+        </div>
+        <div class="field">
+          <label>알림을 누르면 이동할 위치 (선택, 비워두면 홈으로)</label>
+          <input type="text" id="push-url-input" placeholder="예: /#sermons, /quiz.html" />
+        </div>
+        <button type="button" class="btn-primary" id="push-send-btn" style="width:auto; padding:11px 22px;">알림 보내기</button>
+        <span class="save-status" id="push-send-status"></span>
+      </div>
+    </section>
+
     <!-- 설교 영상 (유튜브) -->
     <section class="panel" id="panel-sermons">
       <h2>설교 영상 (유튜브 자동 업데이트)</h2>
@@ -627,7 +653,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.min.js"></script>
 <script src="/js/font-catalog.js"></script>
 <script src="/js/countries.js"></script>
-<script src="/admin/js/admin.js?v=10"></script>
+<script src="/admin/js/admin.js?v=11"></script>
 
 </body>
 </html>
