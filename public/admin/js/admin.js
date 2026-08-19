@@ -1677,7 +1677,7 @@
           linkedType: 'qt',
           linkedId: savedItem.id,
           title: `오늘의 큐티: ${title}`,
-          url: '/#qt'
+          url: `/qt/${savedItem.id}`
         });
         localStorage.setItem('qtLastPastor', payload.pastor);
         statusEl.textContent = '저장 완료 ✓';
