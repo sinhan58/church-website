@@ -569,6 +569,7 @@ router.delete('/qt/:id', requirePermission('qt'), async (req, res) => {
     const qt = (await readData('qt')) || [];
     const filtered = qt.filter((q) => q.id !== req.params.id);
     await writeData('qt', filtered);
+    await cancelScheduledPushesFor('qt', req.params.id);
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -841,6 +842,105 @@ router.post('/push/send', requirePermission('site'), async (req, res) => {
   }
 });
 
+// ---------- 자주 쓰는 알림 문구 저장 ----------
+router.get('/push/templates', requirePermission('site'), async (req, res) => {
+  try {
+    res.json((await readData('pushTemplates')) || []);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/push/templates', requirePermission('site'), async (req, res) => {
+  try {
+    const { name, title, body, url } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ error: '문구 이름을 입력해주세요.' });
+    if (!title || !title.trim()) return res.status(400).json({ error: '알림 제목을 입력해주세요.' });
+    const templates = (await readData('pushTemplates')) || [];
+    const item = {
+      id: makeId('pushtpl'),
+      name: name.trim(),
+      title: title.trim(),
+      body: (body || '').trim(),
+      url: (url || '').trim()
+    };
+    templates.push(item);
+    await writeData('pushTemplates', templates);
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/push/templates/:id', requirePermission('site'), async (req, res) => {
+  try {
+    const templates = (await readData('pushTemplates')) || [];
+    const filtered = templates.filter((t) => t.id !== req.params.id);
+    await writeData('pushTemplates', filtered);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- 예약 알림 ----------
+// linkedType/linkedId: 큐티·말씀 퀴즈 등록 시 "이 글이 삭제되면 예약도 같이 취소"하기 위해 연결해둡니다.
+router.get('/push/scheduled', requirePermission('site'), async (req, res) => {
+  try {
+    const scheduled = (await readData('scheduledPushes')) || [];
+    res.json([...scheduled].sort((a, b) => new Date(b.sendAt) - new Date(a.sendAt)));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/push/scheduled', requirePermission('site'), async (req, res) => {
+  try {
+    const { title, body, url, sendAt, linkedType, linkedId } = req.body;
+    if (!title || !title.trim()) return res.status(400).json({ error: '알림 제목을 입력해주세요.' });
+    if (!sendAt) return res.status(400).json({ error: '발송 시각을 선택해주세요.' });
+    const scheduled = (await readData('scheduledPushes')) || [];
+    const item = {
+      id: makeId('pushsch'),
+      title: title.trim(),
+      body: (body || '').trim(),
+      url: (url || '/').trim(),
+      sendAt,
+      linkedType: linkedType || null,
+      linkedId: linkedId || null,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+    scheduled.push(item);
+    await writeData('scheduledPushes', scheduled);
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/push/scheduled/:id', requirePermission('site'), async (req, res) => {
+  try {
+    const scheduled = (await readData('scheduledPushes')) || [];
+    const filtered = scheduled.filter((s) => s.id !== req.params.id);
+    await writeData('scheduledPushes', filtered);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 큐티·말씀 퀴즈 글이 삭제되면, 아직 안 보낸 연결된 예약 알림도 같이 취소합니다.
+async function cancelScheduledPushesFor(linkedType, linkedId) {
+  const scheduled = (await readData('scheduledPushes')) || [];
+  const filtered = scheduled.filter(
+    (s) => !(s.linkedType === linkedType && s.linkedId === linkedId && s.status === 'pending')
+  );
+  if (filtered.length !== scheduled.length) {
+    await writeData('scheduledPushes', filtered);
+  }
+}
+
 router.get('/quiz', async (req, res) => {
   try {
     const quizzes = (await readData('quizzes')) || [];
@@ -966,6 +1066,7 @@ router.delete('/quiz/:id', requirePermission('qt'), async (req, res) => {
     const quizzes = (await readData('quizzes')) || [];
     const filtered = quizzes.filter((q) => q.id !== req.params.id);
     await writeData('quizzes', filtered);
+    await cancelScheduledPushesFor('quiz', req.params.id);
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
