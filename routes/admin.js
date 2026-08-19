@@ -19,6 +19,7 @@ const { readData, writeData, makeId, saveUploadedFile } = require('../utils/db')
 const { requireAuth, requireMainAdmin, requirePermission } = require('../middleware/auth');
 const { updateSermonsCache, getCachedSermons } = require('../utils/youtube');
 const { pregenerateMissingSermonPosters } = require('../utils/sermonPoster');
+const { sendToAll } = require('../utils/push');
 
 const uploadsDir = path.join(__dirname, '..', 'public', 'uploads');
 
@@ -828,6 +829,18 @@ router.delete('/receipt-requests/:id', requirePermission('receipts'), async (req
 });
 
 // ---------- 말씀 퀴즈 관리 ----------
+// ---------- 푸시 알림 발송 ----------
+router.post('/push/send', requirePermission('site'), async (req, res) => {
+  try {
+    const { title, body, url } = req.body;
+    if (!title || !title.trim()) return res.status(400).json({ error: '알림 제목을 입력해주세요.' });
+    const result = await sendToAll({ title: title.trim(), body: (body || '').trim(), url: url || '/' });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/quiz', async (req, res) => {
   try {
     const quizzes = (await readData('quizzes')) || [];
