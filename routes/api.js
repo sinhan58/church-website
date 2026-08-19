@@ -5,8 +5,37 @@ const path = require('path');
 const { readData, writeData, makeId } = require('../utils/db');
 const { getCachedSermons } = require('../utils/youtube');
 const { buildAndCacheSermonPoster, pregenerateMissingSermonPosters } = require('../utils/sermonPoster');
+const { VAPID_PUBLIC_KEY, saveSubscription, removeSubscription } = require('../utils/push');
 
 const uploadsDir = path.join(__dirname, '..', 'public', 'uploads');
+
+// ---------- 푸시 알림 구독 (공개) ----------
+router.get('/push/vapid-public-key', (req, res) => {
+  res.json({ publicKey: VAPID_PUBLIC_KEY });
+});
+
+router.post('/push/subscribe', async (req, res) => {
+  try {
+    const subscription = req.body;
+    if (!subscription || !subscription.endpoint) {
+      return res.status(400).json({ error: '잘못된 구독 정보입니다.' });
+    }
+    await saveSubscription(subscription);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/push/unsubscribe', async (req, res) => {
+  try {
+    const { endpoint } = req.body;
+    if (endpoint) await removeSubscription(endpoint);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
 router.get('/sermon-poster/:videoId', async (req, res) => {
   try {
