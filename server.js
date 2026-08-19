@@ -182,6 +182,9 @@ if (process.env.YOUTUBE_CHANNEL_ID) {
   cron.schedule(cronExprWeekday, runUpdate);
   cron.schedule(cronExprSunday, runUpdate);
 
+  // 예약 알림 스케줄러 시작 (1분마다 발송 시각이 된 예약을 확인)
+  require('./utils/pushScheduler').startPushScheduler();
+
   // 서버 시작 시에도 한 번 즉시 갱신 시도 (실패해도 서버는 계속 실행)
   updateSermonsCache(process.env.YOUTUBE_CHANNEL_ID).catch((err) =>
     console.warn('⚠️ 서버 시작 시 유튜브 갱신 실패 (채널ID를 확인하세요):', err.message)
