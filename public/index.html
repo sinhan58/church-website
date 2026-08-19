@@ -368,6 +368,15 @@
 </div>
 
 <!-- 오른쪽 하단에 떠있는 네이버 밴드 바로가기 버튼 (관리자 페이지에 밴드 주소를 등록해야 보임) -->
+<!-- 푸시 알림 허용 안내 배너 (지원 기기에서만, JS가 필요할 때 보여줌) -->
+<div id="push-prompt" class="push-prompt" style="display:none;">
+  <span>🔔 새 설교·큐티·소식을 알림으로 받아보시겠어요?</span>
+  <div class="push-prompt-actions">
+    <button type="button" id="push-allow-btn" class="btn btn--gold btn--sm">알림 받기</button>
+    <button type="button" id="push-dismiss-btn" class="push-prompt-close" aria-label="닫기">✕</button>
+  </div>
+</div>
+
 <a href="#" id="band-fab" class="band-fab" target="_blank" rel="noopener" aria-label="네이버 밴드에서 소통해요" style="display:none;">
   <span class="band-fab-badge">
     <span style="display:block;font-size:0.6rem;line-height:1;">BAND</span>
