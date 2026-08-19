@@ -42,7 +42,7 @@ app.use(
 );
 
 // 사이트 주소 (환경변수로 지정, 없으면 배포 주소로 기본값)
-const SITE_URL = process.env.SITE_URL || 'https://church-website-7sct.onrender.com';
+const SITE_URL = process.env.SITE_URL || 'https://muldaen.com';
 
 // 사이트맵 (홈 + 큐티 상세 페이지들을 매 요청마다 최신 목록으로 반영)
 app.get('/sitemap.xml', async (req, res) => {
