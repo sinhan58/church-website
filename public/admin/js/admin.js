@@ -385,9 +385,17 @@
             body: JSON.stringify({ reference, weekLabel: weekInput.value.trim(), verses })
           });
         } else {
-          await api('/api/admin/quiz', {
+          const savedQuiz = await api('/api/admin/quiz', {
             method: 'POST',
             body: JSON.stringify({ reference, weekLabel: weekInput.value.trim(), verses })
+          });
+          await maybeScheduleLinkedPush({
+            checkboxId: 'quiz-schedule-push-check',
+            timeInputId: 'quiz-schedule-push-time',
+            linkedType: 'quiz',
+            linkedId: savedQuiz.id,
+            title: `이번 주 말씀 퀴즈: ${reference}`,
+            url: '/quiz.html'
           });
         }
         statusEl.textContent = isEditing ? '수정 완료 ✓' : '등록 완료 ✓';
@@ -560,11 +568,14 @@
     const sendBtn = $('#push-send-btn');
     if (!sendBtn) return; // 권한 없는 부관리자는 조용히 건너뜀
     const statusEl = $('#push-send-status');
+    const titleInput = $('#push-title-input');
+    const bodyInput = $('#push-body-input');
+    const urlInput = $('#push-url-input');
 
     sendBtn.addEventListener('click', async () => {
-      const title = $('#push-title-input').value.trim();
-      const body = $('#push-body-input').value.trim();
-      const url = $('#push-url-input').value.trim();
+      const title = titleInput.value.trim();
+      const body = bodyInput.value.trim();
+      const url = urlInput.value.trim();
       if (!title) return alert('알림 제목을 입력해주세요.');
       if (!confirm('구독한 모든 방문자에게 알림을 보냅니다. 계속할까요?')) return;
 
@@ -575,13 +586,174 @@
           body: JSON.stringify({ title, body, url })
         });
         statusEl.textContent = `발송 완료 ✓ (성공 ${result.sent}건 / 실패 ${result.failed}건)`;
-        $('#push-title-input').value = '';
-        $('#push-body-input').value = '';
-        $('#push-url-input').value = '';
+        titleInput.value = '';
+        bodyInput.value = '';
+        urlInput.value = '';
       } catch (err) {
         statusEl.textContent = '발송 실패: ' + err.message;
       }
     });
+
+    // ---------------- 자주 쓰는 문구 ----------------
+    async function loadTemplates() {
+      const wrap = $('#push-template-chips');
+      try {
+        const list = await api('/api/admin/push/templates');
+        if (!list || list.length === 0) {
+          wrap.innerHTML = `<p class="hint" style="margin:0;">아직 저장된 문구가 없어요. 아래에 입력하고 "이 문구 저장"을 눌러보세요.</p>`;
+          return;
+        }
+        wrap.innerHTML = list
+          .map(
+            (t) => `
+            <span class="badge push-template-chip" data-id="${t.id}" style="cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+              ${escapeHtml(t.name)}
+              <button type="button" class="push-template-delete" data-id="${t.id}" style="background:none; border:none; color:inherit; cursor:pointer; font-size:0.9em;">×</button>
+            </span>`
+          )
+          .join('');
+
+        $$('.push-template-chip', wrap).forEach((chip) => {
+          chip.addEventListener('click', (e) => {
+            if (e.target.classList.contains('push-template-delete')) return;
+            const t = list.find((x) => x.id === chip.dataset.id);
+            if (!t) return;
+            titleInput.value = t.title;
+            bodyInput.value = t.body || '';
+            urlInput.value = t.url || '';
+          });
+        });
+        $$('.push-template-delete', wrap).forEach((btn) => {
+          btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (!confirm('이 문구를 삭제할까요?')) return;
+            try {
+              await api(`/api/admin/push/templates/${btn.dataset.id}`, { method: 'DELETE' });
+              loadTemplates();
+            } catch (err) {
+              alert(err.message);
+            }
+          });
+        });
+      } catch (err) {
+        wrap.innerHTML = `<p class="hint">불러오지 못했습니다.</p>`;
+      }
+    }
+
+    $('#push-save-template-btn').addEventListener('click', async () => {
+      const title = titleInput.value.trim();
+      if (!title) return alert('먼저 알림 제목을 입력해주세요.');
+      const name = prompt('이 문구를 어떤 이름으로 저장할까요? (예: 새 설교 알림)');
+      if (!name || !name.trim()) return;
+      try {
+        await api('/api/admin/push/templates', {
+          method: 'POST',
+          body: JSON.stringify({
+            name: name.trim(),
+            title,
+            body: bodyInput.value.trim(),
+            url: urlInput.value.trim()
+          })
+        });
+        loadTemplates();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+
+    loadTemplates();
+
+    // ---------------- 예약된 알림 ----------------
+    async function loadScheduled() {
+      const listEl = $('#push-scheduled-list');
+      listEl.innerHTML = `<p class="hint">불러오는 중...</p>`;
+      try {
+        const list = await api('/api/admin/push/scheduled');
+        if (!list || list.length === 0) {
+          listEl.innerHTML = `<p class="hint">예약된 알림이 없습니다.</p>`;
+          return;
+        }
+        const statusLabel = { pending: '⏳ 대기중', sent: '✅ 발송완료', failed: '❌ 발송실패' };
+        listEl.innerHTML = list
+          .map((s) => {
+            const time = new Date(s.sendAt).toLocaleString('ko-KR');
+            const cancelBtn =
+              s.status === 'pending'
+                ? `<button type="button" class="btn-secondary push-schedule-cancel-btn" data-id="${s.id}">취소</button>`
+                : '';
+            return `
+              <div class="post-row" style="display:flex; justify-content:space-between; align-items:center; padding:12px 14px;">
+                <div>
+                  <strong>${escapeHtml(s.title)}</strong>
+                  <span class="hint" style="margin-left:8px;">${time}</span>
+                  <span class="hint" style="margin-left:8px;">${statusLabel[s.status] || s.status}</span>
+                </div>
+                ${cancelBtn}
+              </div>`;
+          })
+          .join('');
+        $$('.push-schedule-cancel-btn', listEl).forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            if (!confirm('이 예약 알림을 취소할까요?')) return;
+            try {
+              await api(`/api/admin/push/scheduled/${btn.dataset.id}`, { method: 'DELETE' });
+              loadScheduled();
+            } catch (err) {
+              alert(err.message);
+            }
+          });
+        });
+      } catch (err) {
+        listEl.innerHTML = `<p class="hint">불러오지 못했습니다: ${escapeHtml(err.message)}</p>`;
+      }
+    }
+
+    $('#push-scheduled-refresh-btn').addEventListener('click', loadScheduled);
+    loadScheduled();
+  }
+
+  // 큐티·말씀 퀴즈 등록 폼의 "알림 예약하기" 체크박스 공통 처리.
+  // 체크하면 시간 선택칸을 보여주고 기본값을 1시간 뒤로 채워둡니다.
+  function setupSchedulePushToggle(checkboxId, fieldId, timeInputId) {
+    const checkbox = $('#' + checkboxId);
+    const field = $('#' + fieldId);
+    const timeInput = $('#' + timeInputId);
+    if (!checkbox) return;
+    checkbox.addEventListener('change', () => {
+      field.style.display = checkbox.checked ? '' : 'none';
+      if (checkbox.checked && !timeInput.value) {
+        const d = new Date(Date.now() + 60 * 60 * 1000); // 기본값: 1시간 뒤
+        d.setSeconds(0, 0);
+        const tzOffset = d.getTimezoneOffset() * 60000;
+        timeInput.value = new Date(d - tzOffset).toISOString().slice(0, 16);
+      }
+    });
+  }
+
+  // 큐티/퀴즈 등록 성공 후, 체크되어 있으면 예약 알림을 같이 만듭니다.
+  async function maybeScheduleLinkedPush({ checkboxId, timeInputId, linkedType, linkedId, title, url }) {
+    const checkbox = $('#' + checkboxId);
+    if (!checkbox || !checkbox.checked) return;
+    const timeInput = $('#' + timeInputId);
+    if (!timeInput.value) return;
+    try {
+      await api('/api/admin/push/scheduled', {
+        method: 'POST',
+        body: JSON.stringify({
+          title,
+          body: '',
+          url: url || '/',
+          sendAt: new Date(timeInput.value).toISOString(),
+          linkedType,
+          linkedId
+        })
+      });
+    } catch (err) {
+      alert('알림 예약에 실패했습니다: ' + err.message);
+    }
+    checkbox.checked = false;
+    timeInput.value = '';
+    $('#' + checkboxId.replace('-check', '-time-field')).style.display = 'none';
   }
 
   function initDashboard() {
@@ -629,6 +801,8 @@
     setupInquiriesAdminPanel();
     setupQuizAdminPanel();
     setupPushPanel();
+    setupSchedulePushToggle('qt-schedule-push-check', 'qt-schedule-push-time-field', 'qt-schedule-push-time');
+    setupSchedulePushToggle('quiz-schedule-push-check', 'quiz-schedule-push-time-field', 'quiz-schedule-push-time');
     $('#p-date').value = new Date().toISOString().slice(0, 10);
     $('#qt-date').value = new Date().toISOString().slice(0, 10);
     $('#qt-pastor').value = localStorage.getItem('qtLastPastor') || '';
@@ -1490,10 +1664,19 @@
 
       const statusEl = $('#qt-save-status');
       try {
+        let savedItem;
         if (editingQtId) {
-          await api(`/api/admin/qt/${editingQtId}`, { method: 'PUT', body: JSON.stringify(payload) });
+          savedItem = await api(`/api/admin/qt/${editingQtId}`, { method: 'PUT', body: JSON.stringify(payload) });
         } else {
-          await api('/api/admin/qt', { method: 'POST', body: JSON.stringify(payload) });
+          savedItem = await api('/api/admin/qt', { method: 'POST', body: JSON.stringify(payload) });
+          await maybeScheduleLinkedPush({
+            checkboxId: 'qt-schedule-push-check',
+            timeInputId: 'qt-schedule-push-time',
+            linkedType: 'qt',
+            linkedId: savedItem.id,
+            title: `오늘의 큐티: ${title}`,
+            url: '/#qt'
+          });
         }
         localStorage.setItem('qtLastPastor', payload.pastor);
         statusEl.textContent = '저장 완료 ✓';
