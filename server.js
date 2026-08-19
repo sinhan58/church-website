@@ -15,6 +15,7 @@ const renderPrayerPage = createStaticPageRenderer('prayer.html');
 const renderInquiryPage = createStaticPageRenderer('inquiry.html');
 const renderReceiptPage = createStaticPageRenderer('receipt.html');
 const renderQuizPage = createStaticPageRenderer('quiz.html');
+const renderPrivacyPage = createStaticPageRenderer('privacy.html');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -120,6 +121,14 @@ app.get('/quiz.html', async (req, res, next) => {
   try {
     const site = await readData('site');
     res.send(renderQuizPage({ site: site || {} }));
+  } catch (err) {
+    next(err);
+  }
+});
+app.get('/privacy.html', async (req, res, next) => {
+  try {
+    const site = await readData('site');
+    res.send(renderPrivacyPage({ site: site || {} }));
   } catch (err) {
     next(err);
   }
