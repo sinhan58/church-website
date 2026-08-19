@@ -2,7 +2,7 @@
 // - 목적: PWA "설치 가능" 조건 충족 + 정적 파일(디자인·스크립트) 캐싱으로 재방문 시 조금 더 빠르게 뜨도록
 // - 설교 영상/게시글/큐티 등 실제 데이터(API 응답)는 캐싱하지 않습니다 (항상 최신 정보를 보여주기 위함)
 
-const CACHE_VERSION = 'v2'; // 아이콘 파일을 새로 바꿀 때마다, 브라우저가 캐시를 새로 채우도록 이 번호를 올려주세요.
+const CACHE_VERSION = 'v4'; // 아이콘·JS·CSS 등 어떤 파일이든 새로 바꿀 때마다, 서비스워커가 예전 캐시를 버리고 새로 채우도록 이 번호를 올려주세요.
 const CACHE_NAME = `mdds-church-${CACHE_VERSION}`;
 
 // 앱의 "뼈대"에 해당하는, 자주 안 바뀌는 정적 파일만 캐싱합니다.
@@ -56,5 +56,40 @@ self.addEventListener('fetch', (event) => {
         return response;
       })
       .catch(() => caches.match(request).then((cached) => cached || caches.match('/')))
+  );
+});
+
+// ---------------- 푸시 알림 ----------------
+// 서버가 알림을 보내면 이 이벤트가 실행되어, 기기 알림창에 실제로 띄웁니다.
+self.addEventListener('push', (event) => {
+  let data = { title: '물댄동산교회', body: '새 소식이 있어요.', url: '/' };
+  try {
+    if (event.data) data = { ...data, ...event.data.json() };
+  } catch (err) {
+    // JSON이 아니면 그냥 기본 문구로 표시
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: '/icons/icon-192-v2.png',
+      badge: '/icons/icon-192-v2.png',
+      data: { url: data.url || '/' }
+    })
+  );
+});
+
+// 알림을 탭했을 때, 해당 페이지(또는 이미 열려있는 탭)로 이동시킵니다.
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const targetUrl = (event.notification.data && event.notification.data.url) || '/';
+
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url.includes(targetUrl) && 'focus' in client) return client.focus();
+      }
+      if (self.clients.openWindow) return self.clients.openWindow(targetUrl);
+    })
   );
 });
