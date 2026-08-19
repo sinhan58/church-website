@@ -2,4 +2,4 @@ User-agent: *
 Allow: /
 Disallow: /admin
 
-Sitemap: https://church-website-7sct.onrender.com/sitemap.xml
+Sitemap: https://muldaen.com/sitemap.xml
