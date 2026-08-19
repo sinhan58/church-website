@@ -888,7 +888,8 @@ router.delete('/push/templates/:id', requirePermission('site'), async (req, res)
 router.get('/push/scheduled', requirePermission('site'), async (req, res) => {
   try {
     const scheduled = (await readData('scheduledPushes')) || [];
-    res.json([...scheduled].sort((a, b) => new Date(b.sendAt) - new Date(a.sendAt)));
+    const sorted = [...scheduled].sort((a, b) => new Date(b.sendAt) - new Date(a.sendAt));
+    res.json(sorted.slice(0, 100)); // 화면이 끝없이 길어지지 않도록 최근 100건만 보여줌
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
