@@ -1250,7 +1250,63 @@
   // ---------------- PWA: 서비스워커 등록 ----------------
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js').catch(() => {});
+      navigator.serviceWorker.register('/sw.js')
+        .then((reg) => setupPushPrompt(reg))
+        .catch(() => {});
+    });
+  }
+
+  // ---------------- 푸시 알림 구독 ----------------
+  function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = window.atob(base64);
+    return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
+  }
+
+  async function setupPushPrompt(registration) {
+    if (!('PushManager' in window) || !('Notification' in window)) return; // 미지원 기기(iOS 사파리 등)는 조용히 건너뜀
+    if (Notification.permission === 'denied') return; // 이미 차단한 경우 다시 안 물어봄
+    if (localStorage.getItem('push-prompt-dismissed') === '1') return; // 예전에 닫은 적 있으면 다시 안 보여줌
+
+    const existing = await registration.pushManager.getSubscription();
+    if (existing) return; // 이미 구독 중이면 배너 안 보여줌
+
+    const banner = $('#push-prompt');
+    if (!banner) return;
+    banner.style.display = 'flex';
+
+    $('#push-dismiss-btn').addEventListener('click', () => {
+      banner.style.display = 'none';
+      localStorage.setItem('push-prompt-dismissed', '1');
+    });
+
+    $('#push-allow-btn').addEventListener('click', async () => {
+      try {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') {
+          banner.style.display = 'none';
+          return;
+        }
+        const { publicKey } = await getJSON('/api/push/vapid-public-key');
+        if (!publicKey) {
+          banner.style.display = 'none';
+          return;
+        }
+        const subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey)
+        });
+        await fetch('/api/push/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(subscription)
+        });
+        banner.style.display = 'none';
+        localStorage.setItem('push-prompt-dismissed', '1');
+      } catch (err) {
+        banner.style.display = 'none';
+      }
     });
   }
 
