@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<script>if ('scrollRestoration' in history) { history.scrollRestoration = 'manual'; }</script>
+<!-- 글씨체 준비될 때까지 잠깐 화면 숨기기 (최대 0.8초) -->
+<script>document.documentElement.classList.add('fonts-loading');</script>
+<style>
+  html.fonts-loading body { opacity: 0; }
+  body { transition: opacity 0.25s ease; }
+</style>
+<script>
+(function () {
+  var done = false;
+  function reveal() {
+    if (done) return;
+    done = true;
+    document.documentElement.classList.remove('fonts-loading');
+  }
+  function waitForLinkLoad(link) {
+    return new Promise(function (resolve) {
+      if (link.sheet) { resolve(); return; }
+      link.addEventListener('load', resolve, { once: true });
+      link.addEventListener('error', resolve, { once: true });
+    });
+  }
+  var fontLinks = Array.prototype.slice.call(document.querySelectorAll('link.gfont-link'));
+  var linksReady = fontLinks.length ? Promise.all(fontLinks.map(waitForLinkLoad)) : Promise.resolve();
+  var fontsApiReady = ('fonts' in document) ? document.fonts.ready : Promise.resolve();
+  var ready = linksReady.then(function () { return fontsApiReady; });
+  Promise.race([
+    ready,
+    new Promise(function (resolve) { setTimeout(resolve, 800); })
+  ]).then(reveal);
+  setTimeout(reveal, 1500);
+})();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>개인정보처리방침</title>
+<meta name="robots" content="noindex" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link class="gfont-link" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;600;700&display=block" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+<link rel="stylesheet" href="/css/style.css" />
+<!--FONT_STYLE_TAG-->
+
+<!-- PWA: 홈 화면에 추가했을 때 앱처럼 보이도록 하는 설정 -->
+<link rel="manifest" href="/manifest.json" />
+<meta name="theme-color" content="#0d1526" />
+<link rel="icon" href="/icons/icon-192-v2.png" />
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon-v2.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+
+<style>
+  .policy-section { padding: 64px 0 96px; }
+  .policy-container { max-width: 760px; }
+  .policy-updated { color: var(--muted); font-size: 0.85rem; margin: 0 0 40px; }
+  .policy-container h3 {
+    font-family: var(--font-heading);
+    font-size: 1.15rem;
+    color: var(--navy-deep);
+    margin: 40px 0 14px;
+    padding-top: 20px;
+    border-top: 1px solid var(--line);
+  }
+  .policy-container h3:first-of-type { margin-top: 0; padding-top: 0; border-top: none; }
+  .policy-container p, .policy-container li { color: #333; font-size: 0.95rem; line-height: 1.8; word-break: keep-all; }
+  .policy-container ul { padding-left: 20px; margin: 8px 0 16px; }
+  .policy-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 12px 0 20px;
+    font-size: 0.9rem;
+  }
+  .policy-table th, .policy-table td {
+    border: 1px solid var(--line);
+    padding: 10px 12px;
+    text-align: left;
+    vertical-align: top;
+  }
+  .policy-table th { background: var(--ivory-dim); color: var(--navy-deep); font-weight: 700; }
+  .policy-contact-box {
+    background: var(--ivory-dim);
+    border-radius: var(--radius);
+    padding: 20px 24px;
+    margin-top: 12px;
+  }
+  .policy-contact-box p { margin: 4px 0; }
+</style>
+</head>
+<body>
+
+<header class="site-header scrolled">
+  <div class="container">
+    <a href="/" class="brand" id="policy-brand">물댄동산교회</a>
+  </div>
+</header>
+
+<main class="page-enter">
+  <section class="section policy-section">
+    <div class="container policy-container">
+
+      <a href="/" class="qt-back-link">← 홈으로</a>
+
+      <div class="section-head" style="text-align:left; margin-bottom:12px;">
+        <span class="eyebrow">PRIVACY POLICY</span>
+        <h2>개인정보처리방침</h2>
+      </div>
+      <p class="policy-updated">시행일자: 2026년 8월 19일</p>
+
+      <p>
+        <strong id="policy-church-name">물댄동산교회</strong>(이하 '교회')는 방문자와 성도님들의 개인정보를 소중히 여기며,
+        「개인정보보호법」 등 관련 법령을 준수하기 위해 노력합니다. 본 방침은 교회 홈페이지를 통해 수집되는
+        개인정보의 처리 목적, 항목, 보유기간 및 정보주체의 권리를 안내합니다.
+      </p>
+
+      <h3>1. 수집하는 개인정보 항목 및 수집 방법</h3>
+      <p>교회 홈페이지는 아래와 같이 방문자가 직접 입력하는 정보만을 수집하며, 별도의 회원가입·로그인 절차는 없습니다.</p>
+      <table class="policy-table">
+        <tr><th>수집 화면</th><th>수집 항목</th></tr>
+        <tr><td>기도 요청</td><td>이름(선택), 기도 내용, 비밀글 설정 시 비밀번호</td></tr>
+        <tr><td>온라인 문의</td><td>이름, 문의 내용, 비밀번호(필수)</td></tr>
+        <tr><td>기부금 영수증 신청</td><td>이름, 연락처, 이메일(선택), 참고사항</td></tr>
+        <tr><td>말씀 퀴즈 참여</td><td>이름(닉네임)</td></tr>
+      </table>
+      <p>위 정보는 방문자가 각 게시판·신청서에 직접 입력할 때에만 수집되며, 자동으로 수집되는 개인 식별 정보는 없습니다.</p>
+
+      <h3>2. 개인정보의 수집 및 이용 목적</h3>
+      <ul>
+        <li>기도 요청·온라인 문의: 내용 확인 및 답변, 목회 상담을 위한 소통</li>
+        <li>기부금 영수증 신청: 연말정산용 기부금 영수증 발급 및 개별 연락</li>
+        <li>말씀 퀴즈 참여: 참여 여부 확인 및 결과(순위) 표시</li>
+      </ul>
+
+      <h3>3. 개인정보의 보유 및 이용기간</h3>
+      <p>
+        수집된 개인정보는 위 이용목적이 달성되면 지체없이 파기하는 것을 원칙으로 하며, 관리자가 확인·처리를 마친
+        게시글은 수시로 삭제하고 있습니다. 다만 다음의 경우 명시한 사유 종료 시까지 보관할 수 있습니다.
+      </p>
+      <ul>
+        <li>기부금 영수증 발급 관련 정보: 관련 세법에 따라 발급 연도 종료 후 5년</li>
+        <li>관계 법령에 따라 보존할 의무가 있는 경우, 해당 법령에서 정한 기간</li>
+      </ul>
+
+      <h3>4. 개인정보의 제3자 제공</h3>
+      <p>교회는 정보주체의 동의, 법률의 특별한 규정 등 「개인정보보호법」 제17조 및 제18조에 해당하는 경우를 제외하고는
+      개인정보를 외부에 제공하지 않습니다.</p>
+
+      <h3>5. 개인정보 처리업무의 위탁</h3>
+      <p>교회는 안정적인 서비스 제공을 위해 아래와 같이 개인정보 처리업무를 위탁하고 있습니다.</p>
+      <table class="policy-table">
+        <tr><th>수탁업체</th><th>위탁업무 내용</th></tr>
+        <tr><td>Supabase Inc.</td><td>홈페이지 데이터베이스 저장 및 관리</td></tr>
+        <tr><td>Render Services, Inc.</td><td>홈페이지 서버 호스팅</td></tr>
+      </table>
+
+      <h3>6. 정보주체의 권리와 행사 방법</h3>
+      <p>
+        정보주체는 언제든지 본인의 개인정보에 대한 열람, 정정, 삭제를 요청할 수 있습니다. 비밀글로 등록하신
+        기도 요청·문의는 작성 시 설정한 비밀번호로 본인이 직접 확인·삭제하실 수 있으며, 그 외 요청은 아래
+        연락처로 문의해주시면 지체없이 조치하겠습니다.
+      </p>
+
+      <h3>7. 쿠키(Cookie)의 운영</h3>
+      <p>
+        홈페이지는 방문자의 로그인 정보를 저장하는 별도 쿠키를 사용하지 않습니다. 관리자 페이지 로그인 시에만
+        로그인 상태 유지를 위한 세션 쿠키가 사용되며, 이는 일반 방문자와는 무관합니다.
+      </p>
+
+      <h3>8. 개인정보의 안전성 확보조치</h3>
+      <ul>
+        <li>비밀글로 등록된 게시글의 비밀번호는 암호화하여 저장합니다.</li>
+        <li>관리자 페이지는 별도의 로그인 인증을 거쳐야만 접근할 수 있습니다.</li>
+        <li>개인정보 처리 담당자를 최소한으로 지정하여 운영합니다.</li>
+      </ul>
+
+      <h3>9. 개인정보 보호책임자</h3>
+      <p>개인정보 관련 문의, 삭제 요청 등은 아래로 연락해주시기 바랍니다.</p>
+      <div class="policy-contact-box">
+        <p><strong>개인정보 보호책임자:</strong> <span id="policy-officer-name">담임목사 이기삼</span></p>
+        <p><strong>연락처:</strong> <span id="policy-officer-contact">교회 대표전화 또는 이메일로 문의</span></p>
+      </div>
+      <p style="margin-top:10px; color:var(--muted); font-size:0.85rem;">
+        ※ 위 담당자 이름과 연락처는 실제 정보로 교체해주세요.
+      </p>
+
+      <h3>10. 개인정보처리방침의 변경</h3>
+      <p>
+        본 방침은 법령·정책 변경에 따라 수정될 수 있으며, 변경 시 홈페이지를 통해 공지합니다.
+      </p>
+
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <p>&copy; <span id="policy-year"></span> <span id="policy-footer-name">물댄동산교회</span>. All rights reserved.</p>
+  </div>
+</footer>
+
+<script>
+  document.getElementById('policy-year').textContent = new Date().getFullYear();
+  fetch('/api/site')
+    .then((res) => res.json())
+    .then((site) => {
+      if (site && site.churchName) {
+        document.title = `개인정보처리방침 | ${site.churchName}`;
+        document.getElementById('policy-brand').textContent = site.churchName;
+        document.getElementById('policy-church-name').textContent = site.churchName;
+        document.getElementById('policy-footer-name').textContent = site.churchName;
+      }
+    })
+    .catch(() => {});
+</script>
+</body>
+</html>
