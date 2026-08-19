@@ -556,6 +556,34 @@
     select.addEventListener('change', () => loadQuizStats(select.value));
   }
 
+  function setupPushPanel() {
+    const sendBtn = $('#push-send-btn');
+    if (!sendBtn) return; // 권한 없는 부관리자는 조용히 건너뜀
+    const statusEl = $('#push-send-status');
+
+    sendBtn.addEventListener('click', async () => {
+      const title = $('#push-title-input').value.trim();
+      const body = $('#push-body-input').value.trim();
+      const url = $('#push-url-input').value.trim();
+      if (!title) return alert('알림 제목을 입력해주세요.');
+      if (!confirm('구독한 모든 방문자에게 알림을 보냅니다. 계속할까요?')) return;
+
+      statusEl.textContent = '발송 중...';
+      try {
+        const result = await api('/api/admin/push/send', {
+          method: 'POST',
+          body: JSON.stringify({ title, body, url })
+        });
+        statusEl.textContent = `발송 완료 ✓ (성공 ${result.sent}건 / 실패 ${result.failed}건)`;
+        $('#push-title-input').value = '';
+        $('#push-body-input').value = '';
+        $('#push-url-input').value = '';
+      } catch (err) {
+        statusEl.textContent = '발송 실패: ' + err.message;
+      }
+    });
+  }
+
   function initDashboard() {
     if (dashboardInitialized) return;
     dashboardInitialized = true;
@@ -600,6 +628,7 @@
     setupPrayersAdminPanel();
     setupInquiriesAdminPanel();
     setupQuizAdminPanel();
+    setupPushPanel();
     $('#p-date').value = new Date().toISOString().slice(0, 10);
     $('#qt-date').value = new Date().toISOString().slice(0, 10);
     $('#qt-pastor').value = localStorage.getItem('qtLastPastor') || '';
