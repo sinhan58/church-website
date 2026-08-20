@@ -54,7 +54,7 @@ const BUILTIN_PHOTOS = (() => {
 
 const W = 1200;
 const H = 675;
-const PHOTO_W = 480; // 왼쪽 사진 영역 폭 (전체의 40%, 제목 영역이 60%)
+const PHOTO_W = 480; // 오른쪽 사진 영역 폭 (전체의 40%, 왼쪽 제목 영역이 60%)
 const BLEND_W = 120; // 사진과 패널이 자연스럽게 이어지는 페이드 폭
 const GOLD = '#c9a227';
 const WHITE = '#ffffff';
@@ -106,8 +106,8 @@ function escapeXml(str = '') {
 // 배경으로 씁니다. 사진과 배경이 같은 원본에서 나오기 때문에 색감이 항상 자연스럽게
 // 이어지고, 사진이 바뀌어도 늘 어울리는 결과가 나옵니다.
 function buildTextSvg({ title, verseRef, pastorName, churchName }) {
-  const textX = PHOTO_W + 56;
-  const textMaxWidth = W - textX - 56;
+  const textX = 56;
+  const textMaxWidth = W - PHOTO_W - 56 - 40;
 
   let titleFontSize = 56;
   let lineHeight = 68;
@@ -158,44 +158,44 @@ function buildTextSvg({ title, verseRef, pastorName, churchName }) {
   </svg>`;
 }
 
-// 글자가 항상 잘 읽히도록, 오른쪽 텍스트 구역에만 어두운 그라데이션을 얹습니다
+// 글자가 항상 잘 읽히도록, 왼쪽 텍스트 구역에만 어두운 그라데이션을 얹습니다
 // (사진이 밝든 어둡든 상관없이 대비를 보장).
 function buildDarkenOverlaySvg() {
-  const startX = PHOTO_W - BLEND_W;
+  const endX = (W - PHOTO_W) + BLEND_W;
   return `
   <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
     <defs>
-      <linearGradient id="darken" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stop-color="#000000" stop-opacity="0"/>
-        <stop offset="${Math.round((startX / W) * 100)}%" stop-color="#000000" stop-opacity="0.4"/>
-        <stop offset="100%" stop-color="#000000" stop-opacity="0.58"/>
+      <linearGradient id="darken" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="${endX}" y2="0">
+        <stop offset="0%" stop-color="#000000" stop-opacity="0.58"/>
+        <stop offset="65%" stop-color="#000000" stop-opacity="0.4"/>
+        <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
       </linearGradient>
-      <linearGradient id="colorMix" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="#3a1a55" stop-opacity="0"/>
-        <stop offset="55%" stop-color="#3a1a55" stop-opacity="0.38"/>
-        <stop offset="100%" stop-color="#14213d" stop-opacity="0.5"/>
+      <linearGradient id="colorMix" gradientUnits="userSpaceOnUse" x1="0" y1="${H}" x2="${endX}" y2="0">
+        <stop offset="0%" stop-color="#14213d" stop-opacity="0.5"/>
+        <stop offset="45%" stop-color="#3a1a55" stop-opacity="0.38"/>
+        <stop offset="100%" stop-color="#3a1a55" stop-opacity="0"/>
       </linearGradient>
       <filter id="softGlow"><feGaussianBlur stdDeviation="70"/></filter>
     </defs>
     <!-- 어둡게(가독성) + 보라·남색 다이내믹 믹싱(색감), 둘 다 반투명이라 사진 결이 은은하게 비칩니다 -->
-    <rect x="${startX}" y="0" width="${W - startX}" height="${H}" fill="url(#darken)"/>
-    <rect x="${startX}" y="0" width="${W - startX}" height="${H}" fill="url(#colorMix)"/>
+    <rect x="0" y="0" width="${endX}" height="${H}" fill="url(#darken)"/>
+    <rect x="0" y="0" width="${endX}" height="${H}" fill="url(#colorMix)"/>
     <!-- 각진 도형 대신, 경계 없는 부드러운 빛 번짐으로 다이내믹함을 더합니다 (딱딱한 선 방지) -->
-    <circle cx="${W - 120}" cy="90" r="180" fill="${GOLD}" opacity="0.10" filter="url(#softGlow)"/>
-    <circle cx="${startX + 160}" cy="${H - 60}" r="160" fill="${GOLD}" opacity="0.08" filter="url(#softGlow)"/>
+    <circle cx="120" cy="90" r="180" fill="${GOLD}" opacity="0.10" filter="url(#softGlow)"/>
+    <circle cx="${endX - 160}" cy="${H - 60}" r="160" fill="${GOLD}" opacity="0.08" filter="url(#softGlow)"/>
   </svg>`;
 }
 
-// 왼쪽 사진의 오른쪽 가장자리를 부드럽게 투명해지도록 만드는 마스크 (사진↔배경 경계를 없앰)
+// 오른쪽 사진의 왼쪽 가장자리를 부드럽게 투명해지도록 만드는 마스크 (사진↔배경 경계를 없앰)
 function buildFeatherMaskSvg() {
-  const opaqueEnd = Math.round(((PHOTO_W - BLEND_W) / PHOTO_W) * 100);
+  const opaqueStart = Math.round((BLEND_W / PHOTO_W) * 100);
   return `
   <svg width="${PHOTO_W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient id="fade" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stop-color="white" stop-opacity="1"/>
-        <stop offset="${opaqueEnd}%" stop-color="white" stop-opacity="1"/>
-        <stop offset="100%" stop-color="white" stop-opacity="0"/>
+        <stop offset="0%" stop-color="white" stop-opacity="0"/>
+        <stop offset="${opaqueStart}%" stop-color="white" stop-opacity="1"/>
+        <stop offset="100%" stop-color="white" stop-opacity="1"/>
       </linearGradient>
     </defs>
     <rect width="${PHOTO_W}" height="${H}" fill="url(#fade)"/>
@@ -255,7 +255,7 @@ async function generateSermonPoster({
       .modulate({ brightness: 0.5, saturation: 0.85 })
       .toBuffer();
 
-    // 2) 선명한 원본 사진을 왼쪽에 놓되, 오른쪽 가장자리는 부드럽게 투명해지도록
+    // 2) 선명한 원본 사진을 오른쪽에 놓되, 왼쪽 가장자리는 부드럽게 투명해지도록
     //    마스크를 씌워서 경계 없이 배경 속으로 스며들게 합니다.
     //    (반드시 PNG로 변환해야 합니다 - JPEG는 투명도를 표현할 수 없어서, 그대로 두면
     //    페더 마스크가 적용되지 않고 사진 전체가 흐려 보이는 원인이 됩니다)
@@ -271,7 +271,7 @@ async function generateSermonPoster({
 
     return sharp(blurredBg)
       .composite([
-        { input: feathered, left: 0, top: 0 },
+        { input: feathered, left: W - PHOTO_W, top: 0 },
         { input: Buffer.from(buildDarkenOverlaySvg()), left: 0, top: 0 },
         { input: Buffer.from(textSvg), left: 0, top: 0 }
       ])
