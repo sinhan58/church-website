@@ -703,12 +703,12 @@ button { font-family: inherit; cursor: pointer; }
   color: rgba(255,255,255,0.75);
 }
 @media (max-width: 900px) {
-  /* 모바일: 가로로 넘기지 않고, 세로로 4개가 나란히 쌓입니다 */
-  .praise-grid { display: flex; flex-direction: column; gap: 16px; }
-  .praise-card { flex: none; width: 100%; aspect-ratio: 16/9; }
+  /* 모바일: 세로로 쌓이되, 한 줄에 2개씩 (2열 x 2행 = 4개) */
+  .praise-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .praise-card { width: 100%; aspect-ratio: 4/3; }
 }
 @media (max-width: 560px) {
-  .praise-grid { gap: 14px; }
+  .praise-grid { gap: 12px; }
 }
 
 /* ---------------- Board (소식·활동) ---------------- */
