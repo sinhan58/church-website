@@ -529,43 +529,110 @@
     return CARD_ACCENT_PALETTE[hash % CARD_ACCENT_PALETTE.length];
   }
 
+  let allSermonVideos = [];
+  let sermonCategoryList = [];
+  let sermonCategoryTags = {};
+  let sermonCurationsData = [];
+  let activeSermonCategory = null; // null이면 '전체'
+  let sermonChannelId = null;
+
   async function loadSermons() {
-    const [data, site] = await Promise.all([getJSON('/api/sermons'), getJSON('/api/site')]);
-    const grid = $('#sermon-grid');
+    const [data, site, categories, tags] = await Promise.all([
+      getJSON('/api/sermons'),
+      getJSON('/api/site'),
+      getJSON('/api/sermon-categories'),
+      getJSON('/api/sermon-category-tags')
+    ]);
     const updated = $('#sermon-updated');
 
     updated.textContent = data.lastUpdated
       ? `마지막 업데이트: ${formatDate(data.lastUpdated)}`
       : '';
 
-    if (!data.videos || data.videos.length === 0) {
-      grid.innerHTML = `<div class="sermon-empty" style="grid-column:1/-1;">아직 등록된 설교 영상이 없습니다. 관리자 페이지에서 유튜브 채널을 연결해주세요.</div>`;
+    allSermonVideos = data.videos || [];
+    sermonCategoryList = categories || [];
+    sermonCategoryTags = tags || {};
+    sermonCurationsData = (site && Array.isArray(site.sermonCurations) ? site.sermonCurations : []).filter(
+      (c) => c && c.videoId
+    );
+    sermonChannelId = data.channelId || null;
+
+    if (allSermonVideos.length === 0) {
+      $('#sermon-grid').innerHTML = `<div class="sermon-empty" style="grid-column:1/-1;">아직 등록된 설교 영상이 없습니다. 관리자 페이지에서 유튜브 채널을 연결해주세요.</div>`;
       return;
     }
 
-    // ---- 노출 순서 구성: ①이번 주일 설교(최신) → ②③관리자 큐레이션(설정된 만큼) → 나머지 최신순 ----
-    const videos = data.videos.slice();
-    const latest = videos[0];
-    const curations = (site && Array.isArray(site.sermonCurations) ? site.sermonCurations : []).filter(
-      (c) => c && c.videoId
-    );
+    renderSermonCategoryChips();
+    renderSermonCards();
+  }
 
-    const ordered = [latest];
-    const badges = { 0: '이번 주일 설교' };
-    curations.slice(0, 2).forEach((cur) => {
-      const video = videos.find((v) => v.videoId === cur.videoId);
-      if (video && !ordered.some((o) => o.videoId === video.videoId)) {
-        badges[ordered.length] = cur.label || '추천 말씀';
-        ordered.push(video);
+  function renderSermonCategoryChips() {
+    const wrap = $('#sermon-category-chips');
+    if (!wrap) return;
+    const usedIds = new Set();
+    Object.values(sermonCategoryTags).forEach((ids) => (ids || []).forEach((id) => usedIds.add(id)));
+    const usable = sermonCategoryList.filter((c) => usedIds.has(c.id));
+
+    if (usable.length === 0) {
+      wrap.style.display = 'none';
+      return;
+    }
+    wrap.style.display = '';
+    const options = [{ id: null, name: '전체' }, ...usable];
+    wrap.innerHTML = options
+      .map(
+        (c) => `<button type="button" class="praise-chip${activeSermonCategory === c.id ? ' active' : ''}" data-id="${c.id || ''}">${escapeHtml(c.name)}</button>`
+      )
+      .join('');
+    $$('.praise-chip', wrap).forEach((chip) => {
+      chip.addEventListener('click', () => {
+        activeSermonCategory = chip.dataset.id || null;
+        if (activeSermonCategory) {
+          track('click', {
+            label: 'sermon_category_filter',
+            itemType: 'sermon_category',
+            itemId: activeSermonCategory,
+            itemTitle: chip.textContent
+          });
+        }
+        $$('.praise-chip', wrap).forEach((c) => c.classList.toggle('active', c === chip));
+        renderSermonCards();
+      });
+    });
+  }
+
+  function renderSermonCards() {
+    const grid = $('#sermon-grid');
+    let displayVideos;
+    let badges = {};
+
+    if (activeSermonCategory) {
+      // 특정 테마가 선택되면, 그 테마가 붙은 영상만 최신순으로 보여줍니다 (큐레이션 배지는 '전체'일 때만).
+      displayVideos = allSermonVideos.filter((v) => (sermonCategoryTags[v.videoId] || []).includes(activeSermonCategory));
+      if (displayVideos.length === 0) {
+        grid.innerHTML = `<p class="board-empty" style="padding:20px; grid-column:1/-1;">이 테마의 설교가 아직 없어요.</p>`;
+        return;
       }
-    });
-    videos.forEach((v) => {
-      if (!ordered.some((o) => o.videoId === v.videoId)) ordered.push(v);
-    });
+    } else {
+      // ---- '전체'일 때 노출 순서: ①이번 주일 설교(최신) → ②③관리자 큐레이션(설정된 만큼) → 나머지 최신순 ----
+      const latest = allSermonVideos[0];
+      const ordered = [latest];
+      badges = { 0: '이번 주일 설교' };
+      sermonCurationsData.slice(0, 2).forEach((cur) => {
+        const video = allSermonVideos.find((v) => v.videoId === cur.videoId);
+        if (video && !ordered.some((o) => o.videoId === video.videoId)) {
+          badges[ordered.length] = cur.label || '추천 말씀';
+          ordered.push(video);
+        }
+      });
+      allSermonVideos.forEach((v) => {
+        if (!ordered.some((o) => o.videoId === v.videoId)) ordered.push(v);
+      });
+      displayVideos = ordered;
+    }
 
-    grid.innerHTML = ordered
     const isMobile = window.matchMedia('(max-width: 900px)').matches;
-    const displayList = isMobile ? ordered.slice(0, 3) : ordered.slice(0, 15);
+    const displayList = isMobile ? displayVideos.slice(0, 3) : displayVideos.slice(0, 15);
 
     grid.innerHTML = displayList
       .map((v, i) => {
@@ -587,8 +654,8 @@
     // 모바일 전용 "유튜브에서 전체 설교 보기" 링크 (채널이 연결되어 있을 때만 노출)
     const moreLink = $('#sermon-more-link');
     if (moreLink) {
-      if (data.channelId) {
-        moreLink.href = `https://www.youtube.com/channel/${encodeURIComponent(data.channelId)}/videos`;
+      if (sermonChannelId) {
+        moreLink.href = `https://www.youtube.com/channel/${encodeURIComponent(sermonChannelId)}/videos`;
         moreLink.style.display = ''; // CSS 미디어쿼리(모바일에서만 block)가 나머지를 처리
       } else {
         moreLink.style.display = 'none';
