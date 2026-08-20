@@ -631,6 +631,7 @@ router.post('/praises', async (req, res) => {
       title: req.body.title || '',
       singer: req.body.singer || '',
       youtubeId,
+      categoryIds: Array.isArray(req.body.categoryIds) ? req.body.categoryIds : [],
       order: praises.length,
       createdAt: new Date().toISOString()
     };
@@ -649,6 +650,7 @@ router.put('/praises/:id', async (req, res) => {
     if (idx === -1) return res.status(404).json({ error: '찬양을 찾을 수 없습니다.' });
 
     const editable = { title: req.body.title, singer: req.body.singer };
+    if (Array.isArray(req.body.categoryIds)) editable.categoryIds = req.body.categoryIds;
     if (req.body.youtubeUrl || req.body.youtubeId) {
       const youtubeId = extractYoutubeId(req.body.youtubeUrl || req.body.youtubeId);
       if (!youtubeId) return res.status(400).json({ error: '유튜브 주소(또는 영상ID)를 다시 확인해주세요.' });
@@ -683,6 +685,60 @@ router.put('/praises-reorder', async (req, res) => {
     });
     await writeData('praises', updated);
     res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- 찬양 컨셉(카테고리) ----------
+const DEFAULT_PRAISE_CATEGORIES = ['경배와 찬양', 'CCM', '잔잔한 묵상곡', '경쾌한 찬양', '어린이·다음세대', '절기 특별찬양'];
+
+async function ensurePraiseCategoriesSeeded() {
+  const categories = await readData('praiseCategories');
+  if (categories && categories.length > 0) return categories;
+  const seeded = DEFAULT_PRAISE_CATEGORIES.map((name) => ({ id: makeId('pcat'), name }));
+  await writeData('praiseCategories', seeded);
+  return seeded;
+}
+
+router.get('/praise-categories', async (req, res) => {
+  try {
+    res.json(await ensurePraiseCategoriesSeeded());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/praise-categories', async (req, res) => {
+  try {
+    const name = (req.body.name || '').trim();
+    if (!name) return res.status(400).json({ error: '컨셉 이름을 입력해주세요.' });
+    const categories = await ensurePraiseCategoriesSeeded();
+    if (categories.some((c) => c.name === name)) {
+      return res.status(409).json({ error: '이미 같은 이름의 컨셉이 있습니다.' });
+    }
+    const item = { id: makeId('pcat'), name };
+    categories.push(item);
+    await writeData('praiseCategories', categories);
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/praise-categories/:id', async (req, res) => {
+  try {
+    const categories = (await readData('praiseCategories')) || [];
+    const filtered = categories.filter((c) => c.id !== req.params.id);
+    await writeData('praiseCategories', filtered);
+    // 삭제된 컨셉은 곡들에 붙어있던 태그에서도 같이 지워줍니다.
+    const praises = (await readData('praises')) || [];
+    const updated = praises.map((p) => ({
+      ...p,
+      categoryIds: (p.categoryIds || []).filter((id) => id !== req.params.id)
+    }));
+    await writeData('praises', updated);
+    res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
