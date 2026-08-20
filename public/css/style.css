@@ -441,12 +441,7 @@ button { font-family: inherit; cursor: pointer; }
 .sermon-grid::-webkit-scrollbar { display: none; }
 .sermon-card {
   scroll-snap-align: start;
-  flex: 0 0 calc((100% - 28px * 2) / 3); /* PC 기준 3개 고정 노출 */
-}
-@media (max-width: 900px) {
-  /* 모바일: 한 화면에 하나씩, 옆으로 스와이프해서 다음 걸 봄 (다음 카드 살짝 보이게) */
-  .sermon-grid { gap: 16px; }
-  .sermon-card { flex: 0 0 84%; }
+  flex: 0 0 calc((100% - 28px * 2) / 3); /* PC·모바일 공통 3개 고정 노출 */
 }
 
 .sermon-more-link {
@@ -703,12 +698,12 @@ button { font-family: inherit; cursor: pointer; }
   color: rgba(255,255,255,0.75);
 }
 @media (max-width: 900px) {
-  .praise-grid { display: flex; gap: 16px; } /* 모바일: 한 화면에 하나씩, 최대 4개까지 */
-  .praise-card { flex: 0 0 78%; }
+  .praise-grid { display: flex; } /* 모바일: 한 줄에 4개 고정 노출 */
+  .praise-card { flex: 0 0 calc((100% - 20px * 3) / 4); }
 }
 @media (max-width: 560px) {
   .praise-grid { gap: 14px; }
-  .praise-card { flex: 0 0 80%; }
+  .praise-card { flex: 0 0 calc((100% - 14px * 3) / 4); }
 }
 
 /* ---------------- Board (소식·활동) ---------------- */
