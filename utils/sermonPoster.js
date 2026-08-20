@@ -54,8 +54,8 @@ const BUILTIN_PHOTOS = (() => {
 
 const W = 1200;
 const H = 675;
-const PHOTO_W = 660; // 왼쪽 사진 영역 폭 (전체의 55%)
-const BLEND_W = 140; // 사진과 패널이 자연스럽게 이어지는 페이드 폭
+const PHOTO_W = 480; // 왼쪽 사진 영역 폭 (전체의 40%, 제목 영역이 60%)
+const BLEND_W = 120; // 사진과 패널이 자연스럽게 이어지는 페이드 폭
 const GOLD = '#c9a227';
 const WHITE = '#ffffff';
 const NAVY = '#0d1526';
@@ -119,7 +119,12 @@ function buildTextSvg({ title, verseRef, pastorName, churchName }) {
     titleLines[2] = last.slice(0, Math.max(0, last.length - 1)) + '…';
   }
 
-  let y = H / 2 - ((titleLines.length - 1) * lineHeight) / 2 - 40;
+  // 이미지 안에 작은 라벨을 넣어서, 바깥에 별도 "주일 설교" 제목을 안 둬도 되게 합니다.
+  const labelY = 64;
+  const labelSvg = `<text x="${textX}" y="${labelY}" font-size="20" font-family="${FONT_FAMILY}" font-weight="700" fill="${GOLD}" letter-spacing="2">주일 설교</text>
+    <rect x="${textX}" y="${labelY + 14}" width="46" height="4" fill="${GOLD}"/>`;
+
+  let y = H / 2 - ((titleLines.length - 1) * lineHeight) / 2 - 20;
   let titleTspans = '';
   for (const line of titleLines) {
     titleTspans += `<text x="${textX}" y="${y}" font-size="${titleFontSize}" font-family="${FONT_FAMILY}" font-weight="900" fill="${WHITE}">${escapeXml(line)}</text>`;
@@ -144,6 +149,7 @@ function buildTextSvg({ title, verseRef, pastorName, churchName }) {
 
   return `
   <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
+    ${labelSvg}
     ${titleTspans}
     ${verseSvg}
     <line x1="${textX}" y1="${lineY}" x2="${textX + 280}" y2="${lineY}" stroke="#ffffff" stroke-opacity="0.3" stroke-width="1"/>
@@ -161,11 +167,20 @@ function buildDarkenOverlaySvg() {
     <defs>
       <linearGradient id="darken" x1="0%" y1="0%" x2="100%" y2="0%">
         <stop offset="0%" stop-color="#000000" stop-opacity="0"/>
-        <stop offset="${Math.round((startX / W) * 100)}%" stop-color="#000000" stop-opacity="0.35"/>
-        <stop offset="100%" stop-color="#000000" stop-opacity="0.55"/>
+        <stop offset="${Math.round((startX / W) * 100)}%" stop-color="#000000" stop-opacity="0.4"/>
+        <stop offset="100%" stop-color="#000000" stop-opacity="0.58"/>
+      </linearGradient>
+      <linearGradient id="colorMix" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#3a1a55" stop-opacity="0"/>
+        <stop offset="55%" stop-color="#3a1a55" stop-opacity="0.38"/>
+        <stop offset="100%" stop-color="#14213d" stop-opacity="0.5"/>
       </linearGradient>
     </defs>
+    <!-- 어둡게(가독성) + 보라·남색 다이내믹 믹싱(색감), 둘 다 반투명이라 사진 결이 은은하게 비칩니다 -->
     <rect x="${startX}" y="0" width="${W - startX}" height="${H}" fill="url(#darken)"/>
+    <rect x="${startX}" y="0" width="${W - startX}" height="${H}" fill="url(#colorMix)"/>
+    <polygon points="${W - 260},0 ${W},0 ${W},${H * 0.5}" fill="${GOLD}" opacity="0.09"/>
+    <polygon points="${startX + 30},${H} ${startX + 300},${H} ${startX + 110},${H * 0.4}" fill="${GOLD}" opacity="0.07"/>
   </svg>`;
 }
 
