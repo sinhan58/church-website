@@ -127,22 +127,63 @@ router.post('/qt/:id/amen', async (req, res) => {
 
 router.post('/track', async (req, res) => {
   try {
-    const { type, path: trackPath, label } = req.body;
+    const { type, path: trackPath, label, itemType, itemId, itemTitle, seconds, device } = req.body;
     const today = new Date().toISOString().slice(0, 10);
     const stats = (await readData('stats')) || { pageviews: {}, clicks: {} };
+    if (!stats.itemClicks) stats.itemClicks = {};
+    if (!stats.timeSpent) stats.timeSpent = {};
+    if (!stats.deviceStats) stats.deviceStats = {};
+
+    const dev = device === 'mobile' ? 'mobile' : 'desktop'; // PC/모바일 두 가지로만 단순화
+
     if (type === 'pageview' && trackPath) {
       stats.pageviews[today] = stats.pageviews[today] || {};
       stats.pageviews[today][trackPath] = (stats.pageviews[today][trackPath] || 0) + 1;
+
+      stats.deviceStats[today] = stats.deviceStats[today] || { desktop: emptyDeviceBucket(), mobile: emptyDeviceBucket() };
+      stats.deviceStats[today][dev].pageviews += 1;
     } else if (type === 'click' && label) {
       stats.clicks[today] = stats.clicks[today] || {};
       stats.clicks[today][label] = (stats.clicks[today][label] || 0) + 1;
+
+      // 어떤 항목(영상 하나하나, 게시글 하나하나 등)을 눌렀는지도 같이 기록합니다.
+      if (itemType && itemId) {
+        stats.itemClicks[today] = stats.itemClicks[today] || {};
+        stats.itemClicks[today][itemType] = stats.itemClicks[today][itemType] || {};
+        const bucket = stats.itemClicks[today][itemType];
+        if (!bucket[itemId]) bucket[itemId] = { count: 0, title: itemTitle || '' };
+        bucket[itemId].count += 1;
+        if (itemTitle) bucket[itemId].title = itemTitle;
+      }
+    } else if (type === 'timespent' && trackPath && seconds) {
+      // 비정상적으로 큰 값(방치된 탭 등)이 통계를 왜곡하지 않도록 최대 1시간으로 제한.
+      // 1초 이상이면 전부 기록합니다 (실수 클릭 없다고 가정).
+      const sec = Math.min(Number(seconds) || 0, 3600);
+      if (sec >= 1) {
+        stats.timeSpent[today] = stats.timeSpent[today] || {};
+        stats.timeSpent[today][trackPath] = stats.timeSpent[today][trackPath] || { totalSeconds: 0, sessions: 0 };
+        stats.timeSpent[today][trackPath].totalSeconds += sec;
+        stats.timeSpent[today][trackPath].sessions += 1;
+
+        stats.deviceStats[today] = stats.deviceStats[today] || { desktop: emptyDeviceBucket(), mobile: emptyDeviceBucket() };
+        stats.deviceStats[today][dev].timeSpentSeconds += sec;
+        stats.deviceStats[today][dev].timeSpentSessions += 1;
+      }
     } else {
       return res.status(400).json({ error: '잘못된 요청입니다.' });
     }
+
     await writeData('stats', stats);
     res.json({ ok: true });
-  } catch (err) { res.json({ ok: false }); }
+  } catch (err) {
+    // 통계 수집 실패가 사용자 화면에 영향을 주면 안 되므로 에러여도 200으로 조용히 응답
+    res.json({ ok: false });
+  }
 });
+
+function emptyDeviceBucket() {
+  return { pageviews: 0, timeSpentSeconds: 0, timeSpentSessions: 0 };
+}
 
 router.post('/receipt-requests', async (req, res) => {
   try {
@@ -277,6 +318,12 @@ router.get('/praises', async (req, res) => {
   try {
     const praises = (await readData('praises')) || [];
     res.json([...praises].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)));
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/praise-categories', async (req, res) => {
+  try {
+    res.json((await readData('praiseCategories')) || []);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
