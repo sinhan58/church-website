@@ -49,14 +49,18 @@ router.get('/sermon-poster/:videoId', async (req, res) => {
 
     const posters = (await readData('sermonPosters')) || {};
     const cached = posters[videoId];
+    // 이 주소(래퍼) 자체는 브라우저가 마음대로 오래 캐싱하지 않도록 항상 no-cache로 표시합니다.
+    // 실제 이미지 파일은 재생성될 때마다 고유한 파일명으로 저장되므로, 그 주소는 안전하게
+    // 오래 캐싱돼도 됩니다. (예전엔 여기서 이미지를 직접 보내면서 1년짜리 캐시를 걸어버려서,
+    // 서버에서 새로 만들어도 브라우저가 계속 예전 이미지를 쓰는 문제가 있었습니다)
+    res.set('Cache-Control', 'no-cache');
+
     if (cached && cached.title === rawTitle && cached.url) {
       return res.redirect(cached.url);
     }
 
-    const { buffer } = await buildAndCacheSermonPoster({ videoId, rawTitle, videoIndex, uploadsDir });
-    res.set('Content-Type', 'image/jpeg');
-    res.set('Cache-Control', 'public, max-age=31536000, immutable');
-    res.send(buffer);
+    const { url } = await buildAndCacheSermonPoster({ videoId, rawTitle, videoIndex, uploadsDir });
+    return res.redirect(url);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
