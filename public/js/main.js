@@ -686,7 +686,8 @@
 
   function renderPraiseCategoryChips() {
     const wrap = $('#praise-category-chips');
-    const select = $('#praise-category-select');
+    const dialWrap = $('#praise-theme-dial-wrap');
+    const dial = $('#praise-theme-dial');
     if (!wrap) return;
     // 곡이 하나라도 있는 컨셉만 필터로 보여줍니다 (텅 빈 필터 방지)
     const usedCategoryIds = new Set();
@@ -695,7 +696,7 @@
 
     if (usable.length === 0) {
       wrap.style.display = 'none';
-      if (select) select.style.display = 'none';
+      if (dialWrap) dialWrap.style.display = 'none';
       return;
     }
     wrap.style.display = '';
@@ -711,16 +712,87 @@
       chip.addEventListener('click', () => applyPraiseCategoryFilter(chip.dataset.id || null, chip.textContent));
     });
 
-    // 모바일: 옆으로 길게 늘어지는 칩 대신 한 줄짜리 드롭다운으로 대체
-    if (select) {
-      select.style.display = '';
-      select.innerHTML = options.map((c) => `<option value="${c.id || ''}">${escapeHtml(c.name)}</option>`).join('');
-      select.value = activePraiseCategory || '';
-      select.onchange = () => {
-        const chosen = options.find((c) => (c.id || '') === select.value);
-        applyPraiseCategoryFilter(select.value || null, chosen ? chosen.name : '전체');
-      };
+    // 모바일: 아이폰 피커처럼, 돌리다가 가운데에 딱 맞는 순간 자동으로 선택됩니다.
+    if (dial) {
+      dialWrap.style.display = '';
+      dial.innerHTML = options
+        .map(
+          (c, i) => `<span class="praise-theme-cell${activePraiseCategory === c.id ? ' is-active' : ''}" data-id="${c.id || ''}" data-index="${i}">${escapeHtml(c.name)}</span>`
+        )
+        .join('');
+      setupPraiseThemeDial(dial, options);
     }
+  }
+
+  // 스크롤이 멈출 때마다(빙글빙글 도는 도중이 아니라 딱 멈춘 순간), 화면 정가운데에
+  // 가장 가까운 테마를 찾아서 자동으로 선택합니다. 탭이 따로 필요 없습니다.
+  function setupPraiseThemeDial(dial, options) {
+    let settleTimer = null;
+
+    function findCenteredCell() {
+      const dialRect = dial.getBoundingClientRect();
+      const centerX = dialRect.left + dialRect.width / 2;
+      let closest = null;
+      let closestDist = Infinity;
+      $$('.praise-theme-cell', dial).forEach((cell) => {
+        const r = cell.getBoundingClientRect();
+        const cellCenter = r.left + r.width / 2;
+        const dist = Math.abs(cellCenter - centerX);
+        if (dist < closestDist) {
+          closestDist = dist;
+          closest = cell;
+        }
+      });
+      return closest;
+    }
+
+    function highlightOnly(cell) {
+      $$('.praise-theme-cell', dial).forEach((c) => c.classList.toggle('is-active', c === cell));
+    }
+
+    function onSettle() {
+      const cell = findCenteredCell();
+      if (!cell) return;
+      highlightOnly(cell);
+      const id = cell.dataset.id || null;
+      if (id !== activePraiseCategory) {
+        const opt = options[Number(cell.dataset.index)];
+        applyPraiseCategoryFilterFromDial(id, opt ? opt.name : '전체');
+      }
+    }
+
+    // 스크롤 도중엔 하이라이트만 실시간으로 옮겨주고(뭐가 가운데 올지 미리 보여줌),
+    // 실제 필터 적용은 스크롤이 완전히 멈췄을 때 한 번만 합니다.
+    dial.addEventListener('scroll', () => {
+      const cell = findCenteredCell();
+      if (cell) highlightOnly(cell);
+      clearTimeout(settleTimer);
+      settleTimer = setTimeout(onSettle, 120);
+    });
+
+    // 처음 진입 시, 현재 선택된 테마(또는 '전체')를 가운데로 맞춰둡니다.
+    requestAnimationFrame(() => {
+      const target = $(`.praise-theme-cell[data-id="${activePraiseCategory || ''}"]`, dial);
+      if (target) target.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'instant' });
+    });
+  }
+
+  // 다이얼에서 선택되면(탭 없이) 칩·필터를 함께 동기화합니다.
+  function applyPraiseCategoryFilterFromDial(categoryId, categoryName) {
+    activePraiseCategory = categoryId;
+    if (activePraiseCategory) {
+      track('click', {
+        label: 'praise_category_filter',
+        itemType: 'praise_category',
+        itemId: activePraiseCategory,
+        itemTitle: categoryName
+      });
+    }
+    $$('.praise-chip').forEach((c) => c.classList.toggle('active', (c.dataset.id || null) === categoryId));
+    const filtered = activePraiseCategory
+      ? allPraises.filter((p) => (p.categoryIds || []).includes(activePraiseCategory))
+      : allPraises;
+    renderPraiseCards(filtered);
   }
 
   function applyPraiseCategoryFilter(categoryId, categoryName) {
@@ -734,8 +806,14 @@
       });
     }
     $$('.praise-chip').forEach((c) => c.classList.toggle('active', (c.dataset.id || null) === categoryId));
-    const select = $('#praise-category-select');
-    if (select) select.value = categoryId || '';
+    const dial = $('#praise-theme-dial');
+    if (dial) {
+      const target = $(`.praise-theme-cell[data-id="${categoryId || ''}"]`, dial);
+      if (target) {
+        $$('.praise-theme-cell', dial).forEach((c) => c.classList.toggle('is-active', c === target));
+        target.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+      }
+    }
     const filtered = activePraiseCategory
       ? allPraises.filter((p) => (p.categoryIds || []).includes(activePraiseCategory))
       : allPraises;
