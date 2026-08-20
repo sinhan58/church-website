@@ -18,7 +18,7 @@ try {
 const { readData, writeData, makeId, saveUploadedFile } = require('../utils/db');
 const { requireAuth, requireMainAdmin, requirePermission } = require('../middleware/auth');
 const { updateSermonsCache, getCachedSermons } = require('../utils/youtube');
-const { pregenerateMissingSermonPosters } = require('../utils/sermonPoster');
+const { pregenerateMissingSermonPosters, listBuiltinPhotoFilenames } = require('../utils/sermonPoster');
 const { sendToAll } = require('../utils/push');
 
 const uploadsDir = path.join(__dirname, '..', 'public', 'uploads');
@@ -504,6 +504,14 @@ router.post('/sermons/refresh', requirePermission('sermons'), async (req, res) =
 
 // 설교 카드(목사님 사진+제목 자동합성 이미지) 캐시를 비웁니다.
 // 디자인을 바꿨거나, 예전에 문제가 있던 채로 저장된 카드를 강제로 다시 만들고 싶을 때 사용합니다.
+router.get('/sermon-photo-files', requirePermission('sermons'), async (req, res) => {
+  try {
+    res.json(listBuiltinPhotoFilenames());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.delete('/sermon-posters', requirePermission('sermons'), async (req, res) => {
   try {
     await writeData('sermonPosters', {});
