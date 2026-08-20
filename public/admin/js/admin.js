@@ -2522,15 +2522,25 @@
         api('/api/admin/sermon-photo-files'),
         Promise.resolve(currentSite || (await api('/api/admin/site')))
       ]);
-      files.forEach((f) => {
+      if (!files || files.length === 0) {
         const opt = document.createElement('option');
-        opt.value = f;
-        opt.textContent = f;
+        opt.disabled = true;
+        opt.textContent = '(utils/assets/sermon-card-photos 폴더에서 사진을 찾지 못했습니다)';
         select.appendChild(opt);
-      });
+      } else {
+        files.forEach((f) => {
+          const opt = document.createElement('option');
+          opt.value = f;
+          opt.textContent = f;
+          select.appendChild(opt);
+        });
+      }
       select.value = (site && site.sermonPhotoOverride) || '';
     } catch (err) {
-      // 목록을 못 가져와도 폼 자체는 쓸 수 있게 조용히 넘어감
+      const opt = document.createElement('option');
+      opt.disabled = true;
+      opt.textContent = '목록을 불러오지 못했습니다: ' + err.message;
+      select.appendChild(opt);
     }
 
     $('#sermon-photo-override-save-btn').addEventListener('click', async () => {
