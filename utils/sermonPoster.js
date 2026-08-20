@@ -137,7 +137,6 @@ function buildTextSvg({ title, verseRef, pastorName, churchName }) {
     <line x1="${textX}" y1="${lineY}" x2="${textX + 280}" y2="${lineY}" stroke="#ffffff" stroke-opacity="0.3" stroke-width="1"/>
     ${churchSvg}
     ${pastorSvg}
-    <rect x="14" y="14" width="${W - 28}" height="${H - 28}" fill="none" stroke="${GOLD}" stroke-width="2" opacity="0.9"/>
   </svg>`;
 }
 
