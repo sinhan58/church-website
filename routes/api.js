@@ -327,4 +327,16 @@ router.get('/praise-categories', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+router.get('/sermon-categories', async (req, res) => {
+  try {
+    res.json((await readData('sermonCategories')) || []);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/sermon-category-tags', async (req, res) => {
+  try {
+    res.json((await readData('sermonCategoryTags')) || {});
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 module.exports = router;
