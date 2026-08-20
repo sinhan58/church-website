@@ -785,12 +785,15 @@
     setupMenuEditor();
     setupPostEditor();
     setupSermonRefresh();
+    setupSermonCuration();
     setupAccountPanel();
     setupQtEditor();
     setupQtPasteParser();
     loadQtList();
     setupQtBackgroundEditor();
     setupPraiseEditor();
+    loadPraiseCategories();
+    setupPraiseCategoryManagement();
     loadPraiseList();
     setupMissionEditor();
     loadMissionList();
@@ -1541,6 +1544,82 @@
   // ---------------- 찬양 ----------------
   let currentPraiseList = [];
   let editingPraiseId = null;
+  let praiseCategories = [];
+
+  // ---------------- 찬양 컨셉(카테고리) ----------------
+  async function loadPraiseCategories() {
+    praiseCategories = await api('/api/admin/praise-categories');
+    renderPraiseCategoryChecks();
+    renderPraiseCategoryManageList();
+  }
+
+  function renderPraiseCategoryChecks(selectedIds = []) {
+    const wrap = $('#praise-category-checks');
+    if (!wrap) return;
+    if (praiseCategories.length === 0) {
+      wrap.innerHTML = `<p class="hint" style="margin:0;">아직 컨셉이 없습니다. 아래 "찬양 컨셉 관리"에서 먼저 만들어주세요.</p>`;
+      return;
+    }
+    wrap.innerHTML = praiseCategories
+      .map(
+        (c) => `
+        <label>
+          <input type="checkbox" class="praise-category-check" value="${c.id}" ${selectedIds.includes(c.id) ? 'checked' : ''} />
+          ${escapeHtml(c.name)}
+        </label>`
+      )
+      .join('');
+  }
+
+  function getCheckedCategoryIds() {
+    return $$('.praise-category-check').filter((cb) => cb.checked).map((cb) => cb.value);
+  }
+
+  function renderPraiseCategoryManageList() {
+    const wrap = $('#praise-category-list');
+    if (!wrap) return;
+    if (praiseCategories.length === 0) {
+      wrap.innerHTML = `<p class="hint" style="margin:0;">아직 만들어진 컨셉이 없습니다.</p>`;
+      return;
+    }
+    wrap.innerHTML = praiseCategories
+      .map(
+        (c) => `
+        <span class="badge" style="display:inline-flex; align-items:center; gap:6px;">
+          ${escapeHtml(c.name)}
+          <button type="button" class="praise-category-delete" data-id="${c.id}" style="background:none; border:none; color:inherit; cursor:pointer; font-size:0.9em;">×</button>
+        </span>`
+      )
+      .join('');
+    $$('.praise-category-delete', wrap).forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('이 컨셉을 삭제할까요? (이 컨셉이 붙어있던 찬양에서도 태그가 빠집니다)')) return;
+        try {
+          await api(`/api/admin/praise-categories/${btn.dataset.id}`, { method: 'DELETE' });
+          await loadPraiseCategories();
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+    });
+  }
+
+  function setupPraiseCategoryManagement() {
+    const addBtn = $('#praise-category-add-btn');
+    if (!addBtn) return;
+    addBtn.addEventListener('click', async () => {
+      const input = $('#praise-category-new-input');
+      const name = input.value.trim();
+      if (!name) return alert('컨셉 이름을 입력해주세요.');
+      try {
+        await api('/api/admin/praise-categories', { method: 'POST', body: JSON.stringify({ name }) });
+        input.value = '';
+        await loadPraiseCategories();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  }
 
   async function loadPraiseList() {
     const list = await api('/api/admin/praises');
@@ -1596,6 +1675,7 @@
     $('#praise-title').value = '';
     $('#praise-singer').value = '';
     $('#praise-youtubeUrl').value = '';
+    renderPraiseCategoryChecks([]);
   }
 
   function loadPraiseIntoForm(item) {
@@ -1606,6 +1686,7 @@
     $('#praise-title').value = item.title || '';
     $('#praise-singer').value = item.singer || '';
     $('#praise-youtubeUrl').value = item.youtubeId ? `https://www.youtube.com/watch?v=${item.youtubeId}` : '';
+    renderPraiseCategoryChecks(item.categoryIds || []);
     $('#panel-praise').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
@@ -1624,7 +1705,8 @@
       const payload = {
         title,
         singer: $('#praise-singer').value.trim(),
-        youtubeUrl
+        youtubeUrl,
+        categoryIds: getCheckedCategoryIds()
       };
 
       const statusEl = $('#praise-save-status');
@@ -2067,8 +2149,104 @@
       .join('');
   }
 
+  // itemClicks[day][itemType][itemId] = { count, title } 구조를 최근 N일 합산해서
+  // [{ itemId, title, count }] 형태로 많이 눌린 순으로 정렬해 돌려줍니다.
+  function aggregateItemClicks(itemClicksByDay, itemType, days) {
+    const today = new Date();
+    const totals = {};
+    for (let i = 0; i < days; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      const dayData = (itemClicksByDay[key] && itemClicksByDay[key][itemType]) || {};
+      Object.entries(dayData).forEach(([itemId, info]) => {
+        if (!totals[itemId]) totals[itemId] = { itemId, title: info.title, count: 0 };
+        totals[itemId].count += info.count;
+        if (info.title) totals[itemId].title = info.title;
+      });
+    }
+    return Object.values(totals).sort((a, b) => b.count - a.count);
+  }
+
+  // timeSpent[day][path] = { totalSeconds, sessions } 구조를 최근 N일 합산해서
+  // 페이지별 '평균 체류시간'을 계산합니다.
+  function aggregateTimeSpent(timeSpentByDay, days) {
+    const today = new Date();
+    const totals = {};
+    for (let i = 0; i < days; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      const dayData = timeSpentByDay[key] || {};
+      Object.entries(dayData).forEach(([path, info]) => {
+        if (!totals[path]) totals[path] = { totalSeconds: 0, sessions: 0 };
+        totals[path].totalSeconds += info.totalSeconds;
+        totals[path].sessions += info.sessions;
+      });
+    }
+    return Object.entries(totals)
+      .map(([path, info]) => ({
+        path,
+        avgSeconds: info.sessions > 0 ? Math.round(info.totalSeconds / info.sessions) : 0,
+        sessions: info.sessions
+      }))
+      .sort((a, b) => b.sessions - a.sessions);
+  }
+
+  function formatSeconds(sec) {
+    if (sec < 60) return `${sec}초`;
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return s > 0 ? `${m}분 ${s}초` : `${m}분`;
+  }
+
+  function renderItemRankList(container, entries, emptyMessage) {
+    if (!entries || entries.length === 0) {
+      container.innerHTML = `<p class="hint">${emptyMessage}</p>`;
+      return;
+    }
+    const max = entries[0].count || 1;
+    container.innerHTML = entries
+      .slice(0, 10)
+      .map(
+        (e) => `
+        <div class="stats-bar-row">
+          <span class="stats-bar-label" title="${escapeHtml(e.title || e.itemId)}">${escapeHtml(e.title || e.itemId)}</span>
+          <div class="stats-bar-track"><div class="stats-bar-fill" style="width:${Math.max(6, Math.round((e.count / max) * 100))}%"></div></div>
+          <span class="stats-bar-count">${e.count}</span>
+        </div>`
+      )
+      .join('');
+  }
+
+
+  // deviceStats[day][device] = { pageviews, timeSpentSeconds, timeSpentSessions } 를
+  // 최근 N일 합산해서 PC/모바일 비율과 평균 체류시간을 계산합니다.
+  function aggregateDeviceStats(deviceStatsByDay, days) {
+    const today = new Date();
+    const totals = { desktop: { pageviews: 0, timeSpentSeconds: 0, timeSpentSessions: 0 }, mobile: { pageviews: 0, timeSpentSeconds: 0, timeSpentSessions: 0 } };
+    for (let i = 0; i < days; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      const dayData = deviceStatsByDay[key];
+      if (!dayData) continue;
+      ['desktop', 'mobile'].forEach((dev) => {
+        if (!dayData[dev]) return;
+        totals[dev].pageviews += dayData[dev].pageviews || 0;
+        totals[dev].timeSpentSeconds += dayData[dev].timeSpentSeconds || 0;
+        totals[dev].timeSpentSessions += dayData[dev].timeSpentSessions || 0;
+      });
+    }
+    return totals;
+  }
+
   async function loadStats() {
-    const [stats, qtList] = await Promise.all([api('/api/admin/stats'), api('/api/admin/qt')]);
+    const [stats, qtList, praiseCategoryList] = await Promise.all([
+      api('/api/admin/stats'),
+      api('/api/admin/qt'),
+      api('/api/admin/praise-categories')
+    ]);
     const qtTitleById = {};
     qtList.forEach((q) => (qtTitleById['/qt/' + q.id] = q.title));
     const pageLabelMap = { '/': '홈페이지', ...qtTitleById };
@@ -2082,8 +2260,50 @@
       <div class="stat-card"><div class="num">${last7}</div><div class="label">최근 7일</div></div>
       <div class="stat-card"><div class="num">${last30}</div><div class="label">최근 30일</div></div>`;
 
+    // ---- 기기별(PC/모바일) 방문 현황 ----
+    const deviceTotals = aggregateDeviceStats(stats.deviceStats || {}, 7);
+    const totalDeviceViews = deviceTotals.desktop.pageviews + deviceTotals.mobile.pageviews;
+    const mobilePct = totalDeviceViews > 0 ? Math.round((deviceTotals.mobile.pageviews / totalDeviceViews) * 100) : 0;
+    const desktopAvgSec = deviceTotals.desktop.timeSpentSessions > 0
+      ? Math.round(deviceTotals.desktop.timeSpentSeconds / deviceTotals.desktop.timeSpentSessions)
+      : 0;
+    const mobileAvgSec = deviceTotals.mobile.timeSpentSessions > 0
+      ? Math.round(deviceTotals.mobile.timeSpentSeconds / deviceTotals.mobile.timeSpentSessions)
+      : 0;
+    $('#stats-device-cards').innerHTML = `
+      <div class="stat-card"><div class="num">${deviceTotals.desktop.pageviews}</div><div class="label">PC 방문 (평균 ${formatSeconds(desktopAvgSec)})</div></div>
+      <div class="stat-card"><div class="num">${deviceTotals.mobile.pageviews}</div><div class="label">모바일 방문 (평균 ${formatSeconds(mobileAvgSec)})</div></div>
+      <div class="stat-card"><div class="num">${mobilePct}%</div><div class="label">모바일 비율</div></div>`;
+
     renderBarList($('#stats-click-list'), aggregateByLabel(stats.clicks, 7), CLICK_LABELS);
     renderBarList($('#stats-page-list'), aggregateByLabel(stats.pageviews, 7), pageLabelMap);
+
+    // ---- 항목별(콘텐츠 하나하나) 인기 순위 ----
+    const itemClicks = stats.itemClicks || {};
+    renderItemRankList($('#stats-sermon-list'), aggregateItemClicks(itemClicks, 'sermon', 30), '아직 데이터가 없습니다.');
+    renderItemRankList($('#stats-praise-list'), aggregateItemClicks(itemClicks, 'praise', 30), '아직 데이터가 없습니다.');
+    renderItemRankList($('#stats-qt-list'), aggregateItemClicks(itemClicks, 'qt', 30), '아직 데이터가 없습니다.');
+    renderItemRankList($('#stats-board-list'), aggregateItemClicks(itemClicks, 'board', 30), '아직 데이터가 없습니다.');
+
+    // 컨셉(카테고리) 필터는 이름표를 붙여서 보여줌
+    const categoryNameById = {};
+    (praiseCategoryList || []).forEach((c) => (categoryNameById[c.id] = c.name));
+    const categoryClicks = aggregateItemClicks(itemClicks, 'praise_category', 30).map((e) => ({
+      ...e,
+      title: categoryNameById[e.itemId] || e.title || e.itemId
+    }));
+    renderItemRankList($('#stats-praise-category-list'), categoryClicks, '아직 데이터가 없습니다.');
+
+    // ---- 페이지별 평균 체류시간 ----
+    const timeSpentEl = $('#stats-timespent-list');
+    if (timeSpentEl) {
+      const timeSpent = aggregateTimeSpent(stats.timeSpent || {}, 7).map((e) => ({
+        itemId: e.path,
+        title: `${pageLabelMap[e.path] || e.path} (평균 ${formatSeconds(e.avgSeconds)})`,
+        count: e.sessions
+      }));
+      renderItemRankList(timeSpentEl, timeSpent, '아직 데이터가 없습니다.');
+    }
   }
 
   // ---------------- 기부금 영수증 신청 관리 ----------------
@@ -2151,9 +2371,65 @@
         <div class="sermon-preview-item">
           <img src="${v.thumbnail}" alt="${escapeAttr(v.title)}" />
           <div class="t">${escapeHtml(v.title)}</div>
+          <button type="button" class="btn-secondary sermon-curate-btn" data-video-id="${escapeAttr(v.videoId)}" data-title="${escapeAttr(v.title)}" style="margin:6px 8px 8px;">이 영상으로 지정</button>
         </div>`
       )
       .join('');
+    bindSermonCurateButtons();
+    renderCurationStatus();
+  }
+
+  // ---------------- 큐레이션 설교 ----------------
+  function renderCurationStatus() {
+    const el = $('#sermon-curation-current');
+    if (!el) return;
+    const curation = currentSite && currentSite.sermonCuration;
+    if (curation && curation.videoId) {
+      el.textContent = `현재 지정: "${curation.label || '(문구 없음)'}" — ${curation.videoTitle || curation.videoId}`;
+    } else {
+      el.textContent = '아직 지정된 큐레이션 설교가 없습니다.';
+    }
+  }
+
+  function bindSermonCurateButtons() {
+    $$('.sermon-curate-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const label = $('#sermon-curation-label-input').value.trim();
+        if (!label) return alert('먼저 표시할 문구를 입력해주세요. (예: 다시 듣고 싶은 설교)');
+        const statusEl = $('#sermon-curation-status');
+        statusEl.textContent = '저장 중...';
+        try {
+          const sermonCuration = { videoId: btn.dataset.videoId, videoTitle: btn.dataset.title, label };
+          await api('/api/admin/site', { method: 'PUT', body: JSON.stringify({ sermonCuration }) });
+          if (currentSite) currentSite.sermonCuration = sermonCuration;
+          renderCurationStatus();
+          statusEl.textContent = '저장 완료 ✓';
+          setTimeout(() => (statusEl.textContent = ''), 2500);
+        } catch (err) {
+          statusEl.textContent = '저장 실패: ' + err.message;
+        }
+      });
+    });
+  }
+
+  function setupSermonCuration() {
+    const clearBtn = $('#sermon-curation-clear-btn');
+    if (!clearBtn) return;
+    renderCurationStatus();
+    clearBtn.addEventListener('click', async () => {
+      if (!confirm('큐레이션 지정을 해제할까요?')) return;
+      const statusEl = $('#sermon-curation-status');
+      try {
+        await api('/api/admin/site', { method: 'PUT', body: JSON.stringify({ sermonCuration: null }) });
+        if (currentSite) currentSite.sermonCuration = null;
+        $('#sermon-curation-label-input').value = '';
+        renderCurationStatus();
+        statusEl.textContent = '해제 완료 ✓';
+        setTimeout(() => (statusEl.textContent = ''), 2500);
+      } catch (err) {
+        statusEl.textContent = '해제 실패: ' + err.message;
+      }
+    });
   }
 
   function setupSermonRefresh() {
