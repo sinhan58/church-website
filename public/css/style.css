@@ -786,11 +786,12 @@ button { font-family: inherit; cursor: pointer; }
     display: grid;
     grid-auto-flow: column;
     grid-template-rows: repeat(2, auto);
-    grid-auto-columns: calc(50% - 8px);
+    grid-auto-columns: calc(44% - 8px); /* 다음 곡이 살짝 삐져나와 보이게(더 있다는 신호) */
     gap: 16px;
     overflow-x: auto;
-    scroll-snap-type: x mandatory;
+    scroll-snap-type: x proximity;
     scroll-behavior: smooth;
+    overscroll-behavior-x: contain;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
   }
@@ -799,6 +800,27 @@ button { font-family: inherit; cursor: pointer; }
 }
 @media (max-width: 560px) {
   .praise-grid { gap: 12px; }
+}
+
+.praise-scroll-fade { display: none; }
+.praise-swipe-hint { display: none; }
+@media (max-width: 900px) {
+  /* 오른쪽 끝이 은은하게 옅어지면서, 아직 더 있다는 걸 시각적으로 알려줍니다 */
+  .praise-scroll-fade {
+    display: block;
+    position: absolute;
+    top: 0; right: 0; bottom: 0;
+    width: 36px;
+    background: linear-gradient(90deg, rgba(240,235,223,0), var(--ivory-dim));
+    pointer-events: none;
+  }
+  .praise-swipe-hint {
+    display: block;
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.8rem;
+    margin-top: 8px;
+  }
 }
 
 /* ---------------- Board (소식·활동) ---------------- */
@@ -1921,4 +1943,3 @@ a:focus-visible, button:focus-visible {
   white-space: nowrap;
 }
 .missions-partners-page { text-align: center; font-size: 10.5px; color: var(--muted); margin: 10px 0 0; }
-
