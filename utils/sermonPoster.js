@@ -161,7 +161,7 @@ function buildTextSvg({ title, verseRef, pastorName, churchName }) {
 // 글자가 항상 잘 읽히도록, 왼쪽 텍스트 구역에만 어두운 그라데이션을 얹습니다
 // (사진이 밝든 어둡든 상관없이 대비를 보장).
 function buildDarkenOverlaySvg() {
-  const endX = (W - PHOTO_W) + BLEND_W;
+  const endX = W - PHOTO_W; // 사진이 시작되는 지점까지만 (사진 쪽과 겹치지 않게)
   return `
   <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
     <defs>
@@ -294,20 +294,18 @@ async function generateSermonPoster({
     //    마스크를 씌워서 경계 없이 배경 속으로 스며들게 합니다.
     //    (반드시 PNG로 변환해야 합니다 - JPEG는 투명도를 표현할 수 없어서, 그대로 두면
     //    페더 마스크가 적용되지 않고 사진 전체가 흐려 보이는 원인이 됩니다)
-    const sharpPhotoPng = await sharp(photoBuffer)
+    // 사진을 한 번만 잘라서(기준 프레이밍 통일), 선명한 버전과 흐린 버전을 그 결과에서
+    // 함께 파생시킵니다. 따로따로 자르면 자동 구도 인식이 버전마다 미세하게 달라져
+    // 경계가 어긋나 보일 수 있어 이렇게 통일합니다.
+    const croppedBase = await sharp(photoBuffer)
       .resize({ width: PHOTO_W, height: H, fit: 'cover', position: 'attention' })
-      .ensureAlpha()
-      .png()
       .toBuffer();
+
+    const sharpPhotoPng = await sharp(croppedBase).ensureAlpha().png().toBuffer();
 
     // 경계 구간에서 사진 자체를 점점 흐리게 만듭니다 (돌벽 같은 결이 있는 사진도
     // 무늬가 갑자기 끊기지 않고 선명도부터 서서히 사라지도록).
-    const softenedCrop = await sharp(photoBuffer)
-      .resize({ width: PHOTO_W, height: H, fit: 'cover', position: 'attention' })
-      .blur(22)
-      .ensureAlpha()
-      .png()
-      .toBuffer();
+    const softenedCrop = await sharp(croppedBase).blur(22).ensureAlpha().png().toBuffer();
     const softenedRevealed = await sharp(softenedCrop)
       .composite([{ input: Buffer.from(buildBlurRevealMaskSvg()), blend: 'dest-in' }])
       .png()
