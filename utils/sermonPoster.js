@@ -36,9 +36,21 @@ try {
 const sharp = require('sharp');
 
 const PHOTOS_DIR = path.join(__dirname, 'assets', 'sermon-card-photos');
-const BUILTIN_PHOTOS = ['pastor-1.png', 'pastor-2.png', 'pastor-3.png']
-  .map((f) => path.join(PHOTOS_DIR, f))
-  .filter((p) => fs.existsSync(p));
+
+// 이 폴더 안에 있는 사진 파일을 이름 상관없이 전부 자동으로 찾아서 씁니다.
+// (예전엔 pastor-1.png/2.png/3.png처럼 정해진 이름만 인식했는데, 이제는 폴더에
+// 사진을 넣기만 하면 파일명에 관계없이 자동으로 순환 목록에 추가됩니다)
+const BUILTIN_PHOTOS = (() => {
+  try {
+    return fs
+      .readdirSync(PHOTOS_DIR)
+      .filter((f) => /\.(png|jpe?g|webp)$/i.test(f))
+      .sort()
+      .map((f) => path.join(PHOTOS_DIR, f));
+  } catch (err) {
+    return [];
+  }
+})();
 
 const W = 1200;
 const H = 675;
