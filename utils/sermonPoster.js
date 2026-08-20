@@ -175,12 +175,14 @@ function buildDarkenOverlaySvg() {
         <stop offset="55%" stop-color="#3a1a55" stop-opacity="0.38"/>
         <stop offset="100%" stop-color="#14213d" stop-opacity="0.5"/>
       </linearGradient>
+      <filter id="softGlow"><feGaussianBlur stdDeviation="70"/></filter>
     </defs>
     <!-- 어둡게(가독성) + 보라·남색 다이내믹 믹싱(색감), 둘 다 반투명이라 사진 결이 은은하게 비칩니다 -->
     <rect x="${startX}" y="0" width="${W - startX}" height="${H}" fill="url(#darken)"/>
     <rect x="${startX}" y="0" width="${W - startX}" height="${H}" fill="url(#colorMix)"/>
-    <polygon points="${W - 260},0 ${W},0 ${W},${H * 0.5}" fill="${GOLD}" opacity="0.09"/>
-    <polygon points="${startX + 30},${H} ${startX + 300},${H} ${startX + 110},${H * 0.4}" fill="${GOLD}" opacity="0.07"/>
+    <!-- 각진 도형 대신, 경계 없는 부드러운 빛 번짐으로 다이내믹함을 더합니다 (딱딱한 선 방지) -->
+    <circle cx="${W - 120}" cy="90" r="180" fill="${GOLD}" opacity="0.10" filter="url(#softGlow)"/>
+    <circle cx="${startX + 160}" cy="${H - 60}" r="160" fill="${GOLD}" opacity="0.08" filter="url(#softGlow)"/>
   </svg>`;
 }
 
