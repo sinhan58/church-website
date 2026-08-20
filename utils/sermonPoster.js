@@ -220,6 +220,23 @@ function buildPhotoDarkenGradientSvg() {
   </svg>`;
 }
 
+// 돌벽 같은 "결이 있는" 사진은 밝기·투명도만 줄여도 무늬 자체가 경계처럼 보일 수 있습니다.
+// 경계 구간에서 흐린 버전을 겹쳐 씌워서, 선명도 자체도 함께 서서히 사라지게 합니다.
+function buildBlurRevealMaskSvg() {
+  const fadeEnd = Math.round((Math.min(BLEND_W * 1.15, PHOTO_W) / PHOTO_W) * 100);
+  return `
+  <svg width="${PHOTO_W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="blurReveal" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="white" stop-opacity="1"/>
+        <stop offset="${fadeEnd}%" stop-color="white" stop-opacity="0"/>
+        <stop offset="100%" stop-color="white" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <rect width="${PHOTO_W}" height="${H}" fill="url(#blurReveal)"/>
+  </svg>`;
+}
+
 /**
  * "이번 주일 설교" 히어로 카드 포스터 이미지(PNG/JPEG 버퍼)를 생성합니다.
  * 사람을 오려내지 않고, 사진 전체를 왼쪽 영역에 꽉 채워(cover) 넣습니다.
@@ -282,8 +299,27 @@ async function generateSermonPoster({
       .ensureAlpha()
       .png()
       .toBuffer();
-    // 밝기를 먼저 서서히 줄이고, 그다음 투명도를 서서히 줄입니다 (순서가 중요합니다).
-    const darkenedPhoto = await sharp(sharpPhotoPng)
+
+    // 경계 구간에서 사진 자체를 점점 흐리게 만듭니다 (돌벽 같은 결이 있는 사진도
+    // 무늬가 갑자기 끊기지 않고 선명도부터 서서히 사라지도록).
+    const softenedCrop = await sharp(photoBuffer)
+      .resize({ width: PHOTO_W, height: H, fit: 'cover', position: 'attention' })
+      .blur(22)
+      .ensureAlpha()
+      .png()
+      .toBuffer();
+    const softenedRevealed = await sharp(softenedCrop)
+      .composite([{ input: Buffer.from(buildBlurRevealMaskSvg()), blend: 'dest-in' }])
+      .png()
+      .toBuffer();
+    const softEdgedPhoto = await sharp(sharpPhotoPng)
+      .composite([{ input: softenedRevealed }])
+      .png()
+      .toBuffer();
+
+    // 밝기를 서서히 줄이고, 그다음 투명도를 서서히 줄입니다 (선명도 → 밝기 → 투명도 순서로
+    // 세 단계가 겹쳐지며 훨씬 부드럽게 배경 속으로 스며듭니다).
+    const darkenedPhoto = await sharp(softEdgedPhoto)
       .composite([{ input: Buffer.from(buildPhotoDarkenGradientSvg()) }])
       .png()
       .toBuffer();
