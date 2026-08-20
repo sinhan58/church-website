@@ -665,7 +665,7 @@
       return;
     }
 
-    const displayList = pool.slice(0, 6);
+    const displayList = pool.slice(0, 4);
     const categoryNameById = {};
     sermonCategoryList.forEach((c) => (categoryNameById[c.id] = c.name));
 
@@ -678,7 +678,6 @@
           .join('');
         return `
         <a href="#" class="sermon-list-row" data-video-id="${escapeHtml(v.videoId)}" data-title="${escapeHtml(v.title || '')}">
-          <span class="sermon-list-bg" style="background-image:url('${escapeHtml(v.thumbnail)}');"></span>
           ${badgesHtml ? `<span class="badges">${badgesHtml}</span>` : ''}
           <p class="title">${escapeHtml(title || v.title || '')}</p>
           ${verseRef ? `<p class="verse">${escapeHtml(verseRef)}</p>` : ''}
