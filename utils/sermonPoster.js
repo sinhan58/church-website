@@ -190,19 +190,18 @@ function buildDarkenOverlaySvg() {
   <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient id="darken" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="${endX}" y2="0">
-        ${easedOpacityStops('#000000', 0.58, 0, 10).split('/>').join('/>\n        ')}
+        ${easedOpacityStops('#000000', 0.5, 0.15, 10).split('/>').join('/>\n        ')}
       </linearGradient>
-      <linearGradient id="colorMix" gradientUnits="userSpaceOnUse" x1="0" y1="${H}" x2="${endX}" y2="0">
-        ${easedOpacityStops('#3a1a55', 0.46, 0, 10).split('/>').join('/>\n        ')}
+      <!-- 보라(왼쪽, 제목 쪽) -> 청록(오른쪽, 사진 쪽) 대각선 그라데이션 -->
+      <linearGradient id="colorMix" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="${endX}" y2="${H}">
+        <stop offset="0%" stop-color="#2d1b4e"/>
+        <stop offset="45%" stop-color="#6b2d8f"/>
+        <stop offset="100%" stop-color="#0f9aa8"/>
       </linearGradient>
-      <filter id="softGlow"><feGaussianBlur stdDeviation="70"/></filter>
     </defs>
-    <!-- 어둡게(가독성) + 보라·남색 다이내믹 믹싱(색감), 둘 다 반투명이라 사진 결이 은은하게 비칩니다 -->
-    <rect x="0" y="0" width="${endX}" height="${H}" fill="url(#darken)"/>
+    <!-- 보라·청록 다이내믹 믹싱을 배경색으로 깔고, 그 위에 검정 그라데이션으로 글자 가독성을 보장합니다 -->
     <rect x="0" y="0" width="${endX}" height="${H}" fill="url(#colorMix)"/>
-    <!-- 각진 도형 대신, 경계 없는 부드러운 빛 번짐으로 다이내믹함을 더합니다 (딱딱한 선 방지) -->
-    <circle cx="120" cy="90" r="180" fill="${GOLD}" opacity="0.10" filter="url(#softGlow)"/>
-    <circle cx="${endX - 160}" cy="${H - 60}" r="160" fill="${GOLD}" opacity="0.08" filter="url(#softGlow)"/>
+    <rect x="0" y="0" width="${endX}" height="${H}" fill="url(#darken)"/>
   </svg>`;
 }
 
