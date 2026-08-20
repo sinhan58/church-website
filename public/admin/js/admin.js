@@ -785,7 +785,6 @@
     setupMenuEditor();
     setupPostEditor();
     setupSermonRefresh();
-    setupSermonCuration();
     setupSermonCategoryManagement();
     setupAccountPanel();
     setupQtEditor();
@@ -2476,21 +2475,15 @@
         <div class="sermon-preview-item">
           <img src="${v.thumbnail}" alt="${escapeAttr(v.title)}" />
           <div class="t">${escapeHtml(v.title)}</div>
-          <div style="display:flex; gap:4px; margin:6px 8px 8px; flex-wrap:wrap;">
-            <button type="button" class="btn-secondary sermon-curate-btn" data-slot="0" data-video-id="${escapeAttr(v.videoId)}" data-title="${escapeAttr(v.title)}">2번째 자리로</button>
-            <button type="button" class="btn-secondary sermon-curate-btn" data-slot="1" data-video-id="${escapeAttr(v.videoId)}" data-title="${escapeAttr(v.title)}">3번째 자리로</button>
-          </div>
           ${sermonCategories.length > 0 ? `
-          <div class="sermon-tag-group" data-video-id="${escapeAttr(v.videoId)}" style="display:flex; flex-wrap:wrap; gap:8px; margin:0 8px 10px; padding-top:8px; border-top:1px dashed var(--line);">
+          <div class="sermon-tag-group" data-video-id="${escapeAttr(v.videoId)}" style="display:flex; flex-wrap:wrap; gap:8px; margin:8px 8px 10px; padding-top:8px; border-top:1px dashed var(--line);">
             ${checksHtml}
             <button type="button" class="btn-secondary sermon-tag-save-btn" data-video-id="${escapeAttr(v.videoId)}" style="font-size:0.78rem; padding:4px 10px;">테마 저장</button>
           </div>` : ''}
         </div>`;
       })
       .join('');
-    bindSermonCurateButtons();
     bindSermonTagSaveButtons();
-    renderCurationStatus();
   }
 
   function bindSermonTagSaveButtons() {
@@ -2517,71 +2510,7 @@
     });
   }
 
-  // ---------------- 큐레이션 설교 (2번째·3번째 자리, 각각 독립) ----------------
-  function getSermonCurations() {
-    const list = (currentSite && Array.isArray(currentSite.sermonCurations) ? currentSite.sermonCurations : []).slice();
-    while (list.length < 2) list.push(null);
-    return list;
-  }
-
-  function renderCurationStatus() {
-    const curations = getSermonCurations();
-    [0, 1].forEach((slot) => {
-      const el = $('#sermon-curation-current-' + slot);
-      if (!el) return;
-      const cur = curations[slot];
-      if (cur && cur.videoId) {
-        el.textContent = `현재 지정: "${cur.label || '(문구 없음)'}" — ${cur.videoTitle || cur.videoId}`;
-        $('#sermon-curation-label-input-' + slot).value = cur.label || '';
-      } else {
-        el.textContent = '아직 지정된 영상이 없습니다.';
-      }
-    });
-  }
-
-  async function saveSermonCuration(slot, curationOrNull) {
-    const statusEl = $('#sermon-curation-status');
-    statusEl.textContent = '저장 중...';
-    try {
-      const curations = getSermonCurations();
-      curations[slot] = curationOrNull;
-      await api('/api/admin/site', { method: 'PUT', body: JSON.stringify({ sermonCurations: curations }) });
-      if (currentSite) currentSite.sermonCurations = curations;
-      renderCurationStatus();
-      statusEl.textContent = '저장 완료 ✓';
-      setTimeout(() => (statusEl.textContent = ''), 2500);
-    } catch (err) {
-      statusEl.textContent = '저장 실패: ' + err.message;
-    }
-  }
-
-  function bindSermonCurateButtons() {
-    $$('.sermon-curate-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const slot = Number(btn.dataset.slot);
-        const label = $('#sermon-curation-label-input-' + slot).value.trim();
-        if (!label) return alert('먼저 이 자리에 표시할 문구를 입력해주세요.');
-        saveSermonCuration(slot, { videoId: btn.dataset.videoId, videoTitle: btn.dataset.title, label });
-      });
-    });
-  }
-
-  function setupSermonCuration() {
-    const clearBtn0 = $('#sermon-curation-clear-btn-0');
-    if (!clearBtn0) return;
-    renderCurationStatus();
-
-    clearBtn0.addEventListener('click', () => {
-      if (!confirm('2번째 자리 지정을 해제할까요?')) return;
-      $('#sermon-curation-label-input-0').value = '';
-      saveSermonCuration(0, null);
-    });
-    $('#sermon-curation-clear-btn-1').addEventListener('click', () => {
-      if (!confirm('3번째 자리 지정을 해제할까요?')) return;
-      $('#sermon-curation-label-input-1').value = '';
-      saveSermonCuration(1, null);
-    });
-  }
+  // ---------------- (예전 큐레이션 2슬롯 시스템은 설교 테마 태그 방식으로 대체되어 제거됨) ----------------
 
   function setupSermonRefresh() {
     $('#refresh-sermons-btn').addEventListener('click', async () => {
