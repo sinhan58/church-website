@@ -453,6 +453,7 @@ button { font-family: inherit; cursor: pointer; }
 .sermon-layout {
   display: grid;
   grid-template-columns: 1.2fr 1fr;
+  margin-top: 8px;
   background: linear-gradient(135deg, var(--navy-deep) 0%, #241a35 100%);
   border-radius: var(--radius);
   overflow: hidden;
