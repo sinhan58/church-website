@@ -587,6 +587,8 @@ button { font-family: inherit; cursor: pointer; }
 /* ---------------- Praise (찬양) ---------------- */
 .praise-category-chips {
   display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
   gap: 8px;
   overflow-x: auto;
   scrollbar-width: none;
@@ -1889,3 +1891,4 @@ a:focus-visible, button:focus-visible {
   white-space: nowrap;
 }
 .missions-partners-page { text-align: center; font-size: 10.5px; color: var(--muted); margin: 10px 0 0; }
+
