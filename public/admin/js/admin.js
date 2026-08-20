@@ -776,7 +776,7 @@
     loadSiteIntoForm();
     loadMenuList();
     loadPostList();
-    loadSermonPreview();
+    loadSermonCategories().then(() => loadSermonPreview());
     setupImageUploadFields();
     setupSermonPhotoUpload();
     setupHeroImageUpload();
@@ -786,6 +786,7 @@
     setupPostEditor();
     setupSermonRefresh();
     setupSermonCuration();
+    setupSermonCategoryManagement();
     setupAccountPanel();
     setupQtEditor();
     setupQtPasteParser();
@@ -2366,12 +2367,90 @@
   }
 
   // ---------------- 설교 영상 (유튜브) ----------------
+  let sermonCategories = [];
+  let sermonCategoryTags = {};
+
   async function loadSermonPreview() {
     const data = await api('/api/admin/sermons');
     renderSermonPreview(data);
   }
 
+  async function loadSermonCategories() {
+    [sermonCategories, sermonCategoryTags] = await Promise.all([
+      api('/api/admin/sermon-categories'),
+      api('/api/admin/sermon-category-tags')
+    ]);
+    renderSermonCategoryManageList();
+  }
+
+  function renderSermonCategoryManageList() {
+    const wrap = $('#sermon-category-list');
+    if (!wrap) return;
+    if (sermonCategories.length === 0) {
+      wrap.innerHTML = `<p class="hint" style="margin:0;">아직 만들어진 테마가 없습니다.</p>`;
+      return;
+    }
+    wrap.innerHTML = sermonCategories
+      .map(
+        (c) => `
+        <span class="badge" style="display:inline-flex; align-items:center; gap:6px;">
+          ${escapeHtml(c.name)}
+          <button type="button" class="sermon-category-edit" data-id="${c.id}" data-name="${escapeHtml(c.name)}" style="background:none; border:none; color:inherit; cursor:pointer; font-size:0.9em;" aria-label="수정">✎</button>
+          <button type="button" class="sermon-category-delete" data-id="${c.id}" style="background:none; border:none; color:inherit; cursor:pointer; font-size:0.9em;">×</button>
+        </span>`
+      )
+      .join('');
+    $$('.sermon-category-edit', wrap).forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const newName = prompt('테마 이름 수정', btn.dataset.name);
+        if (!newName || !newName.trim() || newName.trim() === btn.dataset.name) return;
+        try {
+          await api(`/api/admin/sermon-categories/${btn.dataset.id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ name: newName.trim() })
+          });
+          await loadSermonCategories();
+          renderSermonPreview(lastSermonPreviewData);
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+    });
+    $$('.sermon-category-delete', wrap).forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('이 테마를 삭제할까요? (이 테마가 붙어있던 영상에서도 태그가 빠집니다)')) return;
+        try {
+          await api(`/api/admin/sermon-categories/${btn.dataset.id}`, { method: 'DELETE' });
+          await loadSermonCategories();
+          renderSermonPreview(lastSermonPreviewData);
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+    });
+  }
+
+  function setupSermonCategoryManagement() {
+    const addBtn = $('#sermon-category-add-btn');
+    if (!addBtn) return;
+    addBtn.addEventListener('click', async () => {
+      const input = $('#sermon-category-new-input');
+      const name = input.value.trim();
+      if (!name) return alert('테마 이름을 입력해주세요.');
+      try {
+        await api('/api/admin/sermon-categories', { method: 'POST', body: JSON.stringify({ name }) });
+        input.value = '';
+        await loadSermonCategories();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  }
+
+  let lastSermonPreviewData = null;
+
   function renderSermonPreview(data) {
+    lastSermonPreviewData = data;
     $('#sermon-last-updated').textContent = data.lastUpdated
       ? `마지막 업데이트: ${new Date(data.lastUpdated).toLocaleString('ko-KR')}`
       : '아직 업데이트된 적이 없습니다.';
@@ -2382,8 +2461,18 @@
       return;
     }
     container.innerHTML = data.videos
-      .map(
-        (v) => `
+      .map((v) => {
+        const currentTags = sermonCategoryTags[v.videoId] || [];
+        const checksHtml = sermonCategories
+          .map(
+            (c) => `
+            <label style="font-size:0.78rem; display:flex; align-items:center; gap:4px;">
+              <input type="checkbox" class="sermon-tag-check" value="${c.id}" ${currentTags.includes(c.id) ? 'checked' : ''} />
+              ${escapeHtml(c.name)}
+            </label>`
+          )
+          .join('');
+        return `
         <div class="sermon-preview-item">
           <img src="${v.thumbnail}" alt="${escapeAttr(v.title)}" />
           <div class="t">${escapeHtml(v.title)}</div>
@@ -2391,11 +2480,41 @@
             <button type="button" class="btn-secondary sermon-curate-btn" data-slot="0" data-video-id="${escapeAttr(v.videoId)}" data-title="${escapeAttr(v.title)}">2번째 자리로</button>
             <button type="button" class="btn-secondary sermon-curate-btn" data-slot="1" data-video-id="${escapeAttr(v.videoId)}" data-title="${escapeAttr(v.title)}">3번째 자리로</button>
           </div>
-        </div>`
-      )
+          ${sermonCategories.length > 0 ? `
+          <div class="sermon-tag-group" data-video-id="${escapeAttr(v.videoId)}" style="display:flex; flex-wrap:wrap; gap:8px; margin:0 8px 10px; padding-top:8px; border-top:1px dashed var(--line);">
+            ${checksHtml}
+            <button type="button" class="btn-secondary sermon-tag-save-btn" data-video-id="${escapeAttr(v.videoId)}" style="font-size:0.78rem; padding:4px 10px;">테마 저장</button>
+          </div>` : ''}
+        </div>`;
+      })
       .join('');
     bindSermonCurateButtons();
+    bindSermonTagSaveButtons();
     renderCurationStatus();
+  }
+
+  function bindSermonTagSaveButtons() {
+    $$('.sermon-tag-save-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const videoId = btn.dataset.videoId;
+        const group = $(`.sermon-tag-group[data-video-id="${videoId}"]`);
+        const categoryIds = $$('.sermon-tag-check', group).filter((cb) => cb.checked).map((cb) => cb.value);
+        const original = btn.textContent;
+        btn.textContent = '저장 중...';
+        try {
+          await api(`/api/admin/sermon-category-tags/${encodeURIComponent(videoId)}`, {
+            method: 'PUT',
+            body: JSON.stringify({ categoryIds })
+          });
+          sermonCategoryTags[videoId] = categoryIds;
+          btn.textContent = '저장됨 ✓';
+          setTimeout(() => (btn.textContent = original), 1500);
+        } catch (err) {
+          alert(err.message);
+          btn.textContent = original;
+        }
+      });
+    });
   }
 
   // ---------------- 큐레이션 설교 (2번째·3번째 자리, 각각 독립) ----------------
