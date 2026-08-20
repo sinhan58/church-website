@@ -445,7 +445,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 @media (max-width: 900px) {
   /* 모바일: 가로로 넘기지 않고, 세로로 3개가 나란히 쌓입니다 */
-  .sermon-grid { flex-direction: column; overflow-x: visible; gap: 20px; }
+  .sermon-grid { flex-direction: column; overflow-x: visible; scroll-snap-type: none; gap: 20px; }
   .sermon-card { flex: none; width: 100%; }
 }
 
@@ -594,28 +594,53 @@ button { font-family: inherit; cursor: pointer; }
 }
 .praise-category-chips::-webkit-scrollbar { display: none; }
 
-.praise-category-select {
+.praise-theme-dial-wrap {
   display: none; /* PC에서는 숨김, 칩 목록을 대신 씀 */
-  width: 100%;
-  padding: 12px 14px;
-  margin-bottom: 20px;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  background: #fff;
-  color: var(--ink);
-  font-family: inherit;
+  margin-top: 18px;
+  text-align: center;
+}
+.praise-theme-dial-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin: 0 0 6px;
+}
+.praise-theme-dial {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 8px 50%; /* 좌우로 화면 절반만큼 여백을 둬서, 맨 앞/맨 뒤 테마도 정가운데까지 스크롤됩니다 */
+}
+.praise-theme-dial::-webkit-scrollbar { display: none; }
+.praise-theme-cell {
+  scroll-snap-align: center;
+  flex-shrink: 0;
+  padding: 6px 2px;
   font-size: 0.92rem;
   font-weight: 600;
-  appearance: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236b6e80' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
-  background-repeat: no-repeat;
-  background-position: right 14px center;
-  background-size: 18px;
+  color: var(--muted);
+  white-space: nowrap;
+  opacity: 0.45;
+  transform: scale(0.82);
+  transition: transform 0.15s ease, opacity 0.15s ease, color 0.15s ease;
+  cursor: pointer;
+}
+.praise-theme-cell.is-active {
+  color: var(--navy-deep);
+  font-weight: 800;
+  opacity: 1;
+  transform: scale(1.18);
 }
 @media (max-width: 900px) {
-  /* 모바일: 옆으로 길게 늘어지는 칩 대신 한 줄짜리 드롭다운으로 대체 */
+  /* 모바일: 옆으로 길게 늘어지는 칩 대신, 딱 맞춰 돌리는 다이얼로 대체 */
   .praise-category-chips { display: none !important; }
-  .praise-category-select { display: block; }
+  .praise-theme-dial-wrap { display: block; }
 }
 .praise-chip {
   flex-shrink: 0;
@@ -704,7 +729,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 @media (max-width: 900px) {
   /* 모바일: 세로로 쌓이되, 한 줄에 2개씩 (2열 x 2행 = 4개) */
-  .praise-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; }
+  .praise-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; overflow-x: visible; scroll-snap-type: none; }
   .praise-card { width: 100%; aspect-ratio: 4/3; }
 }
 @media (max-width: 560px) {
