@@ -762,6 +762,100 @@ router.delete('/praise-categories/:id', async (req, res) => {
   }
 });
 
+// ---------- 설교 테마(카테고리) ----------
+// 설교 영상은 유튜브에서 자동으로 동기화되므로, 어떤 영상이 어떤 테마인지는
+// videoId를 기준으로 별도 저장해둡니다 (재동기화되어도 videoId는 바뀌지 않아 유지됩니다).
+const DEFAULT_SERMON_CATEGORIES = ['주일설교', '수요예배', '특별집회', '성경강해 시리즈'];
+
+async function ensureSermonCategoriesSeeded() {
+  const categories = await readData('sermonCategories');
+  if (categories && categories.length > 0) return categories;
+  const seeded = DEFAULT_SERMON_CATEGORIES.map((name) => ({ id: makeId('scat'), name }));
+  await writeData('sermonCategories', seeded);
+  return seeded;
+}
+
+router.get('/sermon-categories', async (req, res) => {
+  try {
+    res.json(await ensureSermonCategoriesSeeded());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/sermon-categories', async (req, res) => {
+  try {
+    const name = (req.body.name || '').trim();
+    if (!name) return res.status(400).json({ error: '테마 이름을 입력해주세요.' });
+    const categories = await ensureSermonCategoriesSeeded();
+    if (categories.some((c) => c.name === name)) {
+      return res.status(409).json({ error: '이미 같은 이름의 테마가 있습니다.' });
+    }
+    const item = { id: makeId('scat'), name };
+    categories.push(item);
+    await writeData('sermonCategories', categories);
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/sermon-categories/:id', async (req, res) => {
+  try {
+    const name = (req.body.name || '').trim();
+    if (!name) return res.status(400).json({ error: '테마 이름을 입력해주세요.' });
+    const categories = (await readData('sermonCategories')) || [];
+    const idx = categories.findIndex((c) => c.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: '테마를 찾을 수 없습니다.' });
+    if (categories.some((c) => c.id !== req.params.id && c.name === name)) {
+      return res.status(409).json({ error: '이미 같은 이름의 테마가 있습니다.' });
+    }
+    categories[idx] = { ...categories[idx], name };
+    await writeData('sermonCategories', categories);
+    res.json(categories[idx]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/sermon-categories/:id', async (req, res) => {
+  try {
+    const categories = (await readData('sermonCategories')) || [];
+    const filtered = categories.filter((c) => c.id !== req.params.id);
+    await writeData('sermonCategories', filtered);
+    // 삭제된 테마는 영상에 붙어있던 태그에서도 같이 지워줍니다.
+    const tags = (await readData('sermonCategoryTags')) || {};
+    Object.keys(tags).forEach((videoId) => {
+      tags[videoId] = (tags[videoId] || []).filter((id) => id !== req.params.id);
+    });
+    await writeData('sermonCategoryTags', tags);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 영상 하나에 테마를 여러 개 붙여서 저장 (videoId 기준)
+router.put('/sermon-category-tags/:videoId', async (req, res) => {
+  try {
+    const categoryIds = Array.isArray(req.body.categoryIds) ? req.body.categoryIds : [];
+    const tags = (await readData('sermonCategoryTags')) || {};
+    tags[req.params.videoId] = categoryIds;
+    await writeData('sermonCategoryTags', tags);
+    res.json({ videoId: req.params.videoId, categoryIds });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/sermon-category-tags', async (req, res) => {
+  try {
+    res.json((await readData('sermonCategoryTags')) || {});
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 
 router.get('/missions', async (req, res) => {
   try {
