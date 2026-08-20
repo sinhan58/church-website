@@ -535,11 +535,14 @@
   let activeSermonCategory = null; // null이면 '전체'
   let sermonChannelId = null;
 
+  let sermonSiteInfo = { churchName: '', pastorName: '' };
+
   async function loadSermons() {
-    const [data, categories, tags] = await Promise.all([
+    const [data, categories, tags, site] = await Promise.all([
       getJSON('/api/sermons'),
       getJSON('/api/sermon-categories'),
-      getJSON('/api/sermon-category-tags')
+      getJSON('/api/sermon-category-tags'),
+      getJSON('/api/site')
     ]);
     const updated = $('#sermon-updated');
 
@@ -551,6 +554,10 @@
     sermonCategoryList = categories || [];
     sermonCategoryTags = tags || {};
     sermonChannelId = data.channelId || null;
+    sermonSiteInfo = {
+      churchName: (site && site.churchName) || '',
+      pastorName: (site && site.about && site.about.pastorName) || ''
+    };
 
     const ytBtn = $('#sermon-youtube-btn');
     if (ytBtn) {
@@ -618,20 +625,31 @@
   }
 
   function renderSermonHero() {
-    const card = $('#sermon-hero-card');
     const hero = currentHeroVideo();
     if (!hero) {
-      card.innerHTML = `<div class="sermon-empty" style="height:100%; display:flex; align-items:center; justify-content:center;">이 테마의 설교가 아직 없어요.</div>`;
+      $('#sermon-hero-title').textContent = '이 테마의 설교가 아직 없어요.';
+      $('#sermon-hero-verse').textContent = '';
+      $('#sermon-hero-church').textContent = '';
+      $('#sermon-hero-pastor').textContent = '';
+      $('#sermon-hero-photo-img').removeAttribute('src');
       return;
     }
-    const posterUrl = `/api/sermon-poster/${encodeURIComponent(hero.videoId)}?title=${encodeURIComponent(hero.title || '')}`;
-    card.innerHTML = `
-      <img src="${posterUrl}" alt="${escapeHtml(hero.title || '')}" onerror="this.onerror=null;this.src='${escapeHtml(hero.thumbnail)}';" />
-      <span class="sermon-hero-play" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.5 7.5v9l8-4.5-8-4.5z"/></svg>
-      </span>`;
-    card.dataset.videoId = hero.videoId;
-    card.onclick = () => {
+    const { verseRef, title } = parseSermonTitleClient(hero.title || '');
+    $('#sermon-hero-title').textContent = title || hero.title || '';
+    $('#sermon-hero-verse').textContent = verseRef || '';
+    $('#sermon-hero-church').textContent = sermonSiteInfo.churchName;
+    $('#sermon-hero-pastor').textContent = sermonSiteInfo.pastorName;
+
+    const img = $('#sermon-hero-photo-img');
+    img.src = `/api/sermon-photo/${encodeURIComponent(hero.videoId)}`;
+    img.alt = title || hero.title || '';
+    img.onerror = () => {
+      img.onerror = null;
+      img.src = hero.thumbnail;
+    };
+
+    const photoEl = $('#sermon-hero-photo');
+    photoEl.onclick = () => {
       track('click', {
         label: 'sermon_hero',
         itemType: 'sermon',
