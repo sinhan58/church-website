@@ -543,18 +543,22 @@
       return;
     }
 
-    // ---- 노출 순서 구성: ①이번 주일 설교(최신) → ②관리자 큐레이션(설정된 경우) → ③나머지 최신순 ----
+    // ---- 노출 순서 구성: ①이번 주일 설교(최신) → ②③관리자 큐레이션(설정된 만큼) → 나머지 최신순 ----
     const videos = data.videos.slice();
     const latest = videos[0];
-    const curation = site && site.sermonCuration && site.sermonCuration.videoId ? site.sermonCuration : null;
-    const curatedVideo = curation ? videos.find((v) => v.videoId === curation.videoId) : null;
+    const curations = (site && Array.isArray(site.sermonCurations) ? site.sermonCurations : []).filter(
+      (c) => c && c.videoId
+    );
 
     const ordered = [latest];
     const badges = { 0: '이번 주일 설교' };
-    if (curatedVideo && curatedVideo.videoId !== latest.videoId) {
-      ordered.push(curatedVideo);
-      badges[1] = curation.label || '추천 말씀';
-    }
+    curations.slice(0, 2).forEach((cur) => {
+      const video = videos.find((v) => v.videoId === cur.videoId);
+      if (video && !ordered.some((o) => o.videoId === video.videoId)) {
+        badges[ordered.length] = cur.label || '추천 말씀';
+        ordered.push(video);
+      }
+    });
     videos.forEach((v) => {
       if (!ordered.some((o) => o.videoId === v.videoId)) ordered.push(v);
     });
