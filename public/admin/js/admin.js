@@ -2371,7 +2371,10 @@
         <div class="sermon-preview-item">
           <img src="${v.thumbnail}" alt="${escapeAttr(v.title)}" />
           <div class="t">${escapeHtml(v.title)}</div>
-          <button type="button" class="btn-secondary sermon-curate-btn" data-video-id="${escapeAttr(v.videoId)}" data-title="${escapeAttr(v.title)}" style="margin:6px 8px 8px;">이 영상으로 지정</button>
+          <div style="display:flex; gap:4px; margin:6px 8px 8px; flex-wrap:wrap;">
+            <button type="button" class="btn-secondary sermon-curate-btn" data-slot="0" data-video-id="${escapeAttr(v.videoId)}" data-title="${escapeAttr(v.title)}">2번째 자리로</button>
+            <button type="button" class="btn-secondary sermon-curate-btn" data-slot="1" data-video-id="${escapeAttr(v.videoId)}" data-title="${escapeAttr(v.title)}">3번째 자리로</button>
+          </div>
         </div>`
       )
       .join('');
@@ -2379,56 +2382,69 @@
     renderCurationStatus();
   }
 
-  // ---------------- 큐레이션 설교 ----------------
+  // ---------------- 큐레이션 설교 (2번째·3번째 자리, 각각 독립) ----------------
+  function getSermonCurations() {
+    const list = (currentSite && Array.isArray(currentSite.sermonCurations) ? currentSite.sermonCurations : []).slice();
+    while (list.length < 2) list.push(null);
+    return list;
+  }
+
   function renderCurationStatus() {
-    const el = $('#sermon-curation-current');
-    if (!el) return;
-    const curation = currentSite && currentSite.sermonCuration;
-    if (curation && curation.videoId) {
-      el.textContent = `현재 지정: "${curation.label || '(문구 없음)'}" — ${curation.videoTitle || curation.videoId}`;
-    } else {
-      el.textContent = '아직 지정된 큐레이션 설교가 없습니다.';
+    const curations = getSermonCurations();
+    [0, 1].forEach((slot) => {
+      const el = $('#sermon-curation-current-' + slot);
+      if (!el) return;
+      const cur = curations[slot];
+      if (cur && cur.videoId) {
+        el.textContent = `현재 지정: "${cur.label || '(문구 없음)'}" — ${cur.videoTitle || cur.videoId}`;
+        $('#sermon-curation-label-input-' + slot).value = cur.label || '';
+      } else {
+        el.textContent = '아직 지정된 영상이 없습니다.';
+      }
+    });
+  }
+
+  async function saveSermonCuration(slot, curationOrNull) {
+    const statusEl = $('#sermon-curation-status');
+    statusEl.textContent = '저장 중...';
+    try {
+      const curations = getSermonCurations();
+      curations[slot] = curationOrNull;
+      await api('/api/admin/site', { method: 'PUT', body: JSON.stringify({ sermonCurations: curations }) });
+      if (currentSite) currentSite.sermonCurations = curations;
+      renderCurationStatus();
+      statusEl.textContent = '저장 완료 ✓';
+      setTimeout(() => (statusEl.textContent = ''), 2500);
+    } catch (err) {
+      statusEl.textContent = '저장 실패: ' + err.message;
     }
   }
 
   function bindSermonCurateButtons() {
     $$('.sermon-curate-btn').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        const label = $('#sermon-curation-label-input').value.trim();
-        if (!label) return alert('먼저 표시할 문구를 입력해주세요. (예: 다시 듣고 싶은 설교)');
-        const statusEl = $('#sermon-curation-status');
-        statusEl.textContent = '저장 중...';
-        try {
-          const sermonCuration = { videoId: btn.dataset.videoId, videoTitle: btn.dataset.title, label };
-          await api('/api/admin/site', { method: 'PUT', body: JSON.stringify({ sermonCuration }) });
-          if (currentSite) currentSite.sermonCuration = sermonCuration;
-          renderCurationStatus();
-          statusEl.textContent = '저장 완료 ✓';
-          setTimeout(() => (statusEl.textContent = ''), 2500);
-        } catch (err) {
-          statusEl.textContent = '저장 실패: ' + err.message;
-        }
+      btn.addEventListener('click', () => {
+        const slot = Number(btn.dataset.slot);
+        const label = $('#sermon-curation-label-input-' + slot).value.trim();
+        if (!label) return alert('먼저 이 자리에 표시할 문구를 입력해주세요.');
+        saveSermonCuration(slot, { videoId: btn.dataset.videoId, videoTitle: btn.dataset.title, label });
       });
     });
   }
 
   function setupSermonCuration() {
-    const clearBtn = $('#sermon-curation-clear-btn');
-    if (!clearBtn) return;
+    const clearBtn0 = $('#sermon-curation-clear-btn-0');
+    if (!clearBtn0) return;
     renderCurationStatus();
-    clearBtn.addEventListener('click', async () => {
-      if (!confirm('큐레이션 지정을 해제할까요?')) return;
-      const statusEl = $('#sermon-curation-status');
-      try {
-        await api('/api/admin/site', { method: 'PUT', body: JSON.stringify({ sermonCuration: null }) });
-        if (currentSite) currentSite.sermonCuration = null;
-        $('#sermon-curation-label-input').value = '';
-        renderCurationStatus();
-        statusEl.textContent = '해제 완료 ✓';
-        setTimeout(() => (statusEl.textContent = ''), 2500);
-      } catch (err) {
-        statusEl.textContent = '해제 실패: ' + err.message;
-      }
+
+    clearBtn0.addEventListener('click', () => {
+      if (!confirm('2번째 자리 지정을 해제할까요?')) return;
+      $('#sermon-curation-label-input-0').value = '';
+      saveSermonCuration(0, null);
+    });
+    $('#sermon-curation-clear-btn-1').addEventListener('click', () => {
+      if (!confirm('3번째 자리 지정을 해제할까요?')) return;
+      $('#sermon-curation-label-input-1').value = '';
+      saveSermonCuration(1, null);
     });
   }
 
