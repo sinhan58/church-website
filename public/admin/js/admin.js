@@ -785,6 +785,7 @@
     setupMenuEditor();
     setupPostEditor();
     setupSermonRefresh();
+    setupSermonPhotoOverride();
     setupSermonCategoryManagement();
     setupAccountPanel();
     setupQtEditor();
@@ -2511,6 +2512,43 @@
   }
 
   // ---------------- (예전 큐레이션 2슬롯 시스템은 설교 테마 태그 방식으로 대체되어 제거됨) ----------------
+
+  // ---------------- 사용할 사진 직접 고르기 ----------------
+  async function setupSermonPhotoOverride() {
+    const select = $('#sermon-photo-override-select');
+    if (!select) return;
+    try {
+      const [files, site] = await Promise.all([
+        api('/api/admin/sermon-photo-files'),
+        Promise.resolve(currentSite || (await api('/api/admin/site')))
+      ]);
+      files.forEach((f) => {
+        const opt = document.createElement('option');
+        opt.value = f;
+        opt.textContent = f;
+        select.appendChild(opt);
+      });
+      select.value = (site && site.sermonPhotoOverride) || '';
+    } catch (err) {
+      // 목록을 못 가져와도 폼 자체는 쓸 수 있게 조용히 넘어감
+    }
+
+    $('#sermon-photo-override-save-btn').addEventListener('click', async () => {
+      const statusEl = $('#sermon-photo-override-status');
+      statusEl.textContent = '저장 중...';
+      try {
+        await api('/api/admin/site', {
+          method: 'PUT',
+          body: JSON.stringify({ sermonPhotoOverride: select.value })
+        });
+        if (currentSite) currentSite.sermonPhotoOverride = select.value;
+        statusEl.textContent = '저장 완료 ✓ (아래 "다시 만들기" 버튼도 눌러주세요)';
+        setTimeout(() => (statusEl.textContent = ''), 4000);
+      } catch (err) {
+        statusEl.textContent = '저장 실패: ' + err.message;
+      }
+    });
+  }
 
   function setupSermonRefresh() {
     $('#refresh-sermons-btn').addEventListener('click', async () => {
