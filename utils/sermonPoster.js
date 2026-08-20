@@ -1,24 +1,19 @@
-// 설교 영상 카드용 포스터 이미지를 자동으로 생성하는 모듈입니다.
-// - 목사님 사진(배경 제거된 PNG) + 그라데이션/보케 배경 + 설교 제목을 합성합니다.
-// - 유튜브 영상마다(videoId 기준) 색상/사진/배치가 자동으로 순환되어, 매번 디자인을
-//   따로 하지 않아도 다양한 느낌의 카드가 나옵니다.
+// 설교 섹션 왼쪽 "이번 주일 설교" 히어로 카드용 포스터 이미지를 만드는 모듈입니다.
+// - 사람을 배경에서 오려내지 않고, 사진 전체를 그대로 왼쪽에 채워 넣습니다(항상 안전하고 일정한 결과).
+// - 오른쪽엔 보라·남색 계열이 기하학적으로 섞인 그라데이션 패널 위에 제목·구절·교회명·목사님 성함만 고정 크기로 표시합니다.
+// - 이제 카드가 한 장(이번 주 최신 설교)만 필요하므로, 다양한 사진 여러 장을 동시에 예쁘게
+//   맞춰야 하는 부담이 없어져서 훨씬 안정적인 결과가 나옵니다.
 //
-// 한글 폰트 로딩 방식에 대한 중요한 참고사항:
-// 처음에는 SVG의 @font-face로 폰트를 base64로 직접 심는 방식을 썼는데, 배포 서버(Render)의
-// librsvg 버전에서는 이 방식이 제대로 동작하지 않아 글자가 16진수 코드 박스로 깨져 나오는
-// 문제가 있었습니다. 그래서 지금은 폰트를 시스템 폰트처럼 등록(fontconfig)해서, SVG에서는
-// 그냥 font-family 이름으로만 참조하는 훨씬 더 폭넓게 호환되는 방식으로 바꿨습니다.
+// 한글 폰트 로딩 방식에 대한 참고사항: SVG @font-face(base64) 방식은 Render 서버의 librsvg에서
+// 깨져서, 폰트를 fontconfig로 시스템 폰트처럼 등록하고 SVG에서는 font-family 이름만 참조합니다.
 
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
 const FONT_DIR = path.join(__dirname, 'fonts');
-const FONT_FAMILY = 'Noto Sans CJK KR Black'; // 폰트 파일 안에 실제로 저장된 이름
+const FONT_FAMILY = 'Noto Sans CJK KR Black';
 
-// sharp(내부적으로 librsvg 사용)가 SVG 안의 한글 글자를 그릴 때 이 폰트를 찾을 수 있도록,
-// 임시 폴더에 fontconfig 설정 파일을 만들어서 등록합니다. (서버에 관리자 권한으로 폰트를
-// 설치할 필요 없이, 이 앱 실행 중에만 적용되는 방식이라 안전합니다.)
 try {
   const fontconfigDir = path.join(os.tmpdir(), 'church-sermon-poster-fontconfig');
   const cacheDir = path.join(os.tmpdir(), 'church-sermon-poster-fontconfig-cache');
@@ -41,25 +36,18 @@ try {
 const sharp = require('sharp');
 
 const PHOTOS_DIR = path.join(__dirname, 'assets', 'sermon-card-photos');
-
-// 기본으로 내장된 목사님 사진(배경 제거 완료본). 관리자 페이지에서 추가로 올린 사진이 있으면
-// 그것들과 합쳐서 함께 순환됩니다.
 const BUILTIN_PHOTOS = ['pastor-1.png', 'pastor-2.png', 'pastor-3.png']
   .map((f) => path.join(PHOTOS_DIR, f))
   .filter((p) => fs.existsSync(p));
 
 const W = 1200;
 const H = 675;
+const PHOTO_W = 660; // 왼쪽 사진 영역 폭 (전체의 55%)
+const BLEND_W = 140; // 사진과 패널이 자연스럽게 이어지는 페이드 폭
 const GOLD = '#c9a227';
 const WHITE = '#ffffff';
-
-const ACCENT_PALETTE = [
-  ['#0d1526', '#0f2a2d'], // 네이비 -> 딥틸
-  ['#3a1220', '#2a2015'], // 와인 -> 웜차콜
-  ['#14261a', '#0d1526'], // 포레스트 -> 네이비
-  ['#241a35', '#3a1220'], // 퍼플 -> 와인
-  ['#2a2015', '#14261a'] // 차콜 -> 포레스트
-];
+const NAVY = '#0d1526';
+const PURPLE = '#241a35';
 
 function hashStr(str = '') {
   let h = 0;
@@ -67,28 +55,17 @@ function hashStr(str = '') {
   return h;
 }
 
-function mulberry32(a) {
-  return function () {
-    a |= 0; a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
 // "주일예배 20260726 사도행전 19장 1~7절 말씀하신 대로 임하시는 성령"
 // -> { verseRef: "사도행전 19장 1~7절", title: "말씀하신 대로 임하시는 성령" }
 function parseSermonTitle(raw = '') {
   let t = raw.replace(/주일예배/g, '');
   t = t.replace(/\b\d{8}\b/g, '').trim().replace(/^[-_·\s]+|[-_·\s]+$/g, '');
-  // "9장 1~9절, 15절"처럼 쉼표로 구절이 여러 개 이어지는 경우까지 전부 구절 참조로 인식합니다.
   const m = t.match(/^([가-힣]+\s?\d+장\s?\d+(?:[~\-]\d+)?절(?:,\s?\d+(?:[~\-]\d+)?절)*)\s*(.*)$/);
   if (m) return { verseRef: m[1].trim(), title: m[2].trim() || t };
   return { verseRef: '', title: t };
 }
 
-// 폰트 실측 없이(서버에 캔버스 라이브러리 없음) 글자수 기반으로 근사 줄바꿈합니다.
-// Noto Sans KR Black은 한글 음절 폭이 거의 균일해서 이 방식으로도 자연스럽게 맞습니다.
+// 폰트 실측 없이 글자수 기반으로 근사 줄바꿈 (Noto Sans KR Black은 음절 폭이 거의 균일)
 function wrapByWidth(text, fontSize, maxWidth, avgCharRatio = 0.86) {
   const maxChars = Math.max(2, Math.floor(maxWidth / (fontSize * avgCharRatio)));
   const words = text.split(' ');
@@ -113,94 +90,89 @@ function escapeXml(str = '') {
     .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 }
 
-function buildBackgroundSvg({ accentFrom, accentTo, seed }) {
-  const rnd = mulberry32(seed);
-  let circles = '';
-  for (let i = 0; i < 5; i++) {
-    const r = 60 + rnd() * 120;
-    const cx = rnd() * W;
-    const cy = rnd() * H;
-    const op = 0.05 + rnd() * 0.06;
-    circles += `<circle cx="${cx.toFixed(0)}" cy="${cy.toFixed(0)}" r="${r.toFixed(0)}" fill="${GOLD}" opacity="${op.toFixed(3)}" filter="url(#blur)"/>`;
-  }
-  return `
-  <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="${accentFrom}"/>
-        <stop offset="100%" stop-color="${accentTo}"/>
-      </linearGradient>
-      <filter id="blur"><feGaussianBlur stdDeviation="22"/></filter>
-    </defs>
-    <rect width="${W}" height="${H}" fill="url(#bg)"/>
-    ${circles}
-  </svg>`;
-}
+// 오른쪽 패널: 보라·남색이 각지게(기하학적으로) 섞인 배경. 사진 쪽 가장자리는
+// 페이드 그라데이션으로 처리해서, 사진과 패널이 하나로 자연스럽게 이어지게 합니다.
+function buildPanelSvg({ title, verseRef, pastorName, churchName, seed }) {
+  const panelX = PHOTO_W - BLEND_W; // 페이드 영역만큼 패널이 사진 쪽으로 살짝 겹쳐 들어감
+  const panelW = W - panelX;
+  const textX = PHOTO_W + 56;
+  const textMaxWidth = W - textX - 56;
 
-function buildTextOverlaySvg({ title, verseRef, pastorName, churchName, photoOnRight, textMaxWidth, hasPhoto }) {
-  let titleFontSize = 92;
-  let lineHeight = 106;
+  // 기하학적 삼각형 조각들 (시드 기반으로 항상 같은 영상엔 같은 배치가 나오도록)
+  const h = seed;
+  const shapeSeedA = (h % 40) - 20;
+  const shapeSeedB = ((h >> 4) % 30) - 15;
+
+  let titleFontSize = 56;
+  let lineHeight = 68;
   let titleLines = wrapByWidth(title, titleFontSize, textMaxWidth, 0.86);
-  while (titleLines.length > 3 && titleFontSize > 56) {
-    titleFontSize -= 8;
-    lineHeight -= 9;
-    titleLines = wrapByWidth(title, titleFontSize, textMaxWidth, 0.86);
+  titleLines = titleLines.slice(0, 3); // 고정 크기 유지, 넘치면 3줄까지만 + 말줄임표
+  if (wrapByWidth(title, titleFontSize, textMaxWidth, 0.86).length > 3) {
+    const last = titleLines[2] || '';
+    titleLines[2] = last.slice(0, Math.max(0, last.length - 1)) + '…';
   }
-  titleLines = titleLines.slice(0, 4);
 
-  const startX = !hasPhoto ? (W - textMaxWidth) / 2 : photoOnRight ? 60 : W - textMaxWidth - 60;
-  const textAnchor = 'start';
-
-  let y = 172;
+  let y = H / 2 - ((titleLines.length - 1) * lineHeight) / 2 - 40;
   let titleTspans = '';
   for (const line of titleLines) {
-    titleTspans += `<text x="${startX}" y="${y}" font-size="${titleFontSize}" font-family="Noto Sans CJK KR Black" font-weight="900" fill="${WHITE}" text-anchor="${textAnchor}">${escapeXml(line)}</text>`;
+    titleTspans += `<text x="${textX}" y="${y}" font-size="${titleFontSize}" font-family="${FONT_FAMILY}" font-weight="900" fill="${WHITE}">${escapeXml(line)}</text>`;
     y += lineHeight;
   }
 
-  y += 18;
+  y += 26;
   let verseSvg = '';
   if (verseRef) {
-    verseSvg = `<text x="${startX}" y="${y}" font-size="30" font-family="Noto Sans CJK KR Black" fill="${GOLD}" text-anchor="${textAnchor}">${escapeXml(verseRef)}</text>`;
-    y += 48;
+    verseSvg = `<text x="${textX}" y="${y}" font-size="26" font-family="${FONT_FAMILY}" fill="${GOLD}">${escapeXml(verseRef)}</text>`;
+    y += 44;
   }
 
-  y += 14;
+  y += 16;
   const lineY = y;
-  y += 26;
-
-  const nameSvg = `<text x="${startX}" y="${y}" font-size="26" font-family="Noto Sans CJK KR Black" fill="${WHITE}" text-anchor="${textAnchor}">${escapeXml(pastorName)}</text>`;
-  y += 38;
-  const churchSvg = `<text x="${startX}" y="${y}" font-size="19" font-family="Noto Sans CJK KR Black" fill="#c8c8c3" text-anchor="${textAnchor}">${escapeXml(churchName)}</text>`;
-
-  const sideBar = hasPhoto
-    ? photoOnRight
-      ? `<rect x="0" y="0" width="10" height="${H}" fill="${GOLD}"/>`
-      : `<rect x="${W - 10}" y="0" width="10" height="${H}" fill="${GOLD}"/>`
+  y += 30;
+  const churchSvg = `<text x="${textX}" y="${y}" font-size="24" font-family="${FONT_FAMILY}" font-weight="700" fill="${WHITE}">${escapeXml(churchName)}</text>`;
+  y += 34;
+  const pastorSvg = pastorName
+    ? `<text x="${textX}" y="${y}" font-size="19" font-family="${FONT_FAMILY}" fill="#c8c8c3">${escapeXml(pastorName)}</text>`
     : '';
 
   return `
   <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
-    <rect x="18" y="18" width="${W - 36}" height="${H - 36}" fill="none" stroke="${GOLD}" stroke-width="2"/>
-    ${sideBar}
-    <text x="${startX}" y="70" font-size="20" font-family="Noto Sans CJK KR Black" fill="${GOLD}" text-anchor="${textAnchor}" letter-spacing="2">SERMONS</text>
-    <rect x="${startX}" y="84" width="52" height="4" fill="${GOLD}"/>
+    <defs>
+      <linearGradient id="basePanel" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="${NAVY}"/>
+        <stop offset="100%" stop-color="${PURPLE}"/>
+      </linearGradient>
+      <linearGradient id="fadeIn" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="${NAVY}" stop-opacity="0"/>
+        <stop offset="100%" stop-color="${NAVY}" stop-opacity="1"/>
+      </linearGradient>
+      <clipPath id="panelClip">
+        <rect x="${panelX}" y="0" width="${panelW}" height="${H}"/>
+      </clipPath>
+    </defs>
+
+    <g clip-path="url(#panelClip)">
+      <rect x="${panelX}" y="0" width="${panelW}" height="${H}" fill="url(#basePanel)"/>
+      <!-- 기하학적 조각들: 각진 삼각형/사각형을 낮은 투명도로 겹쳐서 밋밋하지 않게 -->
+      <polygon points="${panelX + 60 + shapeSeedA},0 ${panelX + 340 + shapeSeedA},0 ${panelX + 120},${H}" fill="${GOLD}" opacity="0.06"/>
+      <polygon points="${W - 260},${H} ${W},${H} ${W},${H - 300 + shapeSeedB}" fill="${GOLD}" opacity="0.08"/>
+      <polygon points="${panelX},${H * 0.62} ${panelX + 420},${H * 0.4} ${panelX + 260},${H}" fill="#3a1a55" opacity="0.35"/>
+      <rect x="${panelX}" y="0" width="${BLEND_W + 30}" height="${H}" fill="url(#fadeIn)"/>
+    </g>
+
     ${titleTspans}
     ${verseSvg}
-    <line x1="${startX}" y1="${lineY}" x2="${startX + 320}" y2="${lineY}" stroke="#ffffff" stroke-opacity="0.35" stroke-width="1"/>
-    ${nameSvg}
+    <line x1="${textX}" y1="${lineY}" x2="${textX + 280}" y2="${lineY}" stroke="#ffffff" stroke-opacity="0.3" stroke-width="1"/>
     ${churchSvg}
+    ${pastorSvg}
+
+    <rect x="14" y="14" width="${W - 28}" height="${H - 28}" fill="none" stroke="${GOLD}" stroke-width="2" opacity="0.9"/>
   </svg>`;
 }
 
 /**
- * 설교 카드 포스터 이미지(PNG 버퍼)를 생성합니다.
- * @param {Object} opts
- * @param {string} opts.videoId - 유튜브 영상 ID (색상/사진/배치를 정하는 기준)
- * @param {string} opts.rawTitle - 유튜브 원본 제목
- * @param {string[]} [opts.extraPhotoUrls] - 관리자 페이지에서 추가로 올린 사진 URL 목록(선택)
- * @param {string} [opts.pastorName]
- * @param {string} [opts.churchName]
+ * "이번 주일 설교" 히어로 카드 포스터 이미지(PNG/JPEG 버퍼)를 생성합니다.
+ * 사람을 오려내지 않고, 사진 전체를 왼쪽 영역에 꽉 채워(cover) 넣습니다.
  */
 async function generateSermonPoster({
   videoId,
@@ -213,19 +185,12 @@ async function generateSermonPoster({
 }) {
   const { verseRef, title } = parseSermonTitle(rawTitle);
   const h = hashStr(videoId);
-  const [accentFrom, accentTo] = ACCENT_PALETTE[h % ACCENT_PALETTE.length];
-  const photoOnRight = (h >> 3) % 2 === 0;
-  const textMaxWidth = 580;
 
-  // 사진 후보: 기본 내장 사진 + 관리자가 추가로 올린 사진
   const localPool = BUILTIN_PHOTOS;
   let photoBuffer = null;
   const allCount = localPool.length + extraPhotoUrls.length;
 
   if (allCount > 0) {
-    // 같은 화면에 여러 영상이 함께 노출되므로(예: 최신 3개), 화면에 보이는 카드끼리 같은
-    // 사진이 겹치지 않도록 videoIndex(목록에서 몇 번째 영상인지)를 기준으로 순서대로
-    // 사진을 배정합니다. videoIndex가 없을 때만 videoId 해시로 대체합니다.
     const pick = videoIndex !== null && videoIndex !== undefined ? videoIndex % allCount : h % allCount;
     if (pick < localPool.length) {
       photoBuffer = fs.readFileSync(localPool[pick]);
@@ -237,48 +202,30 @@ async function generateSermonPoster({
     }
   }
 
-  const bgSvg = buildBackgroundSvg({ accentFrom, accentTo, seed: h });
-  const textSvg = buildTextOverlaySvg({
-    title,
-    verseRef,
-    pastorName,
-    churchName,
-    photoOnRight,
-    textMaxWidth,
-    hasPhoto: !!photoBuffer
-  });
+  const panelSvg = buildPanelSvg({ title, verseRef, pastorName, churchName, seed: h });
 
   const layers = [];
 
   if (photoBuffer) {
-    const photoMeta = await sharp(photoBuffer).metadata();
-    const targetH = Math.round(H * 0.98);
-    let targetW = Math.round((photoMeta.width * targetH) / photoMeta.height);
-
-    const maxPhotoWidth = W - textMaxWidth - 60 - 40 - 30;
-    let photoResized = sharp(photoBuffer).resize({ height: targetH });
-    if (targetW > maxPhotoWidth) {
-      const cropLeft = Math.round((targetW - maxPhotoWidth) / 2);
-      photoResized = photoResized.extract({ left: cropLeft, top: 0, width: maxPhotoWidth, height: targetH });
-      targetW = maxPhotoWidth;
-    }
-    const photoBuf = await photoResized.toBuffer();
-    const photoLeft = photoOnRight ? W - targetW - 30 : 30;
-    const photoTop = H - targetH;
-    layers.push({ input: photoBuf, top: photoTop, left: photoLeft });
+    // 사람을 오려내지 않고, 사진 전체를 왼쪽 영역에 꽉 채웁니다(object-fit: cover와 동일한 방식).
+    // 어떤 비율의 사진이 들어와도 항상 안정적으로 같은 크기의 박스에 맞춰집니다.
+    const photoBuf = await sharp(photoBuffer)
+      .resize({ width: PHOTO_W, height: H, fit: 'cover', position: 'attention' })
+      .toBuffer();
+    layers.push({ input: photoBuf, top: 0, left: 0 });
   }
 
-  layers.push({ input: Buffer.from(textSvg), top: 0, left: 0 });
+  layers.push({ input: Buffer.from(panelSvg), top: 0, left: 0 });
 
-  const composed = sharp(Buffer.from(bgSvg)).composite(layers);
-  // 사진 배경이라 투명도가 필요 없어서, 기본은 용량이 훨씬 작고 전송이 빠른 JPG로 만듭니다.
-  return format === 'png' ? composed.png().toBuffer() : composed.jpeg({ quality: 86 }).toBuffer();
+  const base = photoBuffer
+    ? sharp({ create: { width: W, height: H, channels: 3, background: NAVY } })
+    : sharp(Buffer.from(panelSvg));
+
+  const composed = photoBuffer ? base.composite(layers) : sharp(Buffer.from(panelSvg));
+
+  return format === 'png' ? composed.png().toBuffer() : composed.jpeg({ quality: 88 }).toBuffer();
 }
 
-// ---------------- 캐시 저장 / 미리 만들어두기 ----------------
-// 위 generateSermonPoster는 순수하게 "이미지 버퍼만 만드는" 함수이고,
-// 아래 두 함수는 그걸 실제로 저장소에 올리고 캐시 기록을 남기는 역할까지 합니다.
-// (api.js의 방문자 요청 처리와, admin.js의 관리자 새로고침 양쪽에서 공용으로 씁니다)
 const { readData, writeData, saveUploadedFile } = require('./db');
 
 async function buildAndCacheSermonPoster({ videoId, rawTitle, videoIndex, uploadsDir }) {
@@ -307,12 +254,11 @@ async function buildAndCacheSermonPoster({ videoId, rawTitle, videoIndex, upload
   return { buffer, url };
 }
 
-// 방문자가 아무도 기다리지 않도록, 목록에 있는 영상 중 아직 카드 이미지가 없는 것들을
-// 미리 만들어둡니다. 실패해도 조용히 넘어갑니다(다음에 다시 시도하면 되므로).
+// 이제 카드가 "이번 주일 설교" 히어로 한 장만 필요하므로, 최신 영상 1개만 미리 만들어둡니다.
 async function pregenerateMissingSermonPosters(videos, uploadsDir) {
   try {
     const posters = (await readData('sermonPosters')) || {};
-    const targets = videos.slice(0, 6);
+    const targets = videos.slice(0, 1);
     for (let i = 0; i < targets.length; i++) {
       const v = targets[i];
       const cached = posters[v.videoId];
