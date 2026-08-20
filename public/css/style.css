@@ -596,15 +596,33 @@ button { font-family: inherit; cursor: pointer; }
 
 .praise-theme-dial-wrap {
   display: none; /* PC에서는 숨김, 칩 목록을 대신 씀 */
+  position: relative;
   margin-top: 18px;
+  padding: 14px 0 8px;
   text-align: center;
+  background: var(--ivory-dim);
+  border-radius: var(--radius);
+}
+.praise-theme-dial-wrap::after {
+  /* 다이얼 정가운데(실제로 선택되는 지점)를 은은한 금색 선으로 살짝 표시 */
+  content: '';
+  position: absolute;
+  left: 50%;
+  top: 34px;
+  bottom: 8px;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, rgba(201,162,39,0.5), transparent);
+  transform: translateX(-50%);
+  pointer-events: none;
 }
 .praise-theme-dial-label {
-  font-size: 0.78rem;
+  display: inline-block;
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gold-deep);
   font-weight: 700;
-  letter-spacing: 0.04em;
-  color: var(--muted);
-  margin: 0 0 6px;
+  margin: 0 0 2px;
 }
 .praise-theme-dial {
   display: flex;
