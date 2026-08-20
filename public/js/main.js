@@ -684,6 +684,17 @@
     setupCarouselNav(grid, 'praise-nav-prev', 'praise-nav-next');
   }
 
+  // 페이지 세로 스크롤에 영향을 주지 않도록, 다이얼 안에서만 가로로 이동시킵니다.
+  function centerCellInDial(dial, cell, smooth) {
+    if (!dial || !cell) return;
+    const targetLeft = cell.offsetLeft - dial.clientWidth / 2 + cell.offsetWidth / 2;
+    if (smooth && dial.scrollTo) {
+      dial.scrollTo({ left: targetLeft, behavior: 'smooth' });
+    } else {
+      dial.scrollLeft = targetLeft;
+    }
+  }
+
   function renderPraiseCategoryChips() {
     const wrap = $('#praise-category-chips');
     const dialWrap = $('#praise-theme-dial-wrap');
@@ -771,9 +782,11 @@
     });
 
     // 처음 진입 시, 현재 선택된 테마(또는 '전체')를 가운데로 맞춰둡니다.
+    // (scrollIntoView는 페이지 전체를 세로로도 끌어당기는 부작용이 있어 쓰지 않고,
+    // 다이얼 안에서만 scrollLeft를 직접 계산해서 옮깁니다)
     requestAnimationFrame(() => {
       const target = $(`.praise-theme-cell[data-id="${activePraiseCategory || ''}"]`, dial);
-      if (target) target.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'instant' });
+      centerCellInDial(dial, target, false);
     });
   }
 
@@ -811,7 +824,7 @@
       const target = $(`.praise-theme-cell[data-id="${categoryId || ''}"]`, dial);
       if (target) {
         $$('.praise-theme-cell', dial).forEach((c) => c.classList.toggle('is-active', c === target));
-        target.scrollIntoView({ inline: 'center', block: 'nearest', behavior: 'smooth' });
+        centerCellInDial(dial, target, true);
       }
     }
     const filtered = activePraiseCategory
