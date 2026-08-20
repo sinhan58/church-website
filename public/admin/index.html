@@ -708,6 +708,18 @@
         <span class="save-status" id="sermon-curation-status"></span>
       </div>
       <div class="card">
+        <h3>설교 테마 관리</h3>
+        <p class="hint" style="margin-top:0;">
+          "주일설교", "수요예배" 처럼 자유롭게 만들고 지울 수 있습니다.
+          아래 영상 목록에서 각 영상에 테마를 체크해두면, 홈페이지에서 테마별로 걸러볼 수 있어요.
+        </p>
+        <div id="sermon-category-list" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;"></div>
+        <div class="menu-add-row">
+          <input type="text" id="sermon-category-new-input" placeholder="새 테마 이름 (예: 청년부 집회)" maxlength="20" />
+          <button class="btn-secondary" id="sermon-category-add-btn">추가</button>
+        </div>
+      </div>
+      <div class="card">
         <h3>현재 캐시된 영상 목록</h3>
         <p id="sermon-last-updated" class="hint"></p>
         <div id="sermon-preview-list" class="sermon-preview-list"></div>
@@ -763,7 +775,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.min.js"></script>
 <script src="/js/font-catalog.js"></script>
 <script src="/js/countries.js"></script>
-<script src="/admin/js/admin.js?v=20"></script>
+<script src="/admin/js/admin.js?v=21"></script>
 
 </body>
 </html>
