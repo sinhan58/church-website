@@ -564,22 +564,36 @@
     });
 
     grid.innerHTML = ordered
-      .slice(0, 15) // 캐러셀이 너무 길어지지 않도록 최근 15개까지만
+    const isMobile = window.matchMedia('(max-width: 900px)').matches;
+    const displayList = isMobile ? ordered.slice(0, 3) : ordered.slice(0, 15);
+
+    grid.innerHTML = displayList
       .map((v, i) => {
         const posterUrl = `/api/sermon-poster/${encodeURIComponent(v.videoId)}?title=${encodeURIComponent(v.title || '')}&idx=${i}`;
         const badgeLabel = badges[i];
         return `
         <div class="sermon-card reveal reveal-delay-${(i % 6) + 1}" data-video-id="${escapeHtml(v.videoId)}" data-title="${escapeHtml(v.title || '')}">
           <div class="sermon-thumb">
-            ${badgeLabel ? `<span class="sermon-badge">${escapeHtml(badgeLabel)}</span>` : ''}
             <img src="${posterUrl}" alt="${escapeHtml(v.title)}" loading="lazy" onerror="this.onerror=null;this.src='${escapeHtml(v.thumbnail)}';" />
             <button type="button" class="sermon-play" aria-label="재생">
               <svg viewBox="0 0 24 24"><path d="M9.5 7.5v9l8-4.5-8-4.5z"/></svg>
             </button>
           </div>
+          ${badgeLabel ? `<div class="sermon-badge-bar">${escapeHtml(badgeLabel)}</div>` : ''}
         </div>`;
       })
       .join('');
+
+    // 모바일 전용 "유튜브에서 전체 설교 보기" 링크 (채널이 연결되어 있을 때만 노출)
+    const moreLink = $('#sermon-more-link');
+    if (moreLink) {
+      if (data.channelId) {
+        moreLink.href = `https://www.youtube.com/channel/${encodeURIComponent(data.channelId)}/videos`;
+        moreLink.style.display = ''; // CSS 미디어쿼리(모바일에서만 block)가 나머지를 처리
+      } else {
+        moreLink.style.display = 'none';
+      }
+    }
     observeReveals(grid);
 
     $$('.sermon-card').forEach((card) => {
@@ -634,7 +648,9 @@
       grid.innerHTML = `<p class="board-empty" style="padding:20px;">이 컨셉의 찬양이 아직 없어요.</p>`;
       return;
     }
-    grid.innerHTML = list
+    const isMobile = window.matchMedia('(max-width: 900px)').matches;
+    const displayList = isMobile ? list.slice(0, 4) : list;
+    grid.innerHTML = displayList
       .map(
         (p, i) => `
         <div class="praise-card reveal reveal-delay-${(i % 6) + 1}" data-video-id="${escapeHtml(p.youtubeId)}" data-title="${escapeHtml(p.title || '')}" style="--accent-rgb: ${accentForId(p.youtubeId)};">
@@ -670,43 +686,60 @@
 
   function renderPraiseCategoryChips() {
     const wrap = $('#praise-category-chips');
+    const select = $('#praise-category-select');
     if (!wrap) return;
-    // 곡이 하나라도 있는 컨셉만 필터 버튼으로 보여줍니다 (텅 빈 필터 방지)
+    // 곡이 하나라도 있는 컨셉만 필터로 보여줍니다 (텅 빈 필터 방지)
     const usedCategoryIds = new Set();
     allPraises.forEach((p) => (p.categoryIds || []).forEach((id) => usedCategoryIds.add(id)));
     const usable = praiseCategoryList.filter((c) => usedCategoryIds.has(c.id));
 
     if (usable.length === 0) {
       wrap.style.display = 'none';
+      if (select) select.style.display = 'none';
       return;
     }
     wrap.style.display = '';
-    const chips = [{ id: null, name: '전체' }, ...usable];
-    wrap.innerHTML = chips
+    const options = [{ id: null, name: '전체' }, ...usable];
+
+    // PC: 옆으로 넘기는 칩 목록
+    wrap.innerHTML = options
       .map(
         (c) => `<button type="button" class="praise-chip${activePraiseCategory === c.id ? ' active' : ''}" data-id="${c.id || ''}">${escapeHtml(c.name)}</button>`
       )
       .join('');
-
     $$('.praise-chip', wrap).forEach((chip) => {
-      chip.addEventListener('click', () => {
-        activePraiseCategory = chip.dataset.id || null;
-        if (activePraiseCategory) {
-          track('click', {
-            label: 'praise_category_filter',
-            itemType: 'praise_category',
-            itemId: activePraiseCategory,
-            itemTitle: chip.textContent
-          });
-        }
-        $$('.praise-chip', wrap).forEach((c) => c.classList.remove('active'));
-        chip.classList.add('active');
-        const filtered = activePraiseCategory
-          ? allPraises.filter((p) => (p.categoryIds || []).includes(activePraiseCategory))
-          : allPraises;
-        renderPraiseCards(filtered);
-      });
+      chip.addEventListener('click', () => applyPraiseCategoryFilter(chip.dataset.id || null, chip.textContent));
     });
+
+    // 모바일: 옆으로 길게 늘어지는 칩 대신 한 줄짜리 드롭다운으로 대체
+    if (select) {
+      select.style.display = '';
+      select.innerHTML = options.map((c) => `<option value="${c.id || ''}">${escapeHtml(c.name)}</option>`).join('');
+      select.value = activePraiseCategory || '';
+      select.onchange = () => {
+        const chosen = options.find((c) => (c.id || '') === select.value);
+        applyPraiseCategoryFilter(select.value || null, chosen ? chosen.name : '전체');
+      };
+    }
+  }
+
+  function applyPraiseCategoryFilter(categoryId, categoryName) {
+    activePraiseCategory = categoryId;
+    if (activePraiseCategory) {
+      track('click', {
+        label: 'praise_category_filter',
+        itemType: 'praise_category',
+        itemId: activePraiseCategory,
+        itemTitle: categoryName
+      });
+    }
+    $$('.praise-chip').forEach((c) => c.classList.toggle('active', (c.dataset.id || null) === categoryId));
+    const select = $('#praise-category-select');
+    if (select) select.value = categoryId || '';
+    const filtered = activePraiseCategory
+      ? allPraises.filter((p) => (p.categoryIds || []).includes(activePraiseCategory))
+      : allPraises;
+    renderPraiseCards(filtered);
   }
 
   async function loadPraises() {
