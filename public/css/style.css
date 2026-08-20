@@ -441,32 +441,31 @@ button { font-family: inherit; cursor: pointer; }
   border-radius: var(--radius);
 }
 
-/* ---------------- 설교 섹션: 왼쪽 히어로 + 오른쪽 목록 ---------------- */
+/* ---------------- 설교 섹션: 왼쪽 사진 + 오른쪽 목록을 하나의 카드로 통합 ---------------- */
+.sermon-hero-label {
+  font-family: var(--font-heading);
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--navy-deep);
+  margin: 0 0 14px;
+}
+
 .sermon-layout {
   display: grid;
-  grid-template-columns: 1.35fr 1fr;
-  gap: 32px;
-  align-items: stretch;
+  grid-template-columns: 1.2fr 1fr;
+  background: linear-gradient(135deg, var(--navy-deep) 0%, #241a35 100%);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  border: 2px solid var(--gold);
 }
 @media (max-width: 900px) {
   .sermon-layout { grid-template-columns: 1fr; }
 }
 
-.sermon-hero-label,
-.sermon-list-label {
-  font-family: var(--font-heading);
-  font-size: 1.05rem;
-  font-weight: 700;
-  color: var(--navy-deep);
-  margin: 0 0 12px;
-}
-
 .sermon-hero-card {
   position: relative;
   aspect-ratio: 16/9;
-  border-radius: var(--radius);
-  overflow: hidden;
-  box-shadow: var(--shadow);
   cursor: pointer;
   background: var(--navy-deep);
 }
@@ -484,76 +483,59 @@ button { font-family: inherit; cursor: pointer; }
 .sermon-hero-card .sermon-hero-play svg { width: 24px; height: 24px; }
 .sermon-hero-card:hover .sermon-hero-play { transform: scale(1.08); background: var(--gold); }
 
-.sermon-list-wrap { display: flex; flex-direction: column; }
-.sermon-list {
-  flex: 1;
+.sermon-list-wrap {
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  justify-content: center;
+  padding: 28px 32px;
+}
+.sermon-list {
+  display: flex;
+  flex-direction: column;
 }
 .sermon-list-row {
   position: relative;
   display: block;
-  padding: 16px 18px;
-  border-radius: var(--radius);
-  overflow: hidden;
+  padding: 14px 0;
   cursor: pointer;
-  background: #fff;
-  border: 1px solid var(--line);
-  transition: border-color 0.2s ease, transform 0.2s ease;
+  border-bottom: 1px solid rgba(255,255,255,0.14);
+  transition: padding-left 0.2s ease;
 }
-.sermon-list-row:hover { border-color: var(--gold); transform: translateX(2px); }
-.sermon-list-row .sermon-list-bg {
-  position: absolute; inset: 0;
-  background-size: cover;
-  background-position: center;
-  opacity: 0.07;
-  filter: blur(2px);
-  z-index: 0;
-}
-.sermon-list-row > * { position: relative; z-index: 1; }
+.sermon-list-row:last-child { border-bottom: none; }
+.sermon-list-row:hover { padding-left: 6px; }
 .sermon-list-row .badges { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
 .sermon-list-row .theme-badge {
   display: inline-block;
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   font-weight: 700;
-  color: var(--gold-deep);
-  background: var(--gold-soft);
-  padding: 2px 9px;
-  border-radius: 999px;
-}
-.sermon-list-row .pinned-badge {
-  display: inline-block;
-  font-size: 0.7rem;
-  font-weight: 700;
-  color: #fff;
-  background: var(--navy-deep);
+  color: var(--gold);
+  background: rgba(201,162,39,0.16);
   padding: 2px 9px;
   border-radius: 999px;
 }
 .sermon-list-row .title {
   font-weight: 600;
   font-size: 0.95rem;
-  color: var(--navy-deep);
+  color: #fff;
   margin: 0 0 4px;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.sermon-list-row .verse { color: var(--muted); font-size: 0.82rem; margin: 0; }
+.sermon-list-row .verse { color: rgba(255,255,255,0.5); font-size: 0.8rem; margin: 0; }
 
 .sermon-youtube-btn {
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  margin-top: 14px;
+  margin-top: 18px;
   padding: 12px 18px;
   border-radius: var(--radius);
   background: #FF0000;
   color: #fff;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   font-weight: 700;
   transition: background 0.2s ease, transform 0.2s ease;
 }
