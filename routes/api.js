@@ -4,7 +4,7 @@ const bcrypt = require('bcryptjs');
 const path = require('path');
 const { readData, writeData, makeId } = require('../utils/db');
 const { getCachedSermons } = require('../utils/youtube');
-const { buildAndCacheSermonPoster, pregenerateMissingSermonPosters } = require('../utils/sermonPoster');
+const { buildAndCacheSermonPoster, pregenerateMissingSermonPosters, pickSermonPhotoSource } = require('../utils/sermonPoster');
 const { VAPID_PUBLIC_KEY, saveSubscription, removeSubscription } = require('../utils/push');
 
 const uploadsDir = path.join(__dirname, '..', 'public', 'uploads');
@@ -61,6 +61,29 @@ router.get('/sermon-poster/:videoId', async (req, res) => {
 
     const { url } = await buildAndCacheSermonPoster({ videoId, rawTitle, videoIndex, uploadsDir });
     return res.redirect(url);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 이제 사진은 합성 없이 그대로 보여줍니다(제목·구절은 별도 칸에 표시). 영상마다 어떤
+// 사진을 쓸지만 정해서, 로컬 파일이면 바로 전송하고 관리자가 올린 URL이면 그리로 넘겨줍니다.
+router.get('/sermon-photo/:videoId', async (req, res) => {
+  try {
+    const { videoId } = req.params;
+    if (!/^[a-zA-Z0-9_-]{6,20}$/.test(videoId)) {
+      return res.status(400).json({ error: '잘못된 영상 ID입니다.' });
+    }
+    const site = (await readData('site')) || {};
+    const extraPhotoUrls = Array.isArray(site.sermonCardPhotos) ? site.sermonCardPhotos : [];
+    const photoOverride = site.sermonPhotoOverride || '';
+
+    const source = pickSermonPhotoSource({ videoId, extraPhotoUrls, photoOverride });
+    if (!source) return res.status(404).json({ error: '등록된 사진이 없습니다.' });
+
+    res.set('Cache-Control', 'no-cache');
+    if (source.type === 'url') return res.redirect(source.value);
+    return res.sendFile(source.value);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
