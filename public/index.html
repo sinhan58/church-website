@@ -181,12 +181,21 @@
       </div>
       <p class="sermon-updated" id="sermon-updated" style="display:none;"></p>
       <div class="praise-category-chips" id="sermon-category-chips" style="display:none;"></div>
-      <div class="carousel-wrap">
-        <button class="carousel-nav carousel-nav--prev" id="sermon-nav-prev" aria-label="이전 설교 보기"><svg viewBox="0 0 24 48" fill="none"><path d="M18 4L6 24L18 44" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-        <div class="sermon-grid" id="sermon-grid"></div>
-        <button class="carousel-nav carousel-nav--next" id="sermon-nav-next" aria-label="다음 설교 보기"><svg viewBox="0 0 24 48" fill="none"><path d="M6 4L18 24L6 44" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+
+      <div class="sermon-layout" id="sermon-layout">
+        <div class="sermon-hero" id="sermon-hero">
+          <p class="sermon-hero-label">주일 설교</p>
+          <div class="sermon-hero-card" id="sermon-hero-card"></div>
+        </div>
+        <div class="sermon-list-wrap">
+          <p class="sermon-list-label">지난 설교</p>
+          <div class="sermon-list" id="sermon-list"></div>
+          <a href="#" id="sermon-youtube-btn" class="sermon-youtube-btn" target="_blank" rel="noopener" style="display:none;">
+            <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8ZM9.6 15.5V8.5L15.8 12l-6.2 3.5Z"/></svg>
+            유튜브 채널에서 더 보기
+          </a>
+        </div>
       </div>
-      <a href="#" id="sermon-more-link" class="sermon-more-link" target="_blank" rel="noopener" style="display:none;">유튜브에서 전체 설교 영상 보기 →</a>
     </div>
   </section>
 
