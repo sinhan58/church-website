@@ -241,6 +241,26 @@ function buildBlurRevealMaskSvg() {
  * "이번 주일 설교" 히어로 카드 포스터 이미지(PNG/JPEG 버퍼)를 생성합니다.
  * 사람을 오려내지 않고, 사진 전체를 왼쪽 영역에 꽉 채워(cover) 넣습니다.
  */
+// 합성 없이, 이번에 쓸 사진이 "로컬 파일"인지 "관리자가 올린 URL"인지와 그 경로/주소만
+// 알려줍니다. 이제 사진은 그대로(가공 없이) 보여주고, 제목·구절은 별도 칸에 표시하므로
+// 이 함수 하나로 충분합니다.
+function pickSermonPhotoSource({ videoId, extraPhotoUrls = [], photoOverride = '' }) {
+  const localPool = BUILTIN_PHOTOS;
+
+  if (photoOverride) {
+    const overridePath = localPool.find((p) => path.basename(p) === photoOverride);
+    if (overridePath) return { type: 'file', value: overridePath };
+  }
+
+  const allCount = localPool.length + extraPhotoUrls.length;
+  if (allCount === 0) return null;
+
+  const h = hashStr(videoId);
+  const pick = h % allCount;
+  if (pick < localPool.length) return { type: 'file', value: localPool[pick] };
+  return { type: 'url', value: extraPhotoUrls[pick - localPool.length] };
+}
+
 async function generateSermonPoster({
   videoId,
   rawTitle,
@@ -397,5 +417,6 @@ module.exports = {
   parseSermonTitle,
   buildAndCacheSermonPoster,
   pregenerateMissingSermonPosters,
-  listBuiltinPhotoFilenames
+  listBuiltinPhotoFilenames,
+  pickSermonPhotoSource
 };
