@@ -55,7 +55,7 @@ const BUILTIN_PHOTOS = (() => {
 const W = 1200;
 const H = 675;
 const PHOTO_W = 480; // 오른쪽 사진 영역 폭 (전체의 40%, 왼쪽 제목 영역이 60%)
-const BLEND_W = 120; // 사진과 패널이 자연스럽게 이어지는 페이드 폭
+const BLEND_W = 190; // 사진과 패널이 자연스럽게 이어지는 페이드 폭
 const GOLD = '#c9a227';
 const WHITE = '#ffffff';
 const NAVY = '#0d1526';
@@ -202,6 +202,24 @@ function buildFeatherMaskSvg() {
   </svg>`;
 }
 
+// 사진 자체를 페이드 구간에서 미리 어둡게 만듭니다. 투명도만 줄이면, 흰 강대상처럼
+// 밝은 사물이 어두운 배경 속으로 갑자기 "뚝" 끊겨 사라지는 것처럼 보입니다. 밝기도
+// 같이 서서히 줄여주면, 밝기와 투명도가 함께 자연스럽게 빠지면서 경계가 훨씬 부드러워집니다.
+function buildPhotoDarkenGradientSvg() {
+  const opaqueStart = Math.round((BLEND_W / PHOTO_W) * 100);
+  return `
+  <svg width="${PHOTO_W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="pdark" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#000000" stop-opacity="0.9"/>
+        <stop offset="${opaqueStart}%" stop-color="#000000" stop-opacity="0"/>
+        <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <rect width="${PHOTO_W}" height="${H}" fill="url(#pdark)"/>
+  </svg>`;
+}
+
 /**
  * "이번 주일 설교" 히어로 카드 포스터 이미지(PNG/JPEG 버퍼)를 생성합니다.
  * 사람을 오려내지 않고, 사진 전체를 왼쪽 영역에 꽉 채워(cover) 넣습니다.
@@ -264,7 +282,12 @@ async function generateSermonPoster({
       .ensureAlpha()
       .png()
       .toBuffer();
-    const feathered = await sharp(sharpPhotoPng)
+    // 밝기를 먼저 서서히 줄이고, 그다음 투명도를 서서히 줄입니다 (순서가 중요합니다).
+    const darkenedPhoto = await sharp(sharpPhotoPng)
+      .composite([{ input: Buffer.from(buildPhotoDarkenGradientSvg()) }])
+      .png()
+      .toBuffer();
+    const feathered = await sharp(darkenedPhoto)
       .composite([{ input: Buffer.from(buildFeatherMaskSvg()), blend: 'dest-in' }])
       .png()
       .toBuffer();
