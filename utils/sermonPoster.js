@@ -207,7 +207,6 @@ async function generateSermonPoster({
 
   const textSvg = buildTextSvg({ title, verseRef, pastorName, churchName });
 
-  let base;
   if (photoBuffer) {
     // 1) 캔버스 전체를 채우는 "같은 사진"을 흐릿하고 어둡게 늘려서 배경으로 씁니다.
     //    사진과 배경이 같은 원본에서 나오므로 색감이 항상 자연스럽게 이어집니다.
@@ -219,26 +218,33 @@ async function generateSermonPoster({
 
     // 2) 선명한 원본 사진을 왼쪽에 놓되, 오른쪽 가장자리는 부드럽게 투명해지도록
     //    마스크를 씌워서 경계 없이 배경 속으로 스며들게 합니다.
-    const sharpPhoto = await sharp(photoBuffer)
+    //    (반드시 PNG로 변환해야 합니다 - JPEG는 투명도를 표현할 수 없어서, 그대로 두면
+    //    페더 마스크가 적용되지 않고 사진 전체가 흐려 보이는 원인이 됩니다)
+    const sharpPhotoPng = await sharp(photoBuffer)
       .resize({ width: PHOTO_W, height: H, fit: 'cover', position: 'attention' })
+      .ensureAlpha()
+      .png()
       .toBuffer();
-    const feathered = await sharp(sharpPhoto)
+    const feathered = await sharp(sharpPhotoPng)
       .composite([{ input: Buffer.from(buildFeatherMaskSvg()), blend: 'dest-in' }])
       .png()
       .toBuffer();
 
-    base = sharp(blurredBg).composite([
-      { input: feathered, left: 0, top: 0 },
-      { input: Buffer.from(buildDarkenOverlaySvg()), left: 0, top: 0 }
-    ]);
-  } else {
-    // 사진이 아예 없을 때를 대비한 기본 배경
-    base = sharp({ create: { width: W, height: H, channels: 3, background: NAVY } });
+    return sharp(blurredBg)
+      .composite([
+        { input: feathered, left: 0, top: 0 },
+        { input: Buffer.from(buildDarkenOverlaySvg()), left: 0, top: 0 },
+        { input: Buffer.from(textSvg), left: 0, top: 0 }
+      ])
+      [format === 'png' ? 'png' : 'jpeg'](format === 'png' ? undefined : { quality: 88 })
+      .toBuffer();
   }
 
-  const composed = base.composite([{ input: Buffer.from(textSvg), left: 0, top: 0 }]);
-
-  return format === 'png' ? composed.png().toBuffer() : composed.jpeg({ quality: 88 }).toBuffer();
+  // 사진이 아예 없을 때를 대비한 기본 배경
+  const fallback = sharp({ create: { width: W, height: H, channels: 3, background: NAVY } }).composite([
+    { input: Buffer.from(textSvg), left: 0, top: 0 }
+  ]);
+  return format === 'png' ? fallback.png().toBuffer() : fallback.jpeg({ quality: 88 }).toBuffer();
 }
 
 const { readData, writeData, saveUploadedFile } = require('./db');
