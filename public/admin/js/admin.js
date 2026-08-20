@@ -1587,10 +1587,26 @@
         (c) => `
         <span class="badge" style="display:inline-flex; align-items:center; gap:6px;">
           ${escapeHtml(c.name)}
+          <button type="button" class="praise-category-edit" data-id="${c.id}" data-name="${escapeHtml(c.name)}" style="background:none; border:none; color:inherit; cursor:pointer; font-size:0.9em;" aria-label="수정">✎</button>
           <button type="button" class="praise-category-delete" data-id="${c.id}" style="background:none; border:none; color:inherit; cursor:pointer; font-size:0.9em;">×</button>
         </span>`
       )
       .join('');
+    $$('.praise-category-edit', wrap).forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const newName = prompt('컨셉 이름 수정', btn.dataset.name);
+        if (!newName || !newName.trim() || newName.trim() === btn.dataset.name) return;
+        try {
+          await api(`/api/admin/praise-categories/${btn.dataset.id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ name: newName.trim() })
+          });
+          await loadPraiseCategories();
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+    });
     $$('.praise-category-delete', wrap).forEach((btn) => {
       btn.addEventListener('click', async () => {
         if (!confirm('이 컨셉을 삭제할까요? (이 컨셉이 붙어있던 찬양에서도 태그가 빠집니다)')) return;
