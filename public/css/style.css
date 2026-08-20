@@ -401,26 +401,26 @@ button { font-family: inherit; cursor: pointer; }
   top: 50%;
   transform: translateY(-50%);
   z-index: 20;
-  width: 46px;
-  height: 46px;
-  border-radius: 50%;
-  border: 1px solid var(--line);
-  background: #fff;
-  color: var(--navy-deep);
-  font-size: 1.5rem;
-  line-height: 1;
+  width: 26px;
+  height: 68px; /* 세로로 큼직하게, 예전 원형 버튼의 약 2배 높이 */
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 0;
   cursor: pointer;
+  color: var(--navy-deep);
+  opacity: 0.45;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 6px 18px rgba(13,21,38,0.18);
-  transition: background 0.2s ease, transform 0.2s ease, opacity 0.2s ease;
+  transition: opacity 0.2s ease, color 0.2s ease, transform 0.2s ease;
 }
-.carousel-nav:hover { background: var(--gold); border-color: var(--gold); transform: translateY(-50%) scale(1.06); }
-.carousel-nav:disabled { opacity: 0.25; cursor: default; }
-.carousel-nav:disabled:hover { background: #fff; transform: translateY(-50%); }
-.carousel-nav--prev { left: -23px; }
-.carousel-nav--next { right: -23px; }
+.carousel-nav svg { width: 100%; height: 100%; display: block; }
+.carousel-nav:hover { opacity: 1; color: var(--gold-deep); transform: translateY(-50%) scale(1.05); }
+.carousel-nav:disabled { opacity: 0.12; cursor: default; }
+.carousel-nav:disabled:hover { transform: translateY(-50%) scale(1); color: var(--navy-deep); }
+.carousel-nav--prev { left: -30px; }
+.carousel-nav--next { right: -30px; }
 @media (max-width: 1180px) {
   .carousel-nav--prev { left: -8px; }
   .carousel-nav--next { right: -8px; }
@@ -433,10 +433,11 @@ button { font-family: inherit; cursor: pointer; }
   display: flex;
   gap: 28px;
   overflow-x: auto;
-  scroll-snap-type: x mandatory;
+  scroll-snap-type: x proximity;
   scroll-behavior: smooth;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
 }
 .sermon-grid::-webkit-scrollbar { display: none; }
 .sermon-card {
@@ -684,10 +685,11 @@ button { font-family: inherit; cursor: pointer; }
   grid-auto-columns: calc((100% - 20px * 3) / 4);
   gap: 20px;
   overflow-x: auto;
-  scroll-snap-type: x mandatory;
+  scroll-snap-type: x proximity;
   scroll-behavior: smooth;
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior-x: contain;
 }
 .praise-grid::-webkit-scrollbar { display: none; }
 .praise-card {
