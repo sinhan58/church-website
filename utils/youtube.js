@@ -52,7 +52,8 @@ async function updateSermonsCache(channelId, limit = 12) {
   const trimmed = videos.slice(0, limit);
   const data = {
     lastUpdated: new Date().toISOString(),
-    videos: trimmed
+    videos: trimmed,
+    channelId
   };
   writeData('sermons', data);
   return data;
