@@ -292,11 +292,10 @@ async function pregenerateMissingSermonPosters(videos, uploadsDir) {
   try {
     const posters = (await readData('sermonPosters')) || {};
     const targets = videos.slice(0, 1);
-    for (let i = 0; i < targets.length; i++) {
-      const v = targets[i];
+    for (const v of targets) {
       const cached = posters[v.videoId];
       if (cached && cached.title === v.title && cached.url) continue;
-      await buildAndCacheSermonPoster({ videoId: v.videoId, rawTitle: v.title, videoIndex: i, uploadsDir });
+      await buildAndCacheSermonPoster({ videoId: v.videoId, rawTitle: v.title, uploadsDir });
     }
   } catch (err) {
     console.error('[sermonPoster] 설교 카드 미리 생성 중 오류(다음 요청 시 다시 시도됩니다):', err.message);
