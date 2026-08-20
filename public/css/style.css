@@ -561,7 +561,10 @@ button { font-family: inherit; cursor: pointer; }
 .praise-chip.active { background: var(--navy-deep); border-color: var(--navy-deep); color: #fff; }
 
 .praise-grid {
-  display: flex;
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(2, auto); /* PC 기준 4열 x 2행 = 8개 고정 노출 */
+  grid-auto-columns: calc((100% - 20px * 3) / 4);
   gap: 20px;
   overflow-x: auto;
   scroll-snap-type: x mandatory;
@@ -574,7 +577,6 @@ button { font-family: inherit; cursor: pointer; }
   position: relative;
   cursor: pointer;
   scroll-snap-align: start;
-  flex: 0 0 calc((100% - 20px * 7) / 8); /* PC 기준 8개 고정 노출 */
   border-radius: var(--radius);
   overflow: hidden;
   box-shadow: var(--shadow);
@@ -628,11 +630,12 @@ button { font-family: inherit; cursor: pointer; }
   color: rgba(255,255,255,0.75);
 }
 @media (max-width: 900px) {
-  .praise-card { flex-basis: calc((100% - 20px * 3) / 4); } /* 모바일 4개 고정 노출 */
+  .praise-grid { display: flex; } /* 모바일은 2행 대신 한 줄, 4개 고정 노출 */
+  .praise-card { flex: 0 0 calc((100% - 20px * 3) / 4); }
 }
 @media (max-width: 560px) {
   .praise-grid { gap: 14px; }
-  .praise-card { flex-basis: calc((100% - 14px * 3) / 4); }
+  .praise-card { flex: 0 0 calc((100% - 14px * 3) / 4); }
 }
 
 /* ---------------- Board (소식·활동) ---------------- */
