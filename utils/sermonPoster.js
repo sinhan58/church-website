@@ -90,24 +90,19 @@ function escapeXml(str = '') {
     .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 }
 
-// 오른쪽 패널: 보라·남색이 각지게(기하학적으로) 섞인 배경. 사진 쪽 가장자리는
-// 페이드 그라데이션으로 처리해서, 사진과 패널이 하나로 자연스럽게 이어지게 합니다.
-function buildPanelSvg({ title, verseRef, pastorName, churchName, seed }) {
-  const panelX = PHOTO_W - BLEND_W; // 페이드 영역만큼 패널이 사진 쪽으로 살짝 겹쳐 들어감
-  const panelW = W - panelX;
+// 오른쪽 패널: 별도의 색상 그라데이션이 아니라, "같은 사진을 흐릿하고 어둡게 늘린 것"을
+// 배경으로 씁니다. 사진과 배경이 같은 원본에서 나오기 때문에 색감이 항상 자연스럽게
+// 이어지고, 사진이 바뀌어도 늘 어울리는 결과가 나옵니다.
+function buildTextSvg({ title, verseRef, pastorName, churchName }) {
   const textX = PHOTO_W + 56;
   const textMaxWidth = W - textX - 56;
-
-  // 기하학적 삼각형 조각들 (시드 기반으로 항상 같은 영상엔 같은 배치가 나오도록)
-  const h = seed;
-  const shapeSeedA = (h % 40) - 20;
-  const shapeSeedB = ((h >> 4) % 30) - 15;
 
   let titleFontSize = 56;
   let lineHeight = 68;
   let titleLines = wrapByWidth(title, titleFontSize, textMaxWidth, 0.86);
-  titleLines = titleLines.slice(0, 3); // 고정 크기 유지, 넘치면 3줄까지만 + 말줄임표
-  if (wrapByWidth(title, titleFontSize, textMaxWidth, 0.86).length > 3) {
+  const fullLines = wrapByWidth(title, titleFontSize, textMaxWidth, 0.86);
+  titleLines = titleLines.slice(0, 3);
+  if (fullLines.length > 3) {
     const last = titleLines[2] || '';
     titleLines[2] = last.slice(0, Math.max(0, last.length - 1)) + '…';
   }
@@ -137,36 +132,45 @@ function buildPanelSvg({ title, verseRef, pastorName, churchName, seed }) {
 
   return `
   <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="basePanel" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="${NAVY}"/>
-        <stop offset="100%" stop-color="${PURPLE}"/>
-      </linearGradient>
-      <linearGradient id="fadeIn" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stop-color="${NAVY}" stop-opacity="0"/>
-        <stop offset="100%" stop-color="${NAVY}" stop-opacity="1"/>
-      </linearGradient>
-      <clipPath id="panelClip">
-        <rect x="${panelX}" y="0" width="${panelW}" height="${H}"/>
-      </clipPath>
-    </defs>
-
-    <g clip-path="url(#panelClip)">
-      <rect x="${panelX}" y="0" width="${panelW}" height="${H}" fill="url(#basePanel)"/>
-      <!-- 기하학적 조각들: 각진 삼각형/사각형을 낮은 투명도로 겹쳐서 밋밋하지 않게 -->
-      <polygon points="${panelX + 60 + shapeSeedA},0 ${panelX + 340 + shapeSeedA},0 ${panelX + 120},${H}" fill="${GOLD}" opacity="0.06"/>
-      <polygon points="${W - 260},${H} ${W},${H} ${W},${H - 300 + shapeSeedB}" fill="${GOLD}" opacity="0.08"/>
-      <polygon points="${panelX},${H * 0.62} ${panelX + 420},${H * 0.4} ${panelX + 260},${H}" fill="#3a1a55" opacity="0.35"/>
-      <rect x="${panelX}" y="0" width="${BLEND_W + 30}" height="${H}" fill="url(#fadeIn)"/>
-    </g>
-
     ${titleTspans}
     ${verseSvg}
     <line x1="${textX}" y1="${lineY}" x2="${textX + 280}" y2="${lineY}" stroke="#ffffff" stroke-opacity="0.3" stroke-width="1"/>
     ${churchSvg}
     ${pastorSvg}
-
     <rect x="14" y="14" width="${W - 28}" height="${H - 28}" fill="none" stroke="${GOLD}" stroke-width="2" opacity="0.9"/>
+  </svg>`;
+}
+
+// 글자가 항상 잘 읽히도록, 오른쪽 텍스트 구역에만 어두운 그라데이션을 얹습니다
+// (사진이 밝든 어둡든 상관없이 대비를 보장).
+function buildDarkenOverlaySvg() {
+  const startX = PHOTO_W - BLEND_W;
+  return `
+  <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="darken" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#000000" stop-opacity="0"/>
+        <stop offset="${Math.round((startX / W) * 100)}%" stop-color="#000000" stop-opacity="0.35"/>
+        <stop offset="100%" stop-color="#000000" stop-opacity="0.55"/>
+      </linearGradient>
+    </defs>
+    <rect x="${startX}" y="0" width="${W - startX}" height="${H}" fill="url(#darken)"/>
+  </svg>`;
+}
+
+// 왼쪽 사진의 오른쪽 가장자리를 부드럽게 투명해지도록 만드는 마스크 (사진↔배경 경계를 없앰)
+function buildFeatherMaskSvg() {
+  const opaqueEnd = Math.round(((PHOTO_W - BLEND_W) / PHOTO_W) * 100);
+  return `
+  <svg width="${PHOTO_W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="fade" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="white" stop-opacity="1"/>
+        <stop offset="${opaqueEnd}%" stop-color="white" stop-opacity="1"/>
+        <stop offset="100%" stop-color="white" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    <rect width="${PHOTO_W}" height="${H}" fill="url(#fade)"/>
   </svg>`;
 }
 
@@ -202,26 +206,38 @@ async function generateSermonPoster({
     }
   }
 
-  const panelSvg = buildPanelSvg({ title, verseRef, pastorName, churchName, seed: h });
+  const textSvg = buildTextSvg({ title, verseRef, pastorName, churchName });
 
-  const layers = [];
-
+  let base;
   if (photoBuffer) {
-    // 사람을 오려내지 않고, 사진 전체를 왼쪽 영역에 꽉 채웁니다(object-fit: cover와 동일한 방식).
-    // 어떤 비율의 사진이 들어와도 항상 안정적으로 같은 크기의 박스에 맞춰집니다.
-    const photoBuf = await sharp(photoBuffer)
+    // 1) 캔버스 전체를 채우는 "같은 사진"을 흐릿하고 어둡게 늘려서 배경으로 씁니다.
+    //    사진과 배경이 같은 원본에서 나오므로 색감이 항상 자연스럽게 이어집니다.
+    const blurredBg = await sharp(photoBuffer)
+      .resize({ width: W, height: H, fit: 'cover', position: 'attention' })
+      .blur(48)
+      .modulate({ brightness: 0.5, saturation: 0.85 })
+      .toBuffer();
+
+    // 2) 선명한 원본 사진을 왼쪽에 놓되, 오른쪽 가장자리는 부드럽게 투명해지도록
+    //    마스크를 씌워서 경계 없이 배경 속으로 스며들게 합니다.
+    const sharpPhoto = await sharp(photoBuffer)
       .resize({ width: PHOTO_W, height: H, fit: 'cover', position: 'attention' })
       .toBuffer();
-    layers.push({ input: photoBuf, top: 0, left: 0 });
+    const feathered = await sharp(sharpPhoto)
+      .composite([{ input: Buffer.from(buildFeatherMaskSvg()), blend: 'dest-in' }])
+      .png()
+      .toBuffer();
+
+    base = sharp(blurredBg).composite([
+      { input: feathered, left: 0, top: 0 },
+      { input: Buffer.from(buildDarkenOverlaySvg()), left: 0, top: 0 }
+    ]);
+  } else {
+    // 사진이 아예 없을 때를 대비한 기본 배경
+    base = sharp({ create: { width: W, height: H, channels: 3, background: NAVY } });
   }
 
-  layers.push({ input: Buffer.from(panelSvg), top: 0, left: 0 });
-
-  const base = photoBuffer
-    ? sharp({ create: { width: W, height: H, channels: 3, background: NAVY } })
-    : sharp(Buffer.from(panelSvg));
-
-  const composed = photoBuffer ? base.composite(layers) : sharp(Buffer.from(panelSvg));
+  const composed = base.composite([{ input: Buffer.from(textSvg), left: 0, top: 0 }]);
 
   return format === 'png' ? composed.png().toBuffer() : composed.jpeg({ quality: 88 }).toBuffer();
 }
