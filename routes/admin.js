@@ -726,6 +726,24 @@ router.post('/praise-categories', async (req, res) => {
   }
 });
 
+router.put('/praise-categories/:id', async (req, res) => {
+  try {
+    const name = (req.body.name || '').trim();
+    if (!name) return res.status(400).json({ error: '컨셉 이름을 입력해주세요.' });
+    const categories = (await readData('praiseCategories')) || [];
+    const idx = categories.findIndex((c) => c.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: '컨셉을 찾을 수 없습니다.' });
+    if (categories.some((c) => c.id !== req.params.id && c.name === name)) {
+      return res.status(409).json({ error: '이미 같은 이름의 컨셉이 있습니다.' });
+    }
+    categories[idx] = { ...categories[idx], name };
+    await writeData('praiseCategories', categories);
+    res.json(categories[idx]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.delete('/praise-categories/:id', async (req, res) => {
   try {
     const categories = (await readData('praiseCategories')) || [];
