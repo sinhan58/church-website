@@ -71,8 +71,12 @@
     }
   }
 
+  function getDeviceType() {
+    return window.matchMedia('(max-width: 860px)').matches ? 'mobile' : 'desktop';
+  }
+
   function track(type, data = {}) {
-    const payload = JSON.stringify({ type, ...data });
+    const payload = JSON.stringify({ type, device: getDeviceType(), ...data });
     if (navigator.sendBeacon) {
       navigator.sendBeacon('/api/track', new Blob([payload], { type: 'application/json' }));
     } else {
@@ -85,6 +89,35 @@
     }
   }
   track('pageview', { path: location.pathname });
+
+  // ---------------- 페이지 체류시간 기록 ----------------
+  // 방문자가 이 페이지를 얼마나 오래 보고 있었는지 기록합니다. 탭을 다른 화면으로
+  // 전환하거나(visibilitychange) 페이지를 완전히 떠날 때(pagehide) 그때까지의
+  // 경과 시간을 서버로 보냅니다. 1초 이상이면 전부 기록합니다.
+  (function setupTimeSpentTracking() {
+    let startTime = Date.now();
+    let sent = false;
+
+    function sendElapsed() {
+      if (sent) return;
+      const seconds = Math.round((Date.now() - startTime) / 1000);
+      if (seconds >= 1) {
+        track('timespent', { path: location.pathname, seconds });
+        sent = true;
+      }
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') {
+        sendElapsed();
+      } else if (document.visibilityState === 'visible') {
+        // 다시 돌아오면 새로운 체류 구간으로 다시 잼
+        startTime = Date.now();
+        sent = false;
+      }
+    });
+    window.addEventListener('pagehide', sendElapsed);
+  })();
 
   // ---------------- 모달 열림 중 배경 스크롤 막기 ----------------
   // 게시글 상세 보기 위에 사진 확대 창이 겹쳐 뜨는 것처럼 모달이 동시에 여러 개
@@ -497,7 +530,7 @@
   }
 
   async function loadSermons() {
-    const data = await getJSON('/api/sermons');
+    const [data, site] = await Promise.all([getJSON('/api/sermons'), getJSON('/api/site')]);
     const grid = $('#sermon-grid');
     const updated = $('#sermon-updated');
 
@@ -510,13 +543,31 @@
       return;
     }
 
-    grid.innerHTML = data.videos
-      .slice(0, 3)
+    // ---- 노출 순서 구성: ①이번 주일 설교(최신) → ②관리자 큐레이션(설정된 경우) → ③나머지 최신순 ----
+    const videos = data.videos.slice();
+    const latest = videos[0];
+    const curation = site && site.sermonCuration && site.sermonCuration.videoId ? site.sermonCuration : null;
+    const curatedVideo = curation ? videos.find((v) => v.videoId === curation.videoId) : null;
+
+    const ordered = [latest];
+    const badges = { 0: '이번 주일 설교' };
+    if (curatedVideo && curatedVideo.videoId !== latest.videoId) {
+      ordered.push(curatedVideo);
+      badges[1] = curation.label || '추천 말씀';
+    }
+    videos.forEach((v) => {
+      if (!ordered.some((o) => o.videoId === v.videoId)) ordered.push(v);
+    });
+
+    grid.innerHTML = ordered
+      .slice(0, 15) // 캐러셀이 너무 길어지지 않도록 최근 15개까지만
       .map((v, i) => {
         const posterUrl = `/api/sermon-poster/${encodeURIComponent(v.videoId)}?title=${encodeURIComponent(v.title || '')}&idx=${i}`;
+        const badgeLabel = badges[i];
         return `
-        <div class="sermon-card reveal reveal-delay-${(i % 6) + 1}" data-video-id="${escapeHtml(v.videoId)}">
+        <div class="sermon-card reveal reveal-delay-${(i % 6) + 1}" data-video-id="${escapeHtml(v.videoId)}" data-title="${escapeHtml(v.title || '')}">
           <div class="sermon-thumb">
+            ${badgeLabel ? `<span class="sermon-badge">${escapeHtml(badgeLabel)}</span>` : ''}
             <img src="${posterUrl}" alt="${escapeHtml(v.title)}" loading="lazy" onerror="this.onerror=null;this.src='${escapeHtml(v.thumbnail)}';" />
             <button type="button" class="sermon-play" aria-label="재생">
               <svg viewBox="0 0 24 24"><path d="M9.5 7.5v9l8-4.5-8-4.5z"/></svg>
@@ -529,26 +580,60 @@
 
     $$('.sermon-card').forEach((card) => {
       card.addEventListener('click', () => {
-        track('click', { label: 'sermon_card' });
+        track('click', {
+          label: 'sermon_card',
+          itemType: 'sermon',
+          itemId: card.dataset.videoId,
+          itemTitle: card.dataset.title
+        });
         openVideoModal(card.dataset.videoId);
       });
     });
+
+    setupCarouselNav(grid, 'sermon-nav-prev', 'sermon-nav-next');
+  }
+
+  // ---------------- 가로 캐러셀 공용 이전/다음 버튼 ----------------
+  // 화면에 보이는 만큼(한 페이지)씩 옆으로 넘겨줍니다. 스크롤 끝에 도달하면
+  // 해당 방향 버튼을 흐리게(비활성) 처리합니다.
+  function setupCarouselNav(track, prevId, nextId) {
+    const prevBtn = $('#' + prevId);
+    const nextBtn = $('#' + nextId);
+    if (!track || !prevBtn || !nextBtn) return;
+
+    function updateNavState() {
+      const maxScroll = track.scrollWidth - track.clientWidth;
+      prevBtn.disabled = track.scrollLeft <= 4;
+      nextBtn.disabled = track.scrollLeft >= maxScroll - 4;
+    }
+
+    prevBtn.onclick = () => track.scrollBy({ left: -track.clientWidth, behavior: 'smooth' });
+    nextBtn.onclick = () => track.scrollBy({ left: track.clientWidth, behavior: 'smooth' });
+
+    let scrollTimer = null;
+    track.addEventListener('scroll', () => {
+      clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(updateNavState, 80);
+    });
+    window.addEventListener('resize', updateNavState);
+    updateNavState();
   }
 
   // ---------------- 찬양 ----------------
-  async function loadPraises() {
-    const praises = await getJSON('/api/praises');
-    const section = $('#praise');
+  let allPraises = [];
+  let praiseCategoryList = [];
+  let activePraiseCategory = null; // null이면 '전체'
+
+  function renderPraiseCards(list) {
     const grid = $('#praise-grid');
-    if (!praises || praises.length === 0) {
-      section.style.display = 'none';
+    if (list.length === 0) {
+      grid.innerHTML = `<p class="board-empty" style="padding:20px;">이 컨셉의 찬양이 아직 없어요.</p>`;
       return;
     }
-    section.style.display = '';
-    grid.innerHTML = praises
+    grid.innerHTML = list
       .map(
         (p, i) => `
-        <div class="praise-card reveal reveal-delay-${(i % 6) + 1}" data-video-id="${escapeHtml(p.youtubeId)}" style="--accent-rgb: ${accentForId(p.youtubeId)};">
+        <div class="praise-card reveal reveal-delay-${(i % 6) + 1}" data-video-id="${escapeHtml(p.youtubeId)}" data-title="${escapeHtml(p.title || '')}" style="--accent-rgb: ${accentForId(p.youtubeId)};">
           <div class="praise-thumb">
             <img src="https://i.ytimg.com/vi/${escapeHtml(p.youtubeId)}/hqdefault.jpg" alt="${escapeHtml(p.title)}" loading="lazy" />
             <button type="button" class="praise-play" aria-label="재생">
@@ -566,10 +651,75 @@
 
     $$('.praise-card').forEach((card) => {
       card.addEventListener('click', () => {
-        track('click', { label: 'praise_card' });
+        track('click', {
+          label: 'praise_card',
+          itemType: 'praise',
+          itemId: card.dataset.videoId,
+          itemTitle: card.dataset.title
+        });
         openVideoModal(card.dataset.videoId);
       });
     });
+
+    setupCarouselNav(grid, 'praise-nav-prev', 'praise-nav-next');
+  }
+
+  function renderPraiseCategoryChips() {
+    const wrap = $('#praise-category-chips');
+    if (!wrap) return;
+    // 곡이 하나라도 있는 컨셉만 필터 버튼으로 보여줍니다 (텅 빈 필터 방지)
+    const usedCategoryIds = new Set();
+    allPraises.forEach((p) => (p.categoryIds || []).forEach((id) => usedCategoryIds.add(id)));
+    const usable = praiseCategoryList.filter((c) => usedCategoryIds.has(c.id));
+
+    if (usable.length === 0) {
+      wrap.style.display = 'none';
+      return;
+    }
+    wrap.style.display = '';
+    const chips = [{ id: null, name: '전체' }, ...usable];
+    wrap.innerHTML = chips
+      .map(
+        (c) => `<button type="button" class="praise-chip${activePraiseCategory === c.id ? ' active' : ''}" data-id="${c.id || ''}">${escapeHtml(c.name)}</button>`
+      )
+      .join('');
+
+    $$('.praise-chip', wrap).forEach((chip) => {
+      chip.addEventListener('click', () => {
+        activePraiseCategory = chip.dataset.id || null;
+        if (activePraiseCategory) {
+          track('click', {
+            label: 'praise_category_filter',
+            itemType: 'praise_category',
+            itemId: activePraiseCategory,
+            itemTitle: chip.textContent
+          });
+        }
+        $$('.praise-chip', wrap).forEach((c) => c.classList.remove('active'));
+        chip.classList.add('active');
+        const filtered = activePraiseCategory
+          ? allPraises.filter((p) => (p.categoryIds || []).includes(activePraiseCategory))
+          : allPraises;
+        renderPraiseCards(filtered);
+      });
+    });
+  }
+
+  async function loadPraises() {
+    const [praises, categories] = await Promise.all([
+      getJSON('/api/praises'),
+      getJSON('/api/praise-categories')
+    ]);
+    allPraises = praises || [];
+    praiseCategoryList = categories || [];
+    const section = $('#praise');
+    if (allPraises.length === 0) {
+      section.style.display = 'none';
+      return;
+    }
+    section.style.display = '';
+    renderPraiseCategoryChips();
+    renderPraiseCards(allPraises);
   }
 
   // ---------------- 게시판 (소식·활동) ----------------
@@ -614,7 +764,7 @@
   function boardCardHTML(p, i = 0) {
     const thumb = thumbnailFor(p);
     return `
-      <div class="board-card reveal reveal-delay-${(i % 6) + 1}" data-id="${p.id}">
+      <div class="board-card reveal reveal-delay-${(i % 6) + 1}" data-id="${p.id}" data-title="${escapeHtml(p.title || '')}">
         <div class="board-thumb">
           ${thumb ? `<img src="${thumb}" alt="${escapeHtml(p.title)}" loading="lazy" />` : `<div class="board-thumb-empty">${escapeHtml((p.category || '')[0] || '소')}</div>`}
         </div>
@@ -713,7 +863,12 @@
 
     $$('.board-card').forEach((item) => {
       item.addEventListener('click', () => {
-        track('click', { label: 'board_card' });
+        track('click', {
+          label: 'board_card',
+          itemType: 'board',
+          itemId: item.dataset.id,
+          itemTitle: item.dataset.title
+        });
         openPostModal(item.dataset.id);
       });
     });
@@ -943,14 +1098,14 @@
     const carouselPast = isDesktop ? rest.slice(0, 5).reverse() : [];
 
     const archiveCardHtml = (q) => `
-      <a class="qt-card qt-card--archive" href="/qt/${q.id}" data-id="${q.id}">
+      <a class="qt-card qt-card--archive" href="/qt/${q.id}" data-id="${q.id}" data-title="${escapeHtml(q.title || '')}">
         <span class="qt-badge qt-badge--archive">${formatQtDate(q.date)}</span>
         <h3 class="qt-card-title">${escapeHtml(q.title || '')}</h3>
         ${q.verseRef ? `<p class="qt-card-ref">${escapeHtml(q.verseRef)}</p>` : ''}
       </a>`;
 
     const todayCardHtml = `
-      <a class="qt-card qt-card--today" href="/qt/${latest.id}" data-id="${latest.id}">
+      <a class="qt-card qt-card--today" href="/qt/${latest.id}" data-id="${latest.id}" data-title="${escapeHtml(latest.title || '')}">
         <span class="qt-badge">오늘의 큐티</span>
         <h3 class="qt-card-title">${escapeHtml(latest.title || '')}</h3>
         ${latest.verseRef ? `<p class="qt-card-ref">${escapeHtml(latest.verseRef)}</p>` : ''}
@@ -962,8 +1117,16 @@
 
     trackEl.innerHTML = carouselPast.map(archiveCardHtml).join('') + todayCardHtml;
 
-    $$('#qt-carousel-track .qt-card--today').forEach((c) => c.addEventListener('click', () => track('click', { label: 'qt_card' })));
-    $$('#qt-carousel-track .qt-card--archive').forEach((c) => c.addEventListener('click', () => track('click', { label: 'qt_carousel_archive' })));
+    $$('#qt-carousel-track .qt-card--today').forEach((c) =>
+      c.addEventListener('click', () =>
+        track('click', { label: 'qt_card', itemType: 'qt', itemId: c.dataset.id, itemTitle: c.dataset.title })
+      )
+    );
+    $$('#qt-carousel-track .qt-card--archive').forEach((c) =>
+      c.addEventListener('click', () =>
+        track('click', { label: 'qt_carousel_archive', itemType: 'qt', itemId: c.dataset.id, itemTitle: c.dataset.title })
+      )
+    );
 
     const todayIndex = carouselPast.length;
 
@@ -996,7 +1159,7 @@
     archiveList.innerHTML = rest
       .map(
         (q) => `
-        <a class="qt-archive-row" href="/qt/${q.id}">
+        <a class="qt-archive-row" href="/qt/${q.id}" data-id="${q.id}" data-title="${escapeHtml(q.title || '')}">
           <span class="date">${formatQtDate(q.date)}</span>
           <span class="title">${escapeHtml(q.title || '')}</span>
         </a>`
@@ -1004,7 +1167,9 @@
       .join('');
 
     $$('.qt-archive-row').forEach((row) => {
-      row.addEventListener('click', () => track('click', { label: 'qt_archive_row' }));
+      row.addEventListener('click', () =>
+        track('click', { label: 'qt_archive_row', itemType: 'qt', itemId: row.dataset.id, itemTitle: row.dataset.title })
+      );
     });
 
     $('#qt-archive-toggle').addEventListener('click', () => {
