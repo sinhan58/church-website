@@ -58,6 +58,30 @@ const PHOTO_W = 480; // 오른쪽 사진 영역 폭 (전체의 40%, 왼쪽 제�
 const BLEND_W = 190; // 사진과 패널이 자연스럽게 이어지는 페이드 폭
 const GOLD = '#c9a227';
 const WHITE = '#ffffff';
+
+// 직선(1차) 변화 대신, 완만하게 시작해서 중간에 빠르게, 다시 완만하게 끝나는 S자 곡선으로
+// 값이 바뀌게 합니다. 사람 눈에는 이 방식이 직선 변화보다 훨씬 자연스럽게 느껴집니다.
+function smoothstep(t) {
+  return t * t * (3 - 2 * t);
+}
+
+// startVal -> endVal로 곡선을 그리며 변하는 SVG 그라데이션 stop 문자열을 만듭니다.
+function easedStops(startVal, endVal, steps = 8) {
+  const stops = [];
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const eased = smoothstep(t);
+    const val = startVal + (endVal - startVal) * eased;
+    stops.push({ pct: Math.round(t * 100), val: Math.max(0, Math.min(1, val)) });
+  }
+  return stops;
+}
+
+function easedOpacityStops(color, startOpacity, endOpacity, steps = 8) {
+  return easedStops(startOpacity, endOpacity, steps)
+    .map((s) => `<stop offset="${s.pct}%" stop-color="${color}" stop-opacity="${s.val.toFixed(3)}"/>`)
+    .join('');
+}
 const NAVY = '#0d1526';
 const PURPLE = '#241a35';
 
@@ -166,14 +190,10 @@ function buildDarkenOverlaySvg() {
   <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient id="darken" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="${endX}" y2="0">
-        <stop offset="0%" stop-color="#000000" stop-opacity="0.58"/>
-        <stop offset="65%" stop-color="#000000" stop-opacity="0.4"/>
-        <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
+        ${easedOpacityStops('#000000', 0.58, 0, 10).split('/>').join('/>\n        ')}
       </linearGradient>
       <linearGradient id="colorMix" gradientUnits="userSpaceOnUse" x1="0" y1="${H}" x2="${endX}" y2="0">
-        <stop offset="0%" stop-color="#14213d" stop-opacity="0.5"/>
-        <stop offset="45%" stop-color="#3a1a55" stop-opacity="0.38"/>
-        <stop offset="100%" stop-color="#3a1a55" stop-opacity="0"/>
+        ${easedOpacityStops('#3a1a55', 0.46, 0, 10).split('/>').join('/>\n        ')}
       </linearGradient>
       <filter id="softGlow"><feGaussianBlur stdDeviation="70"/></filter>
     </defs>
@@ -186,15 +206,18 @@ function buildDarkenOverlaySvg() {
   </svg>`;
 }
 
-// 오른쪽 사진의 왼쪽 가장자리를 부드럽게 투명해지도록 만드는 마스크 (사진↔배경 경계를 없앰)
+// 오른쪽 사진의 왼쪽 가장자리를 부드럽게 투명해지도록 만드는 마스크 (사진↔배경 경계를 없앰).
+// 직선이 아니라 완만↔빠름↔완만의 S자 곡선으로 값이 바뀌어서 훨씬 자연스럽습니다.
 function buildFeatherMaskSvg() {
-  const opaqueStart = Math.round((BLEND_W / PHOTO_W) * 100);
+  const fadePct = (BLEND_W / PHOTO_W) * 100;
+  const stops = easedStops(0, 1, 10)
+    .map((s) => `<stop offset="${((s.pct / 100) * fadePct).toFixed(1)}%" stop-color="white" stop-opacity="${s.val.toFixed(3)}"/>`)
+    .join('\n        ');
   return `
   <svg width="${PHOTO_W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient id="fade" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stop-color="white" stop-opacity="0"/>
-        <stop offset="${opaqueStart}%" stop-color="white" stop-opacity="1"/>
+        ${stops}
         <stop offset="100%" stop-color="white" stop-opacity="1"/>
       </linearGradient>
     </defs>
@@ -204,15 +227,17 @@ function buildFeatherMaskSvg() {
 
 // 사진 자체를 페이드 구간에서 미리 어둡게 만듭니다. 투명도만 줄이면, 흰 강대상처럼
 // 밝은 사물이 어두운 배경 속으로 갑자기 "뚝" 끊겨 사라지는 것처럼 보입니다. 밝기도
-// 같이 서서히 줄여주면, 밝기와 투명도가 함께 자연스럽게 빠지면서 경계가 훨씬 부드러워집니다.
+// 같이 서서히(곡선으로) 줄여주면, 경계가 훨씬 부드러워집니다.
 function buildPhotoDarkenGradientSvg() {
-  const opaqueStart = Math.round((BLEND_W / PHOTO_W) * 100);
+  const fadePct = (BLEND_W / PHOTO_W) * 100;
+  const stops = easedStops(0.88, 0, 10)
+    .map((s) => `<stop offset="${((s.pct / 100) * fadePct).toFixed(1)}%" stop-color="#000000" stop-opacity="${s.val.toFixed(3)}"/>`)
+    .join('\n        ');
   return `
   <svg width="${PHOTO_W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient id="pdark" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stop-color="#000000" stop-opacity="0.9"/>
-        <stop offset="${opaqueStart}%" stop-color="#000000" stop-opacity="0"/>
+        ${stops}
         <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
       </linearGradient>
     </defs>
@@ -221,19 +246,40 @@ function buildPhotoDarkenGradientSvg() {
 }
 
 // 돌벽 같은 "결이 있는" 사진은 밝기·투명도만 줄여도 무늬 자체가 경계처럼 보일 수 있습니다.
-// 경계 구간에서 흐린 버전을 겹쳐 씌워서, 선명도 자체도 함께 서서히 사라지게 합니다.
+// 경계 구간에서 흐린 버전을 곡선으로 겹쳐 씌워서, 선명도 자체도 함께 서서히 사라지게 합니다.
 function buildBlurRevealMaskSvg() {
-  const fadeEnd = Math.round((Math.min(BLEND_W * 1.15, PHOTO_W) / PHOTO_W) * 100);
+  const fadePct = (Math.min(BLEND_W * 1.15, PHOTO_W) / PHOTO_W) * 100;
+  const stops = easedStops(1, 0, 10)
+    .map((s) => `<stop offset="${((s.pct / 100) * fadePct).toFixed(1)}%" stop-color="white" stop-opacity="${s.val.toFixed(3)}"/>`)
+    .join('\n        ');
   return `
   <svg width="${PHOTO_W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
     <defs>
       <linearGradient id="blurReveal" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stop-color="white" stop-opacity="1"/>
-        <stop offset="${fadeEnd}%" stop-color="white" stop-opacity="0"/>
+        ${stops}
         <stop offset="100%" stop-color="white" stop-opacity="0"/>
       </linearGradient>
     </defs>
     <rect width="${PHOTO_W}" height="${H}" fill="url(#blurReveal)"/>
+  </svg>`;
+}
+
+// 완벽하게 안 보이는 경계를 노리는 대신, 얇고 은은한 "유리질감" 띠를 경계에 의도적으로
+// 얹습니다. 프로필트 앱들이 자주 쓰는 방식으로, "여기는 원래 이렇게 디자인된 구분선"
+// 처럼 보이게 해서 오히려 고급스러운 느낌을 줍니다.
+function buildGlassDividerSvg() {
+  const seamX = W - PHOTO_W;
+  return `
+  <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="glass" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#ffffff" stop-opacity="0"/>
+        <stop offset="50%" stop-color="#ffffff" stop-opacity="0.14"/>
+        <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+      </linearGradient>
+      <filter id="glassBlur"><feGaussianBlur stdDeviation="22"/></filter>
+    </defs>
+    <rect x="${seamX - 70}" y="0" width="140" height="${H}" fill="url(#glass)" filter="url(#glassBlur)"/>
   </svg>`;
 }
 
@@ -350,6 +396,7 @@ async function generateSermonPoster({
       .composite([
         { input: feathered, left: W - PHOTO_W, top: 0 },
         { input: Buffer.from(buildDarkenOverlaySvg()), left: 0, top: 0 },
+        { input: Buffer.from(buildGlassDividerSvg()), left: 0, top: 0 },
         { input: Buffer.from(textSvg), left: 0, top: 0 }
       ])
       [format === 'png' ? 'png' : 'jpeg'](format === 'png' ? undefined : { quality: 88 })
