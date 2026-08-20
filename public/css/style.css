@@ -603,18 +603,19 @@ button { font-family: inherit; cursor: pointer; }
   background: var(--ivory-dim);
   border-radius: var(--radius);
 }
+.praise-theme-dial-wrap::before,
 .praise-theme-dial-wrap::after {
-  /* 다이얼 정가운데(실제로 선택되는 지점)를 은은한 금색 선으로 살짝 표시 */
+  /* 다이얼에서 실제로 선택되는 자리(가운데)를, 글자를 가리지 않도록 양옆에서 살짝 표시 */
   content: '';
   position: absolute;
-  left: 50%;
   top: 34px;
   bottom: 8px;
   width: 1px;
   background: linear-gradient(180deg, transparent, rgba(201,162,39,0.5), transparent);
-  transform: translateX(-50%);
   pointer-events: none;
 }
+.praise-theme-dial-wrap::before { left: calc(50% - 52px); }
+.praise-theme-dial-wrap::after { left: calc(50% + 52px); }
 .praise-theme-dial-label {
   display: inline-block;
   font-size: 0.72rem;
@@ -746,9 +747,21 @@ button { font-family: inherit; cursor: pointer; }
   color: rgba(255,255,255,0.75);
 }
 @media (max-width: 900px) {
-  /* 모바일: 세로로 쌓이되, 한 줄에 2개씩 (2열 x 2행 = 4개) */
-  .praise-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px; overflow-x: visible; scroll-snap-type: none; }
-  .praise-card { width: 100%; aspect-ratio: 4/3; }
+  /* 모바일: 2열 x 2행씩 보이고, 옆으로 넘기면 다음 4개가 나옵니다 */
+  .praise-grid {
+    display: grid;
+    grid-auto-flow: column;
+    grid-template-rows: repeat(2, auto);
+    grid-auto-columns: calc(50% - 8px);
+    gap: 16px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .praise-grid::-webkit-scrollbar { display: none; }
+  .praise-card { scroll-snap-align: start; width: 100%; aspect-ratio: 4/3; }
 }
 @media (max-width: 560px) {
   .praise-grid { gap: 12px; }
