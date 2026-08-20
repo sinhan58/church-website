@@ -196,6 +196,7 @@ async function generateSermonPoster({
   pastorName = '',
   churchName = '',
   videoIndex = null,
+  photoOverride = '', // 관리자가 직접 고른 사진 파일명 (예: 'pastor-podium.png'). 있으면 이걸 최우선으로 씁니다.
   format = 'jpeg'
 }) {
   const { verseRef, title } = parseSermonTitle(rawTitle);
@@ -203,17 +204,26 @@ async function generateSermonPoster({
 
   const localPool = BUILTIN_PHOTOS;
   let photoBuffer = null;
-  const allCount = localPool.length + extraPhotoUrls.length;
 
-  if (allCount > 0) {
-    const pick = videoIndex !== null && videoIndex !== undefined ? videoIndex % allCount : h % allCount;
-    if (pick < localPool.length) {
-      photoBuffer = fs.readFileSync(localPool[pick]);
-    } else {
-      const url = extraPhotoUrls[pick - localPool.length];
-      const fetchFn = global.fetch || require('node-fetch');
-      const res = await fetchFn(url);
-      photoBuffer = Buffer.from(await res.arrayBuffer());
+  if (photoOverride) {
+    const overridePath = localPool.find((p) => path.basename(p) === photoOverride);
+    if (overridePath) {
+      photoBuffer = fs.readFileSync(overridePath);
+    }
+  }
+
+  if (!photoBuffer) {
+    const allCount = localPool.length + extraPhotoUrls.length;
+    if (allCount > 0) {
+      const pick = videoIndex !== null && videoIndex !== undefined ? videoIndex % allCount : h % allCount;
+      if (pick < localPool.length) {
+        photoBuffer = fs.readFileSync(localPool[pick]);
+      } else {
+        const url = extraPhotoUrls[pick - localPool.length];
+        const fetchFn = global.fetch || require('node-fetch');
+        const res = await fetchFn(url);
+        photoBuffer = Buffer.from(await res.arrayBuffer());
+      }
     }
   }
 
@@ -266,6 +276,7 @@ async function buildAndCacheSermonPoster({ videoId, rawTitle, videoIndex, upload
   const pastorName = site.about?.pastorName || '';
   const churchName = site.churchName || '';
   const extraPhotoUrls = Array.isArray(site.sermonCardPhotos) ? site.sermonCardPhotos : [];
+  const photoOverride = site.sermonPhotoOverride || '';
 
   const buffer = await generateSermonPoster({
     videoId,
@@ -274,6 +285,7 @@ async function buildAndCacheSermonPoster({ videoId, rawTitle, videoIndex, upload
     pastorName,
     churchName,
     videoIndex,
+    photoOverride,
     format: 'jpeg'
   });
 
@@ -302,9 +314,14 @@ async function pregenerateMissingSermonPosters(videos, uploadsDir) {
   }
 }
 
+function listBuiltinPhotoFilenames() {
+  return BUILTIN_PHOTOS.map((p) => path.basename(p));
+}
+
 module.exports = {
   generateSermonPoster,
   parseSermonTitle,
   buildAndCacheSermonPoster,
-  pregenerateMissingSermonPosters
+  pregenerateMissingSermonPosters,
+  listBuiltinPhotoFilenames
 };
