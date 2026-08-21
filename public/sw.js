@@ -2,7 +2,7 @@
 // - 목적: PWA "설치 가능" 조건 충족 + 정적 파일(디자인·스크립트) 캐싱으로 재방문 시 조금 더 빠르게 뜨도록
 // - 설교 영상/게시글/큐티 등 실제 데이터(API 응답)는 캐싱하지 않습니다 (항상 최신 정보를 보여주기 위함)
 
-const CACHE_VERSION = 'v4'; // 아이콘·JS·CSS 등 어떤 파일이든 새로 바꿀 때마다, 서비스워커가 예전 캐시를 버리고 새로 채우도록 이 번호를 올려주세요.
+const CACHE_VERSION = 'v5'; // 아이콘·JS·CSS 등 어떤 파일이든 새로 바꿀 때마다, 서비스워커가 예전 캐시를 버리고 새로 채우도록 이 번호를 올려주세요.
 const CACHE_NAME = `mdds-church-${CACHE_VERSION}`;
 
 // 앱의 "뼈대"에 해당하는, 자주 안 바뀌는 정적 파일만 캐싱합니다.
@@ -13,6 +13,7 @@ const APP_SHELL = [
   '/js/font-catalog.js',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
+  '/icons/icon-badge.png',
   '/manifest.json'
 ];
 
@@ -69,14 +70,16 @@ self.addEventListener('push', (event) => {
     // JSON이 아니면 그냥 기본 문구로 표시
   }
 
-  event.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
-      icon: '/icons/icon-192-v2.png',
-      badge: '/icons/icon-192-v2.png',
-      data: { url: data.url || '/' }
-    })
-  );
+  const options = {
+    body: data.body,
+    icon: '/icons/icon-192-v2.png', // 알림 펼쳤을 때 보이는 큰 컬러 아이콘
+    badge: '/icons/icon-badge.png', // 상태표시줄용 흰색 실루엣 전용 아이콘 (투명 배경 필수)
+    data: { url: data.url || '/' }
+  };
+  // 이미지가 지정된 알림(예: 큐티 배경 이미지)은 본문 아래에 큰 사진으로 표시됩니다.
+  if (data.image) options.image = data.image;
+
+  event.waitUntil(self.registration.showNotification(data.title, options));
 });
 
 // 알림을 탭했을 때, 해당 페이지(또는 이미 열려있는 탭)로 이동시킵니다.
