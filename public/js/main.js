@@ -710,6 +710,7 @@
   function parseSermonTitleClient(raw = '') {
     let t = raw.replace(/주일예배/g, '');
     t = t.replace(/\b\d{8}\b/g, '').trim().replace(/^[-_·\s]+|[-_·\s]+$/g, '');
+    t = t.replace(/\s{2,}/g, ' '); // 단어를 지우면서 남는 이중 띄어쓰기 정리
     const m = t.match(/^([가-힣]+\s?\d+장\s?\d+(?:[~\-]\d+)?절(?:,\s?\d+(?:[~\-]\d+)?절)*)\s*(.*)$/);
     if (m) return { verseRef: m[1].trim(), title: m[2].trim() || t };
     return { verseRef: '', title: t };
@@ -786,6 +787,40 @@
     });
 
     setupCarouselNav(grid, 'praise-nav-prev', 'praise-nav-next');
+    setupScrollProgressBar(grid, 'praise-scroll-track', 'praise-scroll-thumb');
+  }
+
+  // 가로 스크롤이 얼마나 남았는지, 얇은 막대로 보여줍니다 (세로 스크롤바처럼 은은하게).
+  function setupScrollProgressBar(scrollEl, trackId, thumbId) {
+    const track = $('#' + trackId);
+    const thumb = $('#' + thumbId);
+    if (!track || !thumb) return;
+
+    function update() {
+      const scrollable = scrollEl.scrollWidth - scrollEl.clientWidth;
+      if (scrollable <= 0) {
+        track.style.display = 'none';
+        return;
+      }
+      track.style.display = '';
+      const trackWidth = track.clientWidth;
+      const thumbRatio = Math.min(1, scrollEl.clientWidth / scrollEl.scrollWidth);
+      const thumbWidth = Math.max(24, trackWidth * thumbRatio);
+      const maxThumbTravel = trackWidth - thumbWidth;
+      const progress = scrollEl.scrollLeft / scrollable;
+      thumb.style.width = thumbWidth + 'px';
+      thumb.style.transform = `translateX(${progress * maxThumbTravel}px)`;
+    }
+
+    // 같은 요소에 스크롤 리스너가 중복으로 쌓이지 않도록, 매번 새로 붙이기 전에 이전 걸 떼어냅니다.
+    if (scrollEl._scrollProgressHandler) {
+      scrollEl.removeEventListener('scroll', scrollEl._scrollProgressHandler);
+    }
+    scrollEl._scrollProgressHandler = update;
+    scrollEl.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update);
+
+    requestAnimationFrame(update);
   }
 
   // 페이지 세로 스크롤에 영향을 주지 않도록, 다이얼 안에서만 가로로 이동시킵니다.
