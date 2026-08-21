@@ -801,17 +801,6 @@ button { font-family: inherit; cursor: pointer; }
 }
 
 .praise-scroll-fade { display: none; }
-@media (max-width: 900px) {
-  /* 오른쪽 끝을 확실하게 옅어지도록 처리해서, 더 있다는 걸 분명하게 알려줍니다 */
-  .praise-scroll-fade {
-    display: block;
-    position: absolute;
-    top: 0; right: 0; bottom: 0;
-    width: 64px;
-    background: linear-gradient(90deg, rgba(240,235,223,0), var(--ivory-dim) 75%);
-    pointer-events: none;
-  }
-}
 
 /* ---------------- Board (소식·활동) ---------------- */
 .board-tabs {
@@ -1670,8 +1659,39 @@ button { font-family: inherit; cursor: pointer; }
   font-weight: 800;
 }
 @media (max-width: 560px) {
-  .band-fab { right: 14px; bottom: 14px; padding: 8px; }
+  .band-fab { right: 14px; padding: 8px; }
   .band-fab > span:not(.band-fab-badge) { display: none; } /* 좁은 화면에서는 BAND 배지만 */
+}
+
+/* ---------------- 맨 위로 이동 버튼 ---------------- */
+.scroll-top-btn {
+  position: fixed;
+  right: 20px;
+  bottom: 84px; /* 밴드 버튼 위에 쌓이도록 */
+  z-index: 90;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: none;
+  background: var(--navy-deep);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(0,0,0,0.25);
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease, background 0.2s ease;
+}
+.scroll-top-btn.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
+.scroll-top-btn:hover { background: var(--gold); color: var(--navy-deep); }
+.scroll-top-btn svg { width: 22px; height: 22px; }
+@media (max-width: 900px) {
+  /* 모바일: 밴드 버튼보다 아래쪽(화면 맨 밑)에 오도록 순서를 바꿉니다 */
+  .scroll-top-btn { right: 14px; bottom: 14px; width: 42px; height: 42px; }
+  .band-fab { bottom: 66px; }
 }
 
 /* ---------------- 오늘의 큐티 + 말씀 퀴즈 (3:1 배치) ---------------- */
