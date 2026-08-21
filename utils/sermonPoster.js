@@ -192,15 +192,22 @@ function buildDarkenOverlaySvg() {
       <linearGradient id="darken" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="${endX}" y2="0">
         ${easedOpacityStops('#000000', 0.5, 0.15, 10).split('/>').join('/>\n        ')}
       </linearGradient>
-      <!-- 보라(왼쪽, 제목 쪽) -> 청록(오른쪽, 사진 쪽) 대각선 그라데이션 -->
-      <linearGradient id="colorMix" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="${endX}" y2="${H}">
-        <stop offset="0%" stop-color="#2d1b4e"/>
-        <stop offset="45%" stop-color="#6b2d8f"/>
-        <stop offset="100%" stop-color="#0f9aa8"/>
-      </linearGradient>
+      <radialGradient id="tealGlow" cx="15%" cy="10%" r="65%">
+        <stop offset="0%" stop-color="#0f8f9a" stop-opacity="0.55"/>
+        <stop offset="100%" stop-color="#0f8f9a" stop-opacity="0"/>
+      </radialGradient>
+      <radialGradient id="wineGlow" cx="88%" cy="92%" r="55%">
+        <stop offset="0%" stop-color="#7a1f3d" stop-opacity="0.55"/>
+        <stop offset="100%" stop-color="#7a1f3d" stop-opacity="0"/>
+      </radialGradient>
+      <filter id="colorBlur"><feGaussianBlur stdDeviation="60"/></filter>
     </defs>
-    <!-- 보라·청록 다이내믹 믹싱을 배경색으로 깔고, 그 위에 검정 그라데이션으로 글자 가독성을 보장합니다 -->
-    <rect x="0" y="0" width="${endX}" height="${H}" fill="url(#colorMix)"/>
+    <!-- 어두운 남색 바탕에, 청록(왼쪽 위)·와인색(오른쪽 아래)을 아주 은은하게만 스치듯 넣습니다 -->
+    <rect x="0" y="0" width="${endX}" height="${H}" fill="${NAVY}"/>
+    <g filter="url(#colorBlur)">
+      <rect x="0" y="0" width="${endX}" height="${H}" fill="url(#tealGlow)"/>
+      <rect x="0" y="0" width="${endX}" height="${H}" fill="url(#wineGlow)"/>
+    </g>
     <rect x="0" y="0" width="${endX}" height="${H}" fill="url(#darken)"/>
   </svg>`;
 }
