@@ -815,7 +815,7 @@
       return;
     }
     wrap.style.display = '';
-    const options = [{ id: null, name: '전체' }, ...usable];
+    const options = [{ id: null, name: '모든 찬양' }, ...usable];
 
     // PC: 옆으로 넘기는 칩 목록
     wrap.innerHTML = options
@@ -872,7 +872,7 @@
       const id = cell.dataset.id || null;
       if (id !== activePraiseCategory) {
         const opt = options[Number(cell.dataset.index)];
-        applyPraiseCategoryFilterFromDial(id, opt ? opt.name : '전체');
+        applyPraiseCategoryFilterFromDial(id, opt ? opt.name : '모든 찬양');
       }
     }
 
