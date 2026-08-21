@@ -511,19 +511,22 @@ button { font-family: inherit; cursor: pointer; }
   border-radius: 999px;
 }
 .sermon-list-row .title {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4em;
   font-weight: 600;
   font-size: 0.95rem;
   color: #fff;
   margin: 0 0 4px;
-  padding-left: 1em;
-  text-indent: -1em;
+}
+.sermon-list-row .title .bullet { color: var(--gold); flex-shrink: 0; }
+.sermon-list-row .title .text {
   word-break: keep-all;
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
-.sermon-list-row .title::before { content: '• '; color: var(--gold); }
 .sermon-list-row .verse { color: rgba(255,255,255,0.5); font-size: 0.8rem; margin: 0; padding-left: 1em; }
 
 .sermon-youtube-btn {
@@ -1978,3 +1981,4 @@ a:focus-visible, button:focus-visible {
   white-space: nowrap;
 }
 .missions-partners-page { text-align: center; font-size: 10.5px; color: var(--muted); margin: 10px 0 0; }
+
