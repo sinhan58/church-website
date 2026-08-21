@@ -1789,16 +1789,10 @@
     });
   }
 
-  // 카톡 붙여넣기 자동 채우기: 빈 줄로 구분된 블록 단위로 나눠 각 입력칸에 배분한다.
-  function splitQtPasteBlocks(raw) {
-    const normalized = String(raw || '').replace(/\r\n?/g, '\n').trim();
-    if (!normalized) return [];
-    return normalized
-      .split(/\n[ \t]*\n+/)
-      .map((block) => block.trim())
-      .filter((block) => block.length > 0);
-  }
-
+  // 카톡 붙여넣기 자동 채우기: [대괄호] 제목 줄의 위치를 기준으로 구조를 파악합니다.
+  // (예전엔 "몇 번째 줄인지"로 고정해서 끼워 맞췄는데, "장절 표기" 줄이 있을 때/없을 때
+  // 형식이 달라지면서 그 뒤 내용이 한 칸씩 밀려 제목을 잘못 잡는 문제가 있었습니다.
+  // 이제는 대괄호 2개의 실제 위치를 찾아서, 그 사이·이후 내용을 각각 구절/본문으로 나눕니다.)
   function normalizeQtVerseRef(raw) {
     const match = raw.match(/^([^\d\n]+?)\s*(\d+)\s*[:：]\s*(\d+)(?:\s*[-~]\s*(\d+))?\s*$/);
     if (!match) return raw;
@@ -1808,19 +1802,49 @@
   }
 
   function parseQtPaste(raw) {
-    const blocks = splitQtPasteBlocks(raw);
-    if (blocks.length < 4) return null;
+    const normalized = String(raw || '').replace(/\r\n?/g, '\n').trim();
+    if (!normalized) return null;
 
-    const firstLine = blocks[0];
-    const verseRef = normalizeQtVerseRef(blocks[1]);
-    const verseText = blocks[2];
-    const titleRaw = blocks[3];
-    const restBlocks = blocks.slice(4);
+    const lines = normalized.split('\n');
+    const isBracketLine = (line) => /^[\[【].*[\]】]\s*$/.test(line.trim());
+    const bracketIndices = [];
+    lines.forEach((line, i) => {
+      if (isBracketLine(line)) bracketIndices.push(i);
+    });
 
-    const bracketMatch = titleRaw.match(/^[\[【]([\s\S]*?)[\]】]$/);
-    const title = bracketMatch ? bracketMatch[1].trim() : titleRaw;
+    // 대괄호 제목이 2개는 있어야 인식할 수 있습니다 (성경 구절용 하나, 묵상 글용 하나).
+    if (bracketIndices.length < 2) return null;
 
-    const body = [firstLine, ...restBlocks].join('\n\n');
+    const firstBracketIdx = bracketIndices[0];
+    const secondBracketIdx = bracketIndices[1];
+
+    // 제목: 두 번째 대괄호(묵상 글 바로 위에 있는 것)를 씁니다.
+    const bracketMatch = lines[secondBracketIdx].trim().match(/^[\[【]([\s\S]*?)[\]】]$/);
+    const title = bracketMatch ? bracketMatch[1].trim() : lines[secondBracketIdx].trim();
+
+    // 첫 대괄호와 두 번째 대괄호 사이 = 성경 구절 영역.
+    const verseLines = lines
+      .slice(firstBracketIdx + 1, secondBracketIdx)
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+
+    // 그 안에 "책이름 3:16" 같은 정식 장절 표기 줄이 있으면 구절 참조로 쓰고, 없으면 비워둡니다
+    // (절 번호만 붙어있는 본문은 오탐되지 않도록, 반드시 문자로 시작해야 매칭됩니다).
+    let verseRef = '';
+    let verseTextLines = verseLines;
+    const refIdx = verseLines.findIndex((l) => /^[^\d\n][^\d\n]*?\s*\d+\s*[:：]\s*\d+/.test(l));
+    if (refIdx !== -1) {
+      verseRef = normalizeQtVerseRef(verseLines[refIdx]);
+      verseTextLines = verseLines.filter((_, i) => i !== refIdx);
+    }
+    const verseText = verseTextLines.join('\n');
+
+    // 두 번째 대괄호 이후 = 본문(묵상·기도문). 문단 사이에 빈 줄을 넣어 읽기 좋게 정리합니다.
+    const bodyLines = lines
+      .slice(secondBracketIdx + 1)
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+    const body = bodyLines.join('\n\n');
 
     return { title, verseRef, verseText, body };
   }
