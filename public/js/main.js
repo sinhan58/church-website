@@ -18,11 +18,20 @@
   // ---------------- 스크롤 등장 애니메이션 ----------------
   // 화면에 들어오면 나타나고, 화면 밖으로 나가면 사라졌다가, 다시 스크롤해서
   // 들어오면 또 나타나도록 반복합니다 (한 번 보고 나면 계속 그대로 두지 않음).
+  // 단, 찬양 카드(.praise-card)는 화면 경계를 넘나들 때마다 애니메이션이 재생되면서
+  // 세로 스크롤 중 흔들리는 것처럼 보이는 문제가 있어, 한 번 나타난 뒤에는 고정합니다.
   const revealObserver =
     'IntersectionObserver' in window
       ? new IntersectionObserver(
           (entries) => {
             entries.forEach((entry) => {
+              if (entry.target.classList.contains('praise-card')) {
+                if (entry.isIntersecting) {
+                  entry.target.classList.add('is-visible');
+                  revealObserver.unobserve(entry.target);
+                }
+                return;
+              }
               entry.target.classList.toggle('is-visible', entry.isIntersecting);
             });
           },
@@ -560,12 +569,13 @@
     };
 
     const ytBtn = $('#sermon-youtube-btn');
+    const moreRow = $('#sermon-more-row');
     if (ytBtn) {
       if (sermonChannelId) {
         ytBtn.href = `https://www.youtube.com/channel/${encodeURIComponent(sermonChannelId)}/videos`;
-        ytBtn.style.display = 'flex';
-      } else {
-        ytBtn.style.display = 'none';
+        if (moreRow) moreRow.style.display = 'flex';
+      } else if (moreRow) {
+        moreRow.style.display = 'none';
       }
     }
 
