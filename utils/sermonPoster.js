@@ -270,9 +270,9 @@ async function generateSermonPoster({
 
     // 사진 영역(오른쪽) 안에서 가운데 정렬 후 왼쪽으로 살짝(약 1.5cm) 이동, 바닥에 붙입니다.
     const zoneLeft = W - PHOTO_W;
-    const SHIFT_LEFT = 57; // 약 1.5cm
+    const SHIFT_LEFT = 133; // 약 3.5cm (1.5cm + 추가 2cm)
     let left = Math.round(zoneLeft + PHOTO_W / 2 - cutoutW / 2) - SHIFT_LEFT;
-    left = Math.max(zoneLeft - 90, Math.min(left, W - cutoutW + 10)); // 캔버스 밖으로 심하게 나가지 않도록 보정
+    left = Math.max(zoneLeft - 170, Math.min(left, W - cutoutW + 10)); // 캔버스 밖으로 심하게 나가지 않도록 보정
     const top = Math.max(0, H - cutoutH);
 
     return sharp(Buffer.from(panelSvg))
