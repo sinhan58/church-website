@@ -248,7 +248,7 @@ async function generateSermonPoster({
   if (photoBuffer) {
     // 오려낸 인물 사진은 자르지 않고, 세로 기준으로만 맞춰서 전체가 다 보이게 합니다
     // (사람 실루엣은 사각형이 아니라서, cover로 자르면 머리나 팔이 잘릴 수 있습니다).
-    const targetH = Math.round(H * 0.97);
+    const targetH = Math.round(H * 1.06); // 조금 더 확대
     const cutoutBuf = await sharp(photoBuffer)
       .resize({ height: targetH, fit: 'inside', withoutEnlargement: false })
       .ensureAlpha()
@@ -256,17 +256,28 @@ async function generateSermonPoster({
       .toBuffer();
     const meta = await sharp(cutoutBuf).metadata();
     const cutoutW = meta.width || Math.round(PHOTO_W);
-    const cutoutH = meta.height || targetH;
+    let cutoutH = meta.height || targetH;
 
-    // 사진 영역(오른쪽) 안에서 가운데 정렬하고, 바닥에 붙입니다(강대상 등에 선 모습이라 자연스러움).
+    // 확대하면서 캔버스보다 커질 수 있는데, 머리가 잘리면 안 되니 위쪽은 그대로 두고
+    // 아래쪽(강대상 부분)만 잘라내서 캔버스 안에 맞춥니다.
+    let finalCutoutBuf = cutoutBuf;
+    if (cutoutH > H) {
+      finalCutoutBuf = await sharp(cutoutBuf)
+        .extract({ left: 0, top: 0, width: cutoutW, height: H })
+        .toBuffer();
+      cutoutH = H;
+    }
+
+    // 사진 영역(오른쪽) 안에서 가운데 정렬 후 왼쪽으로 살짝(약 1.5cm) 이동, 바닥에 붙입니다.
     const zoneLeft = W - PHOTO_W;
-    let left = Math.round(zoneLeft + PHOTO_W / 2 - cutoutW / 2);
-    left = Math.max(zoneLeft - 30, Math.min(left, W - cutoutW + 10)); // 캔버스 밖으로 심하게 나가지 않도록 보정
-    const top = H - cutoutH;
+    const SHIFT_LEFT = 57; // 약 1.5cm
+    let left = Math.round(zoneLeft + PHOTO_W / 2 - cutoutW / 2) - SHIFT_LEFT;
+    left = Math.max(zoneLeft - 90, Math.min(left, W - cutoutW + 10)); // 캔버스 밖으로 심하게 나가지 않도록 보정
+    const top = Math.max(0, H - cutoutH);
 
     return sharp(Buffer.from(panelSvg))
       .composite([
-        { input: cutoutBuf, left, top },
+        { input: finalCutoutBuf, left, top },
         { input: Buffer.from(textSvg), left: 0, top: 0 }
       ])
       [format === 'png' ? 'png' : 'jpeg'](format === 'png' ? undefined : { quality: 88 })
