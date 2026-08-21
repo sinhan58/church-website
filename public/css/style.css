@@ -468,12 +468,13 @@ button { font-family: inherit; cursor: pointer; }
 .sermon-hero-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .sermon-hero-card .sermon-hero-play {
   position: absolute;
-  right: 60%; bottom: 24px; /* 제목 영역 안쪽으로 더 이동 */
+  right: 24px; bottom: 24px; /* 왼쪽 제목 텍스트를 가리지 않도록 사진이 있는 우측 하단 모서리로 이동 */
   width: 56px; height: 56px;
   border-radius: 50%;
   background: rgba(255,255,255,0.92);
   display: flex; align-items: center; justify-content: center;
   color: var(--navy-deep);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.35);
   transition: transform 0.2s ease, background 0.2s ease;
 }
 .sermon-hero-card .sermon-hero-play svg { width: 24px; height: 24px; }
@@ -529,23 +530,30 @@ button { font-family: inherit; cursor: pointer; }
 }
 .sermon-list-row .verse { color: rgba(255,255,255,0.5); font-size: 0.8rem; margin: 0; padding-left: 1em; }
 
+.sermon-more-row {
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+}
 .sermon-youtube-btn {
   display: inline-flex;
   align-items: center;
-  align-self: flex-start;
-  gap: 6px;
-  margin-top: 16px;
-  padding: 7px 13px;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
   border-radius: 999px;
-  background: rgba(255,0,0,0.1);
+  background: rgba(255,0,0,0.14);
   color: #ff5252;
-  font-size: 0.76rem;
-  font-weight: 600;
-  white-space: nowrap;
+  flex-shrink: 0;
   transition: background 0.2s ease;
 }
 .sermon-youtube-btn svg { width: 14px; height: 14px; }
-.sermon-youtube-btn:hover { background: rgba(255,0,0,0.2); }
+.sermon-youtube-btn:hover { background: rgba(255,0,0,0.24); }
+.sermon-more-label {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.75);
+}
 
 /* video modal */
 .video-modal {
