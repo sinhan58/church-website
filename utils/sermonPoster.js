@@ -71,6 +71,7 @@ function hashStr(str = '') {
 function parseSermonTitle(raw = '') {
   let t = raw.replace(/주일예배/g, '');
   t = t.replace(/\b\d{8}\b/g, '').trim().replace(/^[-_·\s]+|[-_·\s]+$/g, '');
+  t = t.replace(/\s{2,}/g, ' '); // 단어를 지우면서 남는 이중 띄어쓰기 정리
   const m = t.match(/^([가-힣]+\s?\d+장\s?\d+(?:[~\-]\d+)?절(?:,\s?\d+(?:[~\-]\d+)?절)*)\s*(.*)$/);
   if (m) return { verseRef: m[1].trim(), title: m[2].trim() || t };
   return { verseRef: '', title: t };
