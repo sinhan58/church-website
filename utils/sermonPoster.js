@@ -1,8 +1,8 @@
 // 설교 섹션 왼쪽 "이번 주일 설교" 히어로 카드용 포스터 이미지를 만드는 모듈입니다.
-// - 사람을 배경에서 오려내지 않고, 사진 전체를 그대로 왼쪽에 채워 넣습니다(항상 안전하고 일정한 결과).
-// - 오른쪽엔 보라·남색 계열이 기하학적으로 섞인 그라데이션 패널 위에 제목·구절·교회명·목사님 성함만 고정 크기로 표시합니다.
-// - 이제 카드가 한 장(이번 주 최신 설교)만 필요하므로, 다양한 사진 여러 장을 동시에 예쁘게
-//   맞춰야 하는 부담이 없어져서 훨씬 안정적인 결과가 나옵니다.
+// - 배경이 제거된(투명 PNG) 목사님 사진을, 디자인된 배경 패널 위에 얹는 방식입니다.
+// - 사진 배경과 패널을 억지로 이어붙이지 않아도 되므로, 예전에 있었던 "경계선"
+//   문제 자체가 구조적으로 생기지 않습니다.
+// - utils/assets/sermon-card-photos 폴더에는 이제 배경이 제거된 투명 PNG만 넣어주세요.
 //
 // 한글 폰트 로딩 방식에 대한 참고사항: SVG @font-face(base64) 방식은 Render 서버의 librsvg에서
 // 깨져서, 폰트를 fontconfig로 시스템 폰트처럼 등록하고 SVG에서는 font-family 이름만 참조합니다.
@@ -55,33 +55,8 @@ const BUILTIN_PHOTOS = (() => {
 const W = 1200;
 const H = 675;
 const PHOTO_W = 480; // 오른쪽 사진 영역 폭 (전체의 40%, 왼쪽 제목 영역이 60%)
-const BLEND_W = 190; // 사진과 패널이 자연스럽게 이어지는 페이드 폭
 const GOLD = '#c9a227';
 const WHITE = '#ffffff';
-
-// 직선(1차) 변화 대신, 완만하게 시작해서 중간에 빠르게, 다시 완만하게 끝나는 S자 곡선으로
-// 값이 바뀌게 합니다. 사람 눈에는 이 방식이 직선 변화보다 훨씬 자연스럽게 느껴집니다.
-function smoothstep(t) {
-  return t * t * (3 - 2 * t);
-}
-
-// startVal -> endVal로 곡선을 그리며 변하는 SVG 그라데이션 stop 문자열을 만듭니다.
-function easedStops(startVal, endVal, steps = 8) {
-  const stops = [];
-  for (let i = 0; i <= steps; i++) {
-    const t = i / steps;
-    const eased = smoothstep(t);
-    const val = startVal + (endVal - startVal) * eased;
-    stops.push({ pct: Math.round(t * 100), val: Math.max(0, Math.min(1, val)) });
-  }
-  return stops;
-}
-
-function easedOpacityStops(color, startOpacity, endOpacity, steps = 8) {
-  return easedStops(startOpacity, endOpacity, steps)
-    .map((s) => `<stop offset="${s.pct}%" stop-color="${color}" stop-opacity="${s.val.toFixed(3)}"/>`)
-    .join('');
-}
 const NAVY = '#0d1526';
 const PURPLE = '#241a35';
 
@@ -126,9 +101,7 @@ function escapeXml(str = '') {
     .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 }
 
-// 오른쪽 패널: 별도의 색상 그라데이션이 아니라, "같은 사진을 흐릿하고 어둡게 늘린 것"을
-// 배경으로 씁니다. 사진과 배경이 같은 원본에서 나오기 때문에 색감이 항상 자연스럽게
-// 이어지고, 사진이 바뀌어도 늘 어울리는 결과가 나옵니다.
+// 왼쪽 텍스트 영역: "주일 설교" 라벨 + 제목 + 구절 + 교회명 + 목사님 성함.
 function buildTextSvg({ title, verseRef, pastorName, churchName }) {
   const textX = 56;
   const textMaxWidth = W - PHOTO_W - 56 - 40;
@@ -182,116 +155,34 @@ function buildTextSvg({ title, verseRef, pastorName, churchName }) {
   </svg>`;
 }
 
-// 글자가 항상 잘 읽히도록, 왼쪽 텍스트 구역에만 어두운 그라데이션을 얹습니다
-// (사진이 밝든 어둡든 상관없이 대비를 보장).
-function buildDarkenOverlaySvg() {
-  const endX = W - PHOTO_W; // 사진이 시작되는 지점까지만 (사진 쪽과 겹치지 않게)
+// 글자가 항상 잘 읽히도록 하고, 은은한 색감(청록·와인색)을 더한 배경 패널을 만듭니다.
+// 사람은 이 위에 별도로(오려낸 PNG로) 얹으므로, 여기서는 사진과 관련된 처리를 전혀
+// 하지 않습니다 — 그래서 예전의 "경계선" 문제 자체가 생길 수 없습니다.
+function buildPanelSvg() {
   return `
   <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
     <defs>
-      <linearGradient id="darken" gradientUnits="userSpaceOnUse" x1="0" y1="0" x2="${endX}" y2="0">
-        ${easedOpacityStops('#000000', 0.5, 0.15, 10).split('/>').join('/>\n        ')}
-      </linearGradient>
       <radialGradient id="tealGlow" cx="15%" cy="10%" r="65%">
-        <stop offset="0%" stop-color="#0f8f9a" stop-opacity="0.55"/>
+        <stop offset="0%" stop-color="#0f8f9a" stop-opacity="0.5"/>
         <stop offset="100%" stop-color="#0f8f9a" stop-opacity="0"/>
       </radialGradient>
-      <radialGradient id="wineGlow" cx="88%" cy="92%" r="55%">
-        <stop offset="0%" stop-color="#7a1f3d" stop-opacity="0.55"/>
+      <radialGradient id="wineGlow" cx="90%" cy="95%" r="55%">
+        <stop offset="0%" stop-color="#7a1f3d" stop-opacity="0.5"/>
         <stop offset="100%" stop-color="#7a1f3d" stop-opacity="0"/>
       </radialGradient>
       <filter id="colorBlur"><feGaussianBlur stdDeviation="60"/></filter>
     </defs>
-    <!-- 어두운 남색 바탕에, 청록(왼쪽 위)·와인색(오른쪽 아래)을 아주 은은하게만 스치듯 넣습니다 -->
-    <rect x="0" y="0" width="${endX}" height="${H}" fill="${NAVY}"/>
+    <rect width="${W}" height="${H}" fill="${NAVY}"/>
     <g filter="url(#colorBlur)">
-      <rect x="0" y="0" width="${endX}" height="${H}" fill="url(#tealGlow)"/>
-      <rect x="0" y="0" width="${endX}" height="${H}" fill="url(#wineGlow)"/>
+      <rect width="${W}" height="${H}" fill="url(#tealGlow)"/>
+      <rect width="${W}" height="${H}" fill="url(#wineGlow)"/>
     </g>
-    <rect x="0" y="0" width="${endX}" height="${H}" fill="url(#darken)"/>
-  </svg>`;
-}
-
-// 오른쪽 사진의 왼쪽 가장자리를 부드럽게 투명해지도록 만드는 마스크 (사진↔배경 경계를 없앰).
-// 직선이 아니라 완만↔빠름↔완만의 S자 곡선으로 값이 바뀌어서 훨씬 자연스럽습니다.
-function buildFeatherMaskSvg() {
-  const fadePct = (BLEND_W / PHOTO_W) * 100;
-  const stops = easedStops(0, 1, 10)
-    .map((s) => `<stop offset="${((s.pct / 100) * fadePct).toFixed(1)}%" stop-color="white" stop-opacity="${s.val.toFixed(3)}"/>`)
-    .join('\n        ');
-  return `
-  <svg width="${PHOTO_W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="fade" x1="0%" y1="0%" x2="100%" y2="0%">
-        ${stops}
-        <stop offset="100%" stop-color="white" stop-opacity="1"/>
-      </linearGradient>
-    </defs>
-    <rect width="${PHOTO_W}" height="${H}" fill="url(#fade)"/>
-  </svg>`;
-}
-
-// 사진 자체를 페이드 구간에서 미리 어둡게 만듭니다. 투명도만 줄이면, 흰 강대상처럼
-// 밝은 사물이 어두운 배경 속으로 갑자기 "뚝" 끊겨 사라지는 것처럼 보입니다. 밝기도
-// 같이 서서히(곡선으로) 줄여주면, 경계가 훨씬 부드러워집니다.
-function buildPhotoDarkenGradientSvg() {
-  const fadePct = (BLEND_W / PHOTO_W) * 100;
-  const stops = easedStops(0.88, 0, 10)
-    .map((s) => `<stop offset="${((s.pct / 100) * fadePct).toFixed(1)}%" stop-color="#000000" stop-opacity="${s.val.toFixed(3)}"/>`)
-    .join('\n        ');
-  return `
-  <svg width="${PHOTO_W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="pdark" x1="0%" y1="0%" x2="100%" y2="0%">
-        ${stops}
-        <stop offset="100%" stop-color="#000000" stop-opacity="0"/>
-      </linearGradient>
-    </defs>
-    <rect width="${PHOTO_W}" height="${H}" fill="url(#pdark)"/>
-  </svg>`;
-}
-
-// 돌벽 같은 "결이 있는" 사진은 밝기·투명도만 줄여도 무늬 자체가 경계처럼 보일 수 있습니다.
-// 경계 구간에서 흐린 버전을 곡선으로 겹쳐 씌워서, 선명도 자체도 함께 서서히 사라지게 합니다.
-function buildBlurRevealMaskSvg() {
-  const fadePct = (Math.min(BLEND_W * 1.15, PHOTO_W) / PHOTO_W) * 100;
-  const stops = easedStops(1, 0, 10)
-    .map((s) => `<stop offset="${((s.pct / 100) * fadePct).toFixed(1)}%" stop-color="white" stop-opacity="${s.val.toFixed(3)}"/>`)
-    .join('\n        ');
-  return `
-  <svg width="${PHOTO_W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="blurReveal" x1="0%" y1="0%" x2="100%" y2="0%">
-        ${stops}
-        <stop offset="100%" stop-color="white" stop-opacity="0"/>
-      </linearGradient>
-    </defs>
-    <rect width="${PHOTO_W}" height="${H}" fill="url(#blurReveal)"/>
-  </svg>`;
-}
-
-// 완벽하게 안 보이는 경계를 노리는 대신, 얇고 은은한 "유리질감" 띠를 경계에 의도적으로
-// 얹습니다. 프로필트 앱들이 자주 쓰는 방식으로, "여기는 원래 이렇게 디자인된 구분선"
-// 처럼 보이게 해서 오히려 고급스러운 느낌을 줍니다.
-function buildGlassDividerSvg() {
-  const seamX = W - PHOTO_W;
-  return `
-  <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="glass" x1="0%" y1="0%" x2="100%" y2="0%">
-        <stop offset="0%" stop-color="#ffffff" stop-opacity="0"/>
-        <stop offset="50%" stop-color="#ffffff" stop-opacity="0.14"/>
-        <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
-      </linearGradient>
-      <filter id="glassBlur"><feGaussianBlur stdDeviation="22"/></filter>
-    </defs>
-    <rect x="${seamX - 70}" y="0" width="140" height="${H}" fill="url(#glass)" filter="url(#glassBlur)"/>
   </svg>`;
 }
 
 /**
  * "이번 주일 설교" 히어로 카드 포스터 이미지(PNG/JPEG 버퍼)를 생성합니다.
- * 사람을 오려내지 않고, 사진 전체를 왼쪽 영역에 꽉 채워(cover) 넣습니다.
+ * 배경 없이 오려낸 인물 사진(투명 PNG)을 디자인된 배경 패널 위에 얹는 방식입니다.
  */
 // 합성 없이, 이번에 쓸 사진이 "로컬 파일"인지 "관리자가 올린 URL"인지와 그 경로/주소만
 // 알려줍니다. 이제 사진은 그대로(가공 없이) 보여주고, 제목·구절은 별도 칸에 표시하므로
@@ -320,7 +211,7 @@ async function generateSermonPoster({
   pastorName = '',
   churchName = '',
   videoIndex = null,
-  photoOverride = '', // 관리자가 직접 고른 사진 파일명 (예: 'pastor-podium.png'). 있으면 이걸 최우선으로 씁니다.
+  photoOverride = '', // 관리자가 직접 고른 사진 파일명 (예: 'pastor-cutout.png'). 있으면 이걸 최우선으로 씁니다.
   format = 'jpeg'
 }) {
   const { verseRef, title } = parseSermonTitle(rawTitle);
@@ -352,67 +243,30 @@ async function generateSermonPoster({
   }
 
   const textSvg = buildTextSvg({ title, verseRef, pastorName, churchName });
+  const panelSvg = buildPanelSvg();
 
   if (photoBuffer) {
-    // 1) 캔버스 전체를 채우는 "같은 사진"을 흐릿하고 어둡게 늘려서 배경으로 씁니다.
-    //    사진과 배경이 같은 원본에서 나오므로 색감이 항상 자연스럽게 이어집니다.
-    const blurredBg = await sharp(photoBuffer)
-      .resize({ width: W, height: H, fit: 'cover', position: 'attention' })
-      .blur(48)
-      .modulate({ brightness: 0.5, saturation: 0.85 })
-      .toBuffer();
-
-    // 2) 선명한 원본 사진을 오른쪽에 놓되, 왼쪽 가장자리는 부드럽게 투명해지도록
-    //    마스크를 씌워서 경계 없이 배경 속으로 스며들게 합니다.
-    //    (반드시 PNG로 변환해야 합니다 - JPEG는 투명도를 표현할 수 없어서, 그대로 두면
-    //    페더 마스크가 적용되지 않고 사진 전체가 흐려 보이는 원인이 됩니다)
-    // 사진을 한 번만 잘라서(기준 프레이밍 통일), 선명한 버전과 흐린 버전을 그 결과에서
-    // 함께 파생시킵니다. 따로따로 자르면 자동 구도 인식이 버전마다 미세하게 달라져
-    // 경계가 어긋나 보일 수 있어 이렇게 통일합니다.
-    // 목사님이 작게 나오지 않도록, 필요한 크기보다 크게 리사이즈한 다음 가운데를
-    // 잘라내서 살짝 확대된 효과를 줍니다.
-    const ZOOM = 1.28;
-    const zoomedW = Math.round(PHOTO_W * ZOOM);
-    const zoomedH = Math.round(H * ZOOM);
-    const zoomedBuf = await sharp(photoBuffer)
-      .resize({ width: zoomedW, height: zoomedH, fit: 'cover', position: 'attention' })
-      .toBuffer();
-    const cropLeft = Math.round((zoomedW - PHOTO_W) / 2);
-    const cropTop = Math.round((zoomedH - H) / 2);
-    const croppedBase = await sharp(zoomedBuf)
-      .extract({ left: cropLeft, top: cropTop, width: PHOTO_W, height: H })
-      .toBuffer();
-
-    const sharpPhotoPng = await sharp(croppedBase).ensureAlpha().png().toBuffer();
-
-    // 경계 구간에서 사진 자체를 점점 흐리게 만듭니다 (돌벽 같은 결이 있는 사진도
-    // 무늬가 갑자기 끊기지 않고 선명도부터 서서히 사라지도록).
-    const softenedCrop = await sharp(croppedBase).blur(22).ensureAlpha().png().toBuffer();
-    const softenedRevealed = await sharp(softenedCrop)
-      .composite([{ input: Buffer.from(buildBlurRevealMaskSvg()), blend: 'dest-in' }])
+    // 오려낸 인물 사진은 자르지 않고, 세로 기준으로만 맞춰서 전체가 다 보이게 합니다
+    // (사람 실루엣은 사각형이 아니라서, cover로 자르면 머리나 팔이 잘릴 수 있습니다).
+    const targetH = Math.round(H * 0.97);
+    const cutoutBuf = await sharp(photoBuffer)
+      .resize({ height: targetH, fit: 'inside', withoutEnlargement: false })
+      .ensureAlpha()
       .png()
       .toBuffer();
-    const softEdgedPhoto = await sharp(sharpPhotoPng)
-      .composite([{ input: softenedRevealed }])
-      .png()
-      .toBuffer();
+    const meta = await sharp(cutoutBuf).metadata();
+    const cutoutW = meta.width || Math.round(PHOTO_W);
+    const cutoutH = meta.height || targetH;
 
-    // 밝기를 서서히 줄이고, 그다음 투명도를 서서히 줄입니다 (선명도 → 밝기 → 투명도 순서로
-    // 세 단계가 겹쳐지며 훨씬 부드럽게 배경 속으로 스며듭니다).
-    const darkenedPhoto = await sharp(softEdgedPhoto)
-      .composite([{ input: Buffer.from(buildPhotoDarkenGradientSvg()) }])
-      .png()
-      .toBuffer();
-    const feathered = await sharp(darkenedPhoto)
-      .composite([{ input: Buffer.from(buildFeatherMaskSvg()), blend: 'dest-in' }])
-      .png()
-      .toBuffer();
+    // 사진 영역(오른쪽) 안에서 가운데 정렬하고, 바닥에 붙입니다(강대상 등에 선 모습이라 자연스러움).
+    const zoneLeft = W - PHOTO_W;
+    let left = Math.round(zoneLeft + PHOTO_W / 2 - cutoutW / 2);
+    left = Math.max(zoneLeft - 30, Math.min(left, W - cutoutW + 10)); // 캔버스 밖으로 심하게 나가지 않도록 보정
+    const top = H - cutoutH;
 
-    return sharp(blurredBg)
+    return sharp(Buffer.from(panelSvg))
       .composite([
-        { input: feathered, left: W - PHOTO_W, top: 0 },
-        { input: Buffer.from(buildDarkenOverlaySvg()), left: 0, top: 0 },
-        { input: Buffer.from(buildGlassDividerSvg()), left: 0, top: 0 },
+        { input: cutoutBuf, left, top },
         { input: Buffer.from(textSvg), left: 0, top: 0 }
       ])
       [format === 'png' ? 'png' : 'jpeg'](format === 'png' ? undefined : { quality: 88 })
@@ -420,7 +274,7 @@ async function generateSermonPoster({
   }
 
   // 사진이 아예 없을 때를 대비한 기본 배경
-  const fallback = sharp({ create: { width: W, height: H, channels: 3, background: NAVY } }).composite([
+  const fallback = sharp(Buffer.from(panelSvg)).composite([
     { input: Buffer.from(textSvg), left: 0, top: 0 }
   ]);
   return format === 'png' ? fallback.png().toBuffer() : fallback.jpeg({ quality: 88 }).toBuffer();
