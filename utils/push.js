@@ -31,12 +31,12 @@ async function removeSubscription(endpoint) {
 
 // 저장된 모든 구독자에게 알림을 보냅니다. 이미 만료되었거나 구독이 취소된 기기(410/404
 // 오류)는 발송 과정에서 자동으로 목록에서 정리합니다.
-async function sendToAll({ title, body, url }) {
+async function sendToAll({ title, body, url, image }) {
   if (!vapidReady) {
     return { sent: 0, failed: 0, error: 'VAPID 키가 설정되지 않았습니다.' };
   }
   const subs = (await readData('pushSubscriptions')) || [];
-  const payload = JSON.stringify({ title, body, url: url || '/' });
+  const payload = JSON.stringify({ title, body, url: url || '/', image: image || undefined });
 
   let sent = 0;
   let failed = 0;
