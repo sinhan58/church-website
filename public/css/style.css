@@ -466,7 +466,7 @@ button { font-family: inherit; cursor: pointer; }
 .sermon-hero-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .sermon-hero-card .sermon-hero-play {
   position: absolute;
-  right: 24px; bottom: 24px;
+  right: 43%; bottom: 24px; /* 사진(오른쪽 40%) 대신 제목 영역(왼쪽 60%) 오른쪽 아래에 위치 */
   width: 56px; height: 56px;
   border-radius: 50%;
   background: rgba(255,255,255,0.92);
@@ -521,21 +521,22 @@ button { font-family: inherit; cursor: pointer; }
 .sermon-list-row .verse { color: rgba(255,255,255,0.5); font-size: 0.8rem; margin: 0; }
 
 .sermon-youtube-btn {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  margin-top: 18px;
-  padding: 12px 16px;
-  border-radius: var(--radius);
-  background: #FF0000;
-  color: #fff;
-  font-size: 0.85rem;
-  font-weight: 700;
+  align-self: flex-start;
+  gap: 6px;
+  margin-top: 16px;
+  padding: 7px 13px;
+  border-radius: 999px;
+  background: rgba(255,0,0,0.1);
+  color: #ff5252;
+  font-size: 0.76rem;
+  font-weight: 600;
   white-space: nowrap;
-  transition: background 0.2s ease, transform 0.2s ease;
+  transition: background 0.2s ease;
 }
-.sermon-youtube-btn:hover { background: #cc0000; transform: translateY(-1px); }
+.sermon-youtube-btn svg { width: 14px; height: 14px; }
+.sermon-youtube-btn:hover { background: rgba(255,0,0,0.2); }
 
 /* video modal */
 .video-modal {
@@ -725,6 +726,7 @@ button { font-family: inherit; cursor: pointer; }
   position: relative;
   cursor: pointer;
   scroll-snap-align: start;
+  touch-action: pan-x;
   border-radius: var(--radius);
   overflow: hidden;
   box-shadow: var(--shadow);
@@ -801,6 +803,23 @@ button { font-family: inherit; cursor: pointer; }
 }
 
 .praise-scroll-fade { display: none; }
+
+.scroll-progress-track {
+  margin: 10px auto 0;
+  max-width: 240px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(13,21,38,0.08);
+  overflow: hidden;
+}
+.scroll-progress-thumb {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--gold);
+  width: 30%;
+  transform: translateX(0);
+  transition: transform 0.08s linear;
+}
 
 /* ---------------- Board (소식·활동) ---------------- */
 .board-tabs {
