@@ -1727,6 +1727,27 @@
     }
   }
 
+  // ---------------- 맨 위로 이동 버튼 ----------------
+  function setupScrollTopButton() {
+    const btn = $('#scroll-top-btn');
+    if (!btn) return;
+    let ticking = false;
+    function update() {
+      btn.classList.toggle('visible', window.scrollY > 600);
+      ticking = false;
+    }
+    window.addEventListener('scroll', () => {
+      if (!ticking) {
+        requestAnimationFrame(update);
+        ticking = true;
+      }
+    });
+    btn.addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+  }
+  setupScrollTopButton();
+
   Promise.all([loadSite(), loadMenu(), loadSermons(), loadPraises(), loadBoard(), loadQT(), loadMissions(), loadQuizTeaser()]).catch((err) => {
     console.error('콘텐츠를 불러오는 중 오류가 발생했습니다:', err);
   });
