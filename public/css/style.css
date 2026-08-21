@@ -729,7 +729,7 @@ button { font-family: inherit; cursor: pointer; }
   scroll-snap-type: x proximity;
   scroll-behavior: smooth;
   scrollbar-width: none;
-  overscroll-behavior: contain;
+  overscroll-behavior-x: contain; /* 가로축만 감싸 세로 스크롤은 정상적으로 페이지로 전달되게 함 */
   touch-action: pan-x pan-y;
 }
 .praise-grid::-webkit-scrollbar { display: none; }
@@ -802,7 +802,7 @@ button { font-family: inherit; cursor: pointer; }
     overflow-y: hidden; /* 의도치 않은 세로 오버스크롤 바운스 방지 */
     scroll-snap-type: none; /* 세로 스크롤과 충돌해 떨리는 문제로 모바일은 스냅 비활성화 */
     scroll-behavior: smooth;
-    overscroll-behavior: contain;
+    overscroll-behavior-x: contain; /* 가로축만 감싸 세로 스크롤은 정상적으로 페이지로 전달되게 함 */
     touch-action: pan-x pan-y;
     scrollbar-width: none;
   }
