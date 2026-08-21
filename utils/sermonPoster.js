@@ -369,8 +369,18 @@ async function generateSermonPoster({
     // 사진을 한 번만 잘라서(기준 프레이밍 통일), 선명한 버전과 흐린 버전을 그 결과에서
     // 함께 파생시킵니다. 따로따로 자르면 자동 구도 인식이 버전마다 미세하게 달라져
     // 경계가 어긋나 보일 수 있어 이렇게 통일합니다.
-    const croppedBase = await sharp(photoBuffer)
-      .resize({ width: PHOTO_W, height: H, fit: 'cover', position: 'attention' })
+    // 목사님이 작게 나오지 않도록, 필요한 크기보다 크게 리사이즈한 다음 가운데를
+    // 잘라내서 살짝 확대된 효과를 줍니다.
+    const ZOOM = 1.28;
+    const zoomedW = Math.round(PHOTO_W * ZOOM);
+    const zoomedH = Math.round(H * ZOOM);
+    const zoomedBuf = await sharp(photoBuffer)
+      .resize({ width: zoomedW, height: zoomedH, fit: 'cover', position: 'attention' })
+      .toBuffer();
+    const cropLeft = Math.round((zoomedW - PHOTO_W) / 2);
+    const cropTop = Math.round((zoomedH - H) / 2);
+    const croppedBase = await sharp(zoomedBuf)
+      .extract({ left: cropLeft, top: cropTop, width: PHOTO_W, height: H })
       .toBuffer();
 
     const sharpPhotoPng = await sharp(croppedBase).ensureAlpha().png().toBuffer();
