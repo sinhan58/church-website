@@ -496,10 +496,10 @@ button { font-family: inherit; cursor: pointer; }
   padding: 14px 0;
   cursor: pointer;
   border-bottom: 1px solid rgba(255,255,255,0.14);
-  transition: padding-left 0.2s ease;
+  transition: transform 0.2s ease;
 }
 .sermon-list-row:last-child { border-bottom: none; }
-.sermon-list-row:hover { padding-left: 6px; }
+.sermon-list-row:hover { transform: translateX(6px); }
 .sermon-list-row .badges { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
 .sermon-list-row .theme-badge {
   display: inline-block;
@@ -1977,4 +1977,3 @@ a:focus-visible, button:focus-visible {
   white-space: nowrap;
 }
 .missions-partners-page { text-align: center; font-size: 10.5px; color: var(--muted); margin: 10px 0 0; }
-
