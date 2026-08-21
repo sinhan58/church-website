@@ -728,14 +728,14 @@ button { font-family: inherit; cursor: pointer; }
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
-  touch-action: pan-x;
+  touch-action: pan-x pan-y;
 }
 .praise-grid::-webkit-scrollbar { display: none; }
 .praise-card {
   position: relative;
   cursor: pointer;
   scroll-snap-align: start;
-  touch-action: pan-x;
+  touch-action: pan-x pan-y;
   border-radius: var(--radius);
   overflow: hidden;
   box-shadow: var(--shadow);
@@ -800,7 +800,7 @@ button { font-family: inherit; cursor: pointer; }
     scroll-snap-type: x proximity;
     scroll-behavior: smooth;
     overscroll-behavior-x: contain;
-    touch-action: pan-x;
+    touch-action: pan-x pan-y;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
   }
@@ -1700,21 +1700,21 @@ button { font-family: inherit; cursor: pointer; }
   width: 46px;
   height: 46px;
   border-radius: 50%;
-  border: none;
-  background: var(--navy-deep);
-  color: #fff;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--navy-deep);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 8px 22px rgba(0,0,0,0.25);
+  box-shadow: 0 8px 22px rgba(0,0,0,0.12);
   opacity: 0;
   transform: translateY(10px);
   pointer-events: none;
-  transition: opacity 0.25s ease, transform 0.25s ease, background 0.2s ease;
+  transition: opacity 0.25s ease, transform 0.25s ease, background 0.2s ease, border-color 0.2s ease;
 }
 .scroll-top-btn.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
-.scroll-top-btn:hover { background: var(--gold); color: var(--navy-deep); }
+.scroll-top-btn:hover { background: var(--gold); border-color: var(--gold); color: var(--navy-deep); }
 .scroll-top-btn svg { width: 22px; height: 22px; }
 @media (max-width: 900px) {
   /* 모바일: 밴드 버튼보다 아래쪽(화면 맨 밑)에 오도록 순서를 바꾸고, 크기도 밴드 버튼과 비슷하게 맞춥니다 */
