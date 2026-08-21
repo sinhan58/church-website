@@ -23,6 +23,15 @@ const { sendToAll } = require('../utils/push');
 
 const uploadsDir = path.join(__dirname, '..', 'public', 'uploads');
 
+// 푸시 알림에 들어갈 이미지 URL이 우리 서버에 업로드된 파일이거나(/uploads/...),
+// 신뢰할 수 있는 https 링크인 경우만 허용합니다 (javascript: 등 악성 스킴 차단).
+function isSafeMediaUrl(value) {
+  if (!value || typeof value !== 'string') return false;
+  const v = value.trim();
+  if (!v) return false;
+  return v.startsWith('/uploads/') || /^https:\/\//.test(v);
+}
+
 // ---------- 파일 업로드 설정 ----------
 // 파일을 메모리에 잠깐 담아두었다가(diskStorage 대신 memoryStorage), 아래에서
 // Supabase 연결 여부에 따라 Storage에 올리거나 로컬 디스크에 저장합니다.
@@ -1009,9 +1018,10 @@ router.delete('/receipt-requests/:id', requirePermission('receipts'), async (req
 // ---------- 푸시 알림 발송 ----------
 router.post('/push/send', requirePermission('site'), async (req, res) => {
   try {
-    const { title, body, url } = req.body;
+    const { title, body, url, image } = req.body;
     if (!title || !title.trim()) return res.status(400).json({ error: '알림 제목을 입력해주세요.' });
-    const result = await sendToAll({ title: title.trim(), body: (body || '').trim(), url: url || '/' });
+    const safeImage = isSafeMediaUrl(image) ? image.trim() : '';
+    const result = await sendToAll({ title: title.trim(), body: (body || '').trim(), url: url || '/', image: safeImage || undefined });
     res.json(result);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1029,7 +1039,7 @@ router.get('/push/templates', requirePermission('site'), async (req, res) => {
 
 router.post('/push/templates', requirePermission('site'), async (req, res) => {
   try {
-    const { name, title, body, url } = req.body;
+    const { name, title, body, url, image } = req.body;
     if (!name || !name.trim()) return res.status(400).json({ error: '문구 이름을 입력해주세요.' });
     if (!title || !title.trim()) return res.status(400).json({ error: '알림 제목을 입력해주세요.' });
     const templates = (await readData('pushTemplates')) || [];
@@ -1038,7 +1048,8 @@ router.post('/push/templates', requirePermission('site'), async (req, res) => {
       name: name.trim(),
       title: title.trim(),
       body: (body || '').trim(),
-      url: (url || '').trim()
+      url: (url || '').trim(),
+      image: isSafeMediaUrl(image) ? image.trim() : ''
     };
     templates.push(item);
     await writeData('pushTemplates', templates);
@@ -1073,7 +1084,7 @@ router.get('/push/scheduled', requirePermission('site'), async (req, res) => {
 
 router.post('/push/scheduled', requirePermission('site'), async (req, res) => {
   try {
-    const { title, body, url, sendAt, linkedType, linkedId } = req.body;
+    const { title, body, url, image, sendAt, linkedType, linkedId } = req.body;
     if (!title || !title.trim()) return res.status(400).json({ error: '알림 제목을 입력해주세요.' });
     if (!sendAt) return res.status(400).json({ error: '발송 시각을 선택해주세요.' });
     const scheduled = (await readData('scheduledPushes')) || [];
@@ -1082,6 +1093,7 @@ router.post('/push/scheduled', requirePermission('site'), async (req, res) => {
       title: title.trim(),
       body: (body || '').trim(),
       url: (url || '/').trim(),
+      image: isSafeMediaUrl(image) ? image.trim() : '',
       sendAt,
       linkedType: linkedType || null,
       linkedId: linkedId || null,
