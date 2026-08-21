@@ -686,7 +686,7 @@
         return `
         <a href="#" class="sermon-list-row" data-video-id="${escapeHtml(v.videoId)}" data-title="${escapeHtml(v.title || '')}">
           ${badgesHtml ? `<span class="badges">${badgesHtml}</span>` : ''}
-          <p class="title">${escapeHtml(title || v.title || '')}</p>
+          <p class="title"><span class="bullet">•</span><span class="text">${escapeHtml(title || v.title || '')}</span></p>
           ${verseRef ? `<p class="verse">${escapeHtml(verseRef)}</p>` : ''}
         </a>`;
       })
