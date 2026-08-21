@@ -15,7 +15,7 @@ function startPushScheduler() {
       if (due.length > 0) {
         for (const item of due) {
           try {
-            await sendToAll({ title: item.title, body: item.body, url: item.url });
+            await sendToAll({ title: item.title, body: item.body, url: item.url, image: item.image || undefined });
             item.status = 'sent';
             item.sentAt = new Date().toISOString();
           } catch (err) {
