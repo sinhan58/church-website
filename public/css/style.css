@@ -462,11 +462,13 @@ button { font-family: inherit; cursor: pointer; }
   aspect-ratio: 16/9;
   cursor: pointer;
   background: var(--navy-deep);
+  transition: transform 0.25s ease;
 }
+.sermon-hero-card:hover { transform: scale(1.015); }
 .sermon-hero-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .sermon-hero-card .sermon-hero-play {
   position: absolute;
-  right: 43%; bottom: 24px; /* 사진(오른쪽 40%) 대신 제목 영역(왼쪽 60%) 오른쪽 아래에 위치 */
+  right: 53%; bottom: 24px; /* 제목 영역 안쪽으로 더 이동 */
   width: 56px; height: 56px;
   border-radius: 50%;
   background: rgba(255,255,255,0.92);
@@ -518,6 +520,7 @@ button { font-family: inherit; cursor: pointer; }
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
+.sermon-list-row .title::before { content: '• '; color: var(--gold); }
 .sermon-list-row .verse { color: rgba(255,255,255,0.5); font-size: 0.8rem; margin: 0; }
 
 .sermon-youtube-btn {
