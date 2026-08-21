@@ -718,6 +718,7 @@ button { font-family: inherit; cursor: pointer; }
   scrollbar-width: none;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior-x: contain;
+  touch-action: pan-x;
 }
 .praise-grid::-webkit-scrollbar { display: none; }
 .praise-card {
@@ -788,6 +789,7 @@ button { font-family: inherit; cursor: pointer; }
     scroll-snap-type: x proximity;
     scroll-behavior: smooth;
     overscroll-behavior-x: contain;
+    touch-action: pan-x;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
   }
@@ -799,23 +801,15 @@ button { font-family: inherit; cursor: pointer; }
 }
 
 .praise-scroll-fade { display: none; }
-.praise-swipe-hint { display: none; }
 @media (max-width: 900px) {
-  /* 오른쪽 끝이 은은하게 옅어지면서, 아직 더 있다는 걸 시각적으로 알려줍니다 */
+  /* 오른쪽 끝을 확실하게 옅어지도록 처리해서, 더 있다는 걸 분명하게 알려줍니다 */
   .praise-scroll-fade {
     display: block;
     position: absolute;
     top: 0; right: 0; bottom: 0;
-    width: 36px;
-    background: linear-gradient(90deg, rgba(240,235,223,0), var(--ivory-dim));
+    width: 64px;
+    background: linear-gradient(90deg, rgba(240,235,223,0), var(--ivory-dim) 75%);
     pointer-events: none;
-  }
-  .praise-swipe-hint {
-    display: block;
-    text-align: center;
-    color: var(--muted);
-    font-size: 0.8rem;
-    margin-top: 8px;
   }
 }
 
@@ -1939,3 +1933,4 @@ a:focus-visible, button:focus-visible {
   white-space: nowrap;
 }
 .missions-partners-page { text-align: center; font-size: 10.5px; color: var(--muted); margin: 10px 0 0; }
+
