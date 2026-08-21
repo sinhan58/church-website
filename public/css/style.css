@@ -726,8 +726,7 @@ button { font-family: inherit; cursor: pointer; }
   scroll-snap-type: x proximity;
   scroll-behavior: smooth;
   scrollbar-width: none;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior-x: contain;
+  overscroll-behavior: contain;
   touch-action: pan-x pan-y;
 }
 .praise-grid::-webkit-scrollbar { display: none; }
@@ -797,15 +796,14 @@ button { font-family: inherit; cursor: pointer; }
     grid-auto-columns: calc(44% - 8px); /* 다음 곡이 살짝 삐져나와 보이게(더 있다는 신호) */
     gap: 16px;
     overflow-x: auto;
-    scroll-snap-type: x proximity;
+    scroll-snap-type: none; /* 세로 스크롤과 충돌해 떨리는 문제로 모바일은 스냅 비활성화 */
     scroll-behavior: smooth;
-    overscroll-behavior-x: contain;
+    overscroll-behavior: contain;
     touch-action: pan-x pan-y;
-    -webkit-overflow-scrolling: touch;
     scrollbar-width: none;
   }
   .praise-grid::-webkit-scrollbar { display: none; }
-  .praise-card { scroll-snap-align: start; width: 100%; aspect-ratio: 4/3; }
+  .praise-card { scroll-snap-align: none; width: 100%; aspect-ratio: 4/3; }
 }
 @media (max-width: 560px) {
   .praise-grid { gap: 12px; }
