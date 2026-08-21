@@ -627,6 +627,7 @@ button { font-family: inherit; cursor: pointer; }
   flex-wrap: wrap;
   gap: 8px;
   overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: none;
   margin-bottom: 20px;
   padding-bottom: 2px;
@@ -669,6 +670,7 @@ button { font-family: inherit; cursor: pointer; }
   align-items: center;
   gap: 26px;
   overflow-x: auto;
+  overflow-y: hidden;
   scroll-snap-type: x mandatory;
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
@@ -723,6 +725,7 @@ button { font-family: inherit; cursor: pointer; }
   grid-auto-columns: calc((100% - 20px * 3) / 4);
   gap: 20px;
   overflow-x: auto;
+  overflow-y: hidden; /* overflow-x만 지정하면 overflow-y가 자동으로 auto가 되어 세로 오버스크롤 바운스가 생겨서 명시적으로 막음 */
   scroll-snap-type: x proximity;
   scroll-behavior: smooth;
   scrollbar-width: none;
@@ -796,6 +799,7 @@ button { font-family: inherit; cursor: pointer; }
     grid-auto-columns: calc(44% - 8px); /* 다음 곡이 살짝 삐져나와 보이게(더 있다는 신호) */
     gap: 16px;
     overflow-x: auto;
+    overflow-y: hidden; /* 의도치 않은 세로 오버스크롤 바운스 방지 */
     scroll-snap-type: none; /* 세로 스크롤과 충돌해 떨리는 문제로 모바일은 스냅 비활성화 */
     scroll-behavior: smooth;
     overscroll-behavior: contain;
@@ -1152,6 +1156,7 @@ button { font-family: inherit; cursor: pointer; }
   letter-spacing: -0.01em;
   white-space: nowrap;
   overflow-x: auto;
+  overflow-y: hidden;
 }
 .offering-account-line span:first-child { font-weight: 600; margin-right: 8px; }
 .offering-holder-line {
