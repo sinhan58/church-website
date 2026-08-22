@@ -569,13 +569,12 @@
     };
 
     const ytBtn = $('#sermon-youtube-btn');
-    const moreRow = $('#sermon-more-row');
     if (ytBtn) {
       if (sermonChannelId) {
         ytBtn.href = `https://www.youtube.com/channel/${encodeURIComponent(sermonChannelId)}/videos`;
-        if (moreRow) moreRow.style.display = 'flex';
-      } else if (moreRow) {
-        moreRow.style.display = 'none';
+        ytBtn.style.display = 'inline-flex';
+      } else {
+        ytBtn.style.display = 'none';
       }
     }
 
@@ -1207,6 +1206,7 @@
     });
 
     $('#post-modal').classList.add('open');
+    $('#post-modal-scroll').scrollTop = 0;
     lockScroll();
   }
 
@@ -1709,10 +1709,35 @@
   async function setupPushPrompt(registration) {
     if (!('PushManager' in window) || !('Notification' in window)) return; // 미지원 기기(iOS 사파리 등)는 조용히 건너뜀
     if (Notification.permission === 'denied') return; // 이미 차단한 경우 다시 안 물어봄
-    if (localStorage.getItem('push-prompt-dismissed') === '1') return; // 예전에 닫은 적 있으면 다시 안 보여줌
 
     const existing = await registration.pushManager.getSubscription();
-    if (existing) return; // 이미 구독 중이면 배너 안 보여줌
+    if (existing) return; // 이미 구독 중이면 아무것도 안 함
+
+    // 여기까지 왔다는 건 = 지금 구독이 없는 상태입니다. 만약 알림 권한은 이미 "허용"으로
+    // 되어 있다면 (예: 앱을 재설치하면서 구독 정보만 사라진 경우), 배너를 다시 띄우지 않고
+    // 조용히 재구독을 시도합니다. (예전엔 "배너를 닫은 적 있다"는 표시만 보고 재구독
+    // 시도 자체를 건너뛰어서, 재설치 후 알림이 하나도 안 오는 문제가 있었습니다)
+    if (Notification.permission === 'granted') {
+      try {
+        const { publicKey } = await getJSON('/api/push/vapid-public-key');
+        if (publicKey) {
+          const subscription = await registration.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: urlBase64ToUint8Array(publicKey)
+          });
+          await fetch('/api/push/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(subscription)
+          });
+        }
+      } catch (err) {
+        // 조용히 실패 - 다음 방문 때 다시 시도됩니다.
+      }
+      return;
+    }
+
+    if (localStorage.getItem('push-prompt-dismissed') === '1') return; // 예전에 닫은 적 있으면 다시 안 보여줌
 
     const banner = $('#push-prompt');
     if (!banner) return;
