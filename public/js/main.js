@@ -568,13 +568,12 @@
       pastorName: (site && site.about && site.about.pastorName) || ''
     };
 
-    const ytBtn = $('#sermon-youtube-btn');
     const moreRow = $('#sermon-more-row');
-    if (ytBtn) {
+    if (moreRow) {
       if (sermonChannelId) {
-        ytBtn.href = `https://www.youtube.com/channel/${encodeURIComponent(sermonChannelId)}/videos`;
-        if (moreRow) moreRow.style.display = 'flex';
-      } else if (moreRow) {
+        moreRow.href = `https://www.youtube.com/channel/${encodeURIComponent(sermonChannelId)}/videos`;
+        moreRow.style.display = 'flex';
+      } else {
         moreRow.style.display = 'none';
       }
     }
@@ -645,7 +644,8 @@
     card.innerHTML = `
       <img src="${posterUrl}" alt="${escapeHtml(hero.title || '')}" onerror="this.onerror=null;this.src='${escapeHtml(hero.thumbnail)}';" />
       <span class="sermon-hero-play" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.5 7.5v9l8-4.5-8-4.5z"/></svg>
+        <svg class="sermon-hero-play-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M9.5 7.5v9l8-4.5-8-4.5z"/></svg>
+        <span class="sermon-hero-play-text">설교 보기</span>
       </span>`;
     card.dataset.videoId = hero.videoId;
     card.onclick = () => {
