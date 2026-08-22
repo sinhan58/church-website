@@ -4,28 +4,6 @@
    타이포: 제목 - Noto Serif KR / 본문 - Pretendard
    ========================================================= */
 
-/* ---------------- 설치된 앱 실행 시 잠깐 나타나는 스플래시 화면 ---------------- */
-.app-splash {
-  position: fixed;
-  inset: 0;
-  z-index: 99999;
-  background: #faf7f0;
-  align-items: center;
-  justify-content: center;
-  opacity: 1;
-  transition: opacity 0.5s ease;
-}
-.app-splash img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  display: block;
-}
-.app-splash--hide {
-  opacity: 0;
-  pointer-events: none;
-}
-
 :root {
   --navy-deep: #0d1526;
   --navy: #16213e;
@@ -490,7 +468,7 @@ button { font-family: inherit; cursor: pointer; }
 .sermon-hero-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .sermon-hero-card .sermon-hero-play {
   position: absolute;
-  right: 24px; bottom: 24px; /* 왼쪽 제목 텍스트를 가리지 않도록 사진이 있는 우측 하단 모서리로 이동 */
+  left: 30%; bottom: 15%; /* 성경구절 아래, 교회명 오른쪽 자리(텍스트 영역 안, 사진과 안 겹침) */
   width: 56px; height: 56px;
   border-radius: 50%;
   background: rgba(255,255,255,0.92);
@@ -1004,9 +982,17 @@ button { font-family: inherit; cursor: pointer; }
   from { opacity: 0; transform: translateY(24px) scale(0.98); }
   to { opacity: 1; transform: translateY(0) scale(1); }
 }
+.post-modal-sticky-head {
+  flex: 0 0 auto;
+  padding: 22px 32px 14px;
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+  box-shadow: 0 4px 10px rgba(13,21,38,0.04);
+}
+.post-modal-sticky-head #post-modal-title { margin: 0; }
 .post-modal-scroll {
   overflow-y: auto;
-  padding: 32px;
+  padding: 22px 32px 32px;
 }
 .post-modal-footer {
   flex: 0 0 auto;
