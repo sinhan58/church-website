@@ -53,7 +53,7 @@ const BUILTIN_PHOTOS = (() => {
 })();
 
 const W = 1200;
-const H = 675;
+const H = 900; // 4:3 비율 (지난 설교 목록의 자연스러운 높이와 맞도록 16:9에서 변경)
 const PHOTO_W = 480; // 오른쪽 사진 영역 폭 (전체의 40%, 왼쪽 제목 영역이 60%)
 const GOLD = '#c9a227';
 const WHITE = '#ffffff';
