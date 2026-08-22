@@ -543,13 +543,13 @@ button { font-family: inherit; cursor: pointer; }
   width: 30px;
   height: 30px;
   border-radius: 999px;
-  background: rgba(255,0,0,0.14);
-  color: #ff5252;
+  background: #FF0000;
+  color: #fff;
   flex-shrink: 0;
   transition: background 0.2s ease;
 }
 .sermon-youtube-btn svg { width: 14px; height: 14px; }
-.sermon-youtube-btn:hover { background: rgba(255,0,0,0.24); }
+.sermon-youtube-btn:hover { background: #cc0000; }
 .sermon-more-label {
   font-size: 0.82rem;
   font-weight: 600;
