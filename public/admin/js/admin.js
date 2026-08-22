@@ -1,6 +1,6 @@
 (function () {
   const $ = (sel) => document.querySelector(sel);
-  const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+  const $$ = (sel, ctx) => Array.from((ctx || document).querySelectorAll(sel));
 
   let currentSession = null; // { username, role, permissions }
 
