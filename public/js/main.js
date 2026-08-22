@@ -682,7 +682,7 @@
       return;
     }
 
-    const displayList = pool.slice(0, 3);
+    const displayList = pool.slice(0, 4);
     const categoryNameById = {};
     sermonCategoryList.forEach((c) => (categoryNameById[c.id] = c.name));
 
