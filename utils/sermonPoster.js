@@ -145,10 +145,10 @@ function buildTextSvg({ title, verseRef, pastorName, churchName }) {
   const lineY = y;
   y += 50;
   // 교회명 글씨체를 담임목사님 이름과 통일(글씨 굵기를 맞춤), 크기는 기존 교회명 크기(24) 유지
-  const churchSvg = `<text x="${textX}" y="${y}" font-size="24" font-family="${FONT_FAMILY_REGULAR}" font-weight="400" fill="${WHITE}">${escapeXml(churchName)}</text>`;
+  const churchSvg = `<text x="${textX}" y="${y}" font-size="26" font-family="${FONT_FAMILY_REGULAR}" font-weight="400" fill="${WHITE}">${escapeXml(churchName)}</text>`;
   y += 50;
   const pastorSvg = pastorName
-    ? `<text x="${textX}" y="${y}" font-size="19" font-family="${FONT_FAMILY_REGULAR}" font-weight="400" fill="#c8c8c3">${escapeXml(pastorName)}</text>`
+    ? `<text x="${textX}" y="${y}" font-size="26" font-family="${FONT_FAMILY_REGULAR}" font-weight="400" fill="#c8c8c3">${escapeXml(pastorName)}</text>`
     : '';
 
   return `
@@ -283,7 +283,14 @@ async function generateSermonPoster({
     const zoneLeft = W - PHOTO_W;
     const SHIFT_LEFT = 133; // 약 3.5cm (1.5cm + 추가 2cm)
     let left = Math.round(zoneLeft + PHOTO_W / 2 - cutoutW / 2) - SHIFT_LEFT;
-    left = Math.max(zoneLeft - 170, Math.min(left, W - cutoutW + 10)); // 캔버스 밖으로 심하게 나가지 않도록 보정
+    const maxLeft = W - cutoutW; // 오른쪽 끝이 캔버스를 넘지 않는 절대 상한 (팔이 잘리지 않도록)
+    const minLeft = zoneLeft - 170; // 왼쪽으로 너무 안 가게 하는 하한(선호값)
+    if (minLeft <= maxLeft) {
+      left = Math.max(minLeft, Math.min(left, maxLeft));
+    } else {
+      // 사진이 너무 커서 두 기준이 서로 충돌하면, "잘리지 않는 것"을 최우선으로 합니다.
+      left = maxLeft;
+    }
     const top = Math.max(0, H - cutoutH);
 
     return sharp(Buffer.from(panelSvg))
