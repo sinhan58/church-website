@@ -483,8 +483,8 @@ button { font-family: inherit; cursor: pointer; }
 .sermon-list-wrap {
   display: flex;
   flex-direction: column;
-  justify-content: center;
-  padding: 28px 32px;
+  justify-content: flex-start;
+  padding: 24px 32px;
   border-left: 1px solid rgba(255,255,255,0.12);
 }
 .sermon-list {
