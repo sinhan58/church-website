@@ -468,7 +468,7 @@ button { font-family: inherit; cursor: pointer; }
 .sermon-hero-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .sermon-hero-card .sermon-hero-play {
   position: absolute;
-  left: 25%; bottom: 14.4%; /* 교회명·담임목사 두 줄 블록의 실제 세로 중앙에 맞춘 계산값 */
+  left: 25%; bottom: 7%; /* 실제 화면 픽셀 측정값 기준으로 재보정 */
   width: 56px; height: 56px;
   border-radius: 50%;
   background: rgba(255,255,255,0.92);
