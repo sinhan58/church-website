@@ -249,21 +249,25 @@ async function generateSermonPoster({
   if (photoBuffer) {
     // 오려낸 인물 사진은 자르지 않고, 세로 기준으로만 맞춰서 전체가 다 보이게 합니다
     // (사람 실루엣은 사각형이 아니라서, cover로 자르면 머리나 팔이 잘릴 수 있습니다).
-    const targetH = Math.round(H * 1.06); // 조금 더 확대
+    const targetH = Math.round(H * 1.22); // 더 확대
     const cutoutBuf = await sharp(photoBuffer)
       .resize({ height: targetH, fit: 'inside', withoutEnlargement: false })
       .ensureAlpha()
       .png()
       .toBuffer();
-    const meta = await sharp(cutoutBuf).metadata();
+
+    // 투명하게 남는 여백 없이 실제로 보이는 그림만 딱 맞게 잘라냅니다. 이렇게 해야
+    // 팔·소매가 잘린 자리가 캔버스 바닥과 정확히 맞닿아서, 공중에 뜬 느낌이 사라집니다.
+    const trimmed = await sharp(cutoutBuf).trim().toBuffer();
+    const meta = await sharp(trimmed).metadata();
     const cutoutW = meta.width || Math.round(PHOTO_W);
     let cutoutH = meta.height || targetH;
 
     // 확대하면서 캔버스보다 커질 수 있는데, 머리가 잘리면 안 되니 위쪽은 그대로 두고
-    // 아래쪽(강대상 부분)만 잘라내서 캔버스 안에 맞춥니다.
-    let finalCutoutBuf = cutoutBuf;
+    // 아래쪽만 잘라내서 캔버스 안에 맞춥니다.
+    let finalCutoutBuf = trimmed;
     if (cutoutH > H) {
-      finalCutoutBuf = await sharp(cutoutBuf)
+      finalCutoutBuf = await sharp(trimmed)
         .extract({ left: 0, top: 0, width: cutoutW, height: H })
         .toBuffer();
       cutoutH = H;
