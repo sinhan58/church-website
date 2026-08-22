@@ -459,7 +459,7 @@ button { font-family: inherit; cursor: pointer; }
 
 .sermon-hero-card {
   position: relative;
-  aspect-ratio: 16/9;
+  min-height: 380px;
   cursor: pointer;
   background: var(--navy-deep);
   transition: transform 0.25s ease;
@@ -550,11 +550,11 @@ button { font-family: inherit; cursor: pointer; }
 .sermon-list-row .verse { color: rgba(255,255,255,0.5); font-size: 0.8rem; margin: 0; padding-left: 1em; }
 
 .sermon-more-row {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  justify-content: flex-end; /* 오른쪽 정렬 */
   gap: 10px;
   margin-top: 16px;
+  margin-left: auto; /* 오른쪽 정렬하되, 클릭 영역은 내용 크기만큼만 */
   transition: opacity 0.2s ease;
 }
 .sermon-more-row:hover { opacity: 0.8; }
