@@ -13,6 +13,7 @@ const os = require('os');
 
 const FONT_DIR = path.join(__dirname, 'fonts');
 const FONT_FAMILY = 'Noto Sans CJK KR Black';
+const FONT_FAMILY_REGULAR = 'Noto Sans CJK KR'; // 새로 추가한 보통 굵기 폰트 (교회명·목사님 이름용)
 
 try {
   const fontconfigDir = path.join(os.tmpdir(), 'church-sermon-poster-fontconfig');
@@ -144,10 +145,10 @@ function buildTextSvg({ title, verseRef, pastorName, churchName }) {
   const lineY = y;
   y += 50;
   // 교회명 글씨체를 담임목사님 이름과 통일(글씨 굵기를 맞춤), 크기는 기존 교회명 크기(24) 유지
-  const churchSvg = `<text x="${textX}" y="${y}" font-size="24" font-family="${FONT_FAMILY}" font-weight="400" fill="${WHITE}">${escapeXml(churchName)}</text>`;
+  const churchSvg = `<text x="${textX}" y="${y}" font-size="24" font-family="${FONT_FAMILY_REGULAR}" font-weight="400" fill="${WHITE}">${escapeXml(churchName)}</text>`;
   y += 50;
   const pastorSvg = pastorName
-    ? `<text x="${textX}" y="${y}" font-size="19" font-family="${FONT_FAMILY}" font-weight="400" fill="#c8c8c3">${escapeXml(pastorName)}</text>`
+    ? `<text x="${textX}" y="${y}" font-size="19" font-family="${FONT_FAMILY_REGULAR}" font-weight="400" fill="#c8c8c3">${escapeXml(pastorName)}</text>`
     : '';
 
   return `
