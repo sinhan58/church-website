@@ -69,6 +69,23 @@
 <meta name="mobile-web-app-capable" content="yes" />
 </head>
 <body>
+<!-- 설치된 앱으로 실행했을 때만, 잠깐 나타났다 사라지는 전체화면 스플래시 -->
+<div id="app-splash" class="app-splash" style="display:none;">
+  <img src="/images/splash-image.jpg" alt="물댄동산교회" />
+</div>
+<script>
+(function () {
+  var isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+  if (!isStandalone) return; // 그냥 브라우저로 방문한 경우엔 아예 안 보여줌 (번쩍임 방지)
+  var splash = document.getElementById('app-splash');
+  if (!splash) return;
+  splash.style.display = 'flex';
+  setTimeout(function () {
+    splash.classList.add('app-splash--hide');
+    setTimeout(function () { splash.remove(); }, 550);
+  }, 1000); // 약 1초간 보여준 뒤 부드럽게 사라짐
+})();
+</script>
 
 <header class="site-header" id="site-header">
   <div class="container">
@@ -143,12 +160,10 @@
         <div class="sermon-hero-card" id="sermon-hero-card"></div>
         <div class="sermon-list-wrap">
           <div class="sermon-list" id="sermon-list"></div>
-          <div class="sermon-more-row" style="display:none;" id="sermon-more-row">
-            <a href="#" id="sermon-youtube-btn" class="sermon-youtube-btn" target="_blank" rel="noopener">
-              <svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8ZM9.6 15.5V8.5L15.8 12l-6.2 3.5Z"/></svg>
-            </a>
-            <span class="sermon-more-label">설교 더보기</span>
-          </div>
+          <a href="#" id="sermon-youtube-btn" class="sermon-youtube-btn" target="_blank" rel="noopener" style="display:none;">
+            <svg viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8ZM9.6 15.5V8.5L15.8 12l-6.2 3.5Z"/></svg>
+            유튜브에서 더보기
+          </a>
         </div>
       </div>
     </div>
