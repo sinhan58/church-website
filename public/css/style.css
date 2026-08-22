@@ -468,7 +468,7 @@ button { font-family: inherit; cursor: pointer; }
 .sermon-hero-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .sermon-hero-card .sermon-hero-play {
   position: absolute;
-  left: 30%; bottom: 15%; /* 성경구절 아래, 교회명 오른쪽 자리(텍스트 영역 안, 사진과 안 겹침) */
+  left: 27%; bottom: 12%; /* 교회명·담임목사 두 줄 라인에 맞춰 정렬 */
   width: 56px; height: 56px;
   border-radius: 50%;
   background: rgba(255,255,255,0.92);
@@ -531,6 +531,7 @@ button { font-family: inherit; cursor: pointer; }
 .sermon-list-row .verse { color: rgba(255,255,255,0.5); font-size: 0.8rem; margin: 0; padding-left: 1em; }
 
 .sermon-more-row {
+  display: flex;
   align-items: center;
   gap: 10px;
   margin-top: 16px;
