@@ -444,7 +444,7 @@ button { font-family: inherit; cursor: pointer; }
 /* ---------------- 설교 섹션: 합성된 히어로 이미지 + 지난 설교 목록 ---------------- */
 .sermon-layout {
   display: grid;
-  grid-template-columns: 57% 43%; /* 메인 설교 영역 2cm 확대, 지난 설교 목록 2cm 축소 */
+  grid-template-columns: 61% 39%; /* 메인 설교 영역 추가 확대, 지난 설교 목록 1cm 추가 축소 */
   margin-top: 8px;
   background: linear-gradient(135deg, var(--navy-deep) 0%, #241a35 100%);
   border-radius: var(--radius);
@@ -459,13 +459,10 @@ button { font-family: inherit; cursor: pointer; }
 
 .sermon-hero-card {
   position: relative;
-  aspect-ratio: 16/9;
-  align-self: center; /* 세로로 늘어나도 사진 비율은 그대로, 가운데 자리잡음 */
+  aspect-ratio: 4/3;
   cursor: pointer;
   background: var(--navy-deep);
-  transition: transform 0.25s ease;
 }
-.sermon-hero-card:hover { transform: scale(1.015); }
 .sermon-hero-card img { width: 100%; height: 100%; object-fit: cover; display: block; }
 .sermon-hero-card .sermon-hero-play {
   position: absolute;
