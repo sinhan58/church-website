@@ -118,29 +118,30 @@ function buildTextSvg({ title, verseRef, pastorName, churchName }) {
   }
 
   // 이미지 안에 작은 라벨을 넣어서, 바깥에 별도 "주일 설교" 제목을 안 둬도 되게 합니다.
-  const labelY = 64;
+  const labelY = 70;
   const labelSvg = `<text x="${textX}" y="${labelY}" font-size="20" font-family="${FONT_FAMILY}" font-weight="700" fill="${GOLD}" letter-spacing="2">주일 설교</text>
     <rect x="${textX}" y="${labelY + 14}" width="46" height="4" fill="${GOLD}"/>`;
 
-  let y = H / 2 - ((titleLines.length - 1) * lineHeight) / 2 - 20;
+  // 캔버스가 커진 만큼(4:3), 가운데로 몰리지 않도록 위쪽부터 여유 있게 고정 간격으로 배치합니다.
+  let y = 230;
   let titleTspans = '';
   for (const line of titleLines) {
     titleTspans += `<text x="${textX}" y="${y}" font-size="${titleFontSize}" font-family="${FONT_FAMILY}" font-weight="900" fill="${WHITE}">${escapeXml(line)}</text>`;
     y += lineHeight;
   }
 
-  y += 26;
+  y += 60;
   let verseSvg = '';
   if (verseRef) {
     verseSvg = `<text x="${textX}" y="${y}" font-size="26" font-family="${FONT_FAMILY}" fill="${GOLD}">${escapeXml(verseRef)}</text>`;
-    y += 44;
+    y += 60;
   }
 
-  y += 16;
+  y += 40;
   const lineY = y;
-  y += 30;
+  y += 50;
   const churchSvg = `<text x="${textX}" y="${y}" font-size="24" font-family="${FONT_FAMILY}" font-weight="700" fill="${WHITE}">${escapeXml(churchName)}</text>`;
-  y += 34;
+  y += 50;
   const pastorSvg = pastorName
     ? `<text x="${textX}" y="${y}" font-size="19" font-family="${FONT_FAMILY}" fill="#c8c8c3">${escapeXml(pastorName)}</text>`
     : '';
