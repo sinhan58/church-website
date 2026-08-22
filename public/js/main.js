@@ -569,12 +569,13 @@
     };
 
     const ytBtn = $('#sermon-youtube-btn');
+    const moreRow = $('#sermon-more-row');
     if (ytBtn) {
       if (sermonChannelId) {
         ytBtn.href = `https://www.youtube.com/channel/${encodeURIComponent(sermonChannelId)}/videos`;
-        ytBtn.style.display = 'inline-flex';
-      } else {
-        ytBtn.style.display = 'none';
+        if (moreRow) moreRow.style.display = 'flex';
+      } else if (moreRow) {
+        moreRow.style.display = 'none';
       }
     }
 
