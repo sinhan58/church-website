@@ -69,23 +69,6 @@
 <meta name="mobile-web-app-capable" content="yes" />
 </head>
 <body>
-<!-- 설치된 앱으로 실행했을 때만, 잠깐 나타났다 사라지는 전체화면 스플래시 -->
-<div id="app-splash" class="app-splash" style="display:none;">
-  <img src="/images/splash-image.jpg" alt="물댄동산교회" />
-</div>
-<script>
-(function () {
-  var isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
-  if (!isStandalone) return; // 그냥 브라우저로 방문한 경우엔 아예 안 보여줌 (번쩍임 방지)
-  var splash = document.getElementById('app-splash');
-  if (!splash) return;
-  splash.style.display = 'flex';
-  setTimeout(function () {
-    splash.classList.add('app-splash--hide');
-    setTimeout(function () { splash.remove(); }, 550);
-  }, 1000); // 약 1초간 보여준 뒤 부드럽게 사라짐
-})();
-</script>
 
 <header class="site-header" id="site-header">
   <div class="container">
