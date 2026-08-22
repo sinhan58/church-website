@@ -4,6 +4,28 @@
    타이포: 제목 - Noto Serif KR / 본문 - Pretendard
    ========================================================= */
 
+/* ---------------- 설치된 앱 실행 시 잠깐 나타나는 스플래시 화면 ---------------- */
+.app-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  background: #faf7f0;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  transition: opacity 0.5s ease;
+}
+.app-splash img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.app-splash--hide {
+  opacity: 0;
+  pointer-events: none;
+}
+
 :root {
   --navy-deep: #0d1526;
   --navy: #16213e;
