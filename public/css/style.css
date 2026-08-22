@@ -485,7 +485,6 @@ button { font-family: inherit; cursor: pointer; }
   flex-direction: column;
   justify-content: center;
   padding: 28px 32px;
-  overflow-y: auto;
   border-left: 1px solid rgba(255,255,255,0.12);
 }
 .sermon-list {
