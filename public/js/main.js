@@ -572,7 +572,7 @@
     if (moreRow) {
       if (sermonChannelId) {
         moreRow.href = `https://www.youtube.com/channel/${encodeURIComponent(sermonChannelId)}/videos`;
-        moreRow.style.display = 'flex';
+        moreRow.style.display = 'inline-flex';
       } else {
         moreRow.style.display = 'none';
       }
