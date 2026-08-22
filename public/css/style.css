@@ -540,16 +540,24 @@ button { font-family: inherit; cursor: pointer; }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   border-radius: 999px;
-  background: #FF0000;
-  color: #fff;
+  background: #fff; /* 흰색 원 */
   flex-shrink: 0;
-  transition: background 0.2s ease;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+  transition: transform 0.2s ease;
 }
-.sermon-youtube-btn svg { width: 14px; height: 14px; }
-.sermon-youtube-btn:hover { background: #cc0000; }
+.sermon-youtube-btn:hover { transform: scale(1.06); }
+.yt-badge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 15px;
+  background: #FF0000; /* 빨간 배지 */
+  border-radius: 4px;
+}
 .sermon-more-label {
   font-size: 0.82rem;
   font-weight: 600;
