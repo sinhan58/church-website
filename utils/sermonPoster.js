@@ -117,13 +117,16 @@ function buildTextSvg({ title, verseRef, pastorName, churchName }) {
     titleLines[2] = last.slice(0, Math.max(0, last.length - 1)) + '…';
   }
 
-  // 이미지 안에 작은 라벨을 넣어서, 바깥에 별도 "주일 설교" 제목을 안 둬도 되게 합니다.
+  // '주일 설교' 라벨을, 오른쪽 테마 표시와 통일감 있게 알약 모양 배지로 그립니다.
   const labelY = 70;
-  const labelSvg = `<text x="${textX}" y="${labelY}" font-size="20" font-family="${FONT_FAMILY}" font-weight="700" fill="${GOLD}" letter-spacing="2">주일 설교</text>
-    <rect x="${textX}" y="${labelY + 14}" width="46" height="4" fill="${GOLD}"/>`;
+  const labelPillW = 106;
+  const labelSvg = `<rect x="${textX}" y="${labelY - 24}" width="${labelPillW}" height="34" rx="17" fill="rgba(201,162,39,0.18)"/>
+    <text x="${textX + labelPillW / 2}" y="${labelY}" font-size="18" font-family="${FONT_FAMILY}" font-weight="700" fill="${GOLD}" letter-spacing="1" text-anchor="middle">주일 설교</text>`;
 
   // 캔버스가 커진 만큼(4:3), 가운데로 몰리지 않도록 위쪽부터 여유 있게 고정 간격으로 배치합니다.
-  let y = 230;
+  // 제목을 약 7mm(26px) 아래로, 줄간격은 약 2mm(8px) 더 넓게 조정했습니다.
+  lineHeight = 76;
+  let y = 256;
   let titleTspans = '';
   for (const line of titleLines) {
     titleTspans += `<text x="${textX}" y="${y}" font-size="${titleFontSize}" font-family="${FONT_FAMILY}" font-weight="900" fill="${WHITE}">${escapeXml(line)}</text>`;
@@ -133,17 +136,18 @@ function buildTextSvg({ title, verseRef, pastorName, churchName }) {
   y += 60;
   let verseSvg = '';
   if (verseRef) {
-    verseSvg = `<text x="${textX}" y="${y}" font-size="26" font-family="${FONT_FAMILY}" fill="${GOLD}">${escapeXml(verseRef)}</text>`;
+    verseSvg = `<text x="${textX}" y="${y}" font-size="26" font-family="${FONT_FAMILY}" font-weight="400" fill="${GOLD}">${escapeXml(verseRef)}</text>`;
     y += 60;
   }
 
   y += 40;
   const lineY = y;
   y += 50;
-  const churchSvg = `<text x="${textX}" y="${y}" font-size="24" font-family="${FONT_FAMILY}" font-weight="700" fill="${WHITE}">${escapeXml(churchName)}</text>`;
+  // 교회명 글씨체를 담임목사님 이름과 통일(글씨 굵기를 맞춤), 크기는 기존 교회명 크기(24) 유지
+  const churchSvg = `<text x="${textX}" y="${y}" font-size="24" font-family="${FONT_FAMILY}" font-weight="400" fill="${WHITE}">${escapeXml(churchName)}</text>`;
   y += 50;
   const pastorSvg = pastorName
-    ? `<text x="${textX}" y="${y}" font-size="19" font-family="${FONT_FAMILY}" fill="#c8c8c3">${escapeXml(pastorName)}</text>`
+    ? `<text x="${textX}" y="${y}" font-size="19" font-family="${FONT_FAMILY}" font-weight="400" fill="#c8c8c3">${escapeXml(pastorName)}</text>`
     : '';
 
   return `
