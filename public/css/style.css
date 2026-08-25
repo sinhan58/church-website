@@ -455,11 +455,13 @@ button { font-family: inherit; cursor: pointer; }
 @media (max-width: 900px) {
   .sermon-layout { grid-template-columns: 1fr; }
   .sermon-list-wrap { border-left: none; border-top: 1px solid rgba(255,255,255,0.12); }
+  /* PC는 그리드 stretch로 목록 높이에 자동으로 맞춰지지만, 모바일은 세로로
+     쌓이는 구조라 맞춰줄 짝이 없어서 사진 실제 비율(4:3)을 그대로 지정합니다. */
+  .sermon-hero-card { aspect-ratio: 4/3; }
 }
 
 .sermon-hero-card {
   position: relative;
-  aspect-ratio: 16/9;
   cursor: pointer;
   background: var(--navy-deep);
   transition: transform 0.25s ease;
