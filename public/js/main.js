@@ -1437,7 +1437,10 @@
     const QT_ARCHIVE_PAGE_SIZE = 4;
     let archivePage = 1;
     const totalArchivePages = Math.ceil(rest.length / QT_ARCHIVE_PAGE_SIZE);
+    const archiveWrap = $('#qt-archive-wrap');
     const pager = $('#qt-archive-pagination');
+    const archivePrevBtn = $('#qt-archive-prev');
+    const archiveNextBtn = $('#qt-archive-next');
 
     function renderArchiveRows() {
       const start = (archivePage - 1) * QT_ARCHIVE_PAGE_SIZE;
@@ -1457,6 +1460,9 @@
           track('click', { label: 'qt_archive_row', itemType: 'qt', itemId: row.dataset.id, itemTitle: row.dataset.title })
         );
       });
+
+      archivePrevBtn.disabled = archivePage === 1;
+      archiveNextBtn.disabled = archivePage === totalArchivePages;
     }
 
     function renderArchivePagination() {
@@ -1465,36 +1471,43 @@
         return;
       }
       const buttons = [];
-      buttons.push(
-        `<button class="board-page-btn board-page-nav" data-page="${archivePage - 1}" ${archivePage === 1 ? 'disabled' : ''} aria-label="이전 페이지">‹</button>`
-      );
       for (let i = 1; i <= totalArchivePages; i++) {
         buttons.push(
           `<button class="board-page-btn${i === archivePage ? ' active' : ''}" data-page="${i}">${i}</button>`
         );
       }
-      buttons.push(
-        `<button class="board-page-btn board-page-nav" data-page="${archivePage + 1}" ${archivePage === totalArchivePages ? 'disabled' : ''} aria-label="다음 페이지">›</button>`
-      );
       pager.innerHTML = buttons.join('');
 
       $$('.board-page-btn', pager).forEach((btn) => {
-        btn.addEventListener('click', () => {
-          const page = Number(btn.dataset.page);
-          if (!page || page === archivePage || page < 1 || page > totalArchivePages) return;
-          archivePage = page;
-          renderArchiveRows();
-          renderArchivePagination();
-        });
+        btn.addEventListener('click', () => goToArchivePage(Number(btn.dataset.page)));
       });
     }
 
-    renderArchiveRows();
-    renderArchivePagination();
+    function goToArchivePage(page) {
+      if (!page || page === archivePage || page < 1 || page > totalArchivePages) return;
+      archivePage = page;
+      renderArchiveRows();
+      renderArchivePagination();
+    }
+
+    archivePrevBtn.addEventListener('click', () => goToArchivePage(archivePage - 1));
+    archiveNextBtn.addEventListener('click', () => goToArchivePage(archivePage + 1));
+
+    if (totalArchivePages <= 1) {
+      archivePrevBtn.style.display = 'none';
+      archiveNextBtn.style.display = 'none';
+    }
 
     $('#qt-archive-toggle').addEventListener('click', () => {
-      const isOpen = archiveList.classList.toggle('open');
+      const isOpen = archiveWrap.classList.toggle('open');
       $('#qt-archive-toggle').textContent = isOpen ? '지난 큐티 접기 ▴' : '지난 큐티 보기 ▾';
+      // 열 때마다 1페이지부터 보여줍니다. (렌더링은 열릴 때만 합니다 —
+      // 버튼을 누르기 전부터 페이지 번호가 미리 보이면 안 되기 때문입니다)
+      if (isOpen) {
+        archivePage = 1;
+        renderArchiveRows();
+        renderArchivePagination();
+      }
     });
   }
 
