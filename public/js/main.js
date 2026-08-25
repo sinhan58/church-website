@@ -1803,10 +1803,32 @@
     if (!hash) return;
     window.__pendingScrollHash = null;
     const target = document.querySelector(hash);
-    if (target) {
+    if (!target) return;
+
+    // API 데이터(JSON)가 다 들어왔다고 해서 사진들까지 다 로딩된 건 아닙니다.
+    // 큐티 섹션보다 위쪽에 있는 사진들이 그 이후에도 계속 로딩되며 레이아웃을
+    // 밀어 내리기 때문에, 위쪽 사진 로딩까지 기다린(최대 0.8초) 뒤에 이동하고,
+    // 혹시 그 사이 늦게 도착하는 사진이 있을 경우를 대비해 한 번 더 살짝 보정합니다.
+    const imgsAbove = Array.from(document.querySelectorAll('main img')).filter(
+      (img) => target.compareDocumentPosition(img) & Node.DOCUMENT_POSITION_PRECEDING
+    );
+    const waitForImages = Promise.all(
+      imgsAbove.map((img) =>
+        img.complete
+          ? Promise.resolve()
+          : new Promise((resolve) => {
+              img.addEventListener('load', resolve, { once: true });
+              img.addEventListener('error', resolve, { once: true });
+            })
+      )
+    );
+    const timeout = new Promise((resolve) => setTimeout(resolve, 800));
+
+    Promise.race([waitForImages, timeout]).then(() => {
       target.scrollIntoView({ block: 'start', behavior: 'auto' });
       history.replaceState(null, '', hash);
-    }
+      setTimeout(() => target.scrollIntoView({ block: 'start', behavior: 'auto' }), 300);
+    });
   }
 
   Promise.all([loadSite(), loadMenu(), loadSermons(), loadPraises(), loadBoard(), loadQT(), loadMissions(), loadQuizTeaser()])
