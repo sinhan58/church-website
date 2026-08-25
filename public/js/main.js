@@ -1433,21 +1433,64 @@
       return;
     }
 
-    archiveList.innerHTML = rest
-      .map(
-        (q) => `
-        <a class="qt-archive-row" href="/qt/${q.id}?from=home" data-id="${q.id}" data-title="${escapeHtml(q.title || '')}">
-          <span class="date">${formatQtDate(q.date)}</span>
-          <span class="title">${escapeHtml(q.title || '')}</span>
-        </a>`
-      )
-      .join('');
+    // 지난 큐티는 한 번에 다 펼치지 않고 4개씩 페이지를 넘겨가며 봅니다.
+    const QT_ARCHIVE_PAGE_SIZE = 4;
+    let archivePage = 1;
+    const totalArchivePages = Math.ceil(rest.length / QT_ARCHIVE_PAGE_SIZE);
+    const pager = $('#qt-archive-pagination');
 
-    $$('.qt-archive-row').forEach((row) => {
-      row.addEventListener('click', () =>
-        track('click', { label: 'qt_archive_row', itemType: 'qt', itemId: row.dataset.id, itemTitle: row.dataset.title })
+    function renderArchiveRows() {
+      const start = (archivePage - 1) * QT_ARCHIVE_PAGE_SIZE;
+      const pageItems = rest.slice(start, start + QT_ARCHIVE_PAGE_SIZE);
+      archiveList.innerHTML = pageItems
+        .map(
+          (q) => `
+          <a class="qt-archive-row" href="/qt/${q.id}?from=home" data-id="${q.id}" data-title="${escapeHtml(q.title || '')}">
+            <span class="date">${formatQtDate(q.date)}</span>
+            <span class="title">${escapeHtml(q.title || '')}</span>
+          </a>`
+        )
+        .join('');
+
+      $$('.qt-archive-row', archiveList).forEach((row) => {
+        row.addEventListener('click', () =>
+          track('click', { label: 'qt_archive_row', itemType: 'qt', itemId: row.dataset.id, itemTitle: row.dataset.title })
+        );
+      });
+    }
+
+    function renderArchivePagination() {
+      if (totalArchivePages <= 1) {
+        pager.innerHTML = '';
+        return;
+      }
+      const buttons = [];
+      buttons.push(
+        `<button class="board-page-btn board-page-nav" data-page="${archivePage - 1}" ${archivePage === 1 ? 'disabled' : ''} aria-label="이전 페이지">‹</button>`
       );
-    });
+      for (let i = 1; i <= totalArchivePages; i++) {
+        buttons.push(
+          `<button class="board-page-btn${i === archivePage ? ' active' : ''}" data-page="${i}">${i}</button>`
+        );
+      }
+      buttons.push(
+        `<button class="board-page-btn board-page-nav" data-page="${archivePage + 1}" ${archivePage === totalArchivePages ? 'disabled' : ''} aria-label="다음 페이지">›</button>`
+      );
+      pager.innerHTML = buttons.join('');
+
+      $$('.board-page-btn', pager).forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const page = Number(btn.dataset.page);
+          if (!page || page === archivePage || page < 1 || page > totalArchivePages) return;
+          archivePage = page;
+          renderArchiveRows();
+          renderArchivePagination();
+        });
+      });
+    }
+
+    renderArchiveRows();
+    renderArchivePagination();
 
     $('#qt-archive-toggle').addEventListener('click', () => {
       const isOpen = archiveList.classList.toggle('open');
