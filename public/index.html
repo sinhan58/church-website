@@ -167,12 +167,13 @@
         <div class="sermon-hero-card" id="sermon-hero-card"></div>
         <div class="sermon-list-wrap">
           <div class="sermon-list" id="sermon-list"></div>
-          <div class="sermon-more-row" style="display:none;" id="sermon-more-row">
-            <a href="#" id="sermon-youtube-btn" class="sermon-youtube-btn" target="_blank" rel="noopener">
-              <svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8ZM9.6 15.5V8.5L15.8 12l-6.2 3.5Z"/></svg>
-            </a>
-            <span class="sermon-more-label">설교 더보기</span>
-          </div>
+          <a href="#" id="sermon-more-row" class="sermon-more-row" target="_blank" rel="noopener" style="display:none;">
+            <svg class="yt-icon" viewBox="0 0 48 34" width="26" height="18">
+              <rect x="0" y="0" width="48" height="34" rx="8" fill="#FF0000"/>
+              <path d="M19 10L19 24L32 17Z" fill="#fff"/>
+            </svg>
+            <span class="sermon-more-label">설교 더 보기</span>
+          </a>
         </div>
       </div>
     </div>
@@ -387,12 +388,14 @@
 <!-- 게시글 상세보기 모달 -->
 <div class="post-modal" id="post-modal">
   <div class="post-modal-inner">
-    <div class="post-modal-scroll">
+    <div class="post-modal-sticky-head">
+      <h3 id="post-modal-title"></h3>
+    </div>
+    <div class="post-modal-scroll" id="post-modal-scroll">
       <div class="post-modal-head">
         <span class="badge" id="post-modal-badge"></span>
         <span class="date" id="post-modal-date"></span>
       </div>
-      <h3 id="post-modal-title"></h3>
       <img class="post-modal-image" id="post-modal-image" alt="" />
       <div class="post-modal-content" id="post-modal-content"></div>
       <div class="post-modal-attachments" id="post-modal-attachments"></div>
