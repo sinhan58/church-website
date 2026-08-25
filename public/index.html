@@ -2,7 +2,17 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
-<script>if ('scrollRestoration' in history) { history.scrollRestoration = 'manual'; }</script>
+<script>
+  if ('scrollRestoration' in history) { history.scrollRestoration = 'manual'; }
+  // 큐티 상세 등 다른 페이지에서 '/#qt' 같은 해시로 돌아올 때, 위쪽 섹션들이
+  // 아직 JS로 렌더링되기 전이라 브라우저가 엉뚱한(너무 위쪽) 위치로 먼저 점프했다가
+  // 콘텐츠가 채워지면서 다시 밀려 내려가는 것처럼 보이는 문제를 막기 위해,
+  // 해시를 일단 떼어두고 모든 콘텐츠 로딩이 끝난 뒤 main.js에서 한 번만 이동시킵니다.
+  if (location.hash) {
+    window.__pendingScrollHash = location.hash;
+    history.replaceState(null, '', location.pathname + location.search);
+  }
+</script>
 <!-- 글씨체 준비될 때까지 잠깐 화면 숨기기 (최대 0.5초) -->
 <script>document.documentElement.classList.add('fonts-loading');</script>
 <style>
@@ -143,13 +153,12 @@
         <div class="sermon-hero-card" id="sermon-hero-card"></div>
         <div class="sermon-list-wrap">
           <div class="sermon-list" id="sermon-list"></div>
-          <a href="#" id="sermon-more-row" class="sermon-more-row" target="_blank" rel="noopener" style="display:none;">
-            <svg class="yt-icon" viewBox="0 0 48 34" width="26" height="18">
-              <rect x="0" y="0" width="48" height="34" rx="8" fill="#FF0000"/>
-              <path d="M19 10L19 24L32 17Z" fill="#fff"/>
-            </svg>
-            <span class="sermon-more-label">설교 더 보기</span>
-          </a>
+          <div class="sermon-more-row" style="display:none;" id="sermon-more-row">
+            <a href="#" id="sermon-youtube-btn" class="sermon-youtube-btn" target="_blank" rel="noopener">
+              <svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.5 12 3.5 12 3.5s-7.5 0-9.4.6A3 3 0 0 0 .5 6.2 31 31 0 0 0 0 12a31 31 0 0 0 .5 5.8 3 3 0 0 0 2.1 2.1c1.9.6 9.4.6 9.4.6s7.5 0 9.4-.6a3 3 0 0 0 2.1-2.1A31 31 0 0 0 24 12a31 31 0 0 0-.5-5.8ZM9.6 15.5V8.5L15.8 12l-6.2 3.5Z"/></svg>
+            </a>
+            <span class="sermon-more-label">설교 더보기</span>
+          </div>
         </div>
       </div>
     </div>
@@ -359,14 +368,12 @@
 <!-- 게시글 상세보기 모달 -->
 <div class="post-modal" id="post-modal">
   <div class="post-modal-inner">
-    <div class="post-modal-sticky-head">
-      <h3 id="post-modal-title"></h3>
-    </div>
-    <div class="post-modal-scroll" id="post-modal-scroll">
+    <div class="post-modal-scroll">
       <div class="post-modal-head">
         <span class="badge" id="post-modal-badge"></span>
         <span class="date" id="post-modal-date"></span>
       </div>
+      <h3 id="post-modal-title"></h3>
       <img class="post-modal-image" id="post-modal-image" alt="" />
       <div class="post-modal-content" id="post-modal-content"></div>
       <div class="post-modal-attachments" id="post-modal-attachments"></div>
