@@ -1794,7 +1794,6 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   display: grid;
   grid-template-columns: 3fr 1fr;
   gap: 28px;
-  align-items: start;
 }
 @media (max-width: 860px) {
   .qt-quiz-layout { grid-template-columns: 1fr; }
