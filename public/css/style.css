@@ -80,6 +80,10 @@ img { max-width: 100%; display: block; }
 ul { list-style: none; margin: 0; padding: 0; }
 button { font-family: inherit; cursor: pointer; }
 
+/* 모바일에서 버튼 탭할 때 뜨는 기본 회색 번쩍임을 끄고, 자연스러운 눌림 반응으로 통일 */
+a, button, [role="button"] { -webkit-tap-highlight-color: transparent; }
+button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1s ease; }
+
 .container {
   max-width: var(--max-width);
   margin: 0 auto;
@@ -300,6 +304,7 @@ button { font-family: inherit; cursor: pointer; }
   transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
 }
 .btn:hover { transform: translateY(-2px); }
+.btn:active { transform: scale(0.97); transition: transform 0.1s ease; }
 .btn--gold { background: var(--gold); color: var(--navy-deep); }
 .btn--gold:hover { box-shadow: 0 8px 20px rgba(201,162,39,0.35); }
 .btn--outline { border-color: rgba(255,255,255,0.5); color: #fff; }
@@ -417,6 +422,7 @@ button { font-family: inherit; cursor: pointer; }
 }
 .carousel-nav svg { width: 100%; height: 100%; display: block; }
 .carousel-nav:hover { opacity: 1; color: var(--gold-deep); transform: translateY(-50%) scale(1.05); }
+.carousel-nav:not(:disabled):active { transform: translateY(-50%) scale(0.92); transition: transform 0.1s ease; }
 .carousel-nav:disabled { opacity: 0.12; cursor: default; }
 .carousel-nav:disabled:hover { transform: translateY(-50%) scale(1); color: var(--navy-deep); }
 .carousel-nav--prev { left: -30px; }
@@ -961,6 +967,7 @@ button { font-family: inherit; cursor: pointer; }
   transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 .board-page-btn:hover:not(:disabled) { border-color: var(--gold); color: var(--navy-deep); }
+.board-page-btn:not(:disabled):active { transform: scale(0.94); transition: transform 0.1s ease; }
 .board-page-btn.active { background: var(--navy-deep); border-color: var(--navy-deep); color: #fff; }
 .board-page-btn:disabled { opacity: 0.35; cursor: default; }
 .board-page-nav { font-size: 1rem; }
