@@ -21,7 +21,9 @@ function formatDateLabel(dateStr = '') {
 
 // 큐티 상세 페이지 전체 HTML을 문자열로 만들어 돌려줍니다.
 // 검색엔진이 자바스크립트 실행 없이도 그날의 큐티 내용을 온전히 읽을 수 있도록 서버에서 직접 렌더링합니다.
-function renderQtDetailPage({ site, item, prev, next, siteUrl }) {
+// cameFromHome: 홈페이지(큐티 섹션)를 둘러보다가 들어온 경우 true. 이 경우엔 '홈으로'를 누르면
+// 다시 큐티 섹션(#qt)으로 돌아가고, 그 외(푸시 알림 등으로 바로 들어온 경우)엔 홈 최상단으로 보냅니다.
+function renderQtDetailPage({ site, item, prev, next, siteUrl, cameFromHome = false }) {
   const churchName = site.churchName || '교회';
   const pastor = item.pastor || site.about?.pastorName || '';
   const pageTitle = `${item.title || '오늘의 큐티'} | ${churchName} 오늘의 큐티`;
@@ -143,7 +145,7 @@ ${fontStyleTag}
           data-url="${pageUrl}">
           공유
         </button>
-        <a href="/#qt" class="qt-home-btn">홈으로</a>
+        <a href="${cameFromHome ? '/#qt' : '/'}" class="qt-home-btn">홈으로</a>
       </div>
 
       ${navHtml}
