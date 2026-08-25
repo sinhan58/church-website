@@ -473,7 +473,7 @@ button { font-family: inherit; cursor: pointer; }
   display: block;
   transition: transform 0.3s ease;
 }
-.sermon-hero-card:hover img { transform: scale(1.02); }
+.sermon-hero-card:hover img { transform: scale(1.035); }
 .sermon-hero-card .sermon-hero-play {
   position: absolute;
   left: 25%; bottom: 21.1%; /* 새 텍스트 배치(교회명·담임목사 두 줄)에 맞춘 재계산값 */
