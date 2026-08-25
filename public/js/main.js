@@ -568,12 +568,13 @@
       pastorName: (site && site.about && site.about.pastorName) || ''
     };
 
+    const ytBtn = $('#sermon-youtube-btn');
     const moreRow = $('#sermon-more-row');
-    if (moreRow) {
+    if (ytBtn) {
       if (sermonChannelId) {
-        moreRow.href = `https://www.youtube.com/channel/${encodeURIComponent(sermonChannelId)}/videos`;
-        moreRow.style.display = 'inline-flex';
-      } else {
+        ytBtn.href = `https://www.youtube.com/channel/${encodeURIComponent(sermonChannelId)}/videos`;
+        if (moreRow) moreRow.style.display = 'flex';
+      } else if (moreRow) {
         moreRow.style.display = 'none';
       }
     }
@@ -644,8 +645,7 @@
     card.innerHTML = `
       <img src="${posterUrl}" alt="${escapeHtml(hero.title || '')}" onerror="this.onerror=null;this.src='${escapeHtml(hero.thumbnail)}';" />
       <span class="sermon-hero-play" aria-hidden="true">
-        <svg class="sermon-hero-play-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M9.5 7.5v9l8-4.5-8-4.5z"/></svg>
-        <span class="sermon-hero-play-text">설교 보기</span>
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.5 7.5v9l8-4.5-8-4.5z"/></svg>
       </span>`;
     card.dataset.videoId = hero.videoId;
     card.onclick = () => {
@@ -1207,7 +1207,6 @@
     });
 
     $('#post-modal').classList.add('open');
-    $('#post-modal-scroll').scrollTop = 0;
     lockScroll();
   }
 
@@ -1710,35 +1709,10 @@
   async function setupPushPrompt(registration) {
     if (!('PushManager' in window) || !('Notification' in window)) return; // 미지원 기기(iOS 사파리 등)는 조용히 건너뜀
     if (Notification.permission === 'denied') return; // 이미 차단한 경우 다시 안 물어봄
+    if (localStorage.getItem('push-prompt-dismissed') === '1') return; // 예전에 닫은 적 있으면 다시 안 보여줌
 
     const existing = await registration.pushManager.getSubscription();
-    if (existing) return; // 이미 구독 중이면 아무것도 안 함
-
-    // 여기까지 왔다는 건 = 지금 구독이 없는 상태입니다. 만약 알림 권한은 이미 "허용"으로
-    // 되어 있다면 (예: 앱을 재설치하면서 구독 정보만 사라진 경우), 배너를 다시 띄우지 않고
-    // 조용히 재구독을 시도합니다. (예전엔 "배너를 닫은 적 있다"는 표시만 보고 재구독
-    // 시도 자체를 건너뛰어서, 재설치 후 알림이 하나도 안 오는 문제가 있었습니다)
-    if (Notification.permission === 'granted') {
-      try {
-        const { publicKey } = await getJSON('/api/push/vapid-public-key');
-        if (publicKey) {
-          const subscription = await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(publicKey)
-          });
-          await fetch('/api/push/subscribe', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(subscription)
-          });
-        }
-      } catch (err) {
-        // 조용히 실패 - 다음 방문 때 다시 시도됩니다.
-      }
-      return;
-    }
-
-    if (localStorage.getItem('push-prompt-dismissed') === '1') return; // 예전에 닫은 적 있으면 다시 안 보여줌
+    if (existing) return; // 이미 구독 중이면 배너 안 보여줌
 
     const banner = $('#push-prompt');
     if (!banner) return;
@@ -1819,7 +1793,27 @@
   }
   setupScrollTopButton();
 
-  Promise.all([loadSite(), loadMenu(), loadSermons(), loadPraises(), loadBoard(), loadQT(), loadMissions(), loadQuizTeaser()]).catch((err) => {
-    console.error('콘텐츠를 불러오는 중 오류가 발생했습니다:', err);
-  });
+  // ---------------- 해시(#qt 등)로 진입했을 때, 콘텐츠 로딩 완료 후 한 번만 이동 ----------------
+  // index.html의 head 스크립트에서 location.hash를 미리 떼어 window.__pendingScrollHash에
+  // 저장해뒀습니다(브라우저의 이른 앵커 점프 방지). 여기서는 모든 섹션 렌더링이 끝난 뒤
+  // 그 위치로 즉시 이동시켜, "맨 위로 갔다가 다시 큐티로 내려오는" 것처럼 보이는 현상 없이
+  // 큐티 영역이 바로 보이게 합니다.
+  function scrollToPendingHash() {
+    const hash = window.__pendingScrollHash;
+    if (!hash) return;
+    window.__pendingScrollHash = null;
+    const target = document.querySelector(hash);
+    if (target) {
+      target.scrollIntoView({ block: 'start', behavior: 'auto' });
+      history.replaceState(null, '', hash);
+    }
+  }
+
+  Promise.all([loadSite(), loadMenu(), loadSermons(), loadPraises(), loadBoard(), loadQT(), loadMissions(), loadQuizTeaser()])
+    .catch((err) => {
+      console.error('콘텐츠를 불러오는 중 오류가 발생했습니다:', err);
+    })
+    .finally(() => {
+      scrollToPendingHash();
+    });
 })();
