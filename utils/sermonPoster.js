@@ -112,10 +112,10 @@ function buildTextSvg({ title, verseRef, pastorName, churchName }) {
   let lineHeight = 68;
   let titleLines = wrapByWidth(title, titleFontSize, textMaxWidth, 0.86);
   const fullLines = wrapByWidth(title, titleFontSize, textMaxWidth, 0.86);
-  titleLines = titleLines.slice(0, 3);
-  if (fullLines.length > 3) {
-    const last = titleLines[2] || '';
-    titleLines[2] = last.slice(0, Math.max(0, last.length - 1)) + '…';
+  titleLines = titleLines.slice(0, 4);
+  if (fullLines.length > 4) {
+    const last = titleLines[3] || '';
+    titleLines[3] = last.slice(0, Math.max(0, last.length - 1)) + '…';
   }
 
   // '주일 설교' 라벨을, 오른쪽 테마 표시와 통일감 있게 알약 모양 배지로 그립니다.
