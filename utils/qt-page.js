@@ -145,7 +145,7 @@ ${fontStyleTag}
           data-url="${pageUrl}">
           공유
         </button>
-        <a href="${cameFromHome ? '/#qt' : '/'}" class="qt-home-btn">홈으로</a>
+        <a href="${cameFromHome ? '/#qt' : '/'}" class="qt-home-btn" id="qt-home-btn"${cameFromHome ? ' data-came-from-home="1"' : ''}>홈으로</a>
       </div>
 
       ${navHtml}
