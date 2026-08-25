@@ -1805,7 +1805,15 @@
     window.__pendingScrollHash = null;
     const target = document.querySelector(hash);
     if (!target) return;
+    // style.css에 html { scroll-behavior: smooth; }가 걸려 있어서, 그냥
+    // scrollIntoView({ behavior: 'auto' })만으로는 "즉시 이동"이 아니라
+    // CSS를 따라 부드럽게(smooth) 움직여버립니다. 화면 공개 직전 딱 이 순간만큼은
+    // 확실하게 즉시 이동하도록 scroll-behavior를 잠깐 꺼뒀다가 되돌립니다.
+    const html = document.documentElement;
+    const prevScrollBehavior = html.style.scrollBehavior;
+    html.style.scrollBehavior = 'auto';
     target.scrollIntoView({ block: 'start', behavior: 'auto' });
+    html.style.scrollBehavior = prevScrollBehavior;
     // 주소창에 #qt를 다시 붙이면, 그 이후 평범하게 새로고침할 때마다 계속
     // 큐티로 이동해버리는 문제가 생기므로 URL은 계속 깨끗한 '/'로 둡니다.
   };
