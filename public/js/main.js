@@ -1835,7 +1835,8 @@
 
     Promise.race([waitForImages, timeout]).then(() => {
       target.scrollIntoView({ block: 'start', behavior: 'auto' });
-      history.replaceState(null, '', hash);
+      // 주소창에 #qt를 다시 붙이면, 그 이후 평범하게 새로고침할 때마다 계속
+      // 큐티로 이동해버리는 문제가 생기므로 URL은 계속 깨끗한 '/'로 둡니다.
       if (window.__resolveScrollReady) window.__resolveScrollReady();
       setTimeout(() => target.scrollIntoView({ block: 'start', behavior: 'auto' }), 300);
     });
