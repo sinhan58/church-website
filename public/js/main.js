@@ -1375,14 +1375,14 @@
     const carouselPast = isDesktop ? rest.slice(0, 5).reverse() : [];
 
     const archiveCardHtml = (q) => `
-      <a class="qt-card qt-card--archive" href="/qt/${q.id}" data-id="${q.id}" data-title="${escapeHtml(q.title || '')}">
+      <a class="qt-card qt-card--archive" href="/qt/${q.id}?from=home" data-id="${q.id}" data-title="${escapeHtml(q.title || '')}">
         <span class="qt-badge qt-badge--archive">${formatQtDate(q.date)}</span>
         <h3 class="qt-card-title">${escapeHtml(q.title || '')}</h3>
         ${q.verseRef ? `<p class="qt-card-ref">${escapeHtml(q.verseRef)}</p>` : ''}
       </a>`;
 
     const todayCardHtml = `
-      <a class="qt-card qt-card--today" href="/qt/${latest.id}" data-id="${latest.id}" data-title="${escapeHtml(latest.title || '')}">
+      <a class="qt-card qt-card--today" href="/qt/${latest.id}?from=home" data-id="${latest.id}" data-title="${escapeHtml(latest.title || '')}">
         <span class="qt-badge">오늘의 큐티</span>
         <h3 class="qt-card-title">${escapeHtml(latest.title || '')}</h3>
         ${latest.verseRef ? `<p class="qt-card-ref">${escapeHtml(latest.verseRef)}</p>` : ''}
@@ -1436,7 +1436,7 @@
     archiveList.innerHTML = rest
       .map(
         (q) => `
-        <a class="qt-archive-row" href="/qt/${q.id}" data-id="${q.id}" data-title="${escapeHtml(q.title || '')}">
+        <a class="qt-archive-row" href="/qt/${q.id}?from=home" data-id="${q.id}" data-title="${escapeHtml(q.title || '')}">
           <span class="date">${formatQtDate(q.date)}</span>
           <span class="title">${escapeHtml(q.title || '')}</span>
         </a>`
