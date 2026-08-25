@@ -14,6 +14,22 @@
   }
   track('pageview', { path: location.pathname });
 
+  // '홈으로' 버튼: 홈페이지의 큐티 섹션을 보다가 들어온 경우엔, 새로 페이지를
+  // 불러와서 스크롤 위치를 다시 계산하는 대신 브라우저의 "뒤로가기"를 그대로
+  // 사용합니다. PC에서 뒤로가기를 눌렀을 때처럼 스크롤 위치까지 그대로 즉시
+  // 복원되어(bfcache), 로딩이나 스크롤 이동이 전혀 보이지 않습니다.
+  // 뒤로 갈 페이지가 없는 경우(새 탭으로 열었거나 등)에는 그냥 평소 링크(/#qt)로
+  // 안전하게 이동하도록 놔둡니다.
+  const homeBtn = document.getElementById('qt-home-btn');
+  if (homeBtn && homeBtn.dataset.cameFromHome === '1') {
+    homeBtn.addEventListener('click', (e) => {
+      if (window.history.length > 1) {
+        e.preventDefault();
+        window.history.back();
+      }
+    });
+  }
+
   const amenBtn = document.getElementById('qt-amen-btn');
   const heartEl = document.getElementById('qt-heart');
   const shareBtn = document.getElementById('qt-share-btn');
