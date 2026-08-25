@@ -1793,61 +1793,35 @@
   }
   setupScrollTopButton();
 
-  // ---------------- 해시(#qt 등)로 진입했을 때, 콘텐츠 로딩 완료 후 한 번만 이동 ----------------
+  // ---------------- 해시(#qt 등)로 진입했을 때, 데이터·폰트 준비 후 한 번만 이동 ----------------
   // index.html의 head 스크립트에서 location.hash를 미리 떼어 window.__pendingScrollHash에
-  // 저장해뒀습니다(브라우저의 이른 앵커 점프 방지). 여기서는 모든 섹션 렌더링이 끝난 뒤
-  // 그 위치로 즉시 이동시켜, "맨 위로 갔다가 다시 큐티로 내려오는" 것처럼 보이는 현상 없이
-  // 큐티 영역이 바로 보이게 합니다.
-  function scrollToPendingHash() {
+  // 저장해뒀습니다(브라우저의 이른 앵커 점프 방지). 설교·찬양·게시판 카드의 사진 자리는
+  // CSS aspect-ratio로 이미 예약돼 있어 사진 로딩 자체를 따로 기다릴 필요는 없습니다.
+  // 아래 함수는 head 스크립트가 "데이터 + 폰트"까지 모두 준비된 뒤 딱 한 번만 호출해서,
+  // 화면이 공개되기 직전에 정확한 위치로 이동시켜 줍니다.
+  window.__performPendingScroll = function () {
     const hash = window.__pendingScrollHash;
-    if (!hash) {
-      // 이동할 해시가 없으면(홈페이지에 그냥 들어온 경우) 화면을 바로 보여주면 됩니다.
-      if (window.__resolveScrollReady) window.__resolveScrollReady();
-      return;
-    }
+    if (!hash) return;
     window.__pendingScrollHash = null;
     const target = document.querySelector(hash);
-    if (!target) {
-      if (window.__resolveScrollReady) window.__resolveScrollReady();
-      return;
-    }
+    if (!target) return;
+    target.scrollIntoView({ block: 'start', behavior: 'auto' });
+    // 주소창에 #qt를 다시 붙이면, 그 이후 평범하게 새로고침할 때마다 계속
+    // 큐티로 이동해버리는 문제가 생기므로 URL은 계속 깨끗한 '/'로 둡니다.
+  };
 
-    // API 데이터(JSON)가 다 들어왔다고 해서 사진들까지 다 로딩된 건 아닙니다.
-    // 큐티 섹션보다 위쪽에 있는 사진들이 그 이후에도 계속 로딩되며 레이아웃을
-    // 밀어 내리기 때문에, 위쪽 사진 로딩까지 기다린(최대 0.8초) 뒤에 이동하고,
-    // 혹시 그 사이 늦게 도착하는 사진이 있을 경우를 대비해 한 번 더 살짝 보정합니다.
-    // index.html의 head 스크립트가 이 스크롤이 끝날 때까지 화면(body)을 숨겨두므로,
-    // 사용자는 스크롤이 튀는 과정 없이 처음부터 큐티 영역에 자리 잡힌 화면만 보게 됩니다.
-    const imgsAbove = Array.from(document.querySelectorAll('main img')).filter(
-      (img) => target.compareDocumentPosition(img) & Node.DOCUMENT_POSITION_PRECEDING
-    );
-    const waitForImages = Promise.all(
-      imgsAbove.map((img) =>
-        img.complete
-          ? Promise.resolve()
-          : new Promise((resolve) => {
-              img.addEventListener('load', resolve, { once: true });
-              img.addEventListener('error', resolve, { once: true });
-            })
-      )
-    );
-    const timeout = new Promise((resolve) => setTimeout(resolve, 800));
-
-    Promise.race([waitForImages, timeout]).then(() => {
-      target.scrollIntoView({ block: 'start', behavior: 'auto' });
-      // 주소창에 #qt를 다시 붙이면, 그 이후 평범하게 새로고침할 때마다 계속
-      // 큐티로 이동해버리는 문제가 생기므로 URL은 계속 깨끗한 '/'로 둡니다.
-      if (window.__resolveScrollReady) window.__resolveScrollReady();
-      setTimeout(() => target.scrollIntoView({ block: 'start', behavior: 'auto' }), 300);
-    });
-
-  }
-
-  Promise.all([loadSite(), loadMenu(), loadSermons(), loadPraises(), loadBoard(), loadQT(), loadMissions(), loadQuizTeaser()])
+  // 큐티(#qt)보다 위쪽 섹션(사이트정보·메뉴·설교·찬양·게시판·큐티)의 데이터만 스크롤
+  // 위치 계산에 영향을 줍니다. 아래쪽 섹션(선교·퀴즈)은 화면 공개를 굳이 기다릴
+  // 필요가 없어서, 느린 네트워크에서도 화면이 빨리 뜨도록 따로 분리해 불러옵니다.
+  Promise.all([loadSite(), loadMenu(), loadSermons(), loadPraises(), loadBoard(), loadQT()])
     .catch((err) => {
       console.error('콘텐츠를 불러오는 중 오류가 발생했습니다:', err);
     })
     .finally(() => {
-      scrollToPendingHash();
+      if (window.__resolveDataReady) window.__resolveDataReady();
     });
+
+  Promise.all([loadMissions(), loadQuizTeaser()]).catch((err) => {
+    console.error('선교/퀴즈 콘텐츠를 불러오는 중 오류가 발생했습니다:', err);
+  });
 })();
