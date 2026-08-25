@@ -1587,12 +1587,23 @@ button { font-family: inherit; cursor: pointer; }
   padding: 6px 10px;
 }
 .qt-archive-toggle:hover { color: var(--navy-deep); }
-.qt-archive-list {
+.qt-archive-wrap {
+  position: relative;
   max-width: 520px;
   margin: 12px auto 0;
   display: none;
 }
-.qt-archive-list.open { display: block; }
+.qt-archive-wrap.open { display: block; }
+.qt-archive-nav.carousel-nav { width: 20px; height: 52px; }
+.qt-archive-nav.carousel-nav--prev { left: -30px; }
+.qt-archive-nav.carousel-nav--next { right: -30px; }
+@media (max-width: 640px) {
+  .qt-archive-nav.carousel-nav--prev { left: -6px; }
+  .qt-archive-nav.carousel-nav--next { right: -6px; }
+}
+.qt-archive-list {
+  display: block;
+}
 .qt-archive-row {
   display: flex;
   align-items: center;
