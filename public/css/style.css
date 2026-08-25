@@ -444,7 +444,7 @@ button { font-family: inherit; cursor: pointer; }
 /* ---------------- 설교 섹션: 합성된 히어로 이미지 + 지난 설교 목록 ---------------- */
 .sermon-layout {
   display: grid;
-  grid-template-columns: 1.1fr 1fr;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
   margin-top: 8px;
   background: linear-gradient(135deg, var(--navy-deep) 0%, #241a35 100%);
   border-radius: var(--radius);
