@@ -75,19 +75,24 @@ app.get('/qt/:id', async (req, res, next) => {
     const idx = list.findIndex((q) => q.id === req.params.id);
     const prev = list[idx + 1] || null; // 더 과거
     const nextItem = idx > 0 ? list[idx - 1] : null; // 더 최근
-    // 홈페이지(큐티 섹션)를 둘러보다가 들어온 경우엔 Referer가 우리 사이트 홈 주소로 찍힙니다.
-    // 반면 푸시 알림(서비스워커의 openWindow)으로 바로 들어온 경우엔 Referer가 없습니다.
-    // 이 차이로 '홈으로' 버튼이 큐티 섹션으로 돌아갈지, 그냥 홈 최상단으로 갈지를 정합니다.
-    let cameFromHome = false;
-    try {
-      const ref = req.headers.referer || req.headers.referrer;
-      if (ref) {
-        const refUrl = new URL(ref);
-        const siteOrigin = new URL(SITE_URL).origin;
-        cameFromHome = refUrl.origin === siteOrigin && refUrl.pathname === '/';
+    // 홈페이지(큐티 섹션)를 둘러보다가 들어온 경우엔 이 경우엔 '홈으로' 버튼이
+    // 큐티 섹션으로(정확히는 브라우저 뒤로가기로) 돌아가고, 그 외(푸시 알림 등으로
+    // 바로 들어온 경우)엔 그냥 홈 최상단으로 갑니다.
+    // 판단 기준: 홈페이지의 큐티 카드 링크에 직접 붙여둔 ?from=home 표시를 우선
+    // 사용합니다(모바일 브라우저가 개인정보 보호 설정으로 Referer를 생략/축소하는
+    // 경우가 있어, Referer만으로는 불안정할 수 있기 때문입니다). Referer는 보조로만 씁니다.
+    let cameFromHome = req.query.from === 'home';
+    if (!cameFromHome) {
+      try {
+        const ref = req.headers.referer || req.headers.referrer;
+        if (ref) {
+          const refUrl = new URL(ref);
+          const siteOrigin = new URL(SITE_URL).origin;
+          cameFromHome = refUrl.origin === siteOrigin && refUrl.pathname === '/';
+        }
+      } catch (e) {
+        cameFromHome = false;
       }
-    } catch (e) {
-      cameFromHome = false;
     }
     res.send(renderQtDetailPage({ site: site || {}, item, prev, next: nextItem, siteUrl: SITE_URL, cameFromHome }));
   } catch (err) {
