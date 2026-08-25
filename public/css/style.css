@@ -768,7 +768,9 @@ button { font-family: inherit; cursor: pointer; }
   overflow: hidden;
   box-shadow: var(--shadow);
   aspect-ratio: 4/3;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
+.praise-card:hover { transform: translateY(-4px); box-shadow: 0 10px 24px rgba(13,21,38,0.12); }
 .praise-thumb {
   position: relative;
   width: 100%;
@@ -1564,7 +1566,7 @@ button { font-family: inherit; cursor: pointer; }
   text-align: left;
   box-shadow: var(--shadow);
 }
-.qt-card:hover { transform: translateY(-2px); transition: transform 0.2s ease; }
+.qt-card:hover { transform: translateY(-4px); box-shadow: 0 10px 24px rgba(13,21,38,0.12); transition: transform 0.2s ease, box-shadow 0.2s ease; }
 .qt-badge {
   display: inline-block;
   font-size: 0.72rem;
