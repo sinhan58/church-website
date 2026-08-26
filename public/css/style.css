@@ -47,6 +47,7 @@ body {
   font-family: var(--font-body);
   line-height: 1.7;
   font-size: 16px;
+  overflow-x: hidden; /* 슬라이드 애니메이션 등이 화면 밖으로 나가 있을 때 가로 스크롤이 생기지 않도록 */
 }
 
 /* 모달(게시글 상세·영상·첨부파일·사진 확대)이 하나라도 열려있는 동안,
