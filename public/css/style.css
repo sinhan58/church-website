@@ -1627,15 +1627,18 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   position: relative;
   max-width: 520px;
   margin: 12px auto 0;
-  display: none;
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.4s ease;
 }
-.qt-archive-wrap.open { display: block; }
+.qt-archive-wrap.open { grid-template-rows: 1fr; }
+.qt-archive-inner { overflow: hidden; min-height: 0; }
 .qt-archive-nav.carousel-nav { width: 20px; height: 52px; }
-.qt-archive-nav.carousel-nav--prev { left: -30px; }
-.qt-archive-nav.carousel-nav--next { right: -30px; }
+.qt-archive-nav.carousel-nav--prev { left: 4px; }
+.qt-archive-nav.carousel-nav--next { right: 4px; }
 @media (max-width: 640px) {
-  .qt-archive-nav.carousel-nav--prev { left: -6px; }
-  .qt-archive-nav.carousel-nav--next { right: -6px; }
+  .qt-archive-nav.carousel-nav--prev { left: 2px; }
+  .qt-archive-nav.carousel-nav--next { right: 2px; }
 }
 .qt-archive-list {
   display: block;
@@ -1795,6 +1798,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   display: grid;
   grid-template-columns: 3fr 1fr;
   gap: 28px;
+  align-items: start; /* 큐티 쪽이 늘어나도(지난 큐티 펼침 등) 퀴즈 카드는 영향받지 않도록 */
 }
 @media (max-width: 860px) {
   .qt-quiz-layout { grid-template-columns: 1fr; }
