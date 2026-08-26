@@ -1911,12 +1911,15 @@ a:focus-visible, button:focus-visible {
 @media (min-width: 861px) {
   .missions-pin-wrap,
   .missions-pin-sticky,
+  .missions-pin-track,
   .missions-pin-slide {
     display: contents;
   }
 }
 
-/* 모바일: 스크롤을 붙잡아두고, 그 안에서 "동역해주시는 분들"이 지도 위로 슬라이드해서 덮으며 등장 */
+/* 모바일: 스크롤을 붙잡아두고, 지도/선교사 정보와 동역자 정보가 하나의 필름처럼
+   나란히 붙어서 함께 옆으로 이동합니다 (지도가 왼쪽 밖으로 빠지면서, 동역자 정보가
+   오른쪽에서 들어옴 — 한쪽이 다른 쪽을 덮는 게 아니라 같이 움직이는 방식) */
 @media (max-width: 860px) {
   .missions-pin-wrap {
     position: relative;
@@ -1929,27 +1932,26 @@ a:focus-visible, button:focus-visible {
     overflow: hidden;
     border-radius: var(--radius);
   }
+  .missions-pin-track {
+    display: flex;
+    width: 200%; /* 두 슬라이드를 나란히 붙임 */
+    height: 100%;
+    transform: translateX(0); /* JS가 스크롤 진행도에 따라 계속 갱신함 */
+  }
   .missions-pin-slide {
-    position: absolute;
-    inset: 0;
+    width: 50%; /* 트랙 기준 50% = 화면 기준 100% */
+    flex-shrink: 0;
     overflow: hidden;
     display: flex;
     align-items: center;
+    padding: 0 4px;
   }
-  .missions-pin-slide--map { z-index: 1; width: 100%; }
   .missions-pin-slide--map .missions-map-wrap,
   .missions-pin-slide--map .missions-mobile-list { width: 100%; }
-  .missions-pin-slide--partners {
-    z-index: 2;
-    width: 100%;
-    background: var(--ivory);
-    box-shadow: -10px 0 30px rgba(13,21,38,0.18);
-    transform: translateX(100%); /* JS가 스크롤 진행도에 따라 계속 갱신함 */
-  }
   .missions-pin-slide--partners .missions-partners { width: 100%; max-height: 100%; overflow-y: auto; }
   .missions-pin-slide--partners #partners-list { flex: none; justify-content: flex-start; }
 
-  /* 이 안의 콘텐츠는 이제 바깥 슬라이드 전체가 애니메이션을 담당하므로, 안쪽 개별 reveal 효과는 끔 */
+  /* 이 안의 콘텐츠는 이제 바깥 트랙 전체가 애니메이션을 담당하므로, 안쪽 개별 reveal 효과는 끔 */
   .missions-pin-slide .reveal {
     opacity: 1 !important;
     transform: none !important;
