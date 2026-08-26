@@ -2021,6 +2021,28 @@ a:focus-visible, button:focus-visible {
 .icon-btn-round:hover:not(:disabled) { background: var(--ivory-dim); }
 .icon-btn-round:disabled { opacity: 0.3; cursor: default; }
 
+@media (max-width: 900px) {
+  /* 모바일: 페이지 넘김 버튼 대신, 찬양 섹션과 같은 방식(다음 칸이 살짝 보이는) 가로 스크롤 */
+  .missions-partners-nav { display: none; }
+  .missions-partners-page { display: none; }
+  #partners-list {
+    display: grid;
+    grid-auto-flow: column;
+    grid-template-rows: repeat(3, auto);
+    grid-auto-columns: calc(88% - 8px);
+    gap: 0 16px;
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+    scroll-behavior: smooth;
+    touch-action: pan-x pan-y;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  #partners-list::-webkit-scrollbar { display: none; }
+  .partner-row { scroll-snap-align: start; }
+}
+
 .partner-row {
   display: flex; align-items: center; gap: 10px;
   padding: 12px 0;
