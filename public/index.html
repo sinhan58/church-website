@@ -272,30 +272,32 @@
       <div class="missions-layout">
         <div class="missions-pin-wrap" id="missions-pin-wrap">
           <div class="missions-pin-sticky">
-            <div class="missions-pin-slide missions-pin-slide--map">
-              <div class="missions-map-wrap reveal">
-                <div id="missions-map"></div>
-                <p class="missions-empty" id="missions-empty" style="display:none;">아직 등록된 선교지가 없습니다.</p>
+            <div class="missions-pin-track" id="missions-pin-track">
+              <div class="missions-pin-slide missions-pin-slide--map">
+                <div class="missions-map-wrap reveal">
+                  <div id="missions-map"></div>
+                  <p class="missions-empty" id="missions-empty" style="display:none;">아직 등록된 선교지가 없습니다.</p>
+                </div>
+
+                <!-- 모바일 전용 목록형 대체 화면(지도 대신 카드 나열) - 선교지 정보가 동역자보다 먼저 보이도록 이 위치에 배치 -->
+                <div class="missions-mobile-list" id="missions-mobile-list"></div>
               </div>
 
-              <!-- 모바일 전용 목록형 대체 화면(지도 대신 카드 나열) - 선교지 정보가 동역자보다 먼저 보이도록 이 위치에 배치 -->
-              <div class="missions-mobile-list" id="missions-mobile-list"></div>
-            </div>
-
-            <div class="missions-pin-slide missions-pin-slide--partners">
-              <div class="missions-partners reveal">
-                <div class="missions-partners-head">
-                  <div>
-                    <span class="eyebrow-sm">PARTNERS</span>
-                    <h3 id="partners-title">동역해주시는 분들</h3>
+              <div class="missions-pin-slide missions-pin-slide--partners">
+                <div class="missions-partners reveal">
+                  <div class="missions-partners-head">
+                    <div>
+                      <span class="eyebrow-sm">PARTNERS</span>
+                      <h3 id="partners-title">동역해주시는 분들</h3>
+                    </div>
+                    <div class="missions-partners-nav">
+                      <button type="button" class="icon-btn-round" id="partners-prev" aria-label="이전 동역자">‹</button>
+                      <button type="button" class="icon-btn-round" id="partners-next" aria-label="다음 동역자">›</button>
+                    </div>
                   </div>
-                  <div class="missions-partners-nav">
-                    <button type="button" class="icon-btn-round" id="partners-prev" aria-label="이전 동역자">‹</button>
-                    <button type="button" class="icon-btn-round" id="partners-next" aria-label="다음 동역자">›</button>
-                  </div>
+                  <div id="partners-list"></div>
+                  <p class="missions-partners-page" id="partners-page"></p>
                 </div>
-                <div id="partners-list"></div>
-                <p class="missions-partners-page" id="partners-page"></p>
               </div>
             </div>
           </div>
