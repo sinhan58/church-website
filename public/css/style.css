@@ -1633,13 +1633,13 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 }
 .qt-archive-wrap.open { grid-template-rows: 1fr; }
 .qt-archive-inner { overflow: hidden; min-height: 0; }
+.qt-archive-list-row { position: relative; padding: 0 26px; }
 .qt-archive-nav.carousel-nav { width: 20px; height: 52px; opacity: 0; pointer-events: none; }
 .qt-archive-wrap.open .qt-archive-nav.carousel-nav { opacity: 0.45; pointer-events: auto; }
-.qt-archive-nav.carousel-nav--prev { left: 4px; }
-.qt-archive-nav.carousel-nav--next { right: 4px; }
+.qt-archive-nav.carousel-nav--prev { left: 0; }
+.qt-archive-nav.carousel-nav--next { right: 0; }
 @media (max-width: 640px) {
-  .qt-archive-nav.carousel-nav--prev { left: 2px; }
-  .qt-archive-nav.carousel-nav--next { right: 2px; }
+  .qt-archive-list-row { padding: 0 20px; }
 }
 .qt-archive-list {
   display: block;
