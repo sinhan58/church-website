@@ -1677,26 +1677,35 @@
     const pageEl = $('#partners-page');
     const prevBtn = $('#partners-prev');
     const nextBtn = $('#partners-next');
+    const isMobile = window.matchMedia('(max-width: 900px)').matches;
+
+    function rowHtml(p) {
+      const days = daysSince(p.startDate);
+      return `
+        <div class="partner-row">
+          ${p.image ? `<img src="${p.image}" alt="${escapeHtml(p.name || '')}" />` : `<div class="partner-avatar"></div>`}
+          <div class="partner-info">
+            <p class="name">${escapeHtml(p.name || '')}</p>
+            ${p.note ? `<p class="note">${escapeHtml(p.note)}</p>` : ''}
+          </div>
+          ${days !== null ? `<span class="partner-day">D+${days}</span>` : ''}
+        </div>`;
+    }
+
+    // 모바일: 페이지 넘김 없이 전체를 한 번에 그려서, 옆으로 스크롤(찬양 섹션과 같은 방식)로 봅니다.
+    if (isMobile) {
+      listEl.innerHTML = partners.map(rowHtml).join('');
+      return;
+    }
+
+    // PC: 기존처럼 5개씩 페이지 버튼으로 넘겨봅니다.
     const perPage = 5;
     const totalPages = Math.max(1, Math.ceil(partners.length / perPage));
     let page = 0;
 
     function draw() {
       const slice = partners.slice(page * perPage, page * perPage + perPage);
-      listEl.innerHTML = slice
-        .map((p) => {
-          const days = daysSince(p.startDate);
-          return `
-          <div class="partner-row">
-            ${p.image ? `<img src="${p.image}" alt="${escapeHtml(p.name || '')}" />` : `<div class="partner-avatar"></div>`}
-            <div class="partner-info">
-              <p class="name">${escapeHtml(p.name || '')}</p>
-              ${p.note ? `<p class="note">${escapeHtml(p.note)}</p>` : ''}
-            </div>
-            ${days !== null ? `<span class="partner-day">D+${days}</span>` : ''}
-          </div>`;
-        })
-        .join('');
+      listEl.innerHTML = slice.map(rowHtml).join('');
       pageEl.textContent = totalPages > 1 ? `${page + 1} / ${totalPages}` : '';
       prevBtn.disabled = totalPages <= 1;
       nextBtn.disabled = totalPages <= 1;
