@@ -1875,41 +1875,6 @@
   }
   setupScrollTopButton();
 
-  // ---------------- 선교 섹션: 모바일 스크롤 고정 슬라이드(지도 → 동역자) ----------------
-  function setupMissionsPinScroll() {
-    const wrap = $('#missions-pin-wrap');
-    const track = $('#missions-pin-track');
-    if (!wrap || !track) return;
-
-    let ticking = false;
-    function update() {
-      ticking = false;
-      // PC(861px 이상)에서는 이 효과를 아예 안 씀 — 트랙을 원래 자리로 리셋만 해둡니다.
-      if (window.innerWidth > 860) {
-        track.style.transform = '';
-        return;
-      }
-      const rect = wrap.getBoundingClientRect();
-      const total = wrap.offsetHeight - window.innerHeight; // 고정된 구간의 전체 스크롤 거리
-      if (total <= 0) return;
-      const scrolled = -rect.top; // 이 구간에 들어온 뒤 얼마나 스크롤했는지
-      const progress = Math.min(1, Math.max(0, scrolled / total));
-      // 트랙 전체 너비가 200%이므로, 완전히 이동했을 때 트랙 기준 50% 만큼 밀어야
-      // 화면에는 정확히 다음 슬라이드(동역자)가 가득 찹니다.
-      track.style.transform = `translateX(${-progress * 50}%)`;
-    }
-
-    window.addEventListener('scroll', () => {
-      if (!ticking) {
-        requestAnimationFrame(update);
-        ticking = true;
-      }
-    }, { passive: true });
-    window.addEventListener('resize', update);
-    update();
-  }
-  setupMissionsPinScroll();
-
   // ---------------- 해시(#qt 등)로 진입했을 때, 데이터·폰트 준비 후 한 번만 이동 ----------------
   // index.html의 head 스크립트에서 location.hash를 미리 떼어 window.__pendingScrollHash에
   // 저장해뒀습니다(브라우저의 이른 앵커 점프 방지). 설교·찬양·게시판 카드의 사진 자리는
