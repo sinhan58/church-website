@@ -1879,6 +1879,11 @@ a:focus-visible, button:focus-visible {
   opacity: 1;
   transform: translateY(0);
 }
+@media (max-width: 860px) {
+  /* 모바일에서 "동역해주시는 분들" 블록만, 아래로 스크롤해서 나타날 때 오른쪽에서 슬라이드해 들어오게 */
+  .missions-partners.reveal { transform: translateX(60px); }
+  .missions-partners.reveal.is-visible { transform: translateX(0); }
+}
 .reveal-delay-1 { transition-delay: 0.05s; }
 .reveal-delay-2 { transition-delay: 0.1s; }
 .reveal-delay-3 { transition-delay: 0.15s; }
@@ -1903,23 +1908,7 @@ a:focus-visible, button:focus-visible {
   align-items: stretch;
 }
 @media (max-width: 860px) {
-  /* 모바일: 위아래로 쌓는 대신, 지도/선교사님 정보 블록과 동역자 블록을 옆으로 스와이프해서 봅니다 */
-  .missions-layout {
-    display: flex;
-    gap: 16px;
-    overflow-x: auto;
-    scroll-snap-type: x proximity;
-    scroll-behavior: smooth;
-    touch-action: pan-x pan-y;
-    overscroll-behavior-x: contain;
-    -webkit-overflow-scrolling: touch;
-    scrollbar-width: none;
-  }
-  .missions-layout::-webkit-scrollbar { display: none; }
-  .missions-map-wrap, .missions-mobile-list, .missions-partners {
-    flex: 0 0 90%; /* 다음 블록이 오른쪽에 살짝 보이도록(찬양 섹션과 같은 힌트 방식) */
-    scroll-snap-align: start;
-  }
+  .missions-layout { grid-template-columns: 1fr; }
 }
 
 .missions-map-wrap {
