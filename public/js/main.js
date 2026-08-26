@@ -1878,16 +1878,15 @@
   // ---------------- 선교 섹션: 모바일 스크롤 고정 슬라이드(지도 → 동역자) ----------------
   function setupMissionsPinScroll() {
     const wrap = $('#missions-pin-wrap');
-    if (!wrap) return;
-    const partnersSlide = $('.missions-pin-slide--partners', wrap);
-    if (!partnersSlide) return;
+    const track = $('#missions-pin-track');
+    if (!wrap || !track) return;
 
     let ticking = false;
     function update() {
       ticking = false;
-      // PC(861px 이상)에서는 이 효과를 아예 안 씀 — 슬라이드를 원래 자리로 리셋만 해둡니다.
+      // PC(861px 이상)에서는 이 효과를 아예 안 씀 — 트랙을 원래 자리로 리셋만 해둡니다.
       if (window.innerWidth > 860) {
-        partnersSlide.style.transform = '';
+        track.style.transform = '';
         return;
       }
       const rect = wrap.getBoundingClientRect();
@@ -1895,7 +1894,9 @@
       if (total <= 0) return;
       const scrolled = -rect.top; // 이 구간에 들어온 뒤 얼마나 스크롤했는지
       const progress = Math.min(1, Math.max(0, scrolled / total));
-      partnersSlide.style.transform = `translateX(${(1 - progress) * 100}%)`;
+      // 트랙 전체 너비가 200%이므로, 완전히 이동했을 때 트랙 기준 50% 만큼 밀어야
+      // 화면에는 정확히 다음 슬라이드(동역자)가 가득 찹니다.
+      track.style.transform = `translateX(${-progress * 50}%)`;
     }
 
     window.addEventListener('scroll', () => {
