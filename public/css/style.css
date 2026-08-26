@@ -1946,7 +1946,7 @@ a:focus-visible, button:focus-visible {
     box-shadow: -10px 0 30px rgba(13,21,38,0.18);
     transform: translateX(100%); /* JS가 스크롤 진행도에 따라 계속 갱신함 */
   }
-  .missions-pin-slide--partners .missions-partners { width: 100%; height: 100%; }
+  .missions-pin-slide--partners .missions-partners { width: 100%; max-height: 100%; overflow-y: auto; }
 
   /* 이 안의 콘텐츠는 이제 바깥 슬라이드 전체가 애니메이션을 담당하므로, 안쪽 개별 reveal 효과는 끔 */
   .missions-pin-slide .reveal {
