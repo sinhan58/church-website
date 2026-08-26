@@ -17,22 +17,18 @@
 
   // ---------------- 스크롤 등장 애니메이션 ----------------
   // 화면에 들어오면 나타나고, 화면 밖으로 나가면 사라졌다가, 다시 스크롤해서
-  // 들어오면 또 나타나도록 반복합니다 (한 번 보고 나면 계속 그대로 두지 않음).
-  // 단, 찬양 카드(.praise-card)는 화면 경계를 넘나들 때마다 애니메이션이 재생되면서
-  // 세로 스크롤 중 흔들리는 것처럼 보이는 문제가 있어, 한 번 나타난 뒤에는 고정합니다.
+  // 한 번 나타난 뒤에는 다시 스크롤해서 위로 올라가도 사라지지 않고 계속 보이게 둡니다
+  // (반복해서 나타났다 사라졌다 하면 오히려 어색하고 산만해 보일 수 있어서, 처음
+  // 한 번만 부드럽게 나타나는 쪽이 차분한 느낌에 더 잘 어울립니다).
   const revealObserver =
     'IntersectionObserver' in window
       ? new IntersectionObserver(
           (entries) => {
             entries.forEach((entry) => {
-              if (entry.target.classList.contains('praise-card')) {
-                if (entry.isIntersecting) {
-                  entry.target.classList.add('is-visible');
-                  revealObserver.unobserve(entry.target);
-                }
-                return;
+              if (entry.isIntersecting) {
+                entry.target.classList.add('is-visible');
+                revealObserver.unobserve(entry.target);
               }
-              entry.target.classList.toggle('is-visible', entry.isIntersecting);
             });
           },
           { threshold: 0.12, rootMargin: '0px 0px -40px 0px' }
@@ -768,7 +764,7 @@
     grid.innerHTML = displayList
       .map(
         (p, i) => `
-        <div class="praise-card reveal reveal-delay-${(i % 6) + 1}" data-video-id="${escapeHtml(p.youtubeId)}" data-title="${escapeHtml(p.title || '')}" style="--accent-rgb: ${accentForId(p.youtubeId)};">
+        <div class="praise-card" data-video-id="${escapeHtml(p.youtubeId)}" data-title="${escapeHtml(p.title || '')}" style="--accent-rgb: ${accentForId(p.youtubeId)};">
           <div class="praise-thumb">
             <img src="https://i.ytimg.com/vi/${escapeHtml(p.youtubeId)}/hqdefault.jpg" alt="${escapeHtml(p.title)}" loading="lazy" />
             <button type="button" class="praise-play" aria-label="재생">
@@ -1041,7 +1037,7 @@
   function boardCardHTML(p, i = 0) {
     const thumb = thumbnailFor(p);
     return `
-      <div class="board-card reveal reveal-delay-${(i % 6) + 1}" data-id="${p.id}" data-title="${escapeHtml(p.title || '')}">
+      <div class="board-card" data-id="${p.id}" data-title="${escapeHtml(p.title || '')}">
         <div class="board-thumb">
           ${thumb ? `<img src="${thumb}" alt="${escapeHtml(p.title)}" loading="lazy" />` : `<div class="board-thumb-empty">${escapeHtml((p.category || '')[0] || '소')}</div>`}
         </div>
