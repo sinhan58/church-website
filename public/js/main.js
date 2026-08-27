@@ -576,13 +576,12 @@
       pastorName: (site && site.about && site.about.pastorName) || ''
     };
 
-    const ytBtn = $('#sermon-youtube-btn');
     const moreRow = $('#sermon-more-row');
-    if (ytBtn) {
+    if (moreRow) {
       if (sermonChannelId) {
-        ytBtn.href = `https://www.youtube.com/channel/${encodeURIComponent(sermonChannelId)}/videos`;
-        if (moreRow) moreRow.style.display = 'flex';
-      } else if (moreRow) {
+        moreRow.href = `https://www.youtube.com/channel/${encodeURIComponent(sermonChannelId)}/videos`;
+        moreRow.style.display = 'flex';
+      } else {
         moreRow.style.display = 'none';
       }
     }
