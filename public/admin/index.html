@@ -137,6 +137,32 @@
       </div>
 
       <div class="card">
+        <h3>찬양 섹션 배경 사진</h3>
+        <p class="hint" style="margin-top:0;">
+          예배 안내와 동일한 방식이에요. 사진을 올리고 미리보기에서 원하는 지점을 클릭해 중심을
+          지정한 뒤, 확대 슬라이더로 원하는 만큼 크롭할 수 있어요.
+        </p>
+        <div class="field">
+          <label>배경 사진</label>
+          <input type="file" id="s-praiseImageFile" accept="image/*" />
+        </div>
+        <div class="field">
+          <label>미리보기 (클릭해서 중심점 지정)</label>
+          <div id="s-praiseBgPreviewWrap" style="position:relative; width:100%; max-width:480px; height:220px; border-radius:10px; overflow:hidden; background:#0d1526; display:none; cursor:crosshair;">
+            <img id="s-praiseBgPreviewImg" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover;" alt="" />
+            <div id="s-praiseBgFocalMarker" style="position:absolute; width:22px; height:22px; border:2px solid #fff; border-radius:50%; box-shadow:0 0 0 2px rgba(0,0,0,0.5); transform:translate(-50%,-50%); left:50%; top:50%; pointer-events:none;"></div>
+          </div>
+          <p class="hint" id="s-praiseBgEmptyHint" style="margin-top:6px;">아직 등록된 사진이 없습니다.</p>
+        </div>
+        <div class="field">
+          <label>확대 (<span id="s-praiseZoomValue">100</span>%)</label>
+          <input type="range" id="s-praiseZoom" min="100" max="200" value="100" style="width:100%; max-width:480px;" />
+        </div>
+        <button type="button" id="s-praiseBgSaveBtn" class="btn-primary" style="margin-top:8px;">찬양 배경 저장</button>
+        <p class="hint" id="s-praiseBgStatus" style="margin-top:6px;"></p>
+      </div>
+
+      <div class="card">
         <h3>예배 시간별 세부 설정</h3>
         <p class="hint" style="margin-top:0;">
           예배 시간마다 글씨 굵기, 글자 크기, 간단한 설명을 따로 설정할 수 있어요.
