@@ -1014,24 +1014,22 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   .praise-card {
     scroll-snap-align: none;
     width: 100%;
-    aspect-ratio: auto; /* 기본 카드에 박혀있던 4:3 비율을 풀어서, 정사각 사진+제목이 다 들어갈 만큼 세로로 늘어나게 */
-    overflow: visible; /* 기본값(hidden)이 제목 글씨를 카드 밖으로 잘라내고 있었음 */
+    aspect-ratio: 1/1;
+    overflow: hidden;
   }
   .praise-card:nth-child(9n+1) { scroll-snap-align: start; } /* 9개 페이지의 시작 지점에서만 스냅 */
-  .praise-card .praise-thumb { aspect-ratio: 1/1; height: auto; overflow: hidden; }
-  /* 타일이 작아지므로 유튜브 뮤직처럼 오버레이 텍스트는 숨기고, 대신 타일 아래에
-     짧은 제목 한 줄만 표시 */
-  .praise-card .praise-overlay-text { display: none; }
-  .praise-card .praise-play { width: 34px; height: 34px; }
-  .praise-tile-title {
-    display: block;
-    margin: 4px 2px 0;
-    font-size: 0.7rem;
-    color: rgba(255,255,255,0.85);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+  .praise-card .praise-thumb { aspect-ratio: 1/1; height: 100%; }
+  .praise-card .praise-play { width: 30px; height: 30px; }
+  .praise-card .praise-play svg { width: 14px; height: 14px; }
+  /* 유튜브 뮤직처럼 제목을 사진 밖이 아니라 사진 안쪽 하단에 그라데이션과 함께 표시 */
+  .praise-card .praise-overlay-text { padding: 16px 6px 6px; }
+  .praise-card .praise-overlay-text .title {
+    font-size: 0.66rem;
+    line-height: 1.25;
+    -webkit-line-clamp: 2;
   }
+  .praise-card .praise-overlay-text .singer { display: none; } /* 타일이 작아 제목만 표시 */
+  .praise-tile-title { display: none; } /* 사진 안쪽 오버레이로 대체 */
   #praise-scroll-track { display: none; } /* 막대 스크롤바 대신 아래 점 인디케이터를 사용 */
 }
 @media (max-width: 560px) {
