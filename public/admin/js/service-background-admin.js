@@ -139,9 +139,9 @@
 })();
 
 // ===================================================================
-// 예배 시간 글씨 굵게 표시 — 관리자 화면 연동 스크립트
+// 예배 시간별 세부 설정(굵게 / 글자 크기 / 설명) — 관리자 화면 연동 스크립트
 // 기존 예배 시간 목록(#service-list)은 별도 관리자 스크립트가 렌더링하므로,
-// 여기서는 건드리지 않고 별도의 체크박스 목록으로 굵게 여부만 관리합니다.
+// 여기서는 건드리지 않고 별도의 편집 영역으로 세부 설정만 관리합니다.
 // ===================================================================
 (function () {
   const $ = (sel) => document.querySelector(sel);
@@ -152,10 +152,24 @@
 
   if (!listWrap || !saveBtn) return;
 
+  function escapeHtml(str = '') {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
   function setStatus(msg, isError) {
     statusEl.textContent = msg;
     statusEl.style.color = isError ? '#b3413a' : '#2f6d3a';
   }
+
+  const FONT_SIZES = [
+    { value: 'sm', label: '작게' },
+    { value: 'md', label: '기본' },
+    { value: 'lg', label: '크게' }
+  ];
 
   async function loadList() {
     try {
@@ -169,11 +183,26 @@
       listWrap.innerHTML = times
         .map(
           (s) => `
-          <div class="field-checkbox" style="margin-bottom:0;">
-            <label>
-              <input type="checkbox" data-id="${s.id}" ${s.bold ? 'checked' : ''} />
-              ${s.name} (${s.time})
-            </label>
+          <div style="border:1px solid var(--line); border-radius:8px; padding:14px;" data-service-id="${s.id}">
+            <p style="margin:0 0 10px; font-weight:600;">${escapeHtml(s.name)} (${escapeHtml(s.time)})</p>
+            <div class="field-checkbox" style="margin-bottom:10px;">
+              <label>
+                <input type="checkbox" class="s-bold-input" ${s.bold ? 'checked' : ''} />
+                굵게 표시
+              </label>
+            </div>
+            <div class="field" style="margin-bottom:10px;">
+              <label style="font-size:0.85rem;">글자 크기</label>
+              <select class="s-fontsize-input">
+                ${FONT_SIZES.map(
+                  (f) => `<option value="${f.value}" ${(s.fontSize || 'md') === f.value ? 'selected' : ''}>${f.label}</option>`
+                ).join('')}
+              </select>
+            </div>
+            <div class="field" style="margin-bottom:0;">
+              <label style="font-size:0.85rem;">설명 (선택 사항, 예: 온 가족이 함께 드리는 예배입니다)</label>
+              <textarea class="s-description-input" rows="2" placeholder="이 예배에 대한 간단한 설명을 입력하세요">${escapeHtml(s.description || '')}</textarea>
+            </div>
           </div>`
         )
         .join('');
@@ -190,13 +219,21 @@
       // 추가/삭제/수정됐어도 안전하게 병합합니다.
       const res = await fetch('/api/admin/site', { credentials: 'include' });
       const site = await res.json();
-      const boldIds = new Set(
-        Array.from(listWrap.querySelectorAll('input[type="checkbox"]:checked')).map((el) => el.dataset.id)
+
+      const edits = {};
+      listWrap.querySelectorAll('[data-service-id]').forEach((row) => {
+        const id = row.dataset.serviceId;
+        edits[id] = {
+          bold: row.querySelector('.s-bold-input').checked,
+          fontSize: row.querySelector('.s-fontsize-input').value,
+          description: row.querySelector('.s-description-input').value.trim()
+        };
+      });
+
+      const updatedTimes = (site.serviceTimes || []).map((s) =>
+        edits[s.id] ? { ...s, ...edits[s.id] } : s
       );
-      const updatedTimes = (site.serviceTimes || []).map((s) => ({
-        ...s,
-        bold: boldIds.has(s.id)
-      }));
+
       const saveRes = await fetch('/api/admin/site', {
         method: 'PUT',
         credentials: 'include',
