@@ -363,6 +363,8 @@
       .join('');
     observeReveals(serviceGrid);
     applyServiceBackground(site.service);
+    sitePraiseConfig = site.praise;
+    applyPraiseBackground(sitePraiseConfig);
     setupServiceDots(serviceGrid, serviceTimesList.length);
 
     if (site.contact) {
@@ -765,6 +767,7 @@
 
   // ---------------- 찬양 ----------------
   let allPraises = [];
+  let sitePraiseConfig = null;
   let praiseCategoryList = [];
   let activePraiseCategory = null; // null이면 '전체'
 
@@ -1008,6 +1011,7 @@
     section.style.display = '';
     renderPraiseCategoryChips();
     renderPraiseCards(allPraises);
+    applyPraiseBackground(sitePraiseConfig);
   }
 
   // ---------------- 게시판 (소식·활동) ----------------
@@ -1256,15 +1260,16 @@
   // object-fit:cover 상태(줌 100%)에서 이미 화면을 꽉 채우고 있기 때문에, 그 상태에서
   // 초점 좌표를 기준으로 transform: scale()만 키워주면 어떤 배율에서도 빈 공간 없이
   // 항상 그 지점을 중심으로 확대됩니다.
-  function applyServiceBackground(svc) {
-    const section = $('#service');
-    const img = $('#service-bg-img');
-    const overlay = $('.service-bg-overlay');
-    if (svc && svc.backgroundImage) {
-      const focalX = svc.focalX != null ? svc.focalX : 50;
-      const focalY = svc.focalY != null ? svc.focalY : 50;
-      const zoom = svc.zoom || 100;
-      img.src = svc.backgroundImage;
+  function applySectionBackground(sectionSelector, imgSelector, overlaySelector, cfg) {
+    const section = $(sectionSelector);
+    const img = $(imgSelector);
+    const overlay = $(overlaySelector);
+    if (!section || !img || !overlay) return;
+    if (cfg && cfg.backgroundImage) {
+      const focalX = cfg.focalX != null ? cfg.focalX : 50;
+      const focalY = cfg.focalY != null ? cfg.focalY : 50;
+      const zoom = cfg.zoom || 100;
+      img.src = cfg.backgroundImage;
       img.style.objectPosition = `${focalX}% ${focalY}%`;
       img.style.transformOrigin = `${focalX}% ${focalY}%`;
       img.style.transform = `scale(${zoom / 100})`;
@@ -1277,6 +1282,12 @@
       overlay.classList.remove('is-visible');
       section.classList.remove('has-bg-photo');
     }
+  }
+  function applyServiceBackground(svc) {
+    applySectionBackground('#service', '#service-bg-img', '.service-bg-overlay', svc);
+  }
+  function applyPraiseBackground(cfg) {
+    applySectionBackground('#praise', '#praise-bg-img', '.praise-bg-overlay', cfg);
   }
 
   // 모바일에서 카드를 스와이프할 때, 화면 중앙에 가장 가까운 카드에 맞춰 점을 켜줍니다
