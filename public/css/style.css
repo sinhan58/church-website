@@ -575,7 +575,14 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   border: 2px solid var(--gold);
 }
 @media (max-width: 900px) {
-  .sermon-layout { grid-template-columns: 1fr; }
+  .sermon-layout {
+    grid-template-columns: 1fr;
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    border-radius: 0;
+    border: none;
+  }
   .sermon-list-wrap { border-left: none; border-top: 1px solid rgba(255,255,255,0.12); }
   /* PC는 그리드 stretch로 목록 높이에 자동으로 맞춰지지만, 모바일은 세로로
      쌓이는 구조라 맞춰줄 짝이 없어서 사진 실제 비율(4:3)을 그대로 지정합니다. */
