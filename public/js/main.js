@@ -350,7 +350,7 @@
         (s, i) => `
         <div class="service-card reveal reveal-delay-${(i % 6) + 1}">
           <div class="service-card-shape"></div>
-          <div class="service-card-content">
+          <div class="service-card-content${s.bold ? ' is-bold' : ''}">
             <div class="name">${escapeHtml(s.name)}</div>
             <div class="time">${escapeHtml(s.time)}</div>
           </div>
