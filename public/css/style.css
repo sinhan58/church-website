@@ -81,14 +81,16 @@ img { max-width: 100%; display: block; }
 ul { list-style: none; margin: 0; padding: 0; }
 button { font-family: inherit; cursor: pointer; }
 
-/* 모바일에서 탭할 때 뜨는 기본 파란/회색 번쩍임을 전체 요소에서 끄고, 자연스러운 눌림
-   반응으로 통일 (a, button뿐 아니라 클릭 가능한 div/span 카드류도 전부 대상) */
+/* 모바일에서 탭할 때 뜨는 기본 파란/회색 번쩍임을 전체 요소에서 끔 (a, button뿐 아니라
+   클릭 가능한 div/span 카드류도 전부 대상) */
 * { -webkit-tap-highlight-color: transparent; }
 button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1s ease; }
 /* 카드/칩/버튼류는 이미 hover에서 transform(translateY 등)을 쓰고 있고, 큐티 카드는 PC에서
    JS가 인라인 transform으로 위치를 잡고 있어서 :active에 transform을 또 쓰면 충돌합니다.
-   그래서 transform 대신 밝기(filter)로 눌림 반응을 줘서 클릭했을 때 반응이 없어 보이던
-   문제를 해결합니다. 사이트 내 클릭 가능한 요소 전수 점검 후 빠짐없이 포함했습니다. */
+   그래서 transform 대신 밝기(filter)로 눌림 반응을 줍니다.
+   중요: 각 요소의 "기본 상태" transition에도 filter를 같이 넣어야, 손을 뗄 때(밝기가
+   되돌아갈 때)도 부드럽게 풀려요. :active 쪽에만 넣으면 들어갈 때만 부드럽고 나올 때는
+   순간적으로 "탁" 튀는 깜빡임 현상이 생깁니다. */
 .sermon-hero-card:active,
 .sermon-list-row:active,
 .sermon-more-row:active,
@@ -106,7 +108,6 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 .band-fab:active,
 .nav-mobile a:active {
   filter: brightness(0.92);
-  transition: filter 0.1s ease;
 }
 
 .container {
@@ -242,6 +243,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   padding: 14px 0;
   border-bottom: 1px solid rgba(255,255,255,0.08);
   font-size: 1.05rem;
+  transition: filter 0.15s ease;
 }
 
 /* ---------------- Hero ---------------- */
@@ -265,7 +267,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(13,21,38,0.72), rgba(13,21,38,0.86));
+  background: linear-gradient(180deg, rgba(13,21,38,0.4), rgba(13,21,38,0.55));
   z-index: 1;
 }
 /* 관리자가 등록한 대문 사진을 담는 전용 레이어. 기본은 투명 상태(opacity:0)로 시작해서
@@ -326,10 +328,10 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   font-weight: 600;
   font-size: 0.95rem;
   border: 1px solid transparent;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, filter 0.15s ease;
 }
 .btn:hover { transform: translateY(-2px); }
-.btn:active { transform: scale(0.97); transition: transform 0.1s ease; }
+.btn:active { transform: scale(0.97); transition: transform 0.1s ease, filter 0.15s ease; }
 .btn--gold { background: var(--gold); color: var(--navy-deep); }
 .btn--gold:hover { box-shadow: 0 8px 20px rgba(201,162,39,0.35); }
 .btn--outline { border-color: rgba(255,255,255,0.5); color: #fff; }
@@ -502,7 +504,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   height: 100%;
   object-fit: cover;
   display: block;
-  transition: transform 0.3s ease;
+  transition: transform 0.3s ease, filter 0.15s ease;
 }
 .sermon-hero-card:hover img { transform: scale(1.035); }
 .sermon-hero-card .sermon-hero-play {
@@ -555,7 +557,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   padding: 15px 0;
   cursor: pointer;
   border-bottom: 1px solid rgba(255,255,255,0.14);
-  transition: transform 0.2s ease;
+  transition: transform 0.2s ease, filter 0.15s ease;
 }
 .sermon-list-row:last-child { border-bottom: none; }
 .sermon-list-row:hover { transform: translateX(6px); }
@@ -594,7 +596,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   gap: 10px;
   margin-top: 18px;
   margin-left: auto; /* 오른쪽 정렬하되, 클릭 영역은 내용 크기만큼만 */
-  transition: opacity 0.2s ease;
+  transition: opacity 0.2s ease, filter 0.15s ease;
 }
 .sermon-more-row:hover { opacity: 0.8; }
 .yt-icon { flex-shrink: 0; }
@@ -745,7 +747,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   white-space: nowrap;
   opacity: 0.45;
   transform: scale(0.82);
-  transition: transform 0.15s ease, opacity 0.15s ease, color 0.15s ease;
+  transition: transform 0.15s ease, opacity 0.15s ease, color 0.15s ease, filter 0.15s ease;
   cursor: pointer;
 }
 .praise-theme-cell.is-active {
@@ -770,7 +772,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   font-weight: 600;
   white-space: nowrap;
   cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, filter 0.15s ease;
 }
 .praise-chip:hover { border-color: var(--gold); }
 .praise-chip.active { background: var(--navy-deep); border-color: var(--navy-deep); color: #fff; }
@@ -799,7 +801,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   overflow: hidden;
   box-shadow: var(--shadow);
   aspect-ratio: 4/3;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.15s ease;
 }
 .praise-card:hover { transform: translateY(-4px); box-shadow: 0 10px 24px rgba(13,21,38,0.12); }
 .praise-thumb {
@@ -917,7 +919,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   border-radius: var(--radius);
   overflow: hidden;
   box-shadow: var(--shadow);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.15s ease;
   display: flex;
   flex-direction: column;
 }
@@ -1085,6 +1087,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   font-size: 0.88rem;
   color: var(--navy-deep);
   text-decoration: none;
+  transition: filter 0.15s ease;
 }
 .attachment-item:hover { border-color: var(--gold); background: #fdf7e6; }
 .attachment-item .icon { color: var(--gold-deep); }
@@ -1273,6 +1276,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   font-size: 0.88rem;
   font-weight: 700;
   margin-top: 4px;
+  transition: filter 0.15s ease;
 }
 .offering-receipt-status { font-size: 0.85rem; color: var(--gold-deep); margin: 4px 0 0; min-height: 1.2em; }
 /* ---------------- 기도 요청 ---------------- */
@@ -1409,6 +1413,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   height: 100%;
   min-height: 320px;
   text-align: center;
+  transition: filter 0.15s ease;
 }
 .kakao-map-preview img {
   width: 100%;
@@ -1428,6 +1433,14 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   padding: 8px 16px;
   border-radius: 999px;
   box-shadow: var(--shadow);
+  transition: transform 0.1s ease, background 0.1s ease, color 0.1s ease;
+}
+/* 사진 배경 전체를 어둡게 하는 정도로는 잘 안 보여서, 실제로 누르는 '버튼'처럼 보이는
+   이 배지 자체에 확실한 반응(눌림+색 변경)을 따로 줍니다 */
+.kakao-map-preview:active .kakao-map-cta {
+  transform: scale(0.92);
+  background: var(--gold);
+  color: var(--navy-deep);
 }
 .kakao-map-pin {
   position: absolute;
@@ -1597,8 +1610,9 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   padding: 26px 28px;
   text-align: left;
   box-shadow: var(--shadow);
+  transition: filter 0.15s ease;
 }
-.qt-card:hover { transform: translateY(-4px); box-shadow: 0 10px 24px rgba(13,21,38,0.12); transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.qt-card:hover { transform: translateY(-4px); box-shadow: 0 10px 24px rgba(13,21,38,0.12); transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.15s ease; }
 .qt-badge {
   display: inline-block;
   font-size: 0.72rem;
@@ -1676,6 +1690,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   padding: 12px 4px;
   border-bottom: 1px solid var(--line);
   font-size: 0.9rem;
+  transition: filter 0.15s ease;
 }
 .qt-archive-row .date { color: var(--muted); width: 88px; flex-shrink: 0; }
 .qt-archive-row .title { flex: 1; color: var(--ink); }
@@ -1767,7 +1782,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   font-size: 0.9rem;
   font-weight: 700;
   box-shadow: 0 8px 22px rgba(0,0,0,0.25);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.15s ease;
 }
 .band-fab:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(0,0,0,0.3); }
 .band-fab-badge {
@@ -1838,14 +1853,14 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   justify-content: center;
   text-align: center;
   gap: 8px;
-  min-height: 220px;
+  min-height: 300px;
   background: url('/images/quiz-card-bg.jpg') center/cover no-repeat, var(--navy-deep);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   padding: 28px 18px;
   color: #fff;
   overflow: hidden;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.15s ease;
 }
 /* 사진 위에서도 글자가 잘 보이도록, 사진과 글자 사이에 어두운 막을 하나 깔아둡니다 */
 .quiz-teaser-card::before {
