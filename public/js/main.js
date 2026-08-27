@@ -690,7 +690,8 @@
       return;
     }
 
-    const displayList = pool.slice(0, 4);
+    const isMobile = window.matchMedia('(max-width: 900px)').matches;
+    const displayList = pool.slice(0, isMobile ? 3 : 4);
     const categoryNameById = {};
     sermonCategoryList.forEach((c) => (categoryNameById[c.id] = c.name));
 
