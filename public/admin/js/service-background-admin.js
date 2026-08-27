@@ -1,32 +1,27 @@
 // ===================================================================
-// 예배 안내 배경 사진 (초점 위치 + 확대) — 관리자 화면 연동 스크립트
+// 배경 사진 (초점 위치 + 확대) 편집기 — 예배 안내 / 찬양 공용
 // 기존 /admin/js/admin.js 파일 맨 아래에 이어 붙이거나,
 // index_thml_admin_.html 에 <script> 태그로 이 파일을 따로 불러오면 됩니다.
 // (같은 페이지에 $ 헬퍼와 로그인 세션 쿠키가 이미 있다는 전제로 작성했습니다.
 //  $가 없다면 document.getElementById로 바꿔서 쓰시면 됩니다.)
 // ===================================================================
-(function () {
+function createSectionBackgroundEditor(opts) {
   const $ = (sel) => document.querySelector(sel);
 
-  const fileInput = $('#s-serviceImageFile');
-  const previewWrap = $('#s-serviceBgPreviewWrap');
-  const previewImg = $('#s-serviceBgPreviewImg');
-  const marker = $('#s-serviceBgFocalMarker');
-  const emptyHint = $('#s-serviceBgEmptyHint');
-  const zoomInput = $('#s-serviceZoom');
-  const zoomValueLabel = $('#s-serviceZoomValue');
-  const saveBtn = $('#s-serviceBgSaveBtn');
-  const statusEl = $('#s-serviceBgStatus');
+  const fileInput = $(opts.fileInputId);
+  const previewWrap = $(opts.previewWrapId);
+  const previewImg = $(opts.previewImgId);
+  const marker = $(opts.markerId);
+  const emptyHint = $(opts.emptyHintId);
+  const zoomInput = $(opts.zoomInputId);
+  const zoomValueLabel = $(opts.zoomValueId);
+  const saveBtn = $(opts.saveBtnId);
+  const statusEl = $(opts.statusId);
 
   if (!fileInput || !saveBtn) return; // 이 카드가 없는 페이지에서는 조용히 종료
 
   // 현재 상태 (서버에 보낼 값)
-  let state = {
-    backgroundImage: '',
-    focalX: 50,
-    focalY: 50,
-    zoom: 100
-  };
+  let state = { backgroundImage: '', focalX: 50, focalY: 50, zoom: 100 };
 
   function showPreview(url) {
     previewImg.src = url;
@@ -50,19 +45,20 @@
     try {
       const res = await fetch('/api/admin/site', { credentials: 'include' });
       const site = await res.json();
-      if (site && site.service && site.service.backgroundImage) {
+      const cfg = site && site[opts.siteKey];
+      if (cfg && cfg.backgroundImage) {
         state = {
-          backgroundImage: site.service.backgroundImage,
-          focalX: site.service.focalX != null ? site.service.focalX : 50,
-          focalY: site.service.focalY != null ? site.service.focalY : 50,
-          zoom: site.service.zoom || 100
+          backgroundImage: cfg.backgroundImage,
+          focalX: cfg.focalX != null ? cfg.focalX : 50,
+          focalY: cfg.focalY != null ? cfg.focalY : 50,
+          zoom: cfg.zoom || 100
         };
         zoomInput.value = state.zoom;
         zoomValueLabel.textContent = state.zoom;
         showPreview(state.backgroundImage);
       }
     } catch (err) {
-      console.error('예배 안내 배경 불러오기 실패:', err);
+      console.error(opts.label + ' 배경 불러오기 실패:', err);
     }
   }
 
@@ -109,7 +105,6 @@
   zoomInput.addEventListener('input', () => {
     state.zoom = Number(zoomInput.value);
     zoomValueLabel.textContent = state.zoom;
-    // 확대 배율에 따라 미리보기에서도 초점을 기준으로 확대되는 걸 보여줍니다
     previewImg.style.transformOrigin = state.focalX + '% ' + state.focalY + '%';
     previewImg.style.transform = 'scale(' + state.zoom / 100 + ')';
   });
@@ -126,7 +121,7 @@
         method: 'PUT',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ service: state })
+        body: JSON.stringify({ [opts.siteKey]: state })
       });
       if (!res.ok) throw new Error('저장 실패');
       setStatus('저장되었습니다. 홈페이지에서 확인해보세요.', false);
@@ -136,7 +131,35 @@
   });
 
   loadCurrent();
-})();
+}
+
+createSectionBackgroundEditor({
+  label: '예배 안내',
+  siteKey: 'service',
+  fileInputId: '#s-serviceImageFile',
+  previewWrapId: '#s-serviceBgPreviewWrap',
+  previewImgId: '#s-serviceBgPreviewImg',
+  markerId: '#s-serviceBgFocalMarker',
+  emptyHintId: '#s-serviceBgEmptyHint',
+  zoomInputId: '#s-serviceZoom',
+  zoomValueId: '#s-serviceZoomValue',
+  saveBtnId: '#s-serviceBgSaveBtn',
+  statusId: '#s-serviceBgStatus'
+});
+
+createSectionBackgroundEditor({
+  label: '찬양',
+  siteKey: 'praise',
+  fileInputId: '#s-praiseImageFile',
+  previewWrapId: '#s-praiseBgPreviewWrap',
+  previewImgId: '#s-praiseBgPreviewImg',
+  markerId: '#s-praiseBgFocalMarker',
+  emptyHintId: '#s-praiseBgEmptyHint',
+  zoomInputId: '#s-praiseZoom',
+  zoomValueId: '#s-praiseZoomValue',
+  saveBtnId: '#s-praiseBgSaveBtn',
+  statusId: '#s-praiseBgStatus'
+});
 
 // ===================================================================
 // 예배 시간별 세부 설정(굵게 / 글자 크기 / 설명) — 관리자 화면 연동 스크립트
