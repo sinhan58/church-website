@@ -445,7 +445,8 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 .service-card:hover .service-card-shape { transform: rotate(-7deg) scale(1.04); }
 .service-card-content { position: relative; z-index: 1; }
 #service.has-bg-photo .service-card .time,
-#service.has-bg-photo .service-card .name {
+#service.has-bg-photo .service-card .name,
+#service.has-bg-photo .service-card .desc {
   text-shadow: 0 2px 8px rgba(0,0,0,0.7);
 }
 .service-card .time {
@@ -459,6 +460,19 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 .service-card .name { color: #d7d9e4; font-size: 0.92rem; }
 .service-card-content.is-bold .time { font-weight: 800; }
 .service-card-content.is-bold .name { font-weight: 700; color: #fff; }
+/* 관리자가 예배별로 고르는 글자 크기 (시간/이름 둘 다 같은 비율로 조정) */
+.service-card-content--sm .time { font-size: 1.2rem; }
+.service-card-content--sm .name { font-size: 0.82rem; }
+.service-card-content--lg .time { font-size: 1.85rem; }
+.service-card-content--lg .name { font-size: 1rem; }
+.service-card .desc {
+  margin-top: 6px;
+  font-size: 0.78rem;
+  color: #b9bccb;
+  line-height: 1.4;
+  word-break: keep-all;
+}
+.service-card-content.is-bold .desc { color: #d7d9e4; }
 /* 카드 사이 대각선 구분선 (마름모와 같은 기울기, 마지막 카드 뒤에는 안 그림) */
 .service-card:not(:last-child)::after {
   content: '';
