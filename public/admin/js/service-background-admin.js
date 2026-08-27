@@ -48,7 +48,7 @@
   // 기존 저장된 값 불러오기
   async function loadCurrent() {
     try {
-      const res = await fetch('/admin/site', { credentials: 'include' });
+      const res = await fetch('/api/admin/site', { credentials: 'include' });
       const site = await res.json();
       if (site && site.service && site.service.backgroundImage) {
         state = {
@@ -74,7 +74,7 @@
     try {
       const formData = new FormData();
       formData.append('image', file);
-      const res = await fetch('/admin/upload', {
+      const res = await fetch('/api/admin/upload', {
         method: 'POST',
         credentials: 'include',
         body: formData
@@ -122,7 +122,7 @@
     }
     setStatus('저장 중...', false);
     try {
-      const res = await fetch('/admin/site', {
+      const res = await fetch('/api/admin/site', {
         method: 'PUT',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
