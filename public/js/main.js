@@ -593,11 +593,20 @@
   function closeMiniPlayer() {
     if (ytPlayer && ytPlayer.stopVideo) ytPlayer.stopVideo();
     const bar = $('#mini-player');
+    const icon = $('#mini-player-expand-icon');
     if (bar) {
       bar.style.display = 'none';
       bar.classList.remove('is-expanded');
     }
+    if (icon) icon.style.transform = '';
     document.body.classList.remove('has-mini-player');
+  }
+  function toggleMiniPlayerExpand() {
+    const bar = $('#mini-player');
+    const icon = $('#mini-player-expand-icon');
+    if (!bar) return;
+    const isExpanded = bar.classList.toggle('is-expanded');
+    if (icon) icon.style.transform = isExpanded ? 'rotate(180deg)' : '';
   }
 
   if ($('#mini-player-prev')) $('#mini-player-prev').addEventListener('click', playPrevInMiniPlayer);
@@ -605,11 +614,9 @@
   if ($('#mini-player-playpause')) $('#mini-player-playpause').addEventListener('click', toggleMiniPlayerPlayPause);
   if ($('#mini-player-close')) $('#mini-player-close').addEventListener('click', closeMiniPlayer);
   if ($('#mini-player-video')) {
-    $('#mini-player-video').addEventListener('click', () => {
-      const bar = $('#mini-player');
-      if (bar) bar.classList.toggle('is-expanded');
-    });
+    $('#mini-player-video').addEventListener('click', toggleMiniPlayerExpand);
   }
+  if ($('#mini-player-expand')) $('#mini-player-expand').addEventListener('click', toggleMiniPlayerExpand);
 
   // ---------------- 첨부파일(주보 등) 미리보기 ----------------
   function isPreviewable(name = '', url = '') {
