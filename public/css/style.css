@@ -951,20 +951,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   transition: transform 0.3s ease;
 }
 .praise-card:hover .praise-thumb img { transform: scale(1.05); }
-.praise-play {
-  position: absolute;
-  top: 50%; left: 50%;
-  transform: translate(-50%, -50%);
-  width: 52px; height: 52px;
-  border-radius: 50%;
-  border: none;
-  background: rgba(13,21,38,0.55);
-  color: #fff;
-  display: flex; align-items: center; justify-content: center;
-  transition: background 0.2s ease, transform 0.2s ease;
-}
-.praise-play svg { width: 22px; height: 22px; fill: currentColor; }
-.praise-card:hover .praise-play { background: var(--gold); color: var(--navy-deep); }
+.praise-play { display: none; }
 .praise-overlay-text {
   position: absolute;
   left: 0; right: 0; bottom: 0;
@@ -2074,6 +2061,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 .mini-player-controls button:hover { background: rgba(255,255,255,0.12); }
 .mini-player-controls svg { width: 20px; height: 20px; }
 #mini-player-playpause svg { width: 24px; height: 24px; }
+#mini-player-expand-icon { transition: transform 0.2s ease; }
 
 /* 미니 플레이어가 떠 있을 때는 우측 하단 버튼들을 그만큼 밀어올림 */
 body.has-mini-player .band-fab { bottom: calc(20px + 68px); }
