@@ -778,7 +778,7 @@
       return;
     }
     const isMobile = window.matchMedia('(max-width: 900px)').matches;
-    const displayList = isMobile ? list.slice(0, 16) : list;
+    const displayList = isMobile ? list.slice(0, 45) : list;
     grid.innerHTML = displayList
       .map(
         (p, i) => `
