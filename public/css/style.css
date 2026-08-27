@@ -437,18 +437,17 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 .service-card-shape {
   position: absolute;
   inset: 6px;
-  background: rgba(255,255,255,0.06);
   border-radius: 6px;
   transform: rotate(-7deg);
   z-index: 0;
-  transition: transform 0.2s ease, background 0.2s ease;
-}
-#service.has-bg-photo .service-card-shape {
-  background: rgba(13,21,38,0.55);
-  backdrop-filter: blur(2px);
+  transition: transform 0.2s ease;
 }
 .service-card:hover .service-card-shape { transform: rotate(-7deg) scale(1.04); }
 .service-card-content { position: relative; z-index: 1; }
+#service.has-bg-photo .service-card .time,
+#service.has-bg-photo .service-card .name {
+  text-shadow: 0 2px 8px rgba(0,0,0,0.7);
+}
 .service-card .time {
   font-family: var(--font-heading);
   font-size: 1.5rem;
@@ -1604,12 +1603,6 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
     transform: none;
     inset: 0;
     border-radius: var(--radius);
-    background: transparent !important;
-    backdrop-filter: none !important;
-  }
-  #service.has-bg-photo .service-card .time,
-  #service.has-bg-photo .service-card .name {
-    text-shadow: 0 2px 8px rgba(0,0,0,0.7);
   }
   .service-card:not(:last-child)::after { display: none; } /* 대각선 구분선은 PC 전용 */
   .service-dots { display: flex; }
