@@ -1,6 +1,6 @@
 (function () {
   const $ = (sel) => document.querySelector(sel);
-  const $$ = (sel) => Array.from(document.querySelectorAll(sel));
+  const $$ = (sel, root = document) => Array.from((root || document).querySelectorAll(sel));
 
   async function getJSON(url) {
     const res = await fetch(url);
@@ -344,16 +344,22 @@
     }
 
     const serviceGrid = $('#service-grid');
-    serviceGrid.innerHTML = (site.serviceTimes || [])
+    const serviceTimesList = site.serviceTimes || [];
+    serviceGrid.innerHTML = serviceTimesList
       .map(
-        (s) => `
-        <div class="service-card">
-          <div class="name">${escapeHtml(s.name)}</div>
-          <div class="time">${escapeHtml(s.time)}</div>
+        (s, i) => `
+        <div class="service-card reveal reveal-delay-${(i % 6) + 1}">
+          <div class="service-card-shape"></div>
+          <div class="service-card-content">
+            <div class="name">${escapeHtml(s.name)}</div>
+            <div class="time">${escapeHtml(s.time)}</div>
+          </div>
         </div>`
       )
       .join('');
+    observeReveals(serviceGrid);
     applyServiceBackground(site.service);
+    setupServiceDots(serviceGrid, serviceTimesList.length);
 
     if (site.contact) {
       $('#contact-address').textContent = site.contact.address || '';
@@ -1267,6 +1273,51 @@
       overlay.classList.remove('is-visible');
       section.classList.remove('has-bg-photo');
     }
+  }
+
+  // 모바일에서 카드를 스와이프할 때, 화면 중앙에 가장 가까운 카드에 맞춰 점을 켜줍니다
+  function setupServiceDots(grid, count) {
+    const dotsWrap = $('#service-dots');
+    if (!dotsWrap) return;
+    if (!count) {
+      dotsWrap.innerHTML = '';
+      return;
+    }
+    dotsWrap.innerHTML = Array.from({ length: count })
+      .map((_, i) => `<span class="dot${i === 0 ? ' is-active' : ''}"></span>`)
+      .join('');
+    const dots = $$('.dot', dotsWrap);
+    const cards = $$('.service-card', grid);
+    if (!cards.length) return;
+
+    let ticking = false;
+    function updateActiveDot() {
+      ticking = false;
+      const gridRect = grid.getBoundingClientRect();
+      const gridCenter = gridRect.left + gridRect.width / 2;
+      let closestIndex = 0;
+      let closestDist = Infinity;
+      cards.forEach((card, i) => {
+        const rect = card.getBoundingClientRect();
+        const cardCenter = rect.left + rect.width / 2;
+        const dist = Math.abs(cardCenter - gridCenter);
+        if (dist < closestDist) {
+          closestDist = dist;
+          closestIndex = i;
+        }
+      });
+      dots.forEach((dot, i) => dot.classList.toggle('is-active', i === closestIndex));
+    }
+    grid.addEventListener(
+      'scroll',
+      () => {
+        if (!ticking) {
+          ticking = true;
+          requestAnimationFrame(updateActiveDot);
+        }
+      },
+      { passive: true }
+    );
   }
 
   // ---------------- 오늘의 큐티 ----------------
