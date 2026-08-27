@@ -458,6 +458,8 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   word-break: keep-all;
 }
 .service-card .name { color: #d7d9e4; font-size: 0.92rem; }
+.service-card-content.is-bold .time { font-weight: 800; }
+.service-card-content.is-bold .name { font-weight: 700; color: #fff; }
 /* 카드 사이 대각선 구분선 (마름모와 같은 기울기, 마지막 카드 뒤에는 안 그림) */
 .service-card:not(:last-child)::after {
   content: '';
@@ -467,7 +469,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   width: 2px;
   height: 72%;
   background: linear-gradient(180deg, transparent, rgba(228,200,118,0.55) 20%, rgba(228,200,118,0.55) 80%, transparent);
-  transform: rotate(-7deg);
+  transform: rotate(7deg);
   z-index: 1;
 }
 /* 예배 안내 하단 점 인디케이터 (모바일 스와이프 전용, PC에서는 숨김) */
@@ -1598,7 +1600,17 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
     scroll-snap-align: center;
     padding: 40px 20px;
   }
-  .service-card-shape { transform: none; inset: 0; border-radius: var(--radius); }
+  .service-card-shape {
+    transform: none;
+    inset: 0;
+    border-radius: var(--radius);
+    background: transparent !important;
+    backdrop-filter: none !important;
+  }
+  #service.has-bg-photo .service-card .time,
+  #service.has-bg-photo .service-card .name {
+    text-shadow: 0 2px 8px rgba(0,0,0,0.7);
+  }
   .service-card:not(:last-child)::after { display: none; } /* 대각선 구분선은 PC 전용 */
   .service-dots { display: flex; }
 }
