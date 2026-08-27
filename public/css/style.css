@@ -1686,6 +1686,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   .nav-mobile { display: flex; }
   .about-grid { grid-template-columns: 1fr; }
   .contact-grid { grid-template-columns: 1fr; }
+  .map-box { display: none; }
   .section { padding: 64px 0; }
 
   /* 예배 안내: 모바일 화면을 가득 채우도록 */
