@@ -565,6 +565,18 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 }
 .carousel-nav svg { width: 100%; height: 100%; display: block; }
 .carousel-nav:hover { opacity: 1; color: var(--gold-deep); transform: translateY(-50%) scale(1.05); }
+/* 찬양 섹션은 사진 배경이라 기본(투명+남색 화살표) 스타일이 잘 안 보여서,
+   어두운 원형 배지를 깔고 흰 화살표로 대비를 줍니다 (다른 캐러셀엔 영향 없음) */
+#praise .carousel-nav {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: rgba(13,21,38,0.55);
+  color: #fff;
+  opacity: 1;
+}
+#praise .carousel-nav svg { width: 55%; height: 55%; }
+#praise .carousel-nav:hover { background: rgba(13,21,38,0.8); color: var(--gold); transform: translateY(-50%) scale(1.05); }
 .carousel-nav:not(:disabled):active { transform: translateY(-50%) scale(0.92); transition: transform 0.1s ease; }
 .carousel-nav:disabled { opacity: 0.12; cursor: default; }
 .carousel-nav:disabled:hover { transform: translateY(-50%) scale(1); color: var(--navy-deep); }
