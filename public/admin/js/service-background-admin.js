@@ -169,10 +169,12 @@
       listWrap.innerHTML = times
         .map(
           (s) => `
-          <label style="display:flex; align-items:center; gap:8px; font-size:0.92rem;">
-            <input type="checkbox" data-id="${s.id}" ${s.bold ? 'checked' : ''} />
-            ${s.name} (${s.time})
-          </label>`
+          <div class="field-checkbox" style="margin-bottom:0;">
+            <label>
+              <input type="checkbox" data-id="${s.id}" ${s.bold ? 'checked' : ''} />
+              ${s.name} (${s.time})
+            </label>
+          </div>`
         )
         .join('');
     } catch (err) {
