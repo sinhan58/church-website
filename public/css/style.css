@@ -1814,7 +1814,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   justify-content: center;
   text-align: center;
   gap: 8px;
-  min-height: 220px;
+  min-height: 300px;
   background: url('/images/quiz-card-bg.jpg') center/cover no-repeat, var(--navy-deep);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
