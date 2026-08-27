@@ -1,455 +1,2415 @@
-<!DOCTYPE html>
-<html lang="ko">
-<head>
-<meta charset="UTF-8" />
-<script>
-  if ('scrollRestoration' in history) { history.scrollRestoration = 'manual'; }
-  // 큐티 상세 등 다른 페이지에서 '/#qt' 같은 해시로 돌아올 때, 위쪽 섹션들이
-  // 아직 JS로 렌더링되기 전이라 브라우저가 엉뚱한(너무 위쪽) 위치로 먼저 점프했다가
-  // 콘텐츠가 채워지면서 다시 밀려 내려가는 것처럼 보이는 문제를 막기 위해 해시를
-  // 일단 떼어둡니다. 실제 이동은 데이터·폰트가 모두 준비된 뒤 main.js가 한 번만 합니다.
-  if (location.hash) {
-    window.__pendingScrollHash = location.hash;
-    history.replaceState(null, '', location.pathname + location.search);
-    window.__dataReadyPromise = new Promise(function (resolve) {
-      window.__resolveDataReady = resolve;
-    });
-  } else {
-    window.__dataReadyPromise = Promise.resolve();
+/* =========================================================
+   교회 홈페이지 스타일시트
+   팔레트: 딥네이비 #101B33 / 아이보리 #FAF7F0 / 골드 #C9A227
+   타이포: 제목 - Noto Serif KR / 본문 - Pretendard
+   ========================================================= */
+
+:root {
+  --navy-deep: #0d1526;
+  --navy: #16213e;
+  --navy-soft: #22315a;
+  --ivory: #faf7f0;
+  --ivory-dim: #f0ebdf;
+  --gold: #c9a227;
+  --gold-soft: #e4c876;
+  /* 흰색/아이보리 등 밝은 배경 위 골드 "글자"는 --gold만으로는 명도 대비가 낮아(WCAG 기준 미달)
+     잘 안 보일 수 있어서, 밝은 배경 전용으로 더 진하게 만든 색입니다. 어두운(네이비) 배경 위
+     텍스트나 버튼 배경색으로 쓰는 --gold는 그대로 둡니다. */
+  --gold-deep: #8f6b17;
+  --ink: #201f1c;
+  --muted: #6b6a63;
+  --line: #e4ddc9;
+  --radius: 4px;
+  --max-width: 1140px;
+  --shadow: 0 10px 30px rgba(13, 21, 38, 0.12);
+  /* 관리자 페이지 "글꼴 설정"에서 선택하면 JS가 이 값을 덮어씁니다 */
+  --font-heading: 'Noto Serif KR', serif;
+  --font-body: 'Pretendard', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
   }
-</script>
-<!-- 글씨체 준비될 때까지, 그리고(해시 진입 시) 콘텐츠 데이터가 준비될 때까지 화면 숨기기 -->
-<script>document.documentElement.classList.add('fonts-loading');</script>
-<style>
-  html.fonts-loading body { opacity: 0; }
-  body { transition: opacity 0.25s ease; }
-</style>
-<script>
-(function () {
-  var done = false;
-  function reveal() {
-    if (done) return;
-    done = true;
-    document.documentElement.classList.remove('fonts-loading');
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  margin: 0;
+  background: var(--ivory);
+  color: var(--ink);
+  font-family: var(--font-body);
+  line-height: 1.7;
+  font-size: 16px;
+  overflow-x: hidden; /* 슬라이드 애니메이션 등이 화면 밖으로 나가 있을 때 가로 스크롤이 생기지 않도록 */
+}
+
+/* 모달(게시글 상세·영상·첨부파일·사진 확대)이 하나라도 열려있는 동안,
+   뒤쪽 홈페이지 화면이 같이 스크롤되지 않도록 막습니다. */
+body.modal-open {
+  overflow: hidden;
+}
+
+/* 홈페이지에서 콘텐츠를 눌러 다른 페이지(큐티 상세, 기도 요청, 온라인 문의, 영수증 신청 등)로
+   넘어갔을 때, 화면이 뚝 떠 있지 않고 아래에서 위로 살짝 밀려 올라오며 부드럽게 나타나도록 합니다.
+   홈페이지(public/index.html)는 이미 섹션마다 자체 등장 애니메이션(.reveal)이 있어서 겹치지 않도록,
+   이 효과를 원하는 페이지의 <main>에만 page-enter 클래스를 붙여서 사용합니다. */
+main.page-enter {
+  animation: pageEnter 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(28px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-heading);
+  font-weight: 700;
+  color: var(--navy-deep);
+  margin: 0 0 0.5em;
+  letter-spacing: -0.01em;
+}
+
+a { color: inherit; text-decoration: none; }
+img { max-width: 100%; display: block; }
+ul { list-style: none; margin: 0; padding: 0; }
+button { font-family: inherit; cursor: pointer; }
+
+/* 모바일에서 탭할 때 뜨는 기본 파란/회색 번쩍임을 전체 요소에서 끔 (a, button뿐 아니라
+   클릭 가능한 div/span 카드류도 전부 대상) */
+* { -webkit-tap-highlight-color: transparent; }
+button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1s ease; }
+/* 카드/칩/버튼류는 이미 hover에서 transform(translateY 등)을 쓰고 있고, 큐티 카드는 PC에서
+   JS가 인라인 transform으로 위치를 잡고 있어서 :active에 transform을 또 쓰면 충돌합니다.
+   그래서 transform 대신 밝기(filter)로 눌림 반응을 줍니다.
+   중요: 각 요소의 "기본 상태" transition에도 filter를 같이 넣어야, 손을 뗄 때(밝기가
+   되돌아갈 때)도 부드럽게 풀려요. :active 쪽에만 넣으면 들어갈 때만 부드럽고 나올 때는
+   순간적으로 "탁" 튀는 깜빡임 현상이 생깁니다. */
+.sermon-hero-card:active,
+.sermon-list-row:active,
+.sermon-more-row:active,
+.praise-card:active,
+.praise-chip:active,
+.praise-theme-cell:active,
+.board-card:active,
+.qt-card:active,
+.qt-archive-row:active,
+.attachment-item:active,
+.quiz-teaser-card:active,
+.kakao-map-preview:active,
+.btn:active,
+.btn-gold:active,
+.band-fab:active,
+.nav-mobile a:active {
+  filter: brightness(0.92);
+}
+
+.container {
+  max-width: var(--max-width);
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.eyebrow {
+  display: inline-block;
+  font-size: 0.78rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--gold-deep);
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+/* 어두운(네이비) 배경 섹션에서는 밝은 골드가 대비가 더 좋아서 원래 색 그대로 사용 */
+.section--dark .eyebrow { color: var(--gold); }
+
+.section {
+  padding: 96px 0;
+}
+.section--tight { padding: 64px 0; }
+.section--dark {
+  background: var(--navy-deep);
+  color: var(--ivory-dim);
+}
+.section--dark h2, .section--dark h3 { color: var(--ivory); }
+
+/* ---------------- 예배 안내 배경 사진 ---------------- */
+#service { position: relative; overflow: hidden; }
+.service-bg-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 50%; /* 관리자가 지정한 초점 좌표로 JS가 덮어씀 */
+  z-index: 0;
+  display: none; /* 사진이 등록된 경우에만 JS가 표시 */
+}
+.service-bg-img.is-visible { display: block; }
+.service-bg-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(13,21,38,0.35), rgba(13,21,38,0.58));
+  z-index: 1;
+  display: none;
+}
+.service-bg-overlay.is-visible { display: block; }
+#service .container { position: relative; z-index: 2; }
+/* 사진이 무슨 색이든 글씨는 항상 잘 보이도록, 사진이 있을 때만 제목에 그림자 추가
+   (카드 자체 대비는 .service-card-shape 쪽에서 처리) */
+#service.has-bg-photo .section-head h2,
+#service.has-bg-photo .section-head p {
+  text-shadow: 0 2px 10px rgba(0,0,0,0.55);
+}
+
+/* ---------------- 찬양 배경 사진 ---------------- */
+#praise { position: relative; overflow: hidden; }
+.praise-bg-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 50%;
+  z-index: 0;
+  display: none;
+}
+.praise-bg-img.is-visible { display: block; }
+.praise-bg-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(13,21,38,0.45) 0%, rgba(13,21,38,0.25) 45%, rgba(13,21,38,0.45) 100%);
+  z-index: 1;
+  display: none;
+}
+.praise-bg-overlay.is-visible { display: block; }
+#praise .container { position: relative; z-index: 2; }
+/* 찬양 섹션은 원래 밝은 배경 기준으로 만들어진 글씨색이라, 사진이 있을 때는
+   흰색으로 뒤집어줘야 읽혀요 (찬양 카드 자체는 영상 썸네일이라 별도 처리 불필요) */
+#praise.has-bg-photo .section-head h2 { color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,0.6); }
+#praise.has-bg-photo .section-head p { color: rgba(255,255,255,0.85); text-shadow: 0 2px 10px rgba(0,0,0,0.6); }
+.section-head {
+  text-align: center;
+  max-width: 640px;
+  margin: 0 auto 56px;
+}
+.section-head p { color: var(--muted); }
+.section--dark .section-head p { color: #b9bccb; }
+
+/* ---------------- Header / Nav ---------------- */
+.site-header {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 100;
+  /* 완전히 투명하게 두면(0.0) 뒤에 있는 다른 글자·이미지가 헤더 글씨와 겹쳐 보여
+     헷갈릴 수 있어서, 스크롤하기 전에도 은은한 그라데이션을 항상 깔아둡니다.
+     대문 사진은 여전히 비치되, 뒤 콘텐츠가 헤더 글자와 뒤섞여 보이는 문제를 없앱니다. */
+  background: linear-gradient(180deg, rgba(13,21,38,0.45) 0%, rgba(13,21,38,0.15) 70%, rgba(13,21,38,0) 100%);
+  transition: background 0.3s ease, box-shadow 0.3s ease;
+  padding: 20px 0;
+}
+.site-header.scrolled {
+  /* 모바일 번쩍임 방지를 위해 흐림 효과(backdrop-filter) 대신 살짝 더 진한
+     불투명 배경만 사용합니다. 이미 94~96%가 불투명해서 육안상 차이는 거의 없습니다. */
+  background: rgba(13, 21, 38, 0.96);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+  padding: 12px 0;
+}
+
+/* PC 등 성능 여유가 있는 화면에서는 원래의 유리 느낌(흐림 효과)을 그대로 살립니다 */
+@media (min-width: 861px) {
+  .site-header {
+    transition: background 0.3s ease, box-shadow 0.3s ease, backdrop-filter 0.3s ease;
+  }
+  .site-header.scrolled {
+    background: rgba(13, 21, 38, 0.94);
+    backdrop-filter: blur(6px);
+  }
+}
+.site-header .container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.brand {
+  font-family: var(--font-heading);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: -0.01em;
+}
+.brand .gold-dot { color: var(--gold); }
+
+.nav-desktop { display: flex; gap: 36px; }
+.nav-desktop a {
+  color: #eceaf0;
+  font-size: 0.95rem;
+  font-weight: 500;
+  position: relative;
+  padding: 6px 0;
+}
+.nav-desktop a::after {
+  content: '';
+  position: absolute; left: 0; bottom: 0;
+  width: 0; height: 2px;
+  background: var(--gold);
+  transition: width 0.25s ease;
+}
+.nav-desktop a:hover::after { width: 100%; }
+
+.hamburger {
+  display: none;
+  flex-direction: column;
+  gap: 5px;
+  background: none;
+  border: none;
+  padding: 8px;
+}
+.hamburger span {
+  width: 26px; height: 2px;
+  background: #fff;
+  border-radius: 2px;
+  transition: transform 0.25s ease, opacity 0.25s ease;
+}
+.hamburger.active span:nth-child(1) { transform: translateY(7px) rotate(45deg); }
+.hamburger.active span:nth-child(2) { opacity: 0; }
+.hamburger.active span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
+
+.nav-mobile {
+  display: none;
+  flex-direction: column;
+  position: fixed;
+  top: 0; right: 0;
+  width: min(78vw, 320px);
+  height: 100vh;
+  background: var(--navy-deep);
+  padding: 100px 32px 32px;
+  transform: translateX(100%);
+  transition: transform 0.3s ease;
+  z-index: 99;
+}
+.nav-mobile.open { transform: translateX(0); }
+.nav-mobile a {
+  color: #eceaf0;
+  padding: 14px 0;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  font-size: 1.05rem;
+  transition: filter 0.15s ease;
+}
+
+/* ---------------- Hero ---------------- */
+.hero {
+  position: relative;
+  min-height: 100vh; /* 구형 브라우저용 대체값 */
+  min-height: 100svh; /* 모바일 주소창이 접히기 전(가장 작은) 화면 높이로 고정 — 주소창이
+                          나중에 접혀도 화면 높이를 다시 계산하지 않아 크기가 두 번 조정되는
+                          현상이 없어집니다 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--navy-deep); /* 사진이 없거나 아직 안 불러와졌을 때의 기본 배경색 */
+  color: #fff;
+  text-align: center;
+  overflow: hidden;
+}
+/* 글씨가 잘 보이도록 어둡게 깔아주는 그라데이션은 사진과 분리된 고정 레이어로 둡니다
+   (사진이 나중에 바뀌어도 이 오버레이 자체는 흔들리지 않습니다) */
+.hero::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(13,21,38,0.4), rgba(13,21,38,0.55));
+  z-index: 1;
+}
+/* 관리자가 등록한 대문 사진을 담는 전용 레이어. 기본은 투명 상태(opacity:0)로 시작해서
+   JS가 사진을 다 불러온 뒤 .is-visible을 붙이면 그제서야 부드럽게 페이드인됩니다.
+   (사진이 로딩되자마자 '빡' 하고 즉시 나타나던 현상을 없애기 위함) */
+.hero-bg-photo {
+  position: absolute;
+  inset: 0;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  opacity: 0;
+  transition: opacity 0.8s ease;
+}
+.hero-bg-photo.is-visible { opacity: 1; }
+.hero-inner {
+  position: relative;
+  z-index: 2;
+  max-width: 720px;
+  padding: 0 24px;
+  animation: heroRise 1s ease both;
+}
+@keyframes heroRise {
+  from { opacity: 0; transform: translateY(18px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.verse-card {
+  border-top: 1px solid var(--gold);
+  border-bottom: 1px solid var(--gold);
+  padding: 28px 8px;
+  margin-bottom: 28px;
+}
+.verse-card .verse-text {
+  font-family: var(--font-heading);
+  font-size: clamp(1.35rem, 3vw, 1.85rem);
+  line-height: 1.6;
+  color: #fff;
+  margin-bottom: 10px;
+  white-space: pre-line;
+  word-break: keep-all;
+}
+.verse-card .verse-ref {
+  color: var(--gold-soft);
+  font-size: 0.9rem;
+  letter-spacing: 0.08em;
+}
+.hero-subtitle {
+  color: #d7d9e4;
+  font-size: 1.05rem;
+  margin-bottom: 36px;
+}
+.hero-cta { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+
+.btn {
+  display: inline-block;
+  padding: 13px 28px;
+  border-radius: var(--radius);
+  font-weight: 600;
+  font-size: 0.95rem;
+  border: 1px solid transparent;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease, filter 0.15s ease;
+}
+.btn:hover { transform: translateY(-2px); }
+.btn:active { transform: scale(0.97); transition: transform 0.1s ease, filter 0.15s ease; }
+.btn--gold { background: var(--gold); color: var(--navy-deep); }
+.btn--gold:hover { box-shadow: 0 8px 20px rgba(201,162,39,0.35); }
+.btn--outline { border-color: rgba(255,255,255,0.5); color: #fff; }
+.btn--outline:hover { background: rgba(255,255,255,0.1); }
+.btn--navy { background: var(--navy-deep); color: #fff; }
+.btn--sm { padding: 9px 18px; font-size: 0.85rem; }
+
+.scroll-cue {
+  position: absolute;
+  bottom: 28px; left: 50%;
+  transform: translateX(-50%);
+  color: rgba(255,255,255,0.65);
+  font-size: 0.75rem;
+  letter-spacing: 0.15em;
+  z-index: 2;
+}
+.scroll-cue::after {
+  content: '';
+  display: block;
+  width: 1px; height: 36px;
+  background: rgba(255,255,255,0.5);
+  margin: 8px auto 0;
+  /* 끝없이 반복하지 않고 4번만 움직인 뒤 멈춥니다. "아래로 스크롤하세요"라는 힌트는
+     처음 몇 초만 보여도 충분하고, 계속 움직이는 요소가 있으면 배터리도 더 쓰고
+     화면 밝기 전환 같은 시스템 처리와 겹칠 때 버벅임의 원인이 될 수 있습니다. */
+  animation: scrollLine 1.8s ease 4;
+  animation-fill-mode: forwards;
+}
+@keyframes scrollLine {
+  0% { transform: scaleY(0); transform-origin: top; opacity: 0; }
+  40% { transform: scaleY(1); transform-origin: top; opacity: 1; }
+  60% { transform: scaleY(1); transform-origin: bottom; opacity: 1; }
+  100% { transform: scaleY(0); transform-origin: bottom; opacity: 0; }
+}
+
+/* ---------------- About ---------------- */
+.about-grid {
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr;
+  gap: 56px;
+  align-items: center;
+}
+.about-grid img {
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  aspect-ratio: 4/5;
+  object-fit: cover;
+  width: 100%;
+}
+.about-body p { color: #4a4942; white-space: pre-line; word-break: keep-all; }
+.pastor-box {
+  margin-top: 28px;
+  padding: 22px 24px;
+  background: var(--ivory-dim);
+  border-left: 3px solid var(--gold);
+  border-radius: var(--radius);
+}
+.pastor-box .name { font-weight: 700; color: var(--navy-deep); margin-bottom: 6px; }
+.pastor-box p:not(.name) { white-space: pre-line; word-break: keep-all; }
+
+/* ---------------- Service Times ---------------- */
+.service-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 20px;
+  position: relative;
+}
+.service-card {
+  position: relative;
+  padding: 34px 20px;
+  text-align: center;
+}
+/* 카드 모양(마름모)과 글씨를 분리합니다: 모양만 기울이고 글씨는 항상 수평으로 유지 */
+.service-card-shape {
+  position: absolute;
+  inset: 6px;
+  border-radius: 6px;
+  transform: rotate(-7deg);
+  z-index: 0;
+  transition: transform 0.2s ease;
+}
+.service-card:hover .service-card-shape { transform: rotate(-7deg) scale(1.04); }
+.service-card-content { position: relative; z-index: 1; }
+#service.has-bg-photo .service-card .time,
+#service.has-bg-photo .service-card .name,
+#service.has-bg-photo .service-card .desc {
+  text-shadow: 0 2px 8px rgba(0,0,0,0.7);
+}
+.service-card .time {
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  color: var(--gold-soft);
+  margin: 8px 0 4px;
+  white-space: pre-line;
+  word-break: keep-all;
+}
+.service-card .name { color: #d7d9e4; font-size: 0.92rem; }
+.service-card-content.is-bold .time { font-weight: 800; }
+.service-card-content.is-bold .name { font-weight: 700; color: #fff; }
+/* 관리자가 예배별로 고르는 글자 크기 (시간/이름 둘 다 같은 비율로 조정) */
+.service-card-content--sm .time { font-size: 1.2rem; }
+.service-card-content--sm .name { font-size: 0.82rem; }
+.service-card-content--lg .time { font-size: 1.85rem; }
+.service-card-content--lg .name { font-size: 1rem; }
+.service-card .desc {
+  margin-top: 6px;
+  font-size: 0.78rem;
+  color: #b9bccb;
+  line-height: 1.4;
+  word-break: keep-all;
+}
+.service-card-content.is-bold .desc { color: #d7d9e4; }
+/* 카드 사이 대각선 구분선 (마름모와 같은 기울기, 마지막 카드 뒤에는 안 그림) */
+.service-card:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 14%;
+  right: -11px;
+  width: 2px;
+  height: 72%;
+  background: linear-gradient(180deg, transparent, rgba(228,200,118,0.55) 20%, rgba(228,200,118,0.55) 80%, transparent);
+  transform: rotate(7deg);
+  z-index: 1;
+}
+/* 예배 안내 하단 점 인디케이터 (모바일 스와이프 전용, PC에서는 숨김) */
+.service-dots {
+  display: none;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 18px;
+}
+.service-dots .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.35);
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+.service-dots .dot.is-active {
+  background: var(--gold);
+  transform: scale(1.3);
+}
+
+/* ---------------- Sermons ---------------- */
+.sermon-updated {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-top: -32px;
+  margin-bottom: 40px;
+}
+/* 설교·찬양 캐러셀 공용 래퍼 (좌우 화살표 버튼 위치 기준) */
+.carousel-wrap { position: relative; }
+
+/* 설교·찬양 캐러셀 전용 좌우 버튼 (카드 바깥쪽으로 살짝 빠져나오게 배치해서
+   영상 화면과 안 겹치도록 합니다) */
+.carousel-nav {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 20;
+  width: 26px;
+  height: 68px; /* 세로로 큼직하게, 예전 원형 버튼의 약 2배 높이 */
+  background: none;
+  border: none;
+  box-shadow: none;
+  padding: 0;
+  cursor: pointer;
+  color: var(--navy-deep);
+  opacity: 0.45;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: opacity 0.2s ease, color 0.2s ease, transform 0.2s ease;
+}
+.carousel-nav svg { width: 100%; height: 100%; display: block; }
+.carousel-nav:hover { opacity: 1; color: var(--gold-deep); transform: translateY(-50%) scale(1.05); }
+.carousel-nav:not(:disabled):active { transform: translateY(-50%) scale(0.92); transition: transform 0.1s ease; }
+.carousel-nav:disabled { opacity: 0.12; cursor: default; }
+.carousel-nav:disabled:hover { transform: translateY(-50%) scale(1); color: var(--navy-deep); }
+.carousel-nav--prev { left: -30px; }
+.carousel-nav--next { right: -30px; }
+@media (max-width: 1180px) {
+  .carousel-nav--prev { left: -8px; }
+  .carousel-nav--next { right: -8px; }
+}
+@media (max-width: 900px) {
+  .carousel-nav { display: none; } /* 모바일은 스와이프로 넘기므로 버튼은 숨김 */
+}
+
+.sermon-grid { display: none; } /* 예전 캐러셀용, 더는 사용하지 않음 */
+
+.sermon-more-link { display: none; }
+
+.sermon-empty {
+  text-align: center;
+  color: var(--muted);
+  padding: 40px 20px;
+  border: 1px dashed var(--line);
+  border-radius: var(--radius);
+}
+
+/* ---------------- 설교 섹션: 합성된 히어로 이미지 + 지난 설교 목록 ---------------- */
+.sermon-layout {
+  display: grid;
+  grid-template-columns: 61% 39%; /* 메인 설교 영역 추가 확대, 지난 설교 목록 1cm 추가 축소 */
+  margin-top: 8px;
+  background: linear-gradient(135deg, var(--navy-deep) 0%, #241a35 100%);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  border: 2px solid var(--gold);
+}
+@media (max-width: 900px) {
+  .sermon-layout {
+    grid-template-columns: 1fr;
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+    border-radius: 0;
+    border: none;
+  }
+  .sermon-list-wrap { border-left: none; border-top: 1px solid rgba(255,255,255,0.12); }
+  /* PC는 그리드 stretch로 목록 높이에 자동으로 맞춰지지만, 모바일은 세로로
+     쌓이는 구조라 맞춰줄 짝이 없어서 사진 실제 비율(4:3)을 그대로 지정합니다. */
+  .sermon-hero-card { aspect-ratio: 4/3; }
+}
+
+.sermon-hero-card {
+  position: relative;
+  cursor: pointer;
+  overflow: hidden; /* 확대돼도 카드 테두리 밖으로는 절대 안 나가도록(글씨 잘림 방지) */
+  background: var(--navy-deep);
+}
+.sermon-hero-card img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.3s ease, filter 0.15s ease;
+}
+.sermon-hero-card:hover img { transform: scale(1.035); }
+.sermon-hero-card .sermon-hero-play {
+  position: absolute;
+  left: 25%; bottom: 12.7%; /* 성경구절과 안 겹치도록 2cm 아래로(교회명·목사님 이름 사이) */
+  width: 56px; height: 56px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.92);
+  display: flex; align-items: center; justify-content: center;
+  color: var(--navy-deep);
+  box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+.sermon-hero-card .sermon-hero-play svg { width: 24px; height: 24px; }
+.sermon-hero-card .sermon-hero-play-text { display: none; } /* PC에서는 아이콘만, 글자는 숨김 */
+.sermon-hero-card:hover .sermon-hero-play { transform: scale(1.08); background: var(--gold); }
+
+@media (max-width: 900px) {
+  /* 모바일: 사진 쪽(오른쪽 팔 소매 부근)에, 둥근 사각형 + "설교 보기" 글자 버튼으로 */
+  .sermon-hero-card .sermon-hero-play {
+    left: auto; right: 6%; bottom: 10%;
+    width: auto; height: auto;
+    padding: 10px 18px;
+    border-radius: 12px;
+    gap: 6px;
+  }
+  .sermon-hero-card .sermon-hero-play-icon { display: none; } /* 모바일에서는 아이콘 숨김 */
+  .sermon-hero-card .sermon-hero-play-text {
+    display: block;
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--navy-deep);
+  }
+}
+
+.sermon-list-wrap {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  padding: 30px 32px;
+  background: var(--navy-deep); /* 사진 배경과 같은 톤으로 맞춰서 이음새를 없앰 */
+}
+.sermon-list {
+  display: flex;
+  flex-direction: column;
+}
+.sermon-list-row {
+  position: relative;
+  display: block;
+  padding: 15px 0;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255,255,255,0.14);
+  transition: transform 0.2s ease, filter 0.15s ease;
+}
+.sermon-list-row:last-child { border-bottom: none; }
+.sermon-list-row:hover { transform: translateX(6px); }
+.sermon-list-row .badges { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 6px; }
+.sermon-list-row .theme-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  color: var(--gold);
+  background: rgba(201,162,39,0.16);
+  padding: 2px 9px;
+  border-radius: 999px;
+}
+.sermon-list-row .title {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.4em;
+  font-weight: 600;
+  font-size: 0.95rem;
+  color: #fff;
+  margin: 0 0 4px;
+}
+.sermon-list-row .title .bullet { color: var(--gold); flex-shrink: 0; }
+.sermon-list-row .title .text {
+  word-break: keep-all;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.sermon-list-row .verse { color: rgba(255,255,255,0.5); font-size: 0.8rem; margin: 0; padding-left: 1em; }
+
+.sermon-more-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 18px;
+  margin-left: auto; /* 오른쪽 정렬하되, 클릭 영역은 내용 크기만큼만 */
+  transition: opacity 0.2s ease, filter 0.15s ease;
+}
+.sermon-more-row:hover { opacity: 0.8; }
+.yt-icon { flex-shrink: 0; }
+.sermon-more-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.85);
+}
+
+/* video modal */
+.video-modal {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(13,21,38,0.9);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.video-modal.open { display: flex; }
+.video-modal-inner {
+  position: relative;
+  /* 가로/세로 크기는 이제 JS가 화면 크기에 맞춰 직접 계산해서 넣어줍니다
+     (가로만 기준으로 잡으면 화면이 넓고 낮을 때 세로가 작아 보이는 문제가 있어서,
+     가로·세로 중 더 빠듯한 쪽에 맞춰 최대한 크게 키우는 방식으로 바꿨습니다) */
+}
+#video-modal-frame {
+  /* 이 div에 높이가 지정되어 있지 않으면, 안의 iframe이 height:100%를 줘도 기준
+     삼을 높이가 없어서 브라우저 기본 높이(아주 작음)로 떨어집니다. 부모(.video-modal-inner,
+     JS가 크기를 정확히 계산해서 넣어줌)에 꽉 채우도록 절대 위치로 고정해 해결합니다. */
+  position: absolute;
+  inset: 0;
+}
+.video-modal-inner iframe { width: 100%; height: 100%; border: 0; border-radius: var(--radius); }
+.video-modal-close {
+  position: absolute;
+  bottom: -52px;
+  left: 50%;
+  top: auto; right: auto;
+  transform: translateX(-50%);
+  color: #fff;
+  font-size: 0.95rem;
+  background: rgba(255,255,255,0.15);
+  border: none;
+  padding: 8px 18px;
+  border-radius: 999px;
+}
+
+.file-modal {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(13,21,38,0.85);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.file-modal.open { display: flex; }
+.file-modal-inner {
+  width: 100%;
+  max-width: 860px;
+  height: 88vh;
+  background: var(--ivory);
+  border-radius: var(--radius);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.file-modal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.9rem;
+  color: var(--ink);
+}
+.file-modal-actions { display: flex; align-items: center; gap: 16px; }
+.file-modal-actions a { font-size: 0.85rem; color: var(--gold-deep); }
+.file-modal-close { background: none; border: none; font-size: 0.9rem; color: var(--muted); line-height: 1; }
+#file-modal-frame { flex: 1; overflow: auto; background: #525659; }
+#file-modal-frame iframe { width: 100%; height: 100%; border: 0; }
+#file-modal-frame img { width: 100%; height: 100%; object-fit: contain; }
+
+/* ---------------- Praise (찬양) ---------------- */
+.praise-category-chips {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  margin-bottom: 20px;
+  padding-bottom: 2px;
+}
+.praise-category-chips::-webkit-scrollbar { display: none; }
+
+.praise-theme-dial-wrap {
+  display: none; /* PC에서는 숨김, 칩 목록을 대신 씀 */
+  position: relative;
+  margin-top: 18px;
+  padding: 14px 0 8px;
+  text-align: center;
+  background: var(--ivory-dim);
+  border-radius: var(--radius);
+}
+/* 사진 배경이 있을 때는 이 박스도 투명하게 뚫어서 사진이 보이게 하고,
+   글씨는 밝은 배경 기준 색이라 흰 계열로 뒤집어줍니다 */
+#praise.has-bg-photo .praise-theme-dial-wrap { background: transparent; }
+#praise.has-bg-photo .praise-theme-dial-label {
+  color: var(--gold);
+  text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+}
+#praise.has-bg-photo .praise-theme-cell {
+  color: rgba(255,255,255,0.6);
+  text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+}
+#praise.has-bg-photo .praise-theme-cell.is-active { color: #fff; }
+.praise-theme-dial-wrap::before,
+.praise-theme-dial-wrap::after {
+  /* 다이얼에서 실제로 선택되는 자리(가운데)를, 글자를 가리지 않도록 양옆에서 살짝 표시 */
+  content: '';
+  position: absolute;
+  top: 34px;
+  bottom: 8px;
+  width: 1px;
+  background: linear-gradient(180deg, transparent, rgba(201,162,39,0.5), transparent);
+  pointer-events: none;
+}
+.praise-theme-dial-wrap::before { left: calc(50% - 52px); }
+.praise-theme-dial-wrap::after { left: calc(50% + 52px); }
+.praise-theme-dial-label {
+  display: inline-block;
+  font-size: 0.72rem;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--gold-deep);
+  font-weight: 700;
+  margin: 0 0 2px;
+}
+.praise-theme-dial {
+  display: flex;
+  align-items: center;
+  gap: 26px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  padding: 8px 50%; /* 좌우로 화면 절반만큼 여백을 둬서, 맨 앞/맨 뒤 테마도 정가운데까지 스크롤됩니다 */
+}
+.praise-theme-dial::-webkit-scrollbar { display: none; }
+.praise-theme-cell {
+  scroll-snap-align: center;
+  flex-shrink: 0;
+  padding: 6px 2px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+  opacity: 0.45;
+  transform: scale(0.82);
+  transition: transform 0.15s ease, opacity 0.15s ease, color 0.15s ease, filter 0.15s ease;
+  cursor: pointer;
+}
+.praise-theme-cell.is-active {
+  color: var(--navy-deep);
+  font-weight: 800;
+  opacity: 1;
+  transform: scale(1.18);
+}
+@media (max-width: 900px) {
+  /* 모바일: 옆으로 길게 늘어지는 칩 대신, 딱 맞춰 돌리는 다이얼로 대체 */
+  .praise-category-chips { display: none !important; }
+  .praise-theme-dial-wrap { display: block; }
+}
+.praise-chip {
+  flex-shrink: 0;
+  padding: 8px 18px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--muted);
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease, filter 0.15s ease;
+}
+.praise-chip:hover { border-color: var(--gold); }
+.praise-chip.active { background: var(--navy-deep); border-color: var(--navy-deep); color: #fff; }
+
+.praise-grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(2, auto); /* PC 기준 4열 x 2행 = 8개 고정 노출 */
+  grid-auto-columns: calc((100% - 20px * 3) / 4);
+  gap: 20px;
+  overflow-x: auto;
+  overflow-y: hidden; /* overflow-x만 지정하면 overflow-y가 자동으로 auto가 되어 세로 오버스크롤 바운스가 생겨서 명시적으로 막음 */
+  scroll-snap-type: x proximity;
+  scroll-behavior: smooth;
+  scrollbar-width: none;
+  overscroll-behavior-x: contain; /* 가로축만 감싸 세로 스크롤은 정상적으로 페이지로 전달되게 함 */
+  touch-action: pan-x pan-y;
+}
+.praise-grid::-webkit-scrollbar { display: none; }
+.praise-card {
+  position: relative;
+  cursor: pointer;
+  scroll-snap-align: start;
+  touch-action: pan-x pan-y;
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  aspect-ratio: 4/3;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.15s ease;
+}
+.praise-card:hover { transform: translateY(-4px); box-shadow: 0 10px 24px rgba(13,21,38,0.12); }
+.praise-thumb {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+.praise-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+.praise-card:hover .praise-thumb img { transform: scale(1.05); }
+.praise-play {
+  position: absolute;
+  top: 50%; left: 50%;
+  transform: translate(-50%, -50%);
+  width: 52px; height: 52px;
+  border-radius: 50%;
+  border: none;
+  background: rgba(13,21,38,0.55);
+  color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+.praise-play svg { width: 22px; height: 22px; fill: currentColor; }
+.praise-card:hover .praise-play { background: var(--gold); color: var(--navy-deep); }
+.praise-overlay-text {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  padding: 14px 16px;
+  background: linear-gradient(180deg, rgba(13,21,38,0) 0%, rgba(13,21,38,0.85) 100%);
+  color: #fff;
+}
+.praise-overlay-text .title {
+  margin: 0;
+  font-size: 0.92rem;
+  font-weight: 600;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.praise-overlay-text .singer {
+  margin: 2px 0 0;
+  font-size: 0.78rem;
+  color: rgba(255,255,255,0.75);
+}
+.praise-tile-title { display: none; } /* PC에서는 카드 위 오버레이로 이미 제목이 보이므로 숨김 */
+@media (max-width: 900px) {
+  .carousel-wrap {
+    width: 100vw;
+    margin-left: calc(50% - 50vw);
+    margin-right: calc(50% - 50vw);
+  }
+  /* 모바일: 유튜브 뮤직처럼 3x3(9개) 정사각형이 한 화면에 붙어서 보이고,
+     옆으로 넘기면 다음 9개 페이지로 한 번에 스냅됩니다 */
+  .praise-grid {
+    display: grid;
+    grid-auto-flow: column;
+    grid-template-rows: repeat(3, auto);
+    grid-auto-columns: calc((100% - 4px) / 3); /* 한 화면에 정확히 3열(=9개)이 꽉 차게 */
+    gap: 2px 2px;
+    padding: 0; /* 완전 풀블리드: 화면 가장자리까지 타일이 딱 붙음 */
+    overflow-x: auto;
+    overflow-y: hidden; /* 의도치 않은 세로 오버스크롤 바운스 방지 */
+    scroll-snap-type: x mandatory; /* 9개 단위로 한 페이지씩 딱딱 넘어가도록 */
+    scroll-behavior: smooth;
+    overscroll-behavior-x: contain; /* 가로축만 감싸 세로 스크롤은 정상적으로 페이지로 전달되게 함 */
+    touch-action: pan-x pan-y;
+    scrollbar-width: none;
+  }
+  .praise-grid::-webkit-scrollbar { display: none; }
+  .praise-card {
+    scroll-snap-align: none;
+    width: 100%;
+    aspect-ratio: 1/1;
+    overflow: hidden;
+  }
+  .praise-card:nth-child(9n+1) { scroll-snap-align: start; } /* 9개 페이지의 시작 지점에서만 스냅 */
+  .praise-card .praise-thumb { aspect-ratio: 1/1; height: 100%; }
+  .praise-card .praise-play { display: none; }
+  /* 유튜브 뮤직처럼 제목을 사진 밖이 아니라 사진 안쪽 하단에 그라데이션과 함께 표시 */
+  .praise-card .praise-overlay-text { padding: 16px 6px 6px; }
+  .praise-card .praise-overlay-text .title {
+    font-size: 0.66rem;
+    line-height: 1.25;
+    -webkit-line-clamp: 2;
+  }
+  .praise-card .praise-overlay-text .singer { display: none; } /* 타일이 작아 제목만 표시 */
+  .praise-tile-title { display: none; } /* 사진 안쪽 오버레이로 대체 */
+  #praise-scroll-track { display: none; } /* 막대 스크롤바 대신 아래 점 인디케이터를 사용 */
+}
+@media (max-width: 560px) {
+  .praise-grid { gap: 1px 1px; }
+}
+
+/* 찬양 캐러셀 하단 점 페이지 인디케이터 (모바일 전용) */
+.praise-dots {
+  display: none;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 14px;
+}
+.praise-dots .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.3);
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+#praise:not(.has-bg-photo) .praise-dots .dot { background: rgba(13,21,38,0.25); }
+.praise-dots .dot.is-active {
+  background: var(--gold);
+  transform: scale(1.3);
+}
+@media (max-width: 900px) {
+  .praise-dots { display: flex; }
+}
+
+.praise-scroll-fade { display: none; }
+
+.scroll-progress-track {
+  margin: 10px auto 0;
+  max-width: 240px;
+  height: 4px;
+  border-radius: 999px;
+  background: rgba(13,21,38,0.08);
+  overflow: hidden;
+}
+.scroll-progress-thumb {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--gold);
+  width: 30%;
+  transform: translateX(0);
+  transition: transform 0.08s linear;
+}
+
+/* ---------------- Board (소식·활동) ---------------- */
+.board-tabs {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-bottom: 40px;
+}
+.board-tab {
+  padding: 9px 20px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: #fff;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.board-tab.active { background: var(--navy-deep); border-color: var(--navy-deep); color: #fff; }
+
+.board-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
+.board-card {
+  cursor: pointer;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.15s ease;
+  display: flex;
+  flex-direction: column;
+}
+.board-card:hover { transform: translateY(-4px); box-shadow: 0 10px 24px rgba(13,21,38,0.12); }
+.board-thumb { aspect-ratio: 16/10; overflow: hidden; background: var(--navy-soft); }
+.board-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.board-thumb-empty {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  color: var(--gold-soft);
+  font-size: 2.2rem;
+  font-weight: 700;
+}
+.board-info { padding: 18px 20px 22px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.board-top { display: flex; align-items: center; justify-content: space-between; }
+.board-info .badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--gold-deep);
+  border: 1px solid var(--gold-deep);
+  border-radius: 999px;
+  padding: 4px 12px;
+  white-space: nowrap;
+}
+.board-info .date { color: var(--muted); font-size: 0.8rem; white-space: nowrap; }
+.board-info .pin { color: var(--gold); margin-right: 4px; }
+.board-info h4 {
+  margin: 0;
+  font-size: 1rem;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.board-info p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.88rem;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.board-empty { text-align: center; color: var(--muted); padding: 40px; grid-column: 1/-1; }
+
+@media (max-width: 900px) {
+  .board-list { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 560px) {
+  .board-list { grid-template-columns: 1fr; }
+}
+
+.board-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 36px;
+}
+.board-page-btn {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 8px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 0.88rem;
+  font-weight: 600;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.board-page-btn:hover:not(:disabled) { border-color: var(--gold); color: var(--navy-deep); }
+.board-page-btn:not(:disabled):active { transform: scale(0.94); transition: transform 0.1s ease; }
+.board-page-btn.active { background: var(--navy-deep); border-color: var(--navy-deep); color: #fff; }
+.board-page-btn:disabled { opacity: 0.35; cursor: default; }
+.board-page-nav { font-size: 1rem; }
+
+/* post detail modal */
+.post-modal {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(13,21,38,0.55);
+  z-index: 200;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.post-modal.open {
+  display: flex;
+  animation: modalOverlayIn 0.25s ease both;
+}
+@keyframes modalOverlayIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.post-modal-inner {
+  width: 100%;
+  max-width: 640px;
+  max-height: 85vh;
+  background: #fff;
+  border-radius: var(--radius);
+  position: relative;
+  animation: modalContentIn 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
+  /* 스크롤되는 내용 영역과, 스크롤과 무관하게 항상 같은 자리에 있는 하단 버튼 띠를
+     위아래로 나눠서 배치합니다. 이렇게 하면 버튼이 사진이나 글 위에 겹쳐서 가리는
+     일 없이, 내용과 완전히 분리된 자기 자리를 갖게 됩니다. */
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+@keyframes modalContentIn {
+  from { opacity: 0; transform: translateY(24px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+.post-modal-sticky-head {
+  flex: 0 0 auto;
+  padding: 22px 32px 14px;
+  background: #fff;
+  border-bottom: 1px solid var(--line);
+  box-shadow: 0 4px 10px rgba(13,21,38,0.04);
+}
+.post-modal-sticky-head #post-modal-title { margin: 0; }
+.post-modal-scroll {
+  overflow-y: auto;
+  padding: 22px 32px 32px;
+}
+.post-modal-footer {
+  flex: 0 0 auto;
+  display: flex;
+  justify-content: center;
+  padding: 10px 0;
+  background: #fff;
+  border-top: 1px solid var(--line);
+}
+.post-modal-close {
+  height: 40px;
+  padding: 0 22px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.9rem;
+  line-height: 1;
+  background: var(--ivory);
+  color: var(--navy-deep);
+  border: none;
+}
+.post-modal-head { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+.post-modal-head .date { color: var(--muted); font-size: 0.85rem; }
+#post-modal-title { margin: 0 0 18px; font-size: 1.3rem; color: var(--navy-deep); }
+.post-modal-image { display: none; width: 100%; border-radius: var(--radius); margin-bottom: 18px; cursor: zoom-in; }
+.post-modal-image[src]:not([src=""]) { display: block; }
+.post-modal-content { line-height: 1.75; color: #2b2b2b; white-space: pre-wrap; word-break: keep-all; overflow-wrap: break-word; }
+.post-modal-content img { max-width: 100%; border-radius: 8px; cursor: zoom-in; }
+.post-modal-attachments { margin-top: 24px; padding-top: 18px; border-top: 1px solid var(--line); }
+.post-modal-attachments:empty { display: none; }
+.attachment-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  margin-bottom: 8px;
+  font-size: 0.88rem;
+  color: var(--navy-deep);
+  text-decoration: none;
+  transition: filter 0.15s ease;
+}
+.attachment-item:hover { border-color: var(--gold); background: #fdf7e6; }
+.attachment-item .icon { color: var(--gold-deep); }
+.attachment-image { width: 100%; border-radius: 8px; display: block; margin-bottom: 12px; cursor: zoom-in; }
+
+/* 사진 확대 보기 (다른 모든 모달보다 위에 뜨도록 z-index를 가장 높게 둡니다) */
+.image-lightbox {
+  display: none;
+  position: fixed; inset: 0;
+  background: rgba(13,21,38,0.92);
+  z-index: 400;
+  align-items: center;
+  justify-content: center;
+  padding: 40px;
+  cursor: zoom-out;
+}
+.image-lightbox.open {
+  display: flex;
+  animation: lightboxFadeIn 0.25s ease both;
+}
+@keyframes lightboxFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.image-lightbox img {
+  animation: lightboxImageIn 0.3s ease both;
+  max-width: min(1100px, 90vw);
+  max-height: 85vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: var(--radius);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+}
+@keyframes lightboxImageIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+.image-lightbox-close {
+  position: absolute;
+  bottom: 28px;
+  left: 50%;
+  top: auto; right: auto;
+  transform: translateX(-50%);
+  color: #fff;
+  font-size: 0.95rem;
+  background: rgba(255,255,255,0.15);
+  border: none;
+  cursor: pointer;
+  line-height: 1;
+  padding: 10px 24px;
+  border-radius: 999px;
+}
+
+/* ---------------- Contact ---------------- */
+.contact-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 40px;
+}
+.contact-info dt { color: var(--gold-deep); font-size: 0.78rem; letter-spacing: 0.1em; text-transform: uppercase; margin-top: 20px; }
+.contact-info dt:first-child { margin-top: 0; }
+.contact-info dd { margin: 4px 0 0; font-size: 1.05rem; color: var(--navy-deep); }
+.contact-address-note {
+  font-size: 0.85rem !important;
+  font-weight: 400 !important;
+  color: var(--muted) !important;
+  line-height: 1.7;
+  white-space: pre-line;
+  margin-top: 6px !important;
+}
+
+/* ---------------- 온라인 헌금 안내 + 기도 요청 (좌우 배치) ---------------- */
+.offering-prayer-grid {
+  display: flex;
+  align-items: stretch;
+  gap: 56px;
+}
+.offering-prayer-col {
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+}
+.offering-prayer-col + .offering-prayer-col {
+  border-left: 1px solid var(--line);
+  padding-left: 56px;
+}
+.offering-prayer-grid--single .offering-prayer-col + .offering-prayer-col {
+  border-left: none;
+  padding-left: 0;
+}
+.offering-prayer-grid--single #offering { display: none !important; }
+.offering-prayer-col .eyebrow { display: block; }
+.offering-prayer-col h2 { margin-bottom: 24px; }
+
+.prayer-teaser-card {
+  max-width: 420px;
+  margin: 0 auto;
+  background: var(--ivory-dim);
+  border-radius: var(--radius);
+  padding: 32px 36px;
+}
+.prayer-teaser-card p {
+  color: var(--ink);
+  font-size: 0.95rem;
+  line-height: 1.8;
+  margin: 0 0 22px;
+}
+
+@media (max-width: 860px) {
+  .offering-prayer-grid { flex-direction: column; gap: 48px; }
+  .offering-prayer-col + .offering-prayer-col {
+    border-left: none;
+    border-top: 1px solid var(--line);
+    padding-left: 0;
+    padding-top: 48px;
+  }
+}
+
+.offering-card {
+  max-width: 520px;
+  margin: 0 auto;
+  background: var(--ivory-dim);
+  border-radius: var(--radius);
+  padding: 32px 36px;
+  text-align: center;
+}
+.offering-info { display: flex; flex-direction: column; gap: 14px; margin: 0 0 20px; }
+.offering-info dt { color: var(--gold-deep); font-size: 0.78rem; letter-spacing: 0.1em; text-transform: uppercase; }
+.offering-info dd { margin: 4px 0 0; font-size: 1.15rem; font-weight: 600; color: var(--navy-deep); }
+
+.offering-account-line {
+  margin: 0 0 6px;
+  font-size: clamp(1.05rem, 5.6vw, 1.5rem);
+  font-weight: 700;
+  color: var(--navy-deep);
+  letter-spacing: -0.01em;
+  white-space: nowrap;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+.offering-account-line span:first-child { font-weight: 600; margin-right: 8px; }
+.offering-holder-line {
+  margin: 0 0 24px;
+  font-size: 0.92rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.offering-holder-line strong { color: var(--ink); font-weight: 600; margin-left: 4px; }
+.offering-note { font-size: 0.86rem; line-height: 1.7; color: var(--muted); white-space: pre-line; border-top: 1px solid var(--line); padding-top: 18px; margin: 0 0 22px; }
+
+.offering-receipt-cta {
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+  text-align: center;
+}
+.offering-receipt-cta p { font-size: 0.9rem; color: var(--ink); margin: 0 0 12px; }
+
+.receipt-page-section { padding: 64px 0 96px; }
+.receipt-page-container { max-width: 560px; }
+.receipt-info-list { margin: 0 0 14px; padding-left: 20px; font-size: 0.88rem; line-height: 1.9; color: var(--ink); }
+.receipt-privacy-note { font-size: 0.82rem; line-height: 1.7; color: var(--muted); margin: 0; }
+
+.offering-receipt-card { max-width: 520px; margin: 24px auto 0; text-align: left; }
+.offering-receipt-card h3 { font-size: 1.05rem; margin: 0 0 6px; color: var(--navy-deep); }
+.offering-receipt-desc { font-size: 0.85rem; color: var(--muted); margin: 0 0 18px; }
+#receipt-form { display: flex; flex-direction: column; gap: 10px; }
+.offering-receipt-row { display: flex; gap: 10px; }
+#receipt-form input, #receipt-form textarea {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  background: #fff;
+}
+#receipt-form textarea { resize: vertical; }
+.btn-gold {
+  align-self: flex-start;
+  background: var(--gold);
+  color: var(--navy-deep);
+  border: none;
+  border-radius: 999px;
+  padding: 10px 24px;
+  font-size: 0.88rem;
+  font-weight: 700;
+  margin-top: 4px;
+  transition: filter 0.15s ease;
+}
+.offering-receipt-status { font-size: 0.85rem; color: var(--gold-deep); margin: 4px 0 0; min-height: 1.2em; }
+/* ---------------- 기도 요청 ---------------- */
+.prayer-form {
+  max-width: 560px;
+  margin: 0 auto 40px;
+  background: var(--ivory-dim);
+  border-radius: var(--radius);
+  padding: 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.prayer-form-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.prayer-form-row input[type="text"] {
+  flex: 1;
+  min-width: 160px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  background: #fff;
+}
+.prayer-secret-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.86rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.prayer-password-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-family: inherit;
+  background: #fff;
+  box-sizing: border-box;
+}
+.prayer-form textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 0.92rem;
+  font-family: inherit;
+  background: #fff;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.prayer-form-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.prayer-form-status { font-size: 0.84rem; color: var(--muted); }
+
+.prayer-list {
+  max-width: 640px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.prayer-card {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px 20px;
+  box-shadow: var(--shadow);
+}
+.prayer-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+}
+.prayer-name { font-weight: 700; color: var(--navy-deep); font-size: 0.92rem; }
+.prayer-date { color: var(--muted); font-size: 0.8rem; }
+.prayer-content { margin: 0; color: #333; font-size: 0.92rem; line-height: 1.7; word-break: keep-all; overflow-wrap: break-word; }
+.prayer-unlocked-badge { font-size: 0.76rem; color: var(--gold-deep); font-weight: 600; }
+.prayer-locked { margin: 0 0 10px; color: var(--muted); font-size: 0.88rem; }
+.prayer-unlock-form { display: flex; gap: 8px; align-items: stretch; }
+.prayer-unlock-form input {
+  flex: 1;
+  min-width: 0;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 0.86rem;
+  font-family: inherit;
+}
+.prayer-unlock-form button {
+  flex-shrink: 0;
+  padding: 9px 16px;
+  border: none;
+  border-radius: 6px;
+  background: var(--navy-deep);
+  color: #fff;
+  font-size: 0.86rem;
+  font-weight: 600;
+  line-height: 1.2;
+}
+.prayer-unlock-error { color: #b3413a; font-size: 0.8rem; margin: 6px 0 0; min-height: 1em; }
+.prayer-empty { text-align: center; color: var(--muted); padding: 24px; }
+
+@media (max-width: 560px) {
+  .prayer-form { padding: 20px; }
+  .prayer-form-row { flex-direction: column; align-items: flex-start; gap: 10px; }
+}
+
+.map-box {
+  border-radius: var(--radius);
+  overflow: hidden;
+  min-height: 320px;
+  background: var(--ivory-dim);
+  border: 1px solid var(--line);
+}
+.map-box iframe { width: 100%; height: 100%; min-height: 320px; border: 0; }
+.kakao-map-preview {
+  display: block;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  text-align: center;
+  transition: filter 0.15s ease;
+}
+.kakao-map-preview img {
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  object-fit: cover;
+  display: block;
+}
+.kakao-map-cta {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  background: var(--navy-deep);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+  transition: transform 0.1s ease, background 0.1s ease, color 0.1s ease;
+}
+/* 사진 배경 전체를 어둡게 하는 정도로는 잘 안 보여서, 실제로 누르는 '버튼'처럼 보이는
+   이 배지 자체에 확실한 반응(눌림+색 변경)을 따로 줍니다 */
+.kakao-map-preview:active .kakao-map-cta {
+  transform: scale(0.92);
+  background: var(--gold);
+  color: var(--navy-deep);
+}
+.kakao-map-pin {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 34px;
+  height: auto;
+  /* 지도 이미지의 정중앙이 실제 위치 좌표라서, 핀의 뾰족한 끝(아래쪽)이 정중앙에 오도록 이동 */
+  transform: translate(-50%, -92%);
+  filter: drop-shadow(0 3px 4px rgba(13,21,38,0.35));
+  pointer-events: none;
+}
+.map-placeholder {
+  height: 100%;
+  min-height: 320px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+/* ---------------- Footer ---------------- */
+.site-footer {
+  background: var(--navy-deep);
+  color: #a7abbd;
+  padding: 48px 0 28px;
+  font-size: 0.88rem;
+}
+.footer-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding-bottom: 24px;
+  margin-bottom: 24px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.footer-brand { color: #fff; font-family: var(--font-heading); font-size: 1.1rem; }
+.footer-sns { display: flex; gap: 12px; }
+.footer-sns a {
+  display: flex; align-items: center; justify-content: center;
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  border: 1px solid rgba(201,162,39,0.4);
+  color: #d7d9e4;
+  overflow: hidden;
+  transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+}
+.footer-sns a svg { width: 18px; height: 18px; }
+.footer-sns a span { font-size: 0.6rem !important; }
+.footer-sns a:hover { background: var(--gold); border-color: var(--gold); color: var(--navy-deep); }
+.admin-link { color: #6b6e80; }
+
+/* ---------------- Responsive ---------------- */
+@media (max-width: 900px) {
+  .nav-desktop { display: none; }
+  .hamburger { display: flex; }
+  .nav-mobile { display: flex; }
+  .about-grid { grid-template-columns: 1fr; }
+  .contact-grid { grid-template-columns: 1fr; }
+  .section { padding: 64px 0; }
+
+  /* 예배 안내: 모바일 화면을 가득 채우도록 */
+  #service {
+    min-height: 100vh;
+    min-height: 100dvh; /* 주소창 접힘/펼침에 따라 흔들리지 않는 실제 뷰포트 높이 */
+    display: flex;
+    align-items: stretch;
+    padding: 64px 0 48px;
+  }
+  #service .container {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: clamp(28px, 6vh, 56px);
+  }
+  #service .section-head { margin-bottom: 0; }
+
+  /* 찬양: 예배 안내와 동일하게 모바일 화면을 가득 채우도록 */
+  #praise {
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    padding: 64px 0 48px;
+  }
+  #praise .container {
+    width: 100%;
   }
 
-  // <link>가 아직 도착도 안 한 시점에는 document.fonts.ready가 "기다릴 게 없다"고
-  // 착각하고 너무 일찍 끝나버리는 경우가 있어서, 먼저 폰트 파일(<link>) 자체가
-  // 도착했는지부터 확인한 뒤에 document.fonts.ready를 확인하는 2단계로 체크합니다.
-  function waitForLinkLoad(link) {
-    return new Promise(function (resolve) {
-      if (link.sheet) { resolve(); return; } // 이미 캐시 등으로 로딩이 끝난 상태
-      link.addEventListener('load', resolve, { once: true });
-      link.addEventListener('error', resolve, { once: true }); // 실패해도 멈추지 않음
-    });
+  /* 예배 안내: 모바일에서는 마름모/구분선 없이 카드 1개씩 가로로 스와이프 */
+  .service-grid {
+    display: flex;
+    grid-template-columns: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+    touch-action: pan-x pan-y;
+    gap: 0;
   }
+  .service-grid::-webkit-scrollbar { display: none; }
+  .service-card {
+    flex: 0 0 100%;
+    scroll-snap-align: center;
+    padding: 40px 20px;
+  }
+  .service-card-shape {
+    transform: none;
+    inset: 0;
+    border-radius: var(--radius);
+  }
+  .service-card:not(:last-child)::after { display: none; } /* 대각선 구분선은 PC 전용 */
+  .service-dots { display: flex; }
+}
+@media (max-width: 560px) {
+  .offering-card { padding: 26px 20px; }
+}
 
-  var fontLinks = Array.prototype.slice.call(document.querySelectorAll('link.gfont-link'));
-  var linksReady = fontLinks.length ? Promise.all(fontLinks.map(waitForLinkLoad)) : Promise.resolve();
-  var fontsApiReady = ('fonts' in document) ? document.fonts.ready : Promise.resolve();
-  var fontsReady = linksReady.then(function () { return fontsApiReady; });
-  var dataReady = window.__dataReadyPromise || Promise.resolve();
+/* ---------------- 오늘의 큐티 (홈 섹션) ---------------- */
+.qt-section {
+  padding: 72px 0;
+  background: var(--ivory-dim);
+}
+.qt-stage {
+  position: relative;
+  border-radius: 20px;
+  overflow: hidden;
+  min-height: 300px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, var(--navy-deep) 0%, var(--navy-soft) 100%);
+}
+.qt-stage svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
 
-  // 설교·찬양·게시판 카드의 사진 자리는 CSS aspect-ratio로 이미 예약되어 있어
-  // 사진이 늦게 도착해도 레이아웃이 크게 밀리지 않습니다. 그래서 데이터·폰트가
-  // 완전히 다 끝나기를 무한정 기다리지 않고, 최대 0.8초까지만 기다린 뒤 그
-  // 시점 기준으로 스크롤 위치를 계산해서 이동시키고 바로 화면을 보여줍니다.
-  // (느린 네트워크에서 첫 화면이 뜨는 속도를 우선함)
-  Promise.race([
-    Promise.all([fontsReady, dataReady]),
-    new Promise(function (resolve) { setTimeout(resolve, 800); })
-  ]).then(function () {
-    if (window.__performPendingScroll) window.__performPendingScroll();
-    reveal();
-  });
+/* 캐러셀 트랙(PC: 오늘 카드 가운데, 지난 카드는 뒤로 겹쳐서 살짝 보임 / 모바일: 오늘 카드 1개만 렌더링됨) */
+.qt-carousel {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+}
+.qt-carousel-track {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+}
+.qt-card--archive { display: none; } /* PC 커버플로우에서만 아래 미디어쿼리로 다시 노출됨 */
 
-  setTimeout(reveal, 2500); // 안전장치: 무슨 이유로든 위에서 안 풀리면 강제로 화면을 보여줌
-})();
-</script>
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title id="page-title">물댄동산교회 | 오산시 중앙동 대동다숲 - 이기삼 목사</title>
-<meta name="description" content="물댄동산교회는 경기도 오산시 중앙동 대동다숲(오색시장 인근)에 위치한 교회입니다. 담임목사 이기삼. 주일예배, 설교 영상, 교회 소식을 만나보세요." />
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link class="gfont-link" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;600;700&display=block" rel="stylesheet">
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
-<link rel="stylesheet" href="/css/style.css" />
-<meta property="og:title" content="물댄동산교회 - 오산시 중앙동" />
-<meta property="og:description" content="경기도 오산시 중앙동 대동다숲(오색시장 인근)에 위치한 물댄동산교회입니다. 담임목사 이기삼." />
-<meta property="og:image" content="https://muldaen.com/uploads/0001.png" />
-<meta property="og:url" content="https://muldaen.com" />
-<link rel="canonical" href="https://muldaen.com" />
-<meta property="og:type" content="website" />
-<meta property="og:locale" content="ko_KR" />
-<meta name="google-site-verification" content="6F1Ati1QNE8s_yUbFkoHqn354YUirFrOycEBX5uXvxA" />
+@media (min-width: 861px) {
+  .qt-carousel--coverflow {
+    height: 280px;
+    cursor: grab;
+  }
+  .qt-carousel--coverflow.dragging { cursor: grabbing; }
+  .qt-carousel--coverflow .qt-carousel-track {
+    position: relative;
+    width: 100%;
+    height: 100%;
+  }
+  .qt-carousel--coverflow .qt-card {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    flex: none;
+    width: 340px;
+    margin: 0;
+    transition: transform 0.5s cubic-bezier(0.22, 0.68, 0, 1.01), opacity 0.4s ease;
+    will-change: transform, opacity;
+  }
+  .qt-carousel--coverflow .qt-card:hover { transform-origin: center; }
+  .qt-carousel--coverflow .qt-card--archive {
+    display: block;
+    cursor: pointer;
+  }
+  .qt-carousel--coverflow .qt-card--today { cursor: pointer; }
 
-<!-- PWA: 홈 화면에 추가했을 때 앱처럼 보이도록 하는 설정 -->
-<link rel="manifest" href="/manifest.json" />
-<meta name="theme-color" content="#0d1526" />
-<link rel="icon" href="/icons/icon-192-v2.png" />
-<link rel="apple-touch-icon" href="/icons/apple-touch-icon-v2.png" />
-<meta name="apple-mobile-web-app-capable" content="yes" />
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-<meta name="apple-mobile-web-app-title" content="물댄동산교회" />
-<meta name="mobile-web-app-capable" content="yes" />
-</head>
-<body>
+  .qt-carousel-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 50;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    border: none;
+    background: rgba(13, 21, 38, 0.45);
+    color: var(--ivory);
+    font-size: 1.3rem;
+    line-height: 1;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease, opacity 0.2s ease;
+  }
+  .qt-carousel-nav:hover { background: rgba(13, 21, 38, 0.7); }
+  .qt-carousel-nav:disabled { opacity: 0.3; cursor: default; }
+  .qt-carousel-nav:disabled:hover { background: rgba(13, 21, 38, 0.45); }
+  .qt-carousel-nav--prev { left: 16px; }
+  .qt-carousel-nav--next { right: 16px; }
+  .qt-stage--single .qt-carousel-nav { display: none; }
+}
+@media (max-width: 860px) {
+  .qt-carousel-nav { display: none; }
+}
 
-<header class="site-header" id="site-header">
-  <div class="container">
-    <a href="#home" class="brand" id="brand-name">물댄동산교회</a>
-    <nav class="nav-desktop" id="nav-desktop"></nav>
-    <button class="hamburger" id="hamburger" aria-label="메뉴 열기">
-      <span></span><span></span><span></span>
-    </button>
-  </div>
-</header>
+.qt-card {
+  position: relative;
+  display: block;
+  width: min(340px, 86%);
+  margin: 0 auto;
+  background: var(--ivory);
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  padding: 26px 28px;
+  text-align: left;
+  box-shadow: var(--shadow);
+  transition: filter 0.15s ease;
+}
+.qt-card:hover { transform: translateY(-4px); box-shadow: 0 10px 24px rgba(13,21,38,0.12); transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.15s ease; }
+.qt-badge {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: var(--navy-deep);
+  background: var(--gold-soft);
+  border-radius: 999px;
+  padding: 4px 12px;
+  margin-bottom: 14px;
+}
+.qt-badge--archive {
+  background: var(--line);
+  color: var(--muted);
+}
+.qt-card-title {
+  font-family: var(--font-heading);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--navy-deep);
+  margin: 0 0 8px;
+  word-break: keep-all;
+  overflow-wrap: break-word;
+}
+.qt-card-ref { font-size: 0.85rem; color: var(--muted); margin: 0 0 16px; }
+.qt-card-foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.qt-stage--navy { background: linear-gradient(180deg, var(--navy-deep) 0%, var(--navy-soft) 100%); }
+.qt-stage--gold { background: linear-gradient(160deg, #7a5c12 0%, var(--navy-deep) 70%); }
+.qt-stage--dawn { background: linear-gradient(160deg, #4a3a63 0%, #b06a4f 55%, #e0a86a 100%); }
 
-<nav class="nav-mobile" id="nav-mobile"></nav>
+.qt-empty { text-align: center; color: var(--ivory-dim); padding: 40px 0; position: relative; }
 
-<main>
+.qt-archive-toggle-wrap { text-align: center; margin-top: 20px; }
+.qt-archive-toggle {
+  background: none;
+  border: none;
+  font-size: 0.86rem;
+  color: var(--muted);
+  padding: 6px 10px;
+}
+.qt-archive-toggle:hover { color: var(--navy-deep); }
+.qt-archive-wrap {
+  position: relative;
+  max-width: 600px;
+  margin: 12px auto 0;
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.4s ease;
+}
+.qt-archive-wrap.open { grid-template-rows: 1fr; }
+.qt-archive-inner { overflow: hidden; min-height: 0; }
+.qt-archive-list-row { position: relative; }
+.qt-archive-list-row .qt-archive-list { max-width: 520px; margin: 0 auto; }
+.qt-archive-nav.carousel-nav { width: 20px; height: 52px; opacity: 0; pointer-events: none; }
+.qt-archive-wrap.open .qt-archive-nav.carousel-nav { opacity: 0.45; pointer-events: auto; }
+.qt-archive-nav.carousel-nav--prev { left: 0; }
+.qt-archive-nav.carousel-nav--next { right: 0; }
+@media (max-width: 640px) {
+  .qt-archive-wrap { max-width: 520px; }
+}
+.qt-archive-list {
+  display: block;
+}
+.qt-archive-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 4px;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.9rem;
+  transition: filter 0.15s ease;
+}
+.qt-archive-row .date { color: var(--muted); width: 88px; flex-shrink: 0; }
+.qt-archive-row .title { flex: 1; color: var(--ink); }
+.qt-archive-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-top: 18px;
+}
+.qt-archive-pagination .board-page-btn { min-width: 32px; height: 32px; font-size: 0.84rem; }
 
-  <!-- HERO -->
-  <section class="hero" id="home">
-    <div class="hero-bg-photo" id="hero-bg-photo-a"></div>
-    <div class="hero-bg-photo" id="hero-bg-photo-b"></div>
-    <div class="hero-inner">
-      <div class="verse-card">
-        <p class="verse-text" id="hero-verse">너는 물댄동산 같겠고
-물이 끊어지지 아니하는 샘 같을 것이라</p>
-        <p class="verse-ref" id="hero-verse-ref">이사야 58:11</p>
-      </div>
-      <p class="hero-subtitle" id="hero-subtitle">가정이 교회 되고, 매일이 주일 되고, <br />일상이 예배가 되는 교회!</p>
-      <div class="hero-cta">
-        <a href="#service" class="btn btn--gold">예배 시간 안내</a>
-        <a href="#sermons" class="btn btn--outline">설교 영상 보기</a>
-      </div>
-    </div>
-    <span class="scroll-cue">SCROLL</span>
-  </section>
+/* ---------------- 오늘의 큐티 (상세 페이지) ---------------- */
+.qt-detail-section { padding: 64px 0 96px; }
+.qt-detail-container { max-width: 640px; }
+.qt-back-link { display: inline-block; font-size: 0.85rem; color: var(--muted); margin-bottom: 28px; }
+.qt-detail-head { text-align: center; margin-bottom: 32px; }
+.qt-detail-meta { font-size: 0.85rem; color: var(--muted); margin: 4px 0 10px; }
+.qt-detail-title { font-size: 1.5rem; margin: 0; word-break: keep-all; overflow-wrap: break-word; }
+.qt-verse-card {
+  background: var(--ivory-dim);
+  border-radius: var(--radius);
+  padding: 28px;
+  text-align: center;
+  margin-bottom: 28px;
+}
+.qt-verse-text { font-family: var(--font-heading); font-size: 1.15rem; line-height: 1.9; margin: 0 0 10px; }
+.qt-verse-ref { font-size: 0.85rem; color: var(--muted); margin: 0; }
+.qt-detail-body { font-size: 1rem; line-height: 1.9; margin-bottom: 28px; }
 
-  <!-- ABOUT -->
-  <section class="section" id="about">
-    <div class="container about-grid">
-      <img id="about-image" class="reveal" src="/uploads/about-default.svg" alt="교회 사진" />
-      <div class="about-body reveal reveal-delay-2">
-        <span class="eyebrow">ABOUT US</span>
-        <h2 id="about-greeting">교회 소개</h2>
-        <p id="about-body-text"></p>
-        <p id="about-history" style="color:var(--muted); font-size:0.92rem;"></p>
-        <div class="pastor-box">
-          <p class="name" id="pastor-name"></p>
-          <p id="pastor-message"></p>
-        </div>
-      </div>
-    </div>
-  </section>
-  <section class="section section--dark" id="service">
-    <img class="service-bg-img" id="service-bg-img" alt="" />
-    <div class="service-bg-overlay"></div>
-    <div class="container">
-      <div class="section-head reveal">
-        <span class="eyebrow">SERVICE TIMES</span>
-        <h2>예배 안내</h2>
-        <p>언제든 편안한 마음으로 함께 예배드려요</p>
-      </div>
-      <div class="service-cards-block">
-        <div class="service-grid reveal reveal-delay-2" id="service-grid"></div>
-        <div class="service-dots" id="service-dots"></div>
-      </div>
-    </div>
-  </section>
-  <section class="section" id="sermons">
-    <div class="container">
-      <div class="section-head reveal">
-        <span class="eyebrow">SERMONS</span>
-        <h2>설교 영상</h2>
-        <p id="sermons-intro">매주 유튜브 채널에 올라오는 설교 영상이 자동으로 갱신됩니다</p>
-      </div>
-      <p class="sermon-updated" id="sermon-updated" style="display:none;"></p>
-      <div class="praise-category-chips" id="sermon-category-chips" style="display:none;"></div>
+.qt-reaction-bar { display: flex; gap: 10px; justify-content: center; margin-bottom: 28px; }
+.qt-amen-btn, .qt-share-btn, .qt-home-btn {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 0.86rem;
+  padding: 10px 20px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--ivory);
+  color: var(--ink);
+}
+.qt-amen-btn { position: relative; overflow: visible; }
+.qt-amen-btn:hover, .qt-share-btn:hover, .qt-home-btn:hover { border-color: var(--gold); }
+.qt-amen-btn.pressed { border-color: var(--gold); background: var(--gold-soft); color: var(--navy-deep); }
+.qt-heart { color: var(--gold-deep); font-size: 1.05rem; }
+@keyframes qtAmenPop {
+  0% { transform: scale(1); }
+  40% { transform: scale(0.9); }
+  70% { transform: scale(1.12); }
+  100% { transform: scale(1); }
+}
+.qt-amen-btn.pop { animation: qtAmenPop 0.35s ease; }
+@keyframes qtHeartFloat {
+  0% { transform: translate(-50%, 0) scale(0.6); opacity: 0; }
+  15% { opacity: 1; }
+  100% { transform: translate(-50%, -60px) scale(1.15); opacity: 0; }
+}
+.qt-heart-particle {
+  position: absolute;
+  left: 50%;
+  top: -6px;
+  color: var(--gold-deep);
+  font-size: 1rem;
+  pointer-events: none;
+  animation: qtHeartFloat 0.9s ease forwards;
+}
 
-      <div class="sermon-layout reveal" id="sermon-layout">
-        <div class="sermon-hero-card" id="sermon-hero-card"></div>
-        <div class="sermon-list-wrap">
-          <div class="sermon-list" id="sermon-list"></div>
-          <a href="#" id="sermon-more-row" class="sermon-more-row" target="_blank" rel="noopener" style="display:none;">
-            <svg class="yt-icon" viewBox="0 0 48 34" width="26" height="18">
-              <rect x="0" y="0" width="48" height="34" rx="8" fill="#FF0000"/>
-              <path d="M19 10L19 24L32 17Z" fill="#fff"/>
-            </svg>
-            <span class="sermon-more-label">설교 더 보기</span>
-          </a>
-        </div>
-      </div>
-    </div>
-  </section>
-  <section class="section section--tight" id="board" style="background:var(--ivory-dim);">
-    <div class="container">
-      <div class="section-head reveal">
-        <span class="eyebrow">NEWS &amp; FELLOWSHIP</span>
-        <h2>소식 · 친교</h2>
-        <p>교회의 다양한 소식과 친교를 전해드립니다</p>
-      </div>
-      <div class="board-tabs" id="board-tabs">
-        <button class="board-tab active" data-cat="전체">전체</button>
-        <button class="board-tab" data-cat="소식">소식</button>
-        <button class="board-tab" data-cat="활동">친교</button>
-        <button class="board-tab" data-cat="주보">주보</button>
-      </div>
-      <div class="board-list reveal" id="board-list"></div>
-      <div class="board-pagination" id="board-pagination"></div>
-    </div>
-  </section>
-  <section class="section section--tight" id="praise" style="background:var(--ivory-dim); display:none;">
-    <img class="praise-bg-img" id="praise-bg-img" alt="" />
-    <div class="praise-bg-overlay"></div>
-    <div class="container">
-      <div class="section-head reveal">
-        <span class="eyebrow">PRAISE</span>
-        <h2>찬양</h2>
-        <p>함께 듣고 싶은 찬양을 나눠요</p>
-      </div>
-      <div class="praise-category-chips" id="praise-category-chips" style="display:none;"></div>
-      <div class="carousel-wrap reveal">
-        <button class="carousel-nav carousel-nav--prev" id="praise-nav-prev" aria-label="이전 찬양 보기"><svg viewBox="0 0 24 48" fill="none"><path d="M18 4L6 24L18 44" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-        <div class="praise-grid" id="praise-grid"></div>
-        <button class="carousel-nav carousel-nav--next" id="praise-nav-next" aria-label="다음 찬양 보기"><svg viewBox="0 0 24 48" fill="none"><path d="M6 4L18 24L6 44" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-        <div class="praise-scroll-fade" aria-hidden="true"></div>
-      </div>
-      <div class="praise-dots" id="praise-dots"></div>
-      <div class="scroll-progress-track" id="praise-scroll-track" aria-hidden="true">
-        <div class="scroll-progress-thumb" id="praise-scroll-thumb"></div>
-      </div>
-      <div class="praise-theme-dial-wrap" id="praise-theme-dial-wrap" style="display:none;">
-        <p class="praise-theme-dial-label">테마별 듣기</p>
-        <div class="praise-theme-dial" id="praise-theme-dial"></div>
-      </div>
-    </div>
-  </section>
-  <section class="qt-section" id="qt">
-    <div class="container">
-      <div class="section-head reveal">
-        <span class="eyebrow">TODAY'S QT</span>
-        <h2>오늘의 큐티</h2>
-        <p>담임목사님의 매일 아침 묵상을 함께 나눠요</p>
-      </div>
+.qt-detail-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  border-top: 1px solid var(--line);
+  padding-top: 20px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
 
-      <div class="qt-quiz-layout">
-        <div class="qt-quiz-main">
-          <div class="qt-stage reveal" id="qt-stage">
-            <svg id="qt-decor" viewBox="0 0 680 300" aria-hidden="true">
-              <circle cx="580" cy="60" r="100" fill="rgba(201,162,39,0.16)" />
-              <circle cx="80" cy="250" r="130" fill="rgba(201,162,39,0.1)" />
-              <line x1="150" y1="70" x2="150" y2="120" stroke="rgba(228,200,118,0.5)" stroke-width="3" stroke-linecap="round" />
-              <line x1="122" y1="95" x2="178" y2="95" stroke="rgba(228,200,118,0.5)" stroke-width="3" stroke-linecap="round" />
-            </svg>
-            <button class="qt-carousel-nav qt-carousel-nav--prev" id="qt-nav-prev" aria-label="이전 큐티 보기">&#8249;</button>
-            <div class="qt-carousel" id="qt-carousel">
-              <div class="qt-carousel-track" id="qt-carousel-track"></div>
-            </div>
-            <button class="qt-carousel-nav qt-carousel-nav--next" id="qt-nav-next" aria-label="다음 큐티 보기">&#8250;</button>
-          </div>
-          <div class="qt-archive-toggle-wrap">
-            <button class="qt-archive-toggle" id="qt-archive-toggle">지난 큐티 보기 ▾</button>
-          </div>
-          <div class="qt-archive-wrap" id="qt-archive-wrap">
-            <div class="qt-archive-inner">
-              <div class="qt-archive-list-row">
-                <button class="carousel-nav carousel-nav--prev qt-archive-nav" id="qt-archive-prev" aria-label="이전 목록"><svg viewBox="0 0 24 48" fill="none"><path d="M18 4L6 24L18 44" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-                <div class="qt-archive-list" id="qt-archive-list"></div>
-                <button class="carousel-nav carousel-nav--next qt-archive-nav" id="qt-archive-next" aria-label="다음 목록"><svg viewBox="0 0 24 48" fill="none"><path d="M6 4L18 24L6 44" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
-              </div>
-              <div class="qt-archive-pagination" id="qt-archive-pagination"></div>
-            </div>
-          </div>
-        </div>
+/* ---------------- 찬양 미니 플레이어 ---------------- */
+.mini-player {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 120; /* 밴드 버튼(90), 맨위로 버튼보다 위에 오도록 */
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--navy-deep);
+  color: #fff;
+  padding: 8px 14px;
+  box-shadow: 0 -6px 20px rgba(0,0,0,0.25);
+}
+.mini-player-video {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  background: #000;
+  transition: width 0.25s ease, height 0.25s ease, border-radius 0.25s ease;
+}
+.mini-player-video #mini-player-yt-mount,
+.mini-player-video #mini-player-yt-mount iframe {
+  width: 100%;
+  height: 100%;
+}
+/* 작은 영상 화면을 탭하면 위로 확장되는 형태 */
+.mini-player.is-expanded {
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0;
+}
+.mini-player.is-expanded .mini-player-video {
+  width: 100%;
+  height: 42vh;
+  border-radius: 0;
+}
+.mini-player.is-expanded .mini-player-info,
+.mini-player.is-expanded .mini-player-controls {
+  padding: 10px 14px;
+}
+.mini-player-info { flex: 1; min-width: 0; }
+.mini-player-title {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mini-player-controls { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.mini-player-controls button {
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+}
+.mini-player-controls button:hover { background: rgba(255,255,255,0.12); }
+.mini-player-controls svg { width: 20px; height: 20px; }
+#mini-player-playpause svg { width: 24px; height: 24px; }
 
-        <a href="/quiz.html" class="quiz-teaser-card reveal" id="quiz-teaser-card" style="display:none;">
-          <strong>말씀 퀴즈</strong>
-          <span class="quiz-teaser-sub">성경 톺아보기</span>
-          <span class="quiz-teaser-arrow">참여하기 →</span>
-        </a>
-      </div>
-    </div>
-  </section>
-  <section class="section" id="missions">
-    <div class="container">
-      <div class="section-head reveal">
-        <span class="eyebrow">MISSIONS</span>
-        <h2 id="missions-title">선교와 섬김</h2>
-        <p class="missions-verse" id="missions-verse"></p>
-        <p id="missions-subtitle"></p>
-      </div>
+/* 미니 플레이어가 떠 있을 때는 우측 하단 버튼들을 그만큼 밀어올림 */
+body.has-mini-player .band-fab { bottom: calc(20px + 68px); }
+body.has-mini-player .scroll-top-btn { bottom: calc(84px + 68px); }
+@media (max-width: 900px) {
+  .mini-player { padding: 6px 10px; gap: 10px; }
+  .mini-player-video { width: 48px; height: 48px; }
+  body.has-mini-player .band-fab { bottom: calc(74px + 60px); }
+  body.has-mini-player .scroll-top-btn { bottom: calc(14px + 60px); }
+}
 
-      <div class="missions-layout">
-        <div class="missions-map-wrap reveal">
-          <div id="missions-map"></div>
-          <p class="missions-empty" id="missions-empty" style="display:none;">아직 등록된 선교지가 없습니다.</p>
-        </div>
+/* ---------------- 밴드 바로가기 (오른쪽 하단 떠있는 버튼) ---------------- */
+.band-fab {
+  position: fixed;
+  right: 20px;
+  bottom: 20px;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px 12px 14px;
+  border-radius: 999px;
+  background: #00c73c; /* 네이버 밴드 브랜드 색상 */
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 700;
+  box-shadow: 0 8px 22px rgba(0,0,0,0.25);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.15s ease;
+}
+.band-fab:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(0,0,0,0.3); }
+.band-fab-badge {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  color: #00c73c;
+  border-radius: 10px;
+  padding: 4px 9px;
+  letter-spacing: -0.02em;
+  font-weight: 800;
+}
+@media (max-width: 560px) {
+  .band-fab { right: 14px; padding: 8px; }
+  .band-fab > span:not(.band-fab-badge) { display: none; } /* 좁은 화면에서는 BAND 배지만 */
+}
 
-        <!-- 모바일 전용 목록형 대체 화면(지도 대신 카드 나열) - 선교지 정보가 동역자보다 먼저 보이도록 이 위치에 배치 -->
-        <div class="missions-mobile-list" id="missions-mobile-list"></div>
+/* ---------------- 맨 위로 이동 버튼 ---------------- */
+.scroll-top-btn {
+  position: fixed;
+  right: 20px;
+  bottom: 84px; /* 밴드 버튼 위에 쌓이도록 */
+  z-index: 90;
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--navy-deep);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  box-shadow: 0 8px 22px rgba(0,0,0,0.12);
+  opacity: 0;
+  transform: translateY(10px);
+  pointer-events: none;
+  transition: opacity 0.25s ease, transform 0.25s ease, background 0.2s ease, border-color 0.2s ease;
+}
+.scroll-top-btn.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
+.scroll-top-btn:hover { background: var(--gold); border-color: var(--gold); color: var(--navy-deep); }
+.scroll-top-btn svg { width: 22px; height: 22px; }
+@media (max-width: 900px) {
+  /* 모바일: 밴드 버튼보다 아래쪽(화면 맨 밑)에 오도록 순서를 바꾸고, 크기도 밴드 버튼과 비슷하게 맞춥니다 */
+  .scroll-top-btn { right: 14px; bottom: 14px; width: 50px; height: 50px; }
+  .scroll-top-btn svg { width: 24px; height: 24px; }
+  .band-fab { bottom: 74px; }
+}
 
-        <div class="missions-partners reveal">
-          <div class="missions-partners-head">
-            <div>
-              <span class="eyebrow-sm">PARTNERS</span>
-              <h3 id="partners-title">동역해주시는 분들</h3>
-            </div>
-            <div class="missions-partners-nav">
-              <button type="button" class="icon-btn-round" id="partners-prev" aria-label="이전 동역자">‹</button>
-              <button type="button" class="icon-btn-round" id="partners-next" aria-label="다음 동역자">›</button>
-            </div>
-          </div>
-          <div id="partners-list"></div>
-          <p class="missions-partners-page" id="partners-page"></p>
-        </div>
-      </div>
-    </div>
-  </section>
-  <section class="section" id="offering-prayer-section" style="background:var(--ivory-dim);">
-    <div class="container">
-      <div class="offering-prayer-grid" id="offering-prayer-grid">
+/* ---------------- 오늘의 큐티 + 말씀 퀴즈 (3:1 배치) ---------------- */
+.qt-quiz-layout {
+  display: grid;
+  grid-template-columns: 3fr 1fr;
+  gap: 28px;
+  align-items: start; /* 큐티 쪽이 늘어나도(지난 큐티 펼침 등) 퀴즈 카드는 영향받지 않도록 */
+}
+@media (max-width: 860px) {
+  .qt-quiz-layout { grid-template-columns: 1fr; }
+}
 
-        <div class="offering-prayer-col reveal" id="offering" style="display:none;">
-          <span class="eyebrow">OFFERING</span>
-          <h2>온라인 헌금 안내</h2>
-          <div class="offering-card">
-            <p class="offering-account-line" id="offering-account-line">
-              <span id="offering-bank"></span> <span id="offering-account"></span>
-            </p>
-            <p class="offering-holder-line">
-              예금주 <strong id="offering-holder"></strong>
-            </p>
-            <p class="offering-note" id="offering-note"></p>
-            <div class="offering-receipt-cta">
-              <a href="/receipt.html" class="btn-gold">기부금 영수증 신청 →</a>
-            </div>
-          </div>
-        </div>
+.quiz-teaser-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  gap: 8px;
+  min-height: 300px;
+  background: url('/images/quiz-card-bg.jpg') center/cover no-repeat, var(--navy-deep);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 28px 18px;
+  color: #fff;
+  overflow: hidden;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.15s ease;
+}
+/* 사진 위에서도 글자가 잘 보이도록, 사진과 글자 사이에 어두운 막을 하나 깔아둡니다 */
+.quiz-teaser-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(13,21,38,0.55) 0%, rgba(13,21,38,0.75) 100%);
+}
+.quiz-teaser-card > * { position: relative; z-index: 1; }
+.quiz-teaser-card:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(13,21,38,0.25); }
+.quiz-teaser-card strong { font-family: var(--font-heading); font-size: 1.15rem; line-height: 1.4; text-shadow: 0 2px 6px rgba(0,0,0,0.4); }
+.quiz-teaser-sub { color: #f0ebdf; font-size: 0.85rem; line-height: 1.5; text-shadow: 0 1px 4px rgba(0,0,0,0.4); }
+.quiz-teaser-arrow {
+  margin-top: 8px;
+  font-size: 0.82rem;
+  font-weight: 700;
+  color: var(--navy-deep);
+  background: var(--gold);
+  padding: 8px 16px;
+  border-radius: 999px;
+}
 
-        <div class="offering-prayer-col reveal reveal-delay-2" id="prayer-teaser-col">
-          <span class="eyebrow">PRAYER REQUEST</span>
-          <h2>기도 요청</h2>
-          <div class="prayer-teaser-card">
-            <p>함께 기도할 제목을 나눠주세요.<br />비밀글로 남기면 목회자만 확인할 수 있어요.</p>
-            <a href="/prayer.html" class="btn btn--navy">기도 요청 작성하기 →</a>
-          </div>
-        </div>
+/* ---------------- 푸시 알림 허용 안내 배너 ---------------- */
+.push-prompt {
+  position: fixed;
+  left: 16px; right: 16px; bottom: 16px;
+  max-width: 420px;
+  margin: 0 auto;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 14px 16px;
+  font-size: 0.85rem;
+  color: var(--ink);
+}
+.push-prompt-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.push-prompt-close {
+  background: none; border: none; color: var(--muted); font-size: 0.9rem; padding: 4px; cursor: pointer;
+}
 
-      </div>
-    </div>
-  </section>
+/* Focus visibility for accessibility */
+a:focus-visible, button:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
+}
 
+/* ---------------- 스크롤 등장 애니메이션 ----------------
+   카드/섹션이 화면에 스크롤되어 들어오면 서서히 나타나고, 화면 밖으로 나가면 다시
+   사라졌다가, 스크롤을 다시 내리면 또 나타납니다(반복). main.js의 IntersectionObserver가
+   .reveal 요소에 .is-visible을 추가/제거하는 방식으로 이 효과를 켜고 끕니다. */
+.reveal {
+  opacity: 0;
+  transform: translateY(28px);
+  transition: opacity 0.6s ease, transform 0.6s ease;
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+.reveal-delay-1 { transition-delay: 0.05s; }
+.reveal-delay-2 { transition-delay: 0.1s; }
+.reveal-delay-3 { transition-delay: 0.15s; }
+.reveal-delay-4 { transition-delay: 0.2s; }
+.reveal-delay-5 { transition-delay: 0.25s; }
+.reveal-delay-6 { transition-delay: 0.3s; }
 
-  <!-- CONTACT -->
-  <section class="section" id="contact">
-    <div class="container">
-      <div class="section-head reveal">
-        <span class="eyebrow">CONTACT</span>
-        <h2>오시는 길</h2>
-      </div>
-      <div class="contact-grid reveal">
-        <dl class="contact-info">
-          <dt>주소</dt><dd id="contact-address"></dd>
-          <dd class="contact-address-note" id="contact-address-note" style="display:none;"></dd>
-          <dt>전화</dt><dd id="contact-phone"></dd>
-          <dt>온라인 문의</dt><dd><a href="/inquiry.html" class="btn btn--navy btn--sm">온라인 문의하기 →</a></dd>
-        </dl>
-        <div class="map-box" id="map-box">
-          <div class="map-placeholder">지도가 아직 등록되지 않았습니다</div>
-        </div>
-      </div>
-    </div>
-  </section>
+/* ---------- 선교사역 (세계지도 + 동역자의 섬김) ---------- */
+.missions-verse {
+  font-family: var(--font-heading);
+  font-style: italic;
+  color: var(--ink);
+  font-size: 1.05rem;
+  line-height: 1.6;
+  margin: 8px 0 6px;
+  word-break: keep-all;
+}
+.missions-layout {
+  display: grid;
+  grid-template-columns: 1.7fr 1fr;
+  gap: 20px;
+  align-items: stretch;
+}
+@media (max-width: 860px) {
+  .missions-layout { grid-template-columns: 1fr; }
+}
 
-</main>
+.missions-map-wrap {
+  position: relative;
+  background: var(--ivory);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+#missions-map { position: relative; width: 100%; min-height: 340px; }
+.missions-empty { text-align: center; color: var(--muted); padding: 60px 20px; }
 
-<footer class="site-footer">
-  <div class="container">
-    <div class="footer-top">
-      <span class="footer-brand" id="footer-brand"></span>
-      <div class="footer-sns" id="footer-sns"></div>
-    </div>
-    <p>&copy; <span id="footer-year"></span> <span id="footer-brand-2"></span>. All rights reserved. &nbsp;·&nbsp; <a href="/privacy.html" style="color:inherit;">개인정보처리방침</a></p>
-  </div>
-</footer>
+.mission-pin-card-wrap {
+  position: absolute;
+  transform: translate(12px, -50%);
+  z-index: 3;
+  pointer-events: none;
+}
+.mission-pin-card-wrap.flip { transform: translate(calc(-100% - 12px), -50%); }
 
-<!-- 영상 재생 모달 -->
-<div class="video-modal" id="video-modal">
-  <div class="video-modal-inner" id="video-modal-inner">
-    <button class="video-modal-close" id="video-modal-close">닫기</button>
-    <div id="video-modal-frame"></div>
-  </div>
-</div>
+.mission-pin-card {
+  background: var(--ivory);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 12px 14px;
+  width: 190px;
+  pointer-events: auto;
+}
+.mission-pin-card-head { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
+.mission-pin-card-head .flag { font-size: 15px; }
+.mission-pin-card-head .country { font-size: 11px; font-weight: 600; color: var(--muted); }
+.mission-pin-card-body { display: flex; gap: 10px; align-items: flex-start; }
+.mission-pin-card-body img,
+.mission-pin-card-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--line);
+  flex-shrink: 0;
+}
+.mission-pin-card-body .name { margin: 0 0 3px; font-size: 12.5px; font-weight: 600; color: var(--ink); }
+.mission-pin-card-body .name .tag {
+  font-weight: 500;
+  font-size: 10.5px;
+  color: var(--navy-deep);
+  background: var(--gold-soft);
+  border-radius: 999px;
+  padding: 1px 8px;
+  margin-left: 4px;
+  white-space: nowrap;
+}
+.mission-pin-card-body .desc { margin: 0; font-size: 11px; color: var(--muted); line-height: 1.55; }
 
-<!-- 첨부파일(주보 등) 미리보기 모달 -->
-<div class="file-modal" id="file-modal">
-  <div class="file-modal-inner">
-    <div class="file-modal-head">
-      <span id="file-modal-name"></span>
-      <div class="file-modal-actions">
-        <a id="file-modal-download" href="#" download target="_blank" rel="noopener">다운로드</a>
-        <button class="file-modal-close" id="file-modal-close">닫기</button>
-      </div>
-    </div>
-    <div id="file-modal-frame"></div>
-  </div>
-</div>
+.missions-mobile-list { display: none; }
+@media (max-width: 860px) {
+  .missions-mobile-list {
+    display: flex;
+    flex-direction: column;
+    background: var(--ivory);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+}
+.mission-mobile-card {
+  padding: 18px 20px;
+  border-bottom: 1px solid var(--line);
+}
+.mission-mobile-card:last-child { border-bottom: none; }
+.mission-mobile-badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--navy-deep);
+  background: var(--gold-soft);
+  border-radius: 999px;
+  padding: 3px 10px;
+  margin-bottom: 10px;
+}
+.mission-mobile-card .mission-pin-card-body img,
+.mission-mobile-card .mission-pin-card-avatar { width: 40px; height: 40px; }
+.mission-mobile-card .name { font-size: 14px; }
+.mission-mobile-card .desc { font-size: 12.5px; }
 
-<!-- 게시글 상세보기 모달 -->
-<div class="post-modal" id="post-modal">
-  <div class="post-modal-inner">
-    <div class="post-modal-sticky-head">
-      <h3 id="post-modal-title"></h3>
-    </div>
-    <div class="post-modal-scroll" id="post-modal-scroll">
-      <div class="post-modal-head">
-        <span class="badge" id="post-modal-badge"></span>
-        <span class="date" id="post-modal-date"></span>
-      </div>
-      <img class="post-modal-image" id="post-modal-image" alt="" />
-      <div class="post-modal-content" id="post-modal-content"></div>
-      <div class="post-modal-attachments" id="post-modal-attachments"></div>
-    </div>
-    <div class="post-modal-footer">
-      <button class="post-modal-close" id="post-modal-close">닫기</button>
-    </div>
-  </div>
-</div>
+.missions-partners {
+  background: var(--ivory);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 18px 16px;
+  height: 100%;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+}
+#partners-list { flex: 1; display: flex; flex-direction: column; justify-content: space-between; }
+.missions-partners-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+.eyebrow-sm { display: block; font-size: 11px; font-weight: 600; letter-spacing: 1px; color: var(--gold-deep); margin-bottom: 2px; }
+.missions-partners-head h3 { font-family: var(--font-heading); font-size: 16px; font-weight: 500; margin: 0; color: var(--ink); }
+.missions-partners-nav { display: flex; gap: 4px; }
+.icon-btn-round {
+  width: 26px; height: 26px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: var(--ivory);
+  color: var(--muted);
+  cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px;
+  padding: 0;
+  transition: background 0.2s ease;
+}
+.icon-btn-round:hover:not(:disabled) { background: var(--ivory-dim); }
+.icon-btn-round:disabled { opacity: 0.3; cursor: default; }
 
-<!-- 사진 확대 보기 (파일명·다운로드 없이 사진만 화면에 맞게 크게 보여주는 전용 창) -->
-<div class="image-lightbox" id="image-lightbox">
-  <button class="image-lightbox-close" id="image-lightbox-close">닫기</button>
-  <img id="image-lightbox-img" alt="" />
-</div>
-
-<!-- 오른쪽 하단에 떠있는 네이버 밴드 바로가기 버튼 (관리자 페이지에 밴드 주소를 등록해야 보임) -->
-<!-- 푸시 알림 허용 안내 배너 (지원 기기에서만, JS가 필요할 때 보여줌) -->
-<div id="push-prompt" class="push-prompt" style="display:none;">
-  <span>🔔 새 설교·큐티·소식을 알림으로 받아보시겠어요?</span>
-  <div class="push-prompt-actions">
-    <button type="button" id="push-allow-btn" class="btn btn--gold btn--sm">알림 받기</button>
-    <button type="button" id="push-dismiss-btn" class="push-prompt-close" aria-label="닫기">✕</button>
-  </div>
-</div>
-
-<a href="#" id="band-fab" class="band-fab" target="_blank" rel="noopener" aria-label="네이버 밴드에서 소통해요" style="display:none;">
-  <span class="band-fab-badge">
-    <span style="display:block;font-size:0.6rem;line-height:1;">BAND</span>
-    <span style="display:block;font-size:0.62rem;line-height:1.2;">밴드</span>
-  </span>
-  <span>밴드에서 소통해요</span>
-</a>
-
-<button type="button" id="scroll-top-btn" class="scroll-top-btn" aria-label="맨 위로 이동">
-  <svg viewBox="0 0 24 24" fill="none"><path d="M12 19V5M12 5l-7 7M12 5l7 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
-</button>
-
-<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
-<script src="/js/countries.js"></script>
-<script src="/js/font-catalog.js"></script>
-<script src="/js/main.js"></script>
-</body>
-</html>
+.partner-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
+}
+.partner-row img, .partner-avatar {
+  width: 36px; height: 36px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: var(--line);
+  flex-shrink: 0;
+}
+.partner-info { flex: 1; min-width: 0; }
+.partner-info .name {
+  margin: 0; font-size: 13px; font-weight: 600; color: var(--ink);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.partner-info .note { margin: 2px 0 0; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.partner-day {
+  font-size: 10.5px; font-weight: 600;
+  color: var(--navy-deep);
+  background: var(--gold-soft);
+  border-radius: 999px;
+  padding: 3px 9px;
+  white-space: nowrap;
+}
+.missions-partners-page { text-align: center; font-size: 10.5px; color: var(--muted); margin: 10px 0 0; }
