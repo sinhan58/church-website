@@ -992,29 +992,36 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
     margin-left: calc(50% - 50vw);
     margin-right: calc(50% - 50vw);
   }
-  /* 모바일: 2열 x 2행씩 보이고, 옆으로 넘기면 다음 4개가 나옵니다 */
+  /* 모바일: 유튜브 뮤직처럼 3x3(9개) 정사각형이 한 화면에 붙어서 보이고,
+     옆으로 넘기면 다음 9개 페이지로 스냅됩니다 */
   .praise-grid {
     display: grid;
     grid-auto-flow: column;
-    grid-template-rows: repeat(2, auto);
-    grid-auto-columns: calc(44% - 8px); /* 다음 곡이 살짝 삐져나와 보이게(더 있다는 신호) */
-    gap: 16px;
-    padding-left: 20px; /* 풀블리드라 화면 끝에 카드가 바로 붙지 않도록 최소 여백만 */
-    padding-right: 20px;
-    scroll-padding-left: 20px;
+    grid-template-rows: repeat(3, 1fr);
+    grid-auto-columns: calc((100% - 4px) / 3); /* 한 화면에 정확히 3열(=9개)이 꽉 차게 */
+    gap: 2px;
+    padding: 0; /* 완전 풀블리드: 화면 가장자리까지 타일이 딱 붙음 */
     overflow-x: auto;
     overflow-y: hidden; /* 의도치 않은 세로 오버스크롤 바운스 방지 */
-    scroll-snap-type: none; /* 세로 스크롤과 충돌해 떨리는 문제로 모바일은 스냅 비활성화 */
+    scroll-snap-type: x proximity; /* mandatory는 세로 스크롤과 충돌해 떨리는 문제가 있었어서 완화된 값 사용 */
     scroll-behavior: smooth;
     overscroll-behavior-x: contain; /* 가로축만 감싸 세로 스크롤은 정상적으로 페이지로 전달되게 함 */
     touch-action: pan-x pan-y;
     scrollbar-width: none;
   }
   .praise-grid::-webkit-scrollbar { display: none; }
-  .praise-card { scroll-snap-align: none; width: 100%; aspect-ratio: 4/3; }
+  .praise-card {
+    scroll-snap-align: none;
+    width: 100%;
+    aspect-ratio: 1/1;
+  }
+  .praise-card:nth-child(9n+1) { scroll-snap-align: start; } /* 9개 페이지의 시작 지점에서만 스냅 */
+  /* 타일이 작아지므로 유튜브 뮤직처럼 제목/가수 텍스트는 숨기고 앨범아트 위주로 */
+  .praise-card .praise-overlay-text { display: none; }
+  .praise-card .praise-play { width: 34px; height: 34px; }
 }
 @media (max-width: 560px) {
-  .praise-grid { gap: 12px; }
+  .praise-grid { gap: 1px; }
 }
 
 .praise-scroll-fade { display: none; }
