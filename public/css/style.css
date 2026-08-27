@@ -81,21 +81,31 @@ img { max-width: 100%; display: block; }
 ul { list-style: none; margin: 0; padding: 0; }
 button { font-family: inherit; cursor: pointer; }
 
-/* 모바일에서 버튼 탭할 때 뜨는 기본 회색 번쩍임을 끄고, 자연스러운 눌림 반응으로 통일 */
-a, button, [role="button"] { -webkit-tap-highlight-color: transparent; }
+/* 모바일에서 탭할 때 뜨는 기본 파란/회색 번쩍임을 전체 요소에서 끄고, 자연스러운 눌림
+   반응으로 통일 (a, button뿐 아니라 클릭 가능한 div/span 카드류도 전부 대상) */
+* { -webkit-tap-highlight-color: transparent; }
 button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1s ease; }
-/* 카드/칩류는 이미 hover에서 transform(translateY 등)을 쓰고 있고, 큐티 카드는 PC에서
+/* 카드/칩/버튼류는 이미 hover에서 transform(translateY 등)을 쓰고 있고, 큐티 카드는 PC에서
    JS가 인라인 transform으로 위치를 잡고 있어서 :active에 transform을 또 쓰면 충돌합니다.
    그래서 transform 대신 밝기(filter)로 눌림 반응을 줘서 클릭했을 때 반응이 없어 보이던
-   문제를 해결합니다. */
+   문제를 해결합니다. 사이트 내 클릭 가능한 요소 전수 점검 후 빠짐없이 포함했습니다. */
 .sermon-hero-card:active,
 .sermon-list-row:active,
+.sermon-more-row:active,
 .praise-card:active,
 .praise-chip:active,
 .praise-theme-cell:active,
 .board-card:active,
-.qt-card:active {
-  filter: brightness(0.95);
+.qt-card:active,
+.qt-archive-row:active,
+.attachment-item:active,
+.quiz-teaser-card:active,
+.kakao-map-preview:active,
+.btn:active,
+.btn-gold:active,
+.band-fab:active,
+.nav-mobile a:active {
+  filter: brightness(0.92);
   transition: filter 0.1s ease;
 }
 
