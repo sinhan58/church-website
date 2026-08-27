@@ -1599,10 +1599,17 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
     min-height: 100vh;
     min-height: 100dvh; /* 주소창 접힘/펼침에 따라 흔들리지 않는 실제 뷰포트 높이 */
     display: flex;
-    align-items: center;
-    padding: 48px 0;
+    align-items: stretch;
+    padding: 64px 0 48px;
   }
-  #service .container { width: 100%; }
+  #service .container {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 40px;
+  }
+  #service .section-head { margin-bottom: 0; }
 
   /* 예배 안내: 모바일에서는 마름모/구분선 없이 카드 1개씩 가로로 스와이프 */
   .service-grid {
