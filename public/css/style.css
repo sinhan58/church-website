@@ -241,7 +241,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(13,21,38,0.72), rgba(13,21,38,0.86));
+  background: linear-gradient(180deg, rgba(13,21,38,0.4), rgba(13,21,38,0.55));
   z-index: 1;
 }
 /* 관리자가 등록한 대문 사진을 담는 전용 레이어. 기본은 투명 상태(opacity:0)로 시작해서
@@ -1814,7 +1814,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   justify-content: center;
   text-align: center;
   gap: 8px;
-  min-height: 300px;
+  min-height: 220px;
   background: url('/images/quiz-card-bg.jpg') center/cover no-repeat, var(--navy-deep);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
