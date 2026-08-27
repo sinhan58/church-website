@@ -784,7 +784,7 @@
         (p, i) => `
         <div class="praise-card reveal reveal-delay-${(i % 6) + 1}" data-video-id="${escapeHtml(p.youtubeId)}" data-title="${escapeHtml(p.title || '')}" style="--accent-rgb: ${accentForId(p.youtubeId)};">
           <div class="praise-thumb">
-            <img src="https://i.ytimg.com/vi/${escapeHtml(p.youtubeId)}/hqdefault.jpg" alt="${escapeHtml(p.title)}" loading="lazy" />
+            <img src="https://i.ytimg.com/vi/${escapeHtml(p.youtubeId)}/mqdefault.jpg" alt="${escapeHtml(p.title)}" loading="lazy" />
             <button type="button" class="praise-play" aria-label="재생">
               <svg viewBox="0 0 24 24"><path d="M9.5 7.5v9l8-4.5-8-4.5z"/></svg>
             </button>
@@ -793,6 +793,7 @@
               ${p.singer ? `<p class="singer">${escapeHtml(p.singer)}</p>` : ''}
             </div>
           </div>
+          <p class="praise-tile-title">${escapeHtml(p.title || '')}</p>
         </div>`
       )
       .join('');
@@ -812,6 +813,7 @@
 
     setupCarouselNav(grid, 'praise-nav-prev', 'praise-nav-next');
     setupScrollProgressBar(grid, 'praise-scroll-track', 'praise-scroll-thumb');
+    setupPraiseDots(grid, displayList.length);
   }
 
   // 가로 스크롤이 얼마나 남았는지, 얇은 막대로 보여줍니다 (세로 스크롤바처럼 은은하게).
@@ -1322,6 +1324,40 @@
         }
       });
       dots.forEach((dot, i) => dot.classList.toggle('is-active', i === closestIndex));
+    }
+    grid.addEventListener(
+      'scroll',
+      () => {
+        if (!ticking) {
+          ticking = true;
+          requestAnimationFrame(updateActiveDot);
+        }
+      },
+      { passive: true }
+    );
+  }
+
+  // 찬양 캐러셀: 9개씩 한 페이지로 넘어갈 때, 페이지 단위로 점을 켜줍니다 (모바일 전용)
+  function setupPraiseDots(grid, count) {
+    const dotsWrap = $('#praise-dots');
+    if (!dotsWrap) return;
+    const totalPages = Math.ceil(count / 9);
+    if (!count || totalPages <= 1) {
+      dotsWrap.innerHTML = '';
+      return;
+    }
+    dotsWrap.innerHTML = Array.from({ length: totalPages })
+      .map((_, i) => `<span class="dot${i === 0 ? ' is-active' : ''}"></span>`)
+      .join('');
+    const dots = $$('.dot', dotsWrap);
+
+    let ticking = false;
+    function updateActiveDot() {
+      ticking = false;
+      const pageWidth = grid.clientWidth || 1;
+      const pageIndex = Math.round(grid.scrollLeft / pageWidth);
+      const clamped = Math.max(0, Math.min(totalPages - 1, pageIndex));
+      dots.forEach((dot, i) => dot.classList.toggle('is-active', i === clamped));
     }
     grid.addEventListener(
       'scroll',
