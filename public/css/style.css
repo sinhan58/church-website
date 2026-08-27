@@ -825,6 +825,18 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   background: var(--ivory-dim);
   border-radius: var(--radius);
 }
+/* 사진 배경이 있을 때는 이 박스도 투명하게 뚫어서 사진이 보이게 하고,
+   글씨는 밝은 배경 기준 색이라 흰 계열로 뒤집어줍니다 */
+#praise.has-bg-photo .praise-theme-dial-wrap { background: transparent; }
+#praise.has-bg-photo .praise-theme-dial-label {
+  color: var(--gold);
+  text-shadow: 0 1px 4px rgba(0,0,0,0.6);
+}
+#praise.has-bg-photo .praise-theme-cell {
+  color: rgba(255,255,255,0.6);
+  text-shadow: 0 1px 4px rgba(0,0,0,0.5);
+}
+#praise.has-bg-photo .praise-theme-cell.is-active { color: #fff; }
 .praise-theme-dial-wrap::before,
 .praise-theme-dial-wrap::after {
   /* 다이얼에서 실제로 선택되는 자리(가운데)를, 글자를 가리지 않도록 양옆에서 살짝 표시 */
@@ -1652,6 +1664,18 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
     gap: clamp(28px, 6vh, 56px);
   }
   #service .section-head { margin-bottom: 0; }
+
+  /* 찬양: 예배 안내와 동일하게 모바일 화면을 가득 채우도록 */
+  #praise {
+    min-height: 100vh;
+    min-height: 100dvh;
+    display: flex;
+    align-items: center;
+    padding: 64px 0 48px;
+  }
+  #praise .container {
+    width: 100%;
+  }
 
   /* 예배 안내: 모바일에서는 마름모/구분선 없이 카드 1개씩 가로로 스와이프 */
   .service-grid {
