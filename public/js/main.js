@@ -17,18 +17,22 @@
 
   // ---------------- 스크롤 등장 애니메이션 ----------------
   // 화면에 들어오면 나타나고, 화면 밖으로 나가면 사라졌다가, 다시 스크롤해서
-  // 한 번 나타난 뒤에는 다시 스크롤해서 위로 올라가도 사라지지 않고 계속 보이게 둡니다
-  // (반복해서 나타났다 사라졌다 하면 오히려 어색하고 산만해 보일 수 있어서, 처음
-  // 한 번만 부드럽게 나타나는 쪽이 차분한 느낌에 더 잘 어울립니다).
+  // 들어오면 또 나타나도록 반복합니다 (한 번 보고 나면 계속 그대로 두지 않음).
+  // 단, 찬양 카드(.praise-card)는 화면 경계를 넘나들 때마다 애니메이션이 재생되면서
+  // 세로 스크롤 중 흔들리는 것처럼 보이는 문제가 있어, 한 번 나타난 뒤에는 고정합니다.
   const revealObserver =
     'IntersectionObserver' in window
       ? new IntersectionObserver(
           (entries) => {
             entries.forEach((entry) => {
-              if (entry.isIntersecting) {
-                entry.target.classList.add('is-visible');
-                revealObserver.unobserve(entry.target);
+              if (entry.target.classList.contains('praise-card')) {
+                if (entry.isIntersecting) {
+                  entry.target.classList.add('is-visible');
+                  revealObserver.unobserve(entry.target);
+                }
+                return;
               }
+              entry.target.classList.toggle('is-visible', entry.isIntersecting);
             });
           },
           { threshold: 0.12, rootMargin: '0px 0px -40px 0px' }
@@ -349,6 +353,7 @@
         </div>`
       )
       .join('');
+    applyServiceBackground(site.service);
 
     if (site.contact) {
       $('#contact-address').textContent = site.contact.address || '';
@@ -564,12 +569,13 @@
       pastorName: (site && site.about && site.about.pastorName) || ''
     };
 
+    const ytBtn = $('#sermon-youtube-btn');
     const moreRow = $('#sermon-more-row');
-    if (moreRow) {
+    if (ytBtn) {
       if (sermonChannelId) {
-        moreRow.href = `https://www.youtube.com/channel/${encodeURIComponent(sermonChannelId)}/videos`;
-        moreRow.style.display = 'inline-flex';
-      } else {
+        ytBtn.href = `https://www.youtube.com/channel/${encodeURIComponent(sermonChannelId)}/videos`;
+        if (moreRow) moreRow.style.display = 'flex';
+      } else if (moreRow) {
         moreRow.style.display = 'none';
       }
     }
@@ -640,8 +646,7 @@
     card.innerHTML = `
       <img src="${posterUrl}" alt="${escapeHtml(hero.title || '')}" onerror="this.onerror=null;this.src='${escapeHtml(hero.thumbnail)}';" />
       <span class="sermon-hero-play" aria-hidden="true">
-        <svg class="sermon-hero-play-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M9.5 7.5v9l8-4.5-8-4.5z"/></svg>
-        <span class="sermon-hero-play-text">설교 보기</span>
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.5 7.5v9l8-4.5-8-4.5z"/></svg>
       </span>`;
     card.dataset.videoId = hero.videoId;
     card.onclick = () => {
@@ -764,7 +769,7 @@
     grid.innerHTML = displayList
       .map(
         (p, i) => `
-        <div class="praise-card" data-video-id="${escapeHtml(p.youtubeId)}" data-title="${escapeHtml(p.title || '')}" style="--accent-rgb: ${accentForId(p.youtubeId)};">
+        <div class="praise-card reveal reveal-delay-${(i % 6) + 1}" data-video-id="${escapeHtml(p.youtubeId)}" data-title="${escapeHtml(p.title || '')}" style="--accent-rgb: ${accentForId(p.youtubeId)};">
           <div class="praise-thumb">
             <img src="https://i.ytimg.com/vi/${escapeHtml(p.youtubeId)}/hqdefault.jpg" alt="${escapeHtml(p.title)}" loading="lazy" />
             <button type="button" class="praise-play" aria-label="재생">
@@ -1037,7 +1042,7 @@
   function boardCardHTML(p, i = 0) {
     const thumb = thumbnailFor(p);
     return `
-      <div class="board-card" data-id="${p.id}" data-title="${escapeHtml(p.title || '')}">
+      <div class="board-card reveal reveal-delay-${(i % 6) + 1}" data-id="${p.id}" data-title="${escapeHtml(p.title || '')}">
         <div class="board-thumb">
           ${thumb ? `<img src="${thumb}" alt="${escapeHtml(p.title)}" loading="lazy" />` : `<div class="board-thumb-empty">${escapeHtml((p.category || '')[0] || '소')}</div>`}
         </div>
@@ -1203,7 +1208,6 @@
     });
 
     $('#post-modal').classList.add('open');
-    $('#post-modal-scroll').scrollTop = 0;
     lockScroll();
   }
 
@@ -1236,6 +1240,33 @@
       boardPage = 1;
       renderBoard();
     });
+  }
+
+  // ---------------- 예배 안내 배경 사진 ----------------
+  // object-fit:cover 상태(줌 100%)에서 이미 화면을 꽉 채우고 있기 때문에, 그 상태에서
+  // 초점 좌표를 기준으로 transform: scale()만 키워주면 어떤 배율에서도 빈 공간 없이
+  // 항상 그 지점을 중심으로 확대됩니다.
+  function applyServiceBackground(svc) {
+    const section = $('#service');
+    const img = $('#service-bg-img');
+    const overlay = $('.service-bg-overlay');
+    if (svc && svc.backgroundImage) {
+      const focalX = svc.focalX != null ? svc.focalX : 50;
+      const focalY = svc.focalY != null ? svc.focalY : 50;
+      const zoom = svc.zoom || 100;
+      img.src = svc.backgroundImage;
+      img.style.objectPosition = `${focalX}% ${focalY}%`;
+      img.style.transformOrigin = `${focalX}% ${focalY}%`;
+      img.style.transform = `scale(${zoom / 100})`;
+      img.classList.add('is-visible');
+      overlay.classList.add('is-visible');
+      section.classList.add('has-bg-photo');
+    } else {
+      img.removeAttribute('src');
+      img.classList.remove('is-visible');
+      overlay.classList.remove('is-visible');
+      section.classList.remove('has-bg-photo');
+    }
   }
 
   // ---------------- 오늘의 큐티 ----------------
@@ -1762,35 +1793,10 @@
   async function setupPushPrompt(registration) {
     if (!('PushManager' in window) || !('Notification' in window)) return; // 미지원 기기(iOS 사파리 등)는 조용히 건너뜀
     if (Notification.permission === 'denied') return; // 이미 차단한 경우 다시 안 물어봄
+    if (localStorage.getItem('push-prompt-dismissed') === '1') return; // 예전에 닫은 적 있으면 다시 안 보여줌
 
     const existing = await registration.pushManager.getSubscription();
-    if (existing) return; // 이미 구독 중이면 아무것도 안 함
-
-    // 여기까지 왔다는 건 = 지금 구독이 없는 상태입니다. 만약 알림 권한은 이미 "허용"으로
-    // 되어 있다면 (예: 앱을 재설치하면서 구독 정보만 사라진 경우), 배너를 다시 띄우지 않고
-    // 조용히 재구독을 시도합니다. (예전엔 "배너를 닫은 적 있다"는 표시만 보고 재구독
-    // 시도 자체를 건너뛰어서, 재설치 후 알림이 하나도 안 오는 문제가 있었습니다)
-    if (Notification.permission === 'granted') {
-      try {
-        const { publicKey } = await getJSON('/api/push/vapid-public-key');
-        if (publicKey) {
-          const subscription = await registration.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: urlBase64ToUint8Array(publicKey)
-          });
-          await fetch('/api/push/subscribe', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(subscription)
-          });
-        }
-      } catch (err) {
-        // 조용히 실패 - 다음 방문 때 다시 시도됩니다.
-      }
-      return;
-    }
-
-    if (localStorage.getItem('push-prompt-dismissed') === '1') return; // 예전에 닫은 적 있으면 다시 안 보여줌
+    if (existing) return; // 이미 구독 중이면 배너 안 보여줌
 
     const banner = $('#push-prompt');
     if (!banner) return;
