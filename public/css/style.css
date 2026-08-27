@@ -160,11 +160,8 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 }
 .service-bg-overlay.is-visible { display: block; }
 #service .container { position: relative; z-index: 2; }
-/* 사진이 무슨 색이든 카드/글씨는 항상 잘 보이도록, 사진이 있을 때만 카드를 더 진하게 */
-#service.has-bg-photo .service-card {
-  background: rgba(13,21,38,0.55);
-  backdrop-filter: blur(2px);
-}
+/* 사진이 무슨 색이든 글씨는 항상 잘 보이도록, 사진이 있을 때만 제목에 그림자 추가
+   (카드 자체 대비는 .service-card-shape 쪽에서 처리) */
 #service.has-bg-photo .section-head h2,
 #service.has-bg-photo .section-head p {
   text-shadow: 0 2px 10px rgba(0,0,0,0.55);
@@ -429,14 +426,29 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 20px;
+  position: relative;
 }
 .service-card {
-  background: rgba(255,255,255,0.04);
-  border: 1px solid rgba(228,200,118,0.25);
-  border-radius: var(--radius);
-  padding: 28px 20px;
+  position: relative;
+  padding: 34px 20px;
   text-align: center;
 }
+/* 카드 모양(마름모)과 글씨를 분리합니다: 모양만 기울이고 글씨는 항상 수평으로 유지 */
+.service-card-shape {
+  position: absolute;
+  inset: 6px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 6px;
+  transform: rotate(-7deg);
+  z-index: 0;
+  transition: transform 0.2s ease, background 0.2s ease;
+}
+#service.has-bg-photo .service-card-shape {
+  background: rgba(13,21,38,0.55);
+  backdrop-filter: blur(2px);
+}
+.service-card:hover .service-card-shape { transform: rotate(-7deg) scale(1.04); }
+.service-card-content { position: relative; z-index: 1; }
 .service-card .time {
   font-family: var(--font-heading);
   font-size: 1.5rem;
@@ -446,6 +458,36 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   word-break: keep-all;
 }
 .service-card .name { color: #d7d9e4; font-size: 0.92rem; }
+/* 카드 사이 대각선 구분선 (마름모와 같은 기울기, 마지막 카드 뒤에는 안 그림) */
+.service-card:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  top: 14%;
+  right: -11px;
+  width: 2px;
+  height: 72%;
+  background: linear-gradient(180deg, transparent, rgba(228,200,118,0.55) 20%, rgba(228,200,118,0.55) 80%, transparent);
+  transform: rotate(-7deg);
+  z-index: 1;
+}
+/* 예배 안내 하단 점 인디케이터 (모바일 스와이프 전용, PC에서는 숨김) */
+.service-dots {
+  display: none;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 18px;
+}
+.service-dots .dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: rgba(255,255,255,0.35);
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+.service-dots .dot.is-active {
+  background: var(--gold);
+  transform: scale(1.3);
+}
 
 /* ---------------- Sermons ---------------- */
 .sermon-updated {
@@ -1534,12 +1576,33 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   .hamburger { display: flex; }
   .nav-mobile { display: flex; }
   .about-grid { grid-template-columns: 1fr; }
-  .service-grid { grid-template-columns: repeat(2, 1fr); }
   .contact-grid { grid-template-columns: 1fr; }
   .section { padding: 64px 0; }
+
+  /* 예배 안내: 모바일에서는 마름모/구분선 없이 카드 1개씩 가로로 스와이프 */
+  .service-grid {
+    display: flex;
+    grid-template-columns: none;
+    overflow-x: auto;
+    overflow-y: hidden;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    scrollbar-width: none;
+    overscroll-behavior-x: contain;
+    touch-action: pan-x pan-y;
+    gap: 0;
+  }
+  .service-grid::-webkit-scrollbar { display: none; }
+  .service-card {
+    flex: 0 0 100%;
+    scroll-snap-align: center;
+    padding: 40px 20px;
+  }
+  .service-card-shape { transform: none; inset: 0; border-radius: var(--radius); }
+  .service-card:not(:last-child)::after { display: none; } /* 대각선 구분선은 PC 전용 */
+  .service-dots { display: flex; }
 }
 @media (max-width: 560px) {
-  .service-grid { grid-template-columns: 1fr 1fr; }
   .offering-card { padding: 26px 20px; }
 }
 
