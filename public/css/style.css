@@ -1019,8 +1019,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   }
   .praise-card:nth-child(9n+1) { scroll-snap-align: start; } /* 9개 페이지의 시작 지점에서만 스냅 */
   .praise-card .praise-thumb { aspect-ratio: 1/1; height: 100%; }
-  .praise-card .praise-play { width: 30px; height: 30px; }
-  .praise-card .praise-play svg { width: 14px; height: 14px; }
+  .praise-card .praise-play { display: none; }
   /* 유튜브 뮤직처럼 제목을 사진 밖이 아니라 사진 안쪽 하단에 그라데이션과 함께 표시 */
   .praise-card .praise-overlay-text { padding: 16px 6px 6px; }
   .praise-card .praise-overlay-text .title {
@@ -2003,6 +2002,87 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   padding-top: 20px;
   font-size: 0.85rem;
   color: var(--muted);
+}
+
+/* ---------------- 찬양 미니 플레이어 ---------------- */
+.mini-player {
+  position: fixed;
+  left: 0; right: 0; bottom: 0;
+  z-index: 120; /* 밴드 버튼(90), 맨위로 버튼보다 위에 오도록 */
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--navy-deep);
+  color: #fff;
+  padding: 8px 14px;
+  box-shadow: 0 -6px 20px rgba(0,0,0,0.25);
+}
+.mini-player-video {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  flex-shrink: 0;
+  border-radius: 6px;
+  overflow: hidden;
+  cursor: pointer;
+  background: #000;
+  transition: width 0.25s ease, height 0.25s ease, border-radius 0.25s ease;
+}
+.mini-player-video #mini-player-yt-mount,
+.mini-player-video #mini-player-yt-mount iframe {
+  width: 100%;
+  height: 100%;
+}
+/* 작은 영상 화면을 탭하면 위로 확장되는 형태 */
+.mini-player.is-expanded {
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0;
+}
+.mini-player.is-expanded .mini-player-video {
+  width: 100%;
+  height: 42vh;
+  border-radius: 0;
+}
+.mini-player.is-expanded .mini-player-info,
+.mini-player.is-expanded .mini-player-controls {
+  padding: 10px 14px;
+}
+.mini-player-info { flex: 1; min-width: 0; }
+.mini-player-title {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mini-player-controls { display: flex; align-items: center; gap: 2px; flex-shrink: 0; }
+.mini-player-controls button {
+  background: none;
+  border: none;
+  color: #fff;
+  cursor: pointer;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease;
+}
+.mini-player-controls button:hover { background: rgba(255,255,255,0.12); }
+.mini-player-controls svg { width: 20px; height: 20px; }
+#mini-player-playpause svg { width: 24px; height: 24px; }
+
+/* 미니 플레이어가 떠 있을 때는 우측 하단 버튼들을 그만큼 밀어올림 */
+body.has-mini-player .band-fab { bottom: calc(20px + 68px); }
+body.has-mini-player .scroll-top-btn { bottom: calc(84px + 68px); }
+@media (max-width: 900px) {
+  .mini-player { padding: 6px 10px; gap: 10px; }
+  .mini-player-video { width: 48px; height: 48px; }
+  body.has-mini-player .band-fab { bottom: calc(74px + 60px); }
+  body.has-mini-player .scroll-top-btn { bottom: calc(14px + 60px); }
 }
 
 /* ---------------- 밴드 바로가기 (오른쪽 하단 떠있는 버튼) ---------------- */
