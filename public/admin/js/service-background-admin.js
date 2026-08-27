@@ -137,3 +137,76 @@
 
   loadCurrent();
 })();
+
+// ===================================================================
+// 예배 시간 글씨 굵게 표시 — 관리자 화면 연동 스크립트
+// 기존 예배 시간 목록(#service-list)은 별도 관리자 스크립트가 렌더링하므로,
+// 여기서는 건드리지 않고 별도의 체크박스 목록으로 굵게 여부만 관리합니다.
+// ===================================================================
+(function () {
+  const $ = (sel) => document.querySelector(sel);
+
+  const listWrap = $('#s-serviceBoldList');
+  const saveBtn = $('#s-serviceBoldSaveBtn');
+  const statusEl = $('#s-serviceBoldStatus');
+
+  if (!listWrap || !saveBtn) return;
+
+  function setStatus(msg, isError) {
+    statusEl.textContent = msg;
+    statusEl.style.color = isError ? '#b3413a' : '#2f6d3a';
+  }
+
+  async function loadList() {
+    try {
+      const res = await fetch('/api/admin/site', { credentials: 'include' });
+      const site = await res.json();
+      const times = site.serviceTimes || [];
+      if (!times.length) {
+        listWrap.innerHTML = '<p class="hint" style="margin:0;">등록된 예배 시간이 없습니다.</p>';
+        return;
+      }
+      listWrap.innerHTML = times
+        .map(
+          (s) => `
+          <label style="display:flex; align-items:center; gap:8px; font-size:0.92rem;">
+            <input type="checkbox" data-id="${s.id}" ${s.bold ? 'checked' : ''} />
+            ${s.name} (${s.time})
+          </label>`
+        )
+        .join('');
+    } catch (err) {
+      console.error('예배 시간 목록 불러오기 실패:', err);
+      setStatus('목록을 불러오지 못했습니다.', true);
+    }
+  }
+
+  saveBtn.addEventListener('click', async () => {
+    setStatus('저장 중...', false);
+    try {
+      // 저장 직전에 최신 상태를 다시 받아와서, 그 사이 다른 화면에서 예배 시간이
+      // 추가/삭제/수정됐어도 안전하게 병합합니다.
+      const res = await fetch('/api/admin/site', { credentials: 'include' });
+      const site = await res.json();
+      const boldIds = new Set(
+        Array.from(listWrap.querySelectorAll('input[type="checkbox"]:checked')).map((el) => el.dataset.id)
+      );
+      const updatedTimes = (site.serviceTimes || []).map((s) => ({
+        ...s,
+        bold: boldIds.has(s.id)
+      }));
+      const saveRes = await fetch('/api/admin/site', {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ serviceTimes: updatedTimes })
+      });
+      if (!saveRes.ok) throw new Error('저장 실패');
+      setStatus('저장되었습니다. 홈페이지에서 확인해보세요.', false);
+    } catch (err) {
+      setStatus('저장 실패: ' + err.message, true);
+    }
+  });
+
+  loadList();
+})();
