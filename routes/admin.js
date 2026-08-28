@@ -363,7 +363,20 @@ router.put('/site', requirePermission('site'), async (req, res) => {
       }
     }
     const current = (await readData('site')) || {};
-    const updated = { ...current, ...req.body };
+    const incoming = { ...req.body };
+
+    // serviceTimes는 화면이 여러 개(기본 정보 저장 / 예배 시간별 세부 설정)에서 나눠서
+    // 저장하다 보니, 배열을 통째로 덮어쓰면 한쪽 화면이 모르는 필드(굵게/글자크기/설명 등)가
+    // 사라져버립니다. 그래서 항목을 id로 매칭해 필드 단위로 합쳐서 저장합니다.
+    if (Array.isArray(incoming.serviceTimes)) {
+      const currentList = Array.isArray(current.serviceTimes) ? current.serviceTimes : [];
+      incoming.serviceTimes = incoming.serviceTimes.map((item) => {
+        const existing = currentList.find((s) => s.id === item.id);
+        return existing ? { ...existing, ...item } : item;
+      });
+    }
+
+    const updated = { ...current, ...incoming };
     await writeData('site', updated);
     res.json(updated);
   } catch (err) {
