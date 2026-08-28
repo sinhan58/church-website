@@ -306,3 +306,67 @@ createSectionBackgroundEditor({
 
   runAfterAdminLogin(loadList);
 })();
+
+// ===================================================================
+// 섬김 안내 (예배 위원 / 주일 식사 봉사 당번) — 관리자 화면 연동 스크립트
+// ===================================================================
+(function () {
+  const $ = (sel) => document.querySelector(sel);
+
+  const worshipInput = $('#s-ministryWorship');
+  const mealInput = $('#s-ministryMeal');
+  const saveBtn = $('#s-ministryDutySaveBtn');
+  const statusEl = $('#s-ministryDutyStatus');
+
+  if (!worshipInput || !mealInput || !saveBtn) return;
+
+  function setStatus(msg, isError) {
+    statusEl.textContent = msg;
+    statusEl.style.color = isError ? '#b3413a' : '#2f6d3a';
+  }
+
+  async function loadCurrent() {
+    try {
+      const res = await fetch('/api/admin/site', { credentials: 'include' });
+      if (!res.ok) {
+        setStatus(`불러오기 실패 (서버 응답 ${res.status}). 로그인 상태를 확인해주세요.`, true);
+        return;
+      }
+      const site = await res.json();
+      const duty = site && site.ministryDuty;
+      worshipInput.value = (duty && duty.worship) || '';
+      mealInput.value = (duty && duty.meal) || '';
+    } catch (err) {
+      setStatus('불러오기 중 오류가 발생했어요: ' + err.message, true);
+    }
+  }
+
+  saveBtn.addEventListener('click', async () => {
+    setStatus('저장 중...', false);
+    try {
+      const res = await fetch('/api/admin/site', {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ministryDuty: { worship: worshipInput.value, meal: mealInput.value }
+        })
+      });
+      if (!res.ok) {
+        let detail = `서버 응답 ${res.status}`;
+        try {
+          const errBody = await res.json();
+          if (errBody && errBody.error) detail += `: ${errBody.error}`;
+        } catch (parseErr) {
+          // 무시
+        }
+        throw new Error(detail);
+      }
+      setStatus('저장되었습니다. 홈페이지에서 확인해보세요.', false);
+    } catch (err) {
+      setStatus('저장 실패: ' + err.message, true);
+    }
+  });
+
+  runAfterAdminLogin(loadCurrent);
+})();
