@@ -1,2207 +1,858 @@
-(function () {
-  const $ = (sel) => document.querySelector(sel);
-  const $$ = (sel, root = document) => Array.from((root || document).querySelectorAll(sel));
-
-  async function getJSON(url) {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`요청 실패: ${url}`);
-    return res.json();
-  }
-
-  function escapeHtml(str = '') {
-    return str
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-  }
-
-  // 관리자 페이지 리치 텍스트 에디터(Quill)에서 저장된 HTML을 안전하게 렌더링하기 위한
-  // 화이트리스트 방식 정제 함수. 허용된 태그/속성만 남기고 나머지(script, on* 이벤트,
-  // 위험한 style 속성 등)는 전부 제거합니다.
-  const RICH_TEXT_ALLOWED_TAGS = new Set([
-    'P', 'BR', 'B', 'STRONG', 'I', 'EM', 'U', 'S', 'SPAN', 'UL', 'OL', 'LI'
-  ]);
-  const RICH_TEXT_ALLOWED_STYLES = new Set(['text-align', 'font-size']);
-
-  function sanitizeRichText(html = '') {
-    const container = document.createElement('div');
-    container.innerHTML = html;
-
-    function clean(node) {
-      Array.from(node.childNodes).forEach((child) => {
-        if (child.nodeType === 3) return; // 텍스트 노드는 그대로 둠
-        if (child.nodeType !== 1) {
-          node.removeChild(child);
-          return;
-        }
-        if (!RICH_TEXT_ALLOWED_TAGS.has(child.tagName)) {
-          // 허용 안 된 태그(script, img, iframe 등)는 태그만 제거하고 내부 텍스트만 남김
-          const text = document.createTextNode(child.textContent);
-          node.replaceChild(text, child);
-          return;
-        }
-        Array.from(child.attributes).forEach((attr) => {
-          if (attr.name === 'style') {
-            Array.from(child.style).forEach((prop) => {
-              if (!RICH_TEXT_ALLOWED_STYLES.has(prop)) child.style.removeProperty(prop);
-            });
-          } else {
-            child.removeAttribute(attr.name);
-          }
-        });
-        clean(child);
-      });
-    }
-    clean(container);
-    return container.innerHTML;
-  }
-
-  // ---------------- 스크롤 등장 애니메이션 ----------------
-  // 화면에 들어오면 나타나고, 화면 밖으로 나가면 사라졌다가, 다시 스크롤해서
-  // 들어오면 또 나타나도록 반복합니다 (한 번 보고 나면 계속 그대로 두지 않음).
-  // 단, 찬양 카드(.praise-card)와 게시판 카드(.board-card)는 화면 경계를 넘나들 때마다
-  // 애니메이션이 재생되면서 스크롤 중 흔들리거나(찬양) 마지막 카드가 스르륵 사라지는
-  // 것처럼 보이는 문제(게시판)가 있어, 한 번 나타난 뒤에는 고정합니다.
-  const REVEAL_ONCE_CLASSES = ['praise-card', 'board-card', 'board-list', 'service-card'];
-  const revealObserver =
-    'IntersectionObserver' in window
-      ? new IntersectionObserver(
-          (entries) => {
-            entries.forEach((entry) => {
-              const isRevealOnce = REVEAL_ONCE_CLASSES.some((cls) => entry.target.classList.contains(cls));
-              if (isRevealOnce) {
-                if (entry.isIntersecting) {
-                  entry.target.classList.add('is-visible');
-                  revealObserver.unobserve(entry.target);
-                }
-                return;
-              }
-              entry.target.classList.toggle('is-visible', entry.isIntersecting);
-            });
-          },
-          { threshold: 0.12, rootMargin: '0px 0px -40px 0px' }
-        )
-      : null;
-
-  function observeReveals(root = document) {
-    const targets = root.querySelectorAll ? root.querySelectorAll('.reveal:not(.reveal-bound)') : [];
-    targets.forEach((el) => {
-      el.classList.add('reveal-bound');
-      if (revealObserver) {
-        revealObserver.observe(el);
-      } else {
-        el.classList.add('is-visible');
-      }
-    });
-  }
-
-  function renderMap(contact) {
-    const box = $('#map-box');
-    if (!box) return;
-
-    const validImage = contact.kakaoMapImageUrl && /^https:\/\/staticmap\.kakao\.com\//.test(contact.kakaoMapImageUrl)
-      ? contact.kakaoMapImageUrl
-      : '';
-    const validLink = contact.kakaoMapLinkUrl && /^https:\/\/map\.kakao\.com\//.test(contact.kakaoMapLinkUrl)
-      ? contact.kakaoMapLinkUrl
-      : '';
-
-    if (validImage && validLink) {
-      box.innerHTML = `
-        <a class="kakao-map-preview" href="${validLink}" target="_blank" rel="noopener">
-          <img src="${validImage}" alt="교회 위치 지도" loading="lazy" />
-          <svg class="kakao-map-pin" viewBox="0 0 32 44" aria-hidden="true">
-            <path d="M16 0C7.163 0 0 7.163 0 16c0 11 16 28 16 28s16-17 16-28C32 7.163 24.837 0 16 0z" fill="#0d1526"/>
-            <circle cx="16" cy="16" r="6.5" fill="#c9a227"/>
-          </svg>
-          <span class="kakao-map-cta">카카오맵에서 크게 보기 →</span>
-        </a>`;
-      return;
-    }
-
-    if (contact.mapEmbedUrl) {
-      box.innerHTML = `<iframe src="${contact.mapEmbedUrl}" loading="lazy" allowfullscreen></iframe>`;
-    }
-  }
-
-  function getDeviceType() {
-    return window.matchMedia('(max-width: 860px)').matches ? 'mobile' : 'desktop';
-  }
-
-  function track(type, data = {}) {
-    const payload = JSON.stringify({ type, device: getDeviceType(), ...data });
-    if (navigator.sendBeacon) {
-      navigator.sendBeacon('/api/track', new Blob([payload], { type: 'application/json' }));
-    } else {
-      fetch('/api/track', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload,
-        keepalive: true
-      }).catch(() => {});
-    }
-  }
-  track('pageview', { path: location.pathname });
-
-  // ---------------- 페이지 체류시간 기록 ----------------
-  // 방문자가 이 페이지를 얼마나 오래 보고 있었는지 기록합니다. 탭을 다른 화면으로
-  // 전환하거나(visibilitychange) 페이지를 완전히 떠날 때(pagehide) 그때까지의
-  // 경과 시간을 서버로 보냅니다. 1초 이상이면 전부 기록합니다.
-  (function setupTimeSpentTracking() {
-    let startTime = Date.now();
-    let sent = false;
-
-    function sendElapsed() {
-      if (sent) return;
-      const seconds = Math.round((Date.now() - startTime) / 1000);
-      if (seconds >= 1) {
-        track('timespent', { path: location.pathname, seconds });
-        sent = true;
-      }
-    }
-
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') {
-        sendElapsed();
-      } else if (document.visibilityState === 'visible') {
-        // 다시 돌아오면 새로운 체류 구간으로 다시 잼
-        startTime = Date.now();
-        sent = false;
-      }
-    });
-    window.addEventListener('pagehide', sendElapsed);
-  })();
-
-  // ---------------- 모달 열림 중 배경 스크롤 막기 ----------------
-  // 게시글 상세 보기 위에 사진 확대 창이 겹쳐 뜨는 것처럼 모달이 동시에 여러 개
-  // 열릴 수 있어서, 단순 on/off 대신 몇 개가 열려있는지 세어서 마지막 하나가
-  // 닫힐 때만 배경 스크롤을 다시 풀어줍니다.
-  let openModalCount = 0;
-  function lockScroll() {
-    openModalCount++;
-    document.body.classList.add('modal-open');
-  }
-  function unlockScroll() {
-    openModalCount = Math.max(0, openModalCount - 1);
-    if (openModalCount === 0) {
-      document.body.classList.remove('modal-open');
-    }
-  }
-
-  // ---------------- 헤더 스크롤 효과 ----------------
-  const header = $('#site-header');
-  let headerTicking = false;
-
-  function updateHeaderState() {
-    const isScrolled = header.classList.contains('scrolled');
-    if (!isScrolled && window.scrollY > 60) {
-      header.classList.add('scrolled');
-    } else if (isScrolled && window.scrollY < 30) {
-      header.classList.remove('scrolled');
-    }
-    headerTicking = false;
-  }
-
-  window.addEventListener('scroll', () => {
-    if (!headerTicking) {
-      headerTicking = true;
-      requestAnimationFrame(updateHeaderState);
-    }
-  }, { passive: true });
-  updateHeaderState();
-
-  // ---------------- 관리자 페이지 숨겨진 입구 ----------------
-  // 방문자 눈에 띄지 않도록 "관리자" 링크는 없앴습니다. 대신 헤더의 교회 이름(로고)을
-  // 3초 안에 5번 연속 클릭/탭하면 관리자 로그인 화면으로 이동합니다. (클릭 기반이라
-  // 휴대폰 터치·PC 마우스 클릭 둘 다 똑같이 작동합니다)
-  const brandLink = $('#brand-name');
-  if (brandLink) {
-    let brandTapCount = 0;
-    let brandTapTimer = null;
-    brandLink.addEventListener('click', (e) => {
-      brandTapCount += 1;
-      clearTimeout(brandTapTimer);
-      brandTapTimer = setTimeout(() => {
-        brandTapCount = 0;
-      }, 3000);
-      if (brandTapCount >= 5) {
-        e.preventDefault(); // 홈 화면 스크롤 이동 대신 관리자 페이지로 이동
-        brandTapCount = 0;
-        window.location.href = '/admin';
-      }
-    });
-  }
-
-  // ---------------- 모바일 메뉴 ----------------
-  const hamburger = $('#hamburger');
-  const navMobile = $('#nav-mobile');
-  hamburger.addEventListener('click', () => {
-    hamburger.classList.toggle('active');
-    navMobile.classList.toggle('open');
-  });
-  navMobile.addEventListener('click', (e) => {
-    if (e.target.tagName === 'A') {
-      hamburger.classList.remove('active');
-      navMobile.classList.remove('open');
-    }
-  });
-
-  // ---------------- 사이트 기본 정보 ----------------
-  // 대문(히어로) 배경 사진 슬라이드쇼: 사진을 여러 장 등록하면 몇 초마다 자연스럽게
-  // 다음 사진으로 넘어갑니다. 두 개의 레이어(a/b)를 번갈아 써서, 다음 사진이 완전히
-  // 준비된 뒤에 부드럽게 겹쳐 나타나도록(크로스페이드) 합니다. 사진이 1장이면 그냥
-  // 고정된 사진으로 보이고(자동 전환 없음), 여러 장이면 6초 간격으로 넘어갑니다.
-  //
-  // 대문 영역이 화면에 실제로 보일 때만 타이머가 돌아가고, 스크롤해서 안 보이는
-  // 동안에는 멈춥니다. (안 보이는 동안에도 계속 돌아가면 불필요하게 화면을 계속
-  // 갱신하게 되어, 일부 기기에서 시스템의 화면 밝기 자동 조절 처리와 겹쳐 화면
-  // 전체가 깜빡이는 현상이 있었습니다)
-  let heroSlideTimer = null;
-  let heroSlideActiveLayer = 'a';
-  let heroSlideList = [];
-  let heroSlideIndex = 0;
-  let heroVisibilityObserver = null;
-
-  function preloadImage(url) {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => resolve();
-      img.onerror = () => resolve(); // 사진 하나가 깨져도 슬라이드쇼 전체가 멈추지 않도록
-      img.src = url;
-    });
-  }
-
-  async function tickHeroSlide() {
-    if (heroSlideList.length <= 1) return;
-    const layerA = $('#hero-bg-photo-a');
-    const layerB = $('#hero-bg-photo-b');
-    const nextIndex = (heroSlideIndex + 1) % heroSlideList.length;
-    await preloadImage(heroSlideList[nextIndex]);
-    const showing = heroSlideActiveLayer === 'a' ? layerA : layerB;
-    const hidden = heroSlideActiveLayer === 'a' ? layerB : layerA;
-    hidden.style.backgroundImage = `url('${heroSlideList[nextIndex]}')`;
-    hidden.classList.add('is-visible');
-    showing.classList.remove('is-visible');
-    heroSlideActiveLayer = heroSlideActiveLayer === 'a' ? 'b' : 'a';
-    heroSlideIndex = nextIndex;
-  }
-
-  function resumeHeroSlideshow() {
-    if (heroSlideTimer || heroSlideList.length <= 1) return;
-    heroSlideTimer = setInterval(tickHeroSlide, 6000);
-  }
-
-  function pauseHeroSlideshow() {
-    if (heroSlideTimer) {
-      clearInterval(heroSlideTimer);
-      heroSlideTimer = null;
-    }
-  }
-
-  async function startHeroSlideshow(images) {
-    heroSlideList = (images || []).filter(Boolean);
-    if (heroSlideList.length === 0) return;
-
-    const layerA = $('#hero-bg-photo-a');
-    const layerB = $('#hero-bg-photo-b');
-    pauseHeroSlideshow();
-
-    await preloadImage(heroSlideList[0]);
-    layerA.style.backgroundImage = `url('${heroSlideList[0]}')`;
-    layerA.classList.add('is-visible');
-    layerB.classList.remove('is-visible');
-    heroSlideActiveLayer = 'a';
-    heroSlideIndex = 0;
-
-    if (heroSlideList.length <= 1) return; // 사진이 1장뿐이면 자동 전환 없이 고정
-
-    const heroEl = $('#home');
-    if ('IntersectionObserver' in window && heroEl) {
-      if (!heroVisibilityObserver) {
-        heroVisibilityObserver = new IntersectionObserver(
-          (entries) => {
-            entries.forEach((entry) => {
-              if (entry.isIntersecting) resumeHeroSlideshow();
-              else pauseHeroSlideshow();
-            });
-          },
-          { threshold: 0.01 }
-        );
-      }
-      heroVisibilityObserver.observe(heroEl);
-    } else {
-      resumeHeroSlideshow(); // 구형 브라우저는 화면 감지가 안 되니 그냥 계속 돌립니다
-    }
-  }
-
-  async function loadSite() {
-    const site = await getJSON('/api/site');
-
-    if (site.design) {
-      window.ensureGoogleFont && window.ensureGoogleFont(site.design.headingFont);
-      window.ensureGoogleFont && window.ensureGoogleFont(site.design.bodyFont);
-      const headingFamily = window.getFontFamily(site.design.headingFont, "'Noto Serif KR', serif");
-      const bodyFamily = window.getFontFamily(site.design.bodyFont, "'Pretendard', 'Noto Sans KR', sans-serif");
-      document.documentElement.style.setProperty('--font-heading', headingFamily);
-      document.documentElement.style.setProperty('--font-body', bodyFamily);
-    }
-
-    document.title = site.churchName || '물댄동산교회';
-    $('#brand-name').textContent = site.churchName || '물댄동산교회';
-    $('#footer-brand').textContent = site.churchName || '물댄동산교회';
-    $('#footer-brand-2').textContent = site.churchName || '물댄동산교회';
-    if (site.sermonsIntro) {
-      $('#sermons-intro').textContent = site.sermonsIntro;
-    }
-    $('#footer-year').textContent = new Date().getFullYear();
-
-    if (site.hero) {
-      $('#hero-verse').textContent = site.hero.verse || '';
-      $('#hero-verse-ref').textContent = site.hero.verseRef || '';
-      $('#hero-subtitle').innerHTML = escapeHtml(site.hero.subtitle || '').replace(/\n/g, '<br>');
-      if (Array.isArray(site.hero.backgroundImages) && site.hero.backgroundImages.length) {
-        startHeroSlideshow(site.hero.backgroundImages);
-      } else if (site.hero.backgroundImage) {
-        // 예전 방식(사진 1장)으로 저장된 경우를 위한 호환 처리
-        startHeroSlideshow([site.hero.backgroundImage]);
-      }
-    }
-
-    if (site.about) {
-      $('#about-greeting').textContent = site.about.greeting || site.about.title || '교회 소개';
-      $('#about-body-text').innerHTML = sanitizeRichText(site.about.body || '');
-      $('#about-history').textContent = site.about.history || '';
-      $('#pastor-name').textContent = site.about.pastorName || '';
-      $('#pastor-message').textContent = site.about.pastorMessage || '';
-      if (site.about.image) $('#about-image').src = site.about.image;
-    }
-
-    if (site.missions) {
-      $('#missions-title').textContent = site.missions.title || '선교와 섬김';
-      $('#missions-verse').textContent = '"온 천하에 다니며 만민에게 복음을 전파하라" (마가복음 16:15)';
-      $('#missions-subtitle').textContent = site.missions.subtitle || '';
-      $('#partners-title').textContent = '동역해주시는 분들';
-    }
-
-    if (site.qtBackground) {
-      applyQtBackground(site.qtBackground);
-    }
-
-    const serviceGrid = $('#service-grid');
-    const serviceTimesList = site.serviceTimes || [];
-    serviceGrid.innerHTML = serviceTimesList
-      .map(
-        (s, i) => `
-        <div class="service-card reveal reveal-delay-${(i % 6) + 1}">
-          <div class="service-card-shape"></div>
-          <div class="service-card-content${s.bold ? ' is-bold' : ''} service-card-content--${s.fontSize || 'md'}">
-            <div class="name">${escapeHtml(s.name)}</div>
-            <div class="time">${escapeHtml(s.time)}</div>
-            ${s.description ? `<div class="desc">${escapeHtml(s.description)}</div>` : ''}
-          </div>
-        </div>`
-      )
-      .join('');
-    observeReveals(serviceGrid);
-    applyServiceBackground(site.service);
-    sitePraiseConfig = site.praise;
-    applyPraiseBackground(sitePraiseConfig);
-    setupServiceDots(serviceGrid, serviceTimesList.length);
-
-    if (site.contact) {
-      $('#contact-address').textContent = site.contact.address || '';
-      if (site.contact.addressNote) {
-        $('#contact-address-note').textContent = site.contact.addressNote;
-        $('#contact-address-note').style.display = '';
-      }
-      $('#contact-phone').textContent = site.contact.phone || '';
-      renderMap(site.contact);
-    }
-
-    if (site.offering && site.offering.bank && site.offering.account) {
-      $('#offering-bank').textContent = site.offering.bank;
-      $('#offering-account').textContent = site.offering.account;
-      if (site.offering.holder) {
-        $('#offering-holder').textContent = site.offering.holder;
-      } else {
-        $('.offering-holder-line').style.display = 'none';
-      }
-      $('#offering-note').textContent = site.offering.note || '';
-      $('#offering').style.display = '';
-      $('#offering-prayer-grid').classList.remove('offering-prayer-grid--single');
-    } else {
-      $('#offering-prayer-grid').classList.add('offering-prayer-grid--single');
-    }
-
-    const footerSns = $('#footer-sns');
-    const icons = {
-      youtube: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.6 7.2c-.2-1-1-1.7-1.9-1.9C18 5 12 5 12 5s-6 0-7.7.3c-1 .2-1.7 1-1.9 1.9C2 8.9 2 12 2 12s0 3.1.3 4.8c.2 1 1 1.7 1.9 1.9C6 19 12 19 12 19s6 0 7.7-.3c1-.2 1.7-1 1.9-1.9.3-1.7.3-4.8.3-4.8s0-3.1-.3-4.8ZM10 15.3V8.7L15.8 12 10 15.3Z"/></svg>',
-      instagram: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none"/></svg>',
-      facebook: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 9h3V5.6c-.5-.1-1.6-.2-2.8-.2-2.8 0-4.7 1.7-4.7 4.9V13H6.8v3.8H9.5V22h3.7v-5.2h2.9l.5-3.8h-3.4V10.6c0-1.1.3-1.6 1.8-1.6Z"/></svg>',
-      // 정확한 밴드 로고 모양 대신, 확실하게 깨지지 않는 단순한 글자 배지로 표시합니다.
-      band: '<span style="font-weight:800;font-size:0.72rem;letter-spacing:-0.02em;">BAND</span>'
-    };
-
-    // 주소 맨 앞에 https:// 가 빠져있으면 자동으로 붙여줍니다. (빠진 채로 저장되면
-    // 브라우저가 외부 주소가 아니라 "우리 사이트 안의 경로"로 착각해서, 눌러도 그냥
-    // 우리 홈페이지로 다시 돌아와버리는 문제가 있었습니다)
-    function normalizeExternalUrl(url = '') {
-      const trimmed = url.trim();
-      if (!trimmed) return '';
-      return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
-    }
-
-    const links = [];
-    if (site.sns) {
-      if (site.sns.youtube) links.push(`<a href="${normalizeExternalUrl(site.sns.youtube)}" target="_blank" rel="noopener" aria-label="유튜브">${icons.youtube}</a>`);
-      if (site.sns.instagram) links.push(`<a href="${normalizeExternalUrl(site.sns.instagram)}" target="_blank" rel="noopener" aria-label="인스타그램">${icons.instagram}</a>`);
-      if (site.sns.facebook) links.push(`<a href="${normalizeExternalUrl(site.sns.facebook)}" target="_blank" rel="noopener" aria-label="페이스북">${icons.facebook}</a>`);
-      if (site.sns.band) links.push(`<a href="${normalizeExternalUrl(site.sns.band)}" target="_blank" rel="noopener" aria-label="네이버 밴드">${icons.band}</a>`);
-    }
-    footerSns.innerHTML = links.join('');
-
-    // 오른쪽 하단에 떠있는 밴드 바로가기 버튼 (밴드 주소를 등록해두신 경우에만 보임)
-    const bandFab = $('#band-fab');
-    if (bandFab) {
-      if (site.sns && site.sns.band) {
-        bandFab.href = normalizeExternalUrl(site.sns.band);
-        bandFab.style.display = 'flex';
-      } else {
-        bandFab.style.display = 'none';
-      }
-    }
-  }
-
-  // ---------------- 메뉴 ----------------
-  async function loadMenu() {
-    const menu = await getJSON('/api/menu');
-    const html = menu.map((m) => `<a href="${escapeHtml(m.link)}">${escapeHtml(m.label)}</a>`).join('');
-    $('#nav-desktop').innerHTML = html;
-    $('#nav-mobile').innerHTML = html;
-  }
-
-  // ---------------- 설교 영상 ----------------
-  function formatDate(iso) {
-    if (!iso) return '';
-    const d = new Date(iso);
-    if (isNaN(d)) return '';
-    return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
-  }
-
-  function sizeVideoModal(ratioW, ratioH) {
-    const inner = $('#video-modal-inner');
-    const maxW = Math.min(window.innerWidth * 0.92, 1100);
-    const maxH = window.innerHeight * 0.85;
-    let w = maxW;
-    let h = (w * ratioH) / ratioW;
-    if (h > maxH) {
-      h = maxH;
-      w = (h * ratioW) / ratioH;
-    }
-    inner.style.width = `${w}px`;
-    inner.style.height = `${h}px`;
-  }
-
-  function openVideoModal(videoId) {
-    const modal = $('#video-modal');
-    const inner = $('#video-modal-inner');
-    inner.classList.remove('video-modal-inner--portrait');
-    sizeVideoModal(16, 9);
-    $('#video-modal-frame').innerHTML =
-      `<iframe src="https://www.youtube.com/embed/${videoId}?autoplay=1" title="설교 영상" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
-    modal.classList.add('open');
-    lockScroll();
-
-    fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data && data.width && data.height && data.height > data.width) {
-          sizeVideoModal(data.width, data.height);
-          inner.classList.add('video-modal-inner--portrait');
-        }
-      })
-      .catch(() => {});
-  }
-  function closeVideoModal() {
-    $('#video-modal').classList.remove('open');
-    $('#video-modal-frame').innerHTML = '';
-    unlockScroll();
-  }
-  $('#video-modal-close').addEventListener('click', closeVideoModal);
-  $('#video-modal').addEventListener('click', (e) => {
-    if (e.target.id === 'video-modal') closeVideoModal();
-  });
-
-  // ---------------- 찬양 미니 플레이어 (유튜브 IFrame Player API) ----------------
-  let ytApiLoadingPromise = null;
-  let ytPlayer = null;
-  let miniPlaylist = [];
-  let miniIndex = -1;
-
-  function loadYouTubeIframeAPI() {
-    if (ytApiLoadingPromise) return ytApiLoadingPromise;
-    ytApiLoadingPromise = new Promise((resolve) => {
-      if (window.YT && window.YT.Player) {
-        resolve();
-        return;
-      }
-      const prevCallback = window.onYouTubeIframeAPIReady;
-      window.onYouTubeIframeAPIReady = () => {
-        if (typeof prevCallback === 'function') prevCallback();
-        resolve();
-      };
-      const tag = document.createElement('script');
-      tag.src = 'https://www.youtube.com/iframe_api';
-      document.head.appendChild(tag);
-    });
-    return ytApiLoadingPromise;
-  }
-
-  function setMiniPlayerPlayingIcon(isPlaying) {
-    const playIcon = $('#mini-player-play-icon');
-    const pauseIcon = $('#mini-player-pause-icon');
-    if (!playIcon || !pauseIcon) return;
-    playIcon.style.display = isPlaying ? 'none' : '';
-    pauseIcon.style.display = isPlaying ? '' : 'none';
-  }
-
-  function updateMiniPlayerUI() {
-    const item = miniPlaylist[miniIndex];
-    const titleEl = $('#mini-player-title');
-    if (item && titleEl) titleEl.textContent = item.title || '';
-  }
-
-  async function playInMiniPlayer(list, index) {
-    const bar = $('#mini-player');
-    if (!bar) return;
-    miniPlaylist = list;
-    miniIndex = index;
-    const item = miniPlaylist[miniIndex];
-    if (!item) return;
-
-    bar.style.display = 'flex';
-    document.body.classList.add('has-mini-player');
-    updateMiniPlayerUI();
-
-    track('click', {
-      label: 'praise_mini_player',
-      itemType: 'praise',
-      itemId: item.youtubeId,
-      itemTitle: item.title || ''
-    });
-
-    await loadYouTubeIframeAPI();
-
-    if (!ytPlayer) {
-      ytPlayer = new YT.Player('mini-player-yt-mount', {
-        videoId: item.youtubeId,
-        playerVars: { autoplay: 1, playsinline: 1, rel: 0 },
-        events: {
-          onReady: () => setMiniPlayerPlayingIcon(true),
-          onStateChange: (e) => {
-            if (e.data === YT.PlayerState.PLAYING) setMiniPlayerPlayingIcon(true);
-            if (e.data === YT.PlayerState.PAUSED) setMiniPlayerPlayingIcon(false);
-            if (e.data === YT.PlayerState.ENDED) playNextInMiniPlayer();
-          }
-        }
-      });
-    } else {
-      ytPlayer.loadVideoById(item.youtubeId);
-    }
-  }
-
-  function playNextInMiniPlayer() {
-    if (miniIndex < miniPlaylist.length - 1) {
-      playInMiniPlayer(miniPlaylist, miniIndex + 1);
-    } else if (ytPlayer && ytPlayer.stopVideo) {
-      // 재생목록의 마지막 곡까지 끝나면 정지 (처음으로 되돌아가 자동 반복하지 않음)
-      ytPlayer.stopVideo();
-      setMiniPlayerPlayingIcon(false);
-    }
-  }
-  function playPrevInMiniPlayer() {
-    if (miniIndex > 0) playInMiniPlayer(miniPlaylist, miniIndex - 1);
-  }
-  function toggleMiniPlayerPlayPause() {
-    if (!ytPlayer || !window.YT) return;
-    const state = ytPlayer.getPlayerState();
-    if (state === YT.PlayerState.PLAYING) {
-      ytPlayer.pauseVideo();
-    } else {
-      ytPlayer.playVideo();
-    }
-  }
-  function closeMiniPlayer() {
-    if (ytPlayer && ytPlayer.stopVideo) ytPlayer.stopVideo();
-    const bar = $('#mini-player');
-    const icon = $('#mini-player-expand-icon');
-    if (bar) {
-      bar.style.display = 'none';
-      bar.classList.remove('is-expanded');
-    }
-    if (icon) icon.style.transform = '';
-    document.body.classList.remove('has-mini-player');
-  }
-  function toggleMiniPlayerExpand() {
-    const bar = $('#mini-player');
-    const icon = $('#mini-player-expand-icon');
-    if (!bar) return;
-    const isExpanded = bar.classList.toggle('is-expanded');
-    if (icon) icon.style.transform = isExpanded ? 'rotate(180deg)' : '';
-  }
-
-  if ($('#mini-player-prev')) $('#mini-player-prev').addEventListener('click', playPrevInMiniPlayer);
-  if ($('#mini-player-next')) $('#mini-player-next').addEventListener('click', playNextInMiniPlayer);
-  if ($('#mini-player-playpause')) $('#mini-player-playpause').addEventListener('click', toggleMiniPlayerPlayPause);
-  if ($('#mini-player-close')) $('#mini-player-close').addEventListener('click', closeMiniPlayer);
-  if ($('#mini-player-video')) {
-    $('#mini-player-video').addEventListener('click', toggleMiniPlayerExpand);
-  }
-  if ($('#mini-player-expand')) $('#mini-player-expand').addEventListener('click', toggleMiniPlayerExpand);
-
-  // ---------------- 첨부파일(주보 등) 미리보기 ----------------
-  function isPreviewable(name = '', url = '') {
-    const ext = (name.split('.').pop() || url.split('.').pop() || '').toLowerCase();
-    return ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext);
-  }
-
-  function openFileModal(url, name) {
-    const ext = (name.split('.').pop() || url.split('.').pop() || '').toLowerCase();
-    const frame = $('#file-modal-frame');
-    if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) {
-      frame.innerHTML = `<img src="${url}" alt="${escapeHtml(name)}" />`;
-    } else {
-      frame.innerHTML = `<iframe src="${url}" title="${escapeHtml(name)}"></iframe>`;
-    }
-    $('#file-modal-name').textContent = name;
-    $('#file-modal-download').href = url;
-    $('#file-modal').classList.add('open');
-    lockScroll();
-  }
-  function closeFileModal() {
-    $('#file-modal').classList.remove('open');
-    $('#file-modal-frame').innerHTML = '';
-    unlockScroll();
-  }
-  $('#file-modal-close')?.addEventListener('click', closeFileModal);
-  $('#file-modal')?.addEventListener('click', (e) => {
-    if (e.target.id === 'file-modal') closeFileModal();
-  });
-
-  // ---------------- 사진 확대 보기 ----------------
-  function openImageLightbox(url, alt) {
-    $('#image-lightbox-img').src = url;
-    $('#image-lightbox-img').alt = alt || '';
-    $('#image-lightbox').classList.add('open');
-    lockScroll();
-  }
-  function closeImageLightbox() {
-    $('#image-lightbox').classList.remove('open');
-    $('#image-lightbox-img').src = '';
-    unlockScroll();
-  }
-  $('#image-lightbox-close')?.addEventListener('click', closeImageLightbox);
-  $('#image-lightbox')?.addEventListener('click', (e) => {
-    if (e.target.id === 'image-lightbox') closeImageLightbox();
-  });
-
-  const CARD_ACCENT_PALETTE = [
-    '13, 21, 38',
-    '15, 42, 45',
-    '58, 18, 32',
-    '20, 38, 26',
-    '36, 26, 53',
-    '42, 32, 21'
-  ];
-  function accentForId(id = '') {
-    let hash = 0;
-    for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
-    return CARD_ACCENT_PALETTE[hash % CARD_ACCENT_PALETTE.length];
-  }
-
-  let allSermonVideos = [];
-  let sermonCategoryList = [];
-  let sermonCategoryTags = {};
-  let activeSermonCategory = null; // null이면 '전체'
-  let sermonChannelId = null;
-
-  let sermonSiteInfo = { churchName: '', pastorName: '' };
-
-  async function loadSermons() {
-    const [data, categories, tags, site] = await Promise.all([
-      getJSON('/api/sermons'),
-      getJSON('/api/sermon-categories'),
-      getJSON('/api/sermon-category-tags'),
-      getJSON('/api/site')
-    ]);
-    const updated = $('#sermon-updated');
-
-    updated.textContent = data.lastUpdated
-      ? `마지막 업데이트: ${formatDate(data.lastUpdated)}`
-      : '';
-
-    allSermonVideos = data.videos || [];
-    sermonCategoryList = categories || [];
-    sermonCategoryTags = tags || {};
-    sermonChannelId = data.channelId || null;
-    sermonSiteInfo = {
-      churchName: (site && site.churchName) || '',
-      pastorName: (site && site.about && site.about.pastorName) || ''
-    };
-
-    const moreRow = $('#sermon-more-row');
-    if (moreRow) {
-      if (sermonChannelId) {
-        moreRow.href = `https://www.youtube.com/channel/${encodeURIComponent(sermonChannelId)}/videos`;
-        moreRow.style.display = 'flex';
-      } else {
-        moreRow.style.display = 'none';
-      }
-    }
-
-    if (allSermonVideos.length === 0) {
-      $('#sermon-hero-card').innerHTML = '';
-      $('#sermon-list').innerHTML = `<div class="sermon-empty">아직 등록된 설교 영상이 없습니다. 관리자 페이지에서 유튜브 채널을 연결해주세요.</div>`;
-      return;
-    }
-
-    renderSermonCategoryChips();
-    renderSermonHero();
-    renderSermonList();
-  }
-
-  function renderSermonCategoryChips() {
-    const wrap = $('#sermon-category-chips');
-    if (!wrap) return;
-    const usedIds = new Set();
-    Object.values(sermonCategoryTags).forEach((ids) => (ids || []).forEach((id) => usedIds.add(id)));
-    const usable = sermonCategoryList.filter((c) => usedIds.has(c.id));
-
-    if (usable.length === 0) {
-      wrap.style.display = 'none';
-      return;
-    }
-    wrap.style.display = '';
-    const options = [{ id: null, name: '전체' }, ...usable];
-    wrap.innerHTML = options
-      .map(
-        (c) => `<button type="button" class="praise-chip${activeSermonCategory === c.id ? ' active' : ''}" data-id="${c.id || ''}">${escapeHtml(c.name)}</button>`
-      )
-      .join('');
-    $$('.praise-chip', wrap).forEach((chip) => {
-      chip.addEventListener('click', () => {
-        activeSermonCategory = chip.dataset.id || null;
-        if (activeSermonCategory) {
-          track('click', {
-            label: 'sermon_category_filter',
-            itemType: 'sermon_category',
-            itemId: activeSermonCategory,
-            itemTitle: chip.textContent
-          });
-        }
-        $$('.praise-chip', wrap).forEach((c) => c.classList.toggle('active', c === chip));
-        renderSermonHero();
-        renderSermonList();
-      });
-    });
-  }
-
-  // 히어로 자리: 필터가 없으면 전체 중 최신 1개, 필터가 있으면 그 테마 중 최신 1개.
-  function currentHeroVideo() {
-    const pool = activeSermonCategory
-      ? allSermonVideos.filter((v) => (sermonCategoryTags[v.videoId] || []).includes(activeSermonCategory))
-      : allSermonVideos;
-    return pool[0] || null;
-  }
-
-  function renderSermonHero() {
-    const card = $('#sermon-hero-card');
-    const hero = currentHeroVideo();
-    if (!hero) {
-      card.innerHTML = `<div class="sermon-empty" style="height:100%; display:flex; align-items:center; justify-content:center;">이 테마의 설교가 아직 없어요.</div>`;
-      return;
-    }
-    const posterUrl = `/api/sermon-poster/${encodeURIComponent(hero.videoId)}?title=${encodeURIComponent(hero.title || '')}`;
-    card.innerHTML = `
-      <img src="${posterUrl}" alt="${escapeHtml(hero.title || '')}" onerror="this.onerror=null;this.src='${escapeHtml(hero.thumbnail)}';" />
-      <span class="sermon-hero-play" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.5 7.5v9l8-4.5-8-4.5z"/></svg>
-      </span>`;
-    card.dataset.videoId = hero.videoId;
-    card.onclick = () => {
-      track('click', {
-        label: 'sermon_hero',
-        itemType: 'sermon',
-        itemId: hero.videoId,
-        itemTitle: hero.title || ''
-      });
-      openVideoModal(hero.videoId);
-    };
-  }
-
-  function renderSermonList() {
-    const listEl = $('#sermon-list');
-
-    const heroId = currentHeroVideo() ? currentHeroVideo().videoId : null;
-    let pool = activeSermonCategory
-      ? allSermonVideos.filter((v) => (sermonCategoryTags[v.videoId] || []).includes(activeSermonCategory))
-      : allSermonVideos.slice();
-
-    // 히어로로 이미 쓰인 영상은 목록에서 중복으로 안 보이게 뺍니다.
-    pool = pool.filter((v) => v.videoId !== heroId);
-
-    if (!activeSermonCategory) {
-      // '전체'일 때: 테마가 하나라도 붙은 영상을 위로, 그다음 나머지 최신순.
-      const tagged = pool.filter((v) => (sermonCategoryTags[v.videoId] || []).length > 0);
-      const untagged = pool.filter((v) => (sermonCategoryTags[v.videoId] || []).length === 0);
-      pool = [...tagged, ...untagged];
-    }
-
-    if (pool.length === 0) {
-      listEl.innerHTML = `<p class="sermon-empty">더 보여드릴 지난 설교가 없어요.</p>`;
-      return;
-    }
-
-    const isMobile = window.matchMedia('(max-width: 900px)').matches;
-    const displayList = pool.slice(0, isMobile ? 3 : 4);
-    const categoryNameById = {};
-    sermonCategoryList.forEach((c) => (categoryNameById[c.id] = c.name));
-
-    listEl.innerHTML = displayList
-      .map((v) => {
-        const { verseRef, title } = parseSermonTitleClient(v.title || '');
-        const tagIds = sermonCategoryTags[v.videoId] || [];
-        const badgesHtml = tagIds
-          .map((id) => (categoryNameById[id] ? `<span class="theme-badge">${escapeHtml(categoryNameById[id])}</span>` : ''))
-          .join('');
-        return `
-        <a href="#" class="sermon-list-row" data-video-id="${escapeHtml(v.videoId)}" data-title="${escapeHtml(v.title || '')}">
-          ${badgesHtml ? `<span class="badges">${badgesHtml}</span>` : ''}
-          <p class="title"><span class="bullet">•</span><span class="text">${escapeHtml(title || v.title || '')}</span></p>
-          ${verseRef ? `<p class="verse">${escapeHtml(verseRef)}</p>` : ''}
-        </a>`;
-      })
-      .join('');
-
-    $$('.sermon-list-row', listEl).forEach((row) => {
-      row.addEventListener('click', (e) => {
-        e.preventDefault();
-        track('click', {
-          label: 'sermon_list_row',
-          itemType: 'sermon',
-          itemId: row.dataset.videoId,
-          itemTitle: row.dataset.title
-        });
-        openVideoModal(row.dataset.videoId);
-      });
-    });
-  }
-
-  // 서버의 parseSermonTitle과 동일한 규칙으로, 목록 표시용 제목/구절을 클라이언트에서도 뽑아냅니다.
-  function parseSermonTitleClient(raw = '') {
-    let t = raw.replace(/주일예배/g, '');
-    t = t.replace(/\b\d{8}\b/g, '').trim().replace(/^[-_·\s]+|[-_·\s]+$/g, '');
-    t = t.replace(/\s{2,}/g, ' '); // 단어를 지우면서 남는 이중 띄어쓰기 정리
-    const m = t.match(/^([가-힣]+\s?\d+장\s?\d+(?:[~\-]\d+)?절(?:,\s?\d+(?:[~\-]\d+)?절)*)\s*(.*)$/);
-    if (m) return { verseRef: m[1].trim(), title: m[2].trim() || t };
-    return { verseRef: '', title: t };
-  }
-
-  // ---------------- 가로 캐러셀 공용 이전/다음 버튼 ----------------
-  // 화면에 보이는 만큼(한 페이지)씩 옆으로 넘겨줍니다. 스크롤 끝에 도달하면
-  // 해당 방향 버튼을 흐리게(비활성) 처리합니다.
-  function setupCarouselNav(track, prevId, nextId) {
-    const prevBtn = $('#' + prevId);
-    const nextBtn = $('#' + nextId);
-    if (!track || !prevBtn || !nextBtn) return;
-
-    function updateNavState() {
-      const maxScroll = track.scrollWidth - track.clientWidth;
-      prevBtn.disabled = track.scrollLeft <= 4;
-      nextBtn.disabled = track.scrollLeft >= maxScroll - 4;
-    }
-
-    prevBtn.onclick = () => track.scrollBy({ left: -track.clientWidth, behavior: 'smooth' });
-    nextBtn.onclick = () => track.scrollBy({ left: track.clientWidth, behavior: 'smooth' });
-
-    let scrollTimer = null;
-    track.addEventListener('scroll', () => {
-      clearTimeout(scrollTimer);
-      scrollTimer = setTimeout(updateNavState, 80);
-    });
-    window.addEventListener('resize', updateNavState);
-    updateNavState();
-  }
-
-  // ---------------- 찬양 ----------------
-  let allPraises = [];
-  let sitePraiseConfig = null;
-  let praiseCategoryList = [];
-  let activePraiseCategory = null; // null이면 '전체'
-
-  function renderPraiseCards(list) {
-    const grid = $('#praise-grid');
-    if (list.length === 0) {
-      grid.innerHTML = `<p class="board-empty" style="padding:20px;">이 컨셉의 찬양이 아직 없어요.</p>`;
-      return;
-    }
-    const isMobile = window.matchMedia('(max-width: 900px)').matches;
-    const displayList = isMobile ? list.slice(0, 45) : list;
-    grid.innerHTML = displayList
-      .map(
-        (p, i) => `
-        <div class="praise-card reveal reveal-delay-${(i % 6) + 1}" data-video-id="${escapeHtml(p.youtubeId)}" data-title="${escapeHtml(p.title || '')}" style="--accent-rgb: ${accentForId(p.youtubeId)};">
-          <div class="praise-thumb">
-            <img src="https://i.ytimg.com/vi/${escapeHtml(p.youtubeId)}/mqdefault.jpg" alt="${escapeHtml(p.title)}" loading="lazy" />
-            <button type="button" class="praise-play" aria-label="재생">
-              <svg viewBox="0 0 24 24"><path d="M9.5 7.5v9l8-4.5-8-4.5z"/></svg>
-            </button>
-            <div class="praise-overlay-text">
-              <p class="title">${escapeHtml(p.title)}</p>
-              ${p.singer ? `<p class="singer">${escapeHtml(p.singer)}</p>` : ''}
-            </div>
-          </div>
-          <p class="praise-tile-title">${escapeHtml(p.title || '')}</p>
-        </div>`
-      )
-      .join('');
-    observeReveals(grid);
-
-    $$('.praise-card', grid).forEach((card, i) => {
-      card.addEventListener('click', () => {
-        playInMiniPlayer(
-          displayList.map((p) => ({ youtubeId: p.youtubeId, title: p.title || '' })),
-          i
-        );
-      });
-    });
-
-    setupCarouselNav(grid, 'praise-nav-prev', 'praise-nav-next');
-    setupScrollProgressBar(grid, 'praise-scroll-track', 'praise-scroll-thumb');
-    setupPraiseDots(grid, displayList.length);
-  }
-
-  // 가로 스크롤이 얼마나 남았는지, 얇은 막대로 보여줍니다 (세로 스크롤바처럼 은은하게).
-  function setupScrollProgressBar(scrollEl, trackId, thumbId) {
-    const track = $('#' + trackId);
-    const thumb = $('#' + thumbId);
-    if (!track || !thumb) return;
-
-    function update() {
-      const scrollable = scrollEl.scrollWidth - scrollEl.clientWidth;
-      if (scrollable <= 0) {
-        track.style.display = 'none';
-        return;
-      }
-      track.style.display = '';
-      const trackWidth = track.clientWidth;
-      const thumbRatio = Math.min(1, scrollEl.clientWidth / scrollEl.scrollWidth);
-      const thumbWidth = Math.max(24, trackWidth * thumbRatio);
-      const maxThumbTravel = trackWidth - thumbWidth;
-      const progress = scrollEl.scrollLeft / scrollable;
-      thumb.style.width = thumbWidth + 'px';
-      thumb.style.transform = `translateX(${progress * maxThumbTravel}px)`;
-    }
-
-    // 같은 요소에 스크롤 리스너가 중복으로 쌓이지 않도록, 매번 새로 붙이기 전에 이전 걸 떼어냅니다.
-    if (scrollEl._scrollProgressHandler) {
-      scrollEl.removeEventListener('scroll', scrollEl._scrollProgressHandler);
-    }
-    scrollEl._scrollProgressHandler = update;
-    scrollEl.addEventListener('scroll', update, { passive: true });
-    window.addEventListener('resize', update);
-
-    requestAnimationFrame(update);
-  }
-
-  // 페이지 세로 스크롤에 영향을 주지 않도록, 다이얼 안에서만 가로로 이동시킵니다.
-  function centerCellInDial(dial, cell, smooth) {
-    if (!dial || !cell) return;
-    const targetLeft = cell.offsetLeft - dial.clientWidth / 2 + cell.offsetWidth / 2;
-    if (smooth && dial.scrollTo) {
-      dial.scrollTo({ left: targetLeft, behavior: 'smooth' });
-    } else {
-      dial.scrollLeft = targetLeft;
-    }
-  }
-
-  function renderPraiseCategoryChips() {
-    const wrap = $('#praise-category-chips');
-    const dialWrap = $('#praise-theme-dial-wrap');
-    const dial = $('#praise-theme-dial');
-    if (!wrap) return;
-    // 곡이 하나라도 있는 컨셉만 필터로 보여줍니다 (텅 빈 필터 방지)
-    const usedCategoryIds = new Set();
-    allPraises.forEach((p) => (p.categoryIds || []).forEach((id) => usedCategoryIds.add(id)));
-    const usable = praiseCategoryList.filter((c) => usedCategoryIds.has(c.id));
-
-    if (usable.length === 0) {
-      wrap.style.display = 'none';
-      if (dialWrap) dialWrap.style.display = 'none';
-      return;
-    }
-    wrap.style.display = '';
-    const options = [{ id: null, name: '모든 찬양' }, ...usable];
-
-    // PC: 옆으로 넘기는 칩 목록
-    wrap.innerHTML = options
-      .map(
-        (c) => `<button type="button" class="praise-chip${activePraiseCategory === c.id ? ' active' : ''}" data-id="${c.id || ''}">${escapeHtml(c.name)}</button>`
-      )
-      .join('');
-    $$('.praise-chip', wrap).forEach((chip) => {
-      chip.addEventListener('click', () => applyPraiseCategoryFilter(chip.dataset.id || null, chip.textContent));
-    });
-
-    // 모바일: 아이폰 피커처럼, 돌리다가 가운데에 딱 맞는 순간 자동으로 선택됩니다.
-    if (dial) {
-      dialWrap.style.display = '';
-      dial.innerHTML = options
-        .map(
-          (c, i) => `<span class="praise-theme-cell${activePraiseCategory === c.id ? ' is-active' : ''}" data-id="${c.id || ''}" data-index="${i}">${escapeHtml(c.name)}</span>`
-        )
-        .join('');
-      setupPraiseThemeDial(dial, options);
-    }
-  }
-
-  // 스크롤이 멈출 때마다(빙글빙글 도는 도중이 아니라 딱 멈춘 순간), 화면 정가운데에
-  // 가장 가까운 테마를 찾아서 자동으로 선택합니다. 탭이 따로 필요 없습니다.
-  function setupPraiseThemeDial(dial, options) {
-    let settleTimer = null;
-
-    function findCenteredCell() {
-      const dialRect = dial.getBoundingClientRect();
-      const centerX = dialRect.left + dialRect.width / 2;
-      let closest = null;
-      let closestDist = Infinity;
-      $$('.praise-theme-cell', dial).forEach((cell) => {
-        const r = cell.getBoundingClientRect();
-        const cellCenter = r.left + r.width / 2;
-        const dist = Math.abs(cellCenter - centerX);
-        if (dist < closestDist) {
-          closestDist = dist;
-          closest = cell;
-        }
-      });
-      return closest;
-    }
-
-    function highlightOnly(cell) {
-      $$('.praise-theme-cell', dial).forEach((c) => c.classList.toggle('is-active', c === cell));
-    }
-
-    function onSettle() {
-      const cell = findCenteredCell();
-      if (!cell) return;
-      highlightOnly(cell);
-      const id = cell.dataset.id || null;
-      if (id !== activePraiseCategory) {
-        const opt = options[Number(cell.dataset.index)];
-        applyPraiseCategoryFilterFromDial(id, opt ? opt.name : '모든 찬양');
-      }
-    }
-
-    // 스크롤 도중엔 하이라이트만 실시간으로 옮겨주고(뭐가 가운데 올지 미리 보여줌),
-    // 실제 필터 적용은 스크롤이 완전히 멈췄을 때 한 번만 합니다.
-    dial.addEventListener('scroll', () => {
-      const cell = findCenteredCell();
-      if (cell) highlightOnly(cell);
-      clearTimeout(settleTimer);
-      settleTimer = setTimeout(onSettle, 120);
-    });
-
-    // 처음 진입 시, 현재 선택된 테마(또는 '전체')를 가운데로 맞춰둡니다.
-    // (scrollIntoView는 페이지 전체를 세로로도 끌어당기는 부작용이 있어 쓰지 않고,
-    // 다이얼 안에서만 scrollLeft를 직접 계산해서 옮깁니다)
-    requestAnimationFrame(() => {
-      const target = $(`.praise-theme-cell[data-id="${activePraiseCategory || ''}"]`, dial);
-      centerCellInDial(dial, target, false);
-    });
-  }
-
-  // 다이얼에서 선택되면(탭 없이) 칩·필터를 함께 동기화합니다.
-  function applyPraiseCategoryFilterFromDial(categoryId, categoryName) {
-    activePraiseCategory = categoryId;
-    if (activePraiseCategory) {
-      track('click', {
-        label: 'praise_category_filter',
-        itemType: 'praise_category',
-        itemId: activePraiseCategory,
-        itemTitle: categoryName
-      });
-    }
-    $$('.praise-chip').forEach((c) => c.classList.toggle('active', (c.dataset.id || null) === categoryId));
-    const filtered = activePraiseCategory
-      ? allPraises.filter((p) => (p.categoryIds || []).includes(activePraiseCategory))
-      : allPraises;
-    renderPraiseCards(filtered);
-  }
-
-  function applyPraiseCategoryFilter(categoryId, categoryName) {
-    activePraiseCategory = categoryId;
-    if (activePraiseCategory) {
-      track('click', {
-        label: 'praise_category_filter',
-        itemType: 'praise_category',
-        itemId: activePraiseCategory,
-        itemTitle: categoryName
-      });
-    }
-    $$('.praise-chip').forEach((c) => c.classList.toggle('active', (c.dataset.id || null) === categoryId));
-    const dial = $('#praise-theme-dial');
-    if (dial) {
-      const target = $(`.praise-theme-cell[data-id="${categoryId || ''}"]`, dial);
-      if (target) {
-        $$('.praise-theme-cell', dial).forEach((c) => c.classList.toggle('is-active', c === target));
-        centerCellInDial(dial, target, true);
-      }
-    }
-    const filtered = activePraiseCategory
-      ? allPraises.filter((p) => (p.categoryIds || []).includes(activePraiseCategory))
-      : allPraises;
-    renderPraiseCards(filtered);
-  }
-
-  async function loadPraises() {
-    const [praises, categories] = await Promise.all([
-      getJSON('/api/praises'),
-      getJSON('/api/praise-categories')
-    ]);
-    allPraises = praises || [];
-    praiseCategoryList = categories || [];
-    const section = $('#praise');
-    if (allPraises.length === 0) {
-      section.style.display = 'none';
-      return;
-    }
-    section.style.display = '';
-    renderPraiseCategoryChips();
-    renderPraiseCards(allPraises);
-    applyPraiseBackground(sitePraiseConfig);
-  }
-
-  // ---------------- 게시판 (소식·활동) ----------------
-  let allPosts = [];
-
-  function renderContent(content = '') {
-    if (/<[a-z][\s\S]*>/i.test(content)) return content;
-    return escapeHtml(content).replace(/\n/g, '<br>');
-  }
-
-  function plainPreview(content = '', maxLen = 90) {
-    const div = document.createElement('div');
-    div.innerHTML = content;
-    const text = (div.textContent || '').replace(/\s+/g, ' ').trim();
-    return text.length > maxLen ? text.slice(0, maxLen) + '…' : text;
-  }
-
-  function attachmentIcon() {
-    return `<svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>`;
-  }
-
-  function isImageAttachment(a) {
-    return /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(a.url || a.name || '');
-  }
-
-  function thumbnailFor(post) {
-    if (post.image) return post.image;
-    const firstImg = (post.attachments || []).find(isImageAttachment);
-    return firstImg ? firstImg.url : '';
-  }
-
-  const BOARD_MOBILE_LIMITS = { 소식: 3, 활동: 3, 주보: 1 };
-  const BOARD_PAGE_SIZE = 9;
-  const isBoardMobile = () => window.matchMedia('(max-width: 900px)').matches;
-
-  let boardCategory = '전체';
-  let boardPage = 1;
-
-  const CATEGORY_LABELS = { 활동: '친교' };
-  const categoryLabel = (cat) => CATEGORY_LABELS[cat] || cat;
-
-  function boardCardHTML(p, i = 0) {
-    const thumb = thumbnailFor(p);
-    return `
-      <div class="board-card reveal reveal-delay-${(i % 6) + 1}" data-id="${p.id}" data-title="${escapeHtml(p.title || '')}">
-        <div class="board-thumb">
-          ${thumb ? `<img src="${thumb}" alt="${escapeHtml(p.title)}" loading="lazy" />` : `<div class="board-thumb-empty">${escapeHtml((p.category || '')[0] || '소')}</div>`}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>관리자 페이지</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&family=Noto+Serif+KR:wght@400;500;700&family=Gowun+Dodum&family=Gowun+Batang&family=Nanum+Gothic:wght@400;700;800&family=Nanum+Myeongjo:wght@400;700;800&family=Black+Han+Sans&family=Do+Hyeon&family=Song+Myung&family=Poor+Story&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+<link rel="stylesheet" href="/admin/css/admin.css" />
+<link href="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.snow.min.css" rel="stylesheet" />
+</head>
+<body>
+
+<!-- 로그인 화면 -->
+<div class="login-screen" id="login-screen">
+  <form class="login-box" id="login-form" method="post" action="#">
+    <h1>관리자 로그인</h1>
+    <p class="login-sub">교회 홈페이지 관리자 페이지입니다</p>
+    <label>아이디
+      <input type="text" name="username" required autocomplete="username" />
+    </label>
+    <label>비밀번호
+      <input type="password" name="password" required autocomplete="current-password" />
+    </label>
+    <p class="login-error" id="login-error"></p>
+    <button type="submit" class="btn-primary">로그인</button>
+  </form>
+</div>
+
+<div class="dashboard" id="dashboard" hidden>
+  <aside class="sidebar">
+    <div class="sidebar-brand">교회 관리자</div>
+    <button class="sidebar-toggle-btn" id="sidebar-toggle-btn" type="button">
+      <span>☰ 메뉴</span>
+      <span id="sidebar-toggle-current"></span>
+    </button>
+    <nav class="sidebar-nav" id="sidebar-nav">
+      <div class="nav-group">
+        <div class="nav-group-title">콘텐츠 관리</div>
+        <button class="nav-item active" data-panel="panel-site" data-permission="site">기본 정보</button>
+        <button class="nav-item" data-panel="panel-menu" data-permission="menu">메뉴 관리</button>
+        <button class="nav-item" data-panel="panel-sermons" data-permission="sermons">설교 영상(유튜브)</button>
+        <button class="nav-item" data-panel="panel-praise">찬양</button>
+        <button class="nav-item" data-panel="panel-qt" data-permission="qt">오늘의 큐티</button>
+        <button class="nav-item" data-panel="panel-quiz" data-permission="qt">말씀 퀴즈</button>
+        <button class="nav-item" data-panel="panel-missions" data-permission="missions">선교사역</button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-title">소통·게시판</div>
+        <button class="nav-item" data-panel="panel-board" data-permission="posts">소식·친교 게시판</button>
+        <button class="nav-item" data-panel="panel-prayers">기도 요청</button>
+        <button class="nav-item" data-panel="panel-inquiries">온라인 문의</button>
+      </div>
+      <div class="nav-group">
+        <div class="nav-group-title">운영 관리</div>
+        <button class="nav-item" data-panel="panel-receipts" data-permission="receipts">영수증 신청</button>
+        <button class="nav-item" data-panel="panel-push" data-permission="site">푸시 알림</button>
+        <button class="nav-item" data-panel="panel-stats" data-permission="stats">통계</button>
+        <button class="nav-item" data-panel="panel-account">계정 관리</button>
+      </div>
+    </nav>
+    <div class="sidebar-footer">
+      <a href="/" target="_blank" class="view-site-link">홈페이지 보기 ↗</a>
+      <button class="logout-btn" id="logout-btn">로그아웃</button>
+    </div>
+  </aside>
+
+  <main class="content">
+
+    <!-- 기본 정보 -->
+    <section class="panel active" id="panel-site">
+      <h2>기본 정보</h2>
+      <p class="panel-desc">교회 이름, 대문(히어로) 문구, 교회 소개, 예배 시간, 연락처를 수정합니다.</p>
+
+      <div class="card">
+        <h3>교회 이름</h3>
+        <div class="field"><label>교회 이름</label><input id="s-churchName" type="text" /></div>
+      </div>
+
+      <div class="card">
+        <h3>글꼴 설정</h3>
+        <p class="hint" style="margin-top:0;">교회 이름·제목 등에 쓰이는 글씨체와, 소개글·본문에 쓰이는 글씨체를 각각 선택할 수 있습니다.</p>
+        <div class="field">
+          <label>제목용 글씨체 (교회 이름, 각 섹션 제목 등)</label>
+          <select id="s-headingFont"></select>
+          <div class="font-preview" id="s-headingFont-preview">물댄동산교회 <span class="gold-dot">.</span></div>
         </div>
-        <div class="board-info">
-          <div class="board-top">
-            <span class="badge">${escapeHtml(categoryLabel(p.category))}</span>
-            <span class="date">${escapeHtml(p.date)}</span>
-          </div>
-          <h4>${p.pinned ? '<span class="pin">📌</span>' : ''}${escapeHtml(p.title)}</h4>
-          <p>${escapeHtml(plainPreview(p.content))}</p>
+        <div class="field">
+          <label>본문용 글씨체 (소개글, 안내 문구 등)</label>
+          <select id="s-bodyFont"></select>
+          <div class="font-preview" id="s-bodyFont-preview">언제나 문을 열어두고 여러분을 기다리고 있습니다.</div>
         </div>
-      </div>`;
-  }
+      </div>
 
-  function pickWithCategoryLimits(posts, limits) {
-    const counts = {};
-    const result = [];
-    posts.forEach((p) => {
-      const limit = limits[p.category];
-      if (limit === undefined) return;
-      counts[p.category] = counts[p.category] || 0;
-      if (counts[p.category] < limit) {
-        result.push(p);
-        counts[p.category]++;
-      }
-    });
-    return result;
-  }
-
-  function renderBoardPagination(totalItems) {
-    const pager = $('#board-pagination');
-    const totalPages = Math.ceil(totalItems / BOARD_PAGE_SIZE);
-
-    if (isBoardMobile() || totalPages <= 1) {
-      pager.innerHTML = '';
-      return;
-    }
-
-    const buttons = [];
-    buttons.push(
-      `<button class="board-page-btn board-page-nav" data-page="${boardPage - 1}" ${boardPage === 1 ? 'disabled' : ''} aria-label="이전 페이지">‹</button>`
-    );
-    for (let i = 1; i <= totalPages; i++) {
-      buttons.push(
-        `<button class="board-page-btn${i === boardPage ? ' active' : ''}" data-page="${i}">${i}</button>`
-      );
-    }
-    buttons.push(
-      `<button class="board-page-btn board-page-nav" data-page="${boardPage + 1}" ${boardPage === totalPages ? 'disabled' : ''} aria-label="다음 페이지">›</button>`
-    );
-    pager.innerHTML = buttons.join('');
-
-    $$('.board-page-btn', pager).forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const page = Number(btn.dataset.page);
-        if (!page || page === boardPage) return;
-        boardPage = page;
-        renderBoard();
-        $('#board').scrollIntoView({ block: 'start', behavior: 'smooth' });
-      });
-    });
-  }
-
-  function renderBoard() {
-    const list = $('#board-list');
-    const category = boardCategory;
-    const byCategory = category === '전체' ? allPosts : allPosts.filter((p) => p.category === category);
-
-    let pageItems;
-    let totalForPagination;
-
-    if (isBoardMobile()) {
-      if (category === '전체') {
-        pageItems = pickWithCategoryLimits(allPosts, BOARD_MOBILE_LIMITS);
-      } else {
-        const limit = BOARD_MOBILE_LIMITS[category];
-        pageItems = limit !== undefined ? byCategory.slice(0, limit) : byCategory;
-      }
-      totalForPagination = 0;
-    } else {
-      const totalPages = Math.max(1, Math.ceil(byCategory.length / BOARD_PAGE_SIZE));
-      if (boardPage > totalPages) boardPage = totalPages;
-      const start = (boardPage - 1) * BOARD_PAGE_SIZE;
-      pageItems = byCategory.slice(start, start + BOARD_PAGE_SIZE);
-      totalForPagination = byCategory.length;
-    }
-
-    if (pageItems.length === 0) {
-      list.innerHTML = `<div class="board-empty">등록된 게시글이 없습니다.</div>`;
-    } else {
-      list.innerHTML = pageItems.map((p, i) => boardCardHTML(p, i)).join('');
-    }
-
-    renderBoardPagination(totalForPagination);
-    observeReveals(list);
-
-    $$('.board-card').forEach((item) => {
-      item.addEventListener('click', () => {
-        track('click', {
-          label: 'board_card',
-          itemType: 'board',
-          itemId: item.dataset.id,
-          itemTitle: item.dataset.title
-        });
-        openPostModal(item.dataset.id);
-      });
-    });
-  }
-
-  function openPostModal(id) {
-    const post = allPosts.find((p) => p.id === id);
-    if (!post) return;
-
-    $('#post-modal-badge').textContent = categoryLabel(post.category) || '';
-    $('#post-modal-date').textContent = post.date || '';
-    $('#post-modal-title').textContent = post.title || '';
-    $('#post-modal-content').innerHTML = renderContent(post.content);
-
-    // 본문 안에 있는 이미지들도 클릭하면 확대해서 볼 수 있게 합니다.
-    $$('#post-modal-content img').forEach((img) => {
-      img.addEventListener('click', () => openImageLightbox(img.src, ''));
-    });
-
-    const imgEl = $('#post-modal-image');
-    if (post.image) {
-      imgEl.src = post.image;
-      imgEl.alt = post.title || '';
-      imgEl.onclick = () => openImageLightbox(post.image, post.title || '');
-    } else {
-      imgEl.removeAttribute('src');
-      imgEl.onclick = null;
-    }
-
-    const attachBox = $('#post-modal-attachments');
-    const attachments = Array.isArray(post.attachments) ? post.attachments : [];
-    const imageAttachments = attachments.filter(isImageAttachment);
-    const fileAttachments = attachments.filter((a) => !isImageAttachment(a));
-
-    const imagesHtml = imageAttachments
-      .map(
-        (a) => `<img class="attachment-image" src="${a.url}" alt="${escapeHtml(a.name || '첨부 이미지')}" loading="lazy" />`
-      )
-      .join('');
-
-    const filesHtml = fileAttachments
-      .map(
-        (a) =>
-          `<a class="attachment-item" href="${a.url}" data-name="${escapeHtml(a.name || '첨부파일')}" ${
-            isPreviewable(a.name || '', a.url) ? 'data-preview="1"' : 'target="_blank" rel="noopener"'
-          }>${attachmentIcon()}<span>${escapeHtml(a.name || '첨부파일')}</span></a>`
-      )
-      .join('');
-
-    attachBox.innerHTML = imagesHtml + filesHtml;
-    $$('#post-modal-attachments .attachment-image').forEach((img) => {
-      img.addEventListener('click', () => openImageLightbox(img.src, img.alt || ''));
-    });
-    $$('#post-modal-attachments [data-preview="1"]').forEach((el) => {
-      el.addEventListener('click', (e) => {
-        e.preventDefault();
-        openFileModal(el.getAttribute('href'), el.dataset.name);
-      });
-    });
-
-    $('#post-modal').classList.add('open');
-    lockScroll();
-  }
-
-  function closePostModal() {
-    $('#post-modal').classList.remove('open');
-    unlockScroll();
-  }
-  $('#post-modal-close').addEventListener('click', closePostModal);
-  $('#post-modal').addEventListener('click', (e) => {
-    if (e.target.id === 'post-modal') closePostModal();
-  });
-
-  async function loadBoard() {
-    allPosts = await getJSON('/api/posts');
-    boardCategory = '전체';
-    boardPage = 1;
-    renderBoard();
-
-    $$('.board-tab').forEach((tab) => {
-      tab.addEventListener('click', () => {
-        $$('.board-tab').forEach((t) => t.classList.remove('active'));
-        tab.classList.add('active');
-        boardCategory = tab.dataset.cat;
-        boardPage = 1;
-        renderBoard();
-      });
-    });
-
-    window.matchMedia('(max-width: 900px)').addEventListener('change', () => {
-      boardPage = 1;
-      renderBoard();
-    });
-  }
-
-  // ---------------- 예배 안내 배경 사진 ----------------
-  // object-fit:cover 상태(줌 100%)에서 이미 화면을 꽉 채우고 있기 때문에, 그 상태에서
-  // 초점 좌표를 기준으로 transform: scale()만 키워주면 어떤 배율에서도 빈 공간 없이
-  // 항상 그 지점을 중심으로 확대됩니다.
-  function applySectionBackground(sectionSelector, imgSelector, overlaySelector, cfg) {
-    const section = $(sectionSelector);
-    const img = $(imgSelector);
-    const overlay = $(overlaySelector);
-    if (!section || !img || !overlay) return;
-    if (cfg && cfg.backgroundImage) {
-      const focalX = cfg.focalX != null ? cfg.focalX : 50;
-      const focalY = cfg.focalY != null ? cfg.focalY : 50;
-      const zoom = cfg.zoom || 100;
-      img.src = cfg.backgroundImage;
-      img.style.objectPosition = `${focalX}% ${focalY}%`;
-      img.style.transformOrigin = `${focalX}% ${focalY}%`;
-      img.style.transform = `scale(${zoom / 100})`;
-      img.classList.add('is-visible');
-      overlay.classList.add('is-visible');
-      section.classList.add('has-bg-photo');
-    } else {
-      img.removeAttribute('src');
-      img.classList.remove('is-visible');
-      overlay.classList.remove('is-visible');
-      section.classList.remove('has-bg-photo');
-    }
-  }
-  function applyServiceBackground(svc) {
-    applySectionBackground('#service', '#service-bg-img', '.service-bg-overlay', svc);
-  }
-  function applyPraiseBackground(cfg) {
-    applySectionBackground('#praise', '#praise-bg-img', '.praise-bg-overlay', cfg);
-  }
-
-  // 모바일에서 카드를 스와이프할 때, 화면 중앙에 가장 가까운 카드에 맞춰 점을 켜줍니다
-  function setupServiceDots(grid, count) {
-    const dotsWrap = $('#service-dots');
-    if (!dotsWrap) return;
-    if (!count) {
-      dotsWrap.innerHTML = '';
-      return;
-    }
-    dotsWrap.innerHTML = Array.from({ length: count })
-      .map((_, i) => `<span class="dot${i === 0 ? ' is-active' : ''}"></span>`)
-      .join('');
-    const dots = $$('.dot', dotsWrap);
-    const cards = $$('.service-card', grid);
-    if (!cards.length) return;
-
-    let ticking = false;
-    function updateActiveDot() {
-      ticking = false;
-      const gridRect = grid.getBoundingClientRect();
-      const gridCenter = gridRect.left + gridRect.width / 2;
-      let closestIndex = 0;
-      let closestDist = Infinity;
-      cards.forEach((card, i) => {
-        const rect = card.getBoundingClientRect();
-        const cardCenter = rect.left + rect.width / 2;
-        const dist = Math.abs(cardCenter - gridCenter);
-        if (dist < closestDist) {
-          closestDist = dist;
-          closestIndex = i;
-        }
-      });
-      dots.forEach((dot, i) => dot.classList.toggle('is-active', i === closestIndex));
-    }
-    grid.addEventListener(
-      'scroll',
-      () => {
-        if (!ticking) {
-          ticking = true;
-          requestAnimationFrame(updateActiveDot);
-        }
-      },
-      { passive: true }
-    );
-  }
-
-  // 찬양 캐러셀: 9개씩 한 페이지로 넘어갈 때, 페이지 단위로 점을 켜줍니다 (모바일 전용)
-  function setupPraiseDots(grid, count) {
-    const dotsWrap = $('#praise-dots');
-    if (!dotsWrap) return;
-    const totalPages = Math.ceil(count / 9);
-    if (!count || totalPages <= 1) {
-      dotsWrap.innerHTML = '';
-      return;
-    }
-    dotsWrap.innerHTML = Array.from({ length: totalPages })
-      .map((_, i) => `<span class="dot${i === 0 ? ' is-active' : ''}"></span>`)
-      .join('');
-    const dots = $$('.dot', dotsWrap);
-
-    let ticking = false;
-    function updateActiveDot() {
-      ticking = false;
-      const pageWidth = grid.clientWidth || 1;
-      const pageIndex = Math.round(grid.scrollLeft / pageWidth);
-      const clamped = Math.max(0, Math.min(totalPages - 1, pageIndex));
-      dots.forEach((dot, i) => dot.classList.toggle('is-active', i === clamped));
-    }
-    grid.addEventListener(
-      'scroll',
-      () => {
-        if (!ticking) {
-          ticking = true;
-          requestAnimationFrame(updateActiveDot);
-        }
-      },
-      { passive: true }
-    );
-  }
-
-  // ---------------- 오늘의 큐티 ----------------
-  function applyQtBackground(bg) {
-    const stage = $('#qt-stage');
-    const decor = $('#qt-decor');
-    stage.classList.remove('qt-stage--navy', 'qt-stage--gold', 'qt-stage--dawn');
-    if (bg.type === 'photo' && bg.image) {
-      stage.style.background =
-        `linear-gradient(180deg, rgba(13,21,38,0.55), rgba(13,21,38,0.75)), url('${bg.image}') center/cover no-repeat`;
-      decor.style.display = 'none';
-    } else {
-      stage.style.background = '';
-      stage.classList.add(`qt-stage--${bg.preset || 'navy'}`);
-      decor.style.display = '';
-    }
-  }
-
-  function formatQtDate(dateStr = '') {
-    const d = new Date(dateStr);
-    if (isNaN(d)) return dateStr;
-    return `${d.getMonth() + 1}월 ${d.getDate()}일`;
-  }
-
-  function createCoverflow(carousel, cardEls, initialIndex, { onChange } = {}) {
-    const CARD_WIDTH = 340;
-    const STEP = Math.round(CARD_WIDTH * 0.64);
-    let activeIndex = initialIndex;
-
-    function layout() {
-      cardEls.forEach((card, i) => {
-        const delta = i - activeIndex;
-        const abs = Math.abs(delta);
-        const scale = delta === 0 ? 1 : abs === 1 ? 0.88 : 0.8;
-        const opacity = delta === 0 ? 1 : abs === 1 ? 0.6 : abs === 2 ? 0.22 : 0;
-        card.style.transform = `translate(-50%, -50%) translateX(${delta * STEP}px) scale(${scale})`;
-        card.style.opacity = String(opacity);
-        card.style.zIndex = String(100 - abs);
-        card.style.pointerEvents = abs > 2 ? 'none' : '';
-      });
-      if (typeof onChange === 'function') onChange(activeIndex);
-    }
-
-    function goTo(i) {
-      const next = Math.max(0, Math.min(cardEls.length - 1, i));
-      if (next === activeIndex) return;
-      activeIndex = next;
-      layout();
-    }
-
-    cardEls.forEach((card, i) => {
-      card.addEventListener('click', (e) => {
-        if (i !== activeIndex) {
-          e.preventDefault();
-          goTo(i);
-        }
-      });
-    });
-
-    let isDown = false;
-    let dragged = false;
-    let startX = 0;
-
-    carousel.addEventListener('pointerdown', (e) => {
-      isDown = true;
-      dragged = false;
-      startX = e.clientX;
-      carousel.classList.add('dragging');
-    });
-    carousel.addEventListener('pointermove', (e) => {
-      if (!isDown) return;
-      if (!dragged && Math.abs(e.clientX - startX) > 15) {
-        dragged = true;
-        carousel.setPointerCapture(e.pointerId);
-      }
-    });
-    const finishDrag = (e) => {
-      if (carousel.hasPointerCapture && carousel.hasPointerCapture(e.pointerId)) {
-        carousel.releasePointerCapture(e.pointerId);
-      }
-      if (!isDown) return;
-      isDown = false;
-      carousel.classList.remove('dragging');
-      if (!dragged) return;
-      const dx = e.clientX - startX;
-      if (dx < -40) goTo(activeIndex + 1);
-      else if (dx > 40) goTo(activeIndex - 1);
-    };
-    carousel.addEventListener('pointerup', finishDrag);
-    carousel.addEventListener('pointercancel', finishDrag);
-    carousel.addEventListener(
-      'click',
-      (e) => {
-        if (dragged) {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-      },
-      true
-    );
-
-    layout();
-    return {
-      goTo,
-      next: () => goTo(activeIndex + 1),
-      prev: () => goTo(activeIndex - 1),
-      get activeIndex() {
-        return activeIndex;
-      }
-    };
-  }
-
-  async function loadQT() {
-    const list = await getJSON('/api/qt');
-    const stage = $('#qt-stage');
-    const carousel = $('#qt-carousel');
-    const trackEl = $('#qt-carousel-track');
-    const navPrev = $('#qt-nav-prev');
-    const navNext = $('#qt-nav-next');
-    const toggleWrap = $('.qt-archive-toggle-wrap');
-    const archiveList = $('#qt-archive-list');
-
-    if (!list || list.length === 0) {
-      trackEl.innerHTML = `<p class="qt-empty">아직 등록된 큐티가 없습니다.</p>`;
-      navPrev.style.display = 'none';
-      navNext.style.display = 'none';
-      toggleWrap.style.display = 'none';
-      return;
-    }
-
-    const [latest, ...rest] = list;
-    const isDesktop = window.matchMedia('(min-width: 861px)').matches;
-
-    const carouselPast = isDesktop ? rest.slice(0, 5).reverse() : [];
-
-    const archiveCardHtml = (q) => `
-      <a class="qt-card qt-card--archive" href="/qt/${q.id}?from=home" data-id="${q.id}" data-title="${escapeHtml(q.title || '')}">
-        <span class="qt-badge qt-badge--archive">${formatQtDate(q.date)}</span>
-        <h3 class="qt-card-title">${escapeHtml(q.title || '')}</h3>
-        ${q.verseRef ? `<p class="qt-card-ref">${escapeHtml(q.verseRef)}</p>` : ''}
-      </a>`;
-
-    const todayCardHtml = `
-      <a class="qt-card qt-card--today" href="/qt/${latest.id}?from=home" data-id="${latest.id}" data-title="${escapeHtml(latest.title || '')}">
-        <span class="qt-badge">오늘의 큐티</span>
-        <h3 class="qt-card-title">${escapeHtml(latest.title || '')}</h3>
-        ${latest.verseRef ? `<p class="qt-card-ref">${escapeHtml(latest.verseRef)}</p>` : ''}
-        <div class="qt-card-foot">
-          <span>${escapeHtml(latest.pastor || '')}${latest.pastor ? ' · ' : ''}${formatQtDate(latest.date)}</span>
-          <span>전체 보기 →</span>
+      <div class="card">
+        <h3>대문 화면 (히어로)</h3>
+        <div class="field"><label>대표 성경 말씀</label><textarea id="s-heroVerse" rows="2"></textarea></div>
+        <div class="field"><label>말씀 출처 (예: 마태복음 11:28)</label><input id="s-heroVerseRef" type="text" /></div>
+        <div class="field">
+          <label>부제목</label>
+          <textarea id="s-heroSubtitle" rows="2"></textarea>
+          <p class="hint" style="margin-top:6px;">줄을 나누고 싶은 곳에서 Enter를 눌러 줄바꿈하면 화면에도 그대로 두 줄로 나옵니다.</p>
         </div>
-      </a>`;
+        <div class="field">
+  <label>배경 이미지 (여러 장 등록 가능)</label>
+  <input type="file" id="s-heroImageFile" accept="image/*" />
+  <div id="s-heroImageList" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;"></div>
+  <p class="hint" style="margin-top:6px;">사진을 여러 장 올리시면 홈페이지 대문에서 6초마다 자연스럽게 다음 사진으로 넘어갑니다. 한 장만 올리면 예전처럼 고정된 사진으로 보여요.</p>
+</div>
+      </div>
 
-    trackEl.innerHTML = carouselPast.map(archiveCardHtml).join('') + todayCardHtml;
-
-    $$('#qt-carousel-track .qt-card--today').forEach((c) =>
-      c.addEventListener('click', () =>
-        track('click', { label: 'qt_card', itemType: 'qt', itemId: c.dataset.id, itemTitle: c.dataset.title })
-      )
-    );
-    $$('#qt-carousel-track .qt-card--archive').forEach((c) =>
-      c.addEventListener('click', () =>
-        track('click', { label: 'qt_carousel_archive', itemType: 'qt', itemId: c.dataset.id, itemTitle: c.dataset.title })
-      )
-    );
-
-    const todayIndex = carouselPast.length;
-
-    if (carouselPast.length === 0 || !isDesktop) {
-      stage.classList.add('qt-stage--single');
-      navPrev.style.display = 'none';
-      navNext.style.display = 'none';
-    } else {
-      stage.classList.remove('qt-stage--single');
-      navPrev.style.display = '';
-      navNext.style.display = '';
-      carousel.classList.add('qt-carousel--coverflow');
-
-      const cardEls = $$('#qt-carousel-track .qt-card');
-      const coverflow = createCoverflow(carousel, cardEls, todayIndex, {
-        onChange: (activeIndex) => {
-          navPrev.disabled = activeIndex === 0;
-          navNext.disabled = activeIndex === cardEls.length - 1;
-        }
-      });
-      navPrev.addEventListener('click', () => coverflow.prev());
-      navNext.addEventListener('click', () => coverflow.next());
-    }
-
-    if (rest.length === 0) {
-      toggleWrap.style.display = 'none';
-      return;
-    }
-
-    // 지난 큐티는 한 번에 다 펼치지 않고 4개씩 페이지를 넘겨가며 봅니다.
-    const QT_ARCHIVE_PAGE_SIZE = 4;
-    let archivePage = 1;
-    const totalArchivePages = Math.ceil(rest.length / QT_ARCHIVE_PAGE_SIZE);
-    const archiveWrap = $('#qt-archive-wrap');
-    const pager = $('#qt-archive-pagination');
-    const archivePrevBtn = $('#qt-archive-prev');
-    const archiveNextBtn = $('#qt-archive-next');
-
-    function renderArchiveRows() {
-      const start = (archivePage - 1) * QT_ARCHIVE_PAGE_SIZE;
-      const pageItems = rest.slice(start, start + QT_ARCHIVE_PAGE_SIZE);
-      archiveList.innerHTML = pageItems
-        .map(
-          (q) => `
-          <a class="qt-archive-row" href="/qt/${q.id}?from=home" data-id="${q.id}" data-title="${escapeHtml(q.title || '')}">
-            <span class="date">${formatQtDate(q.date)}</span>
-            <span class="title">${escapeHtml(q.title || '')}</span>
-          </a>`
-        )
-        .join('');
-
-      $$('.qt-archive-row', archiveList).forEach((row) => {
-        row.addEventListener('click', () =>
-          track('click', { label: 'qt_archive_row', itemType: 'qt', itemId: row.dataset.id, itemTitle: row.dataset.title })
-        );
-      });
-
-      archivePrevBtn.disabled = archivePage === 1;
-      archiveNextBtn.disabled = archivePage === totalArchivePages;
-    }
-
-    function renderArchivePagination() {
-      if (totalArchivePages <= 1) {
-        pager.innerHTML = '';
-        return;
-      }
-      const buttons = [];
-      for (let i = 1; i <= totalArchivePages; i++) {
-        buttons.push(
-          `<button class="board-page-btn${i === archivePage ? ' active' : ''}" data-page="${i}">${i}</button>`
-        );
-      }
-      pager.innerHTML = buttons.join('');
-
-      $$('.board-page-btn', pager).forEach((btn) => {
-        btn.addEventListener('click', () => goToArchivePage(Number(btn.dataset.page)));
-      });
-    }
-
-    function goToArchivePage(page) {
-      if (!page || page === archivePage || page < 1 || page > totalArchivePages) return;
-      archivePage = page;
-      renderArchiveRows();
-      renderArchivePagination();
-    }
-
-    archivePrevBtn.addEventListener('click', () => goToArchivePage(archivePage - 1));
-    archiveNextBtn.addEventListener('click', () => goToArchivePage(archivePage + 1));
-
-    if (totalArchivePages <= 1) {
-      archivePrevBtn.style.display = 'none';
-      archiveNextBtn.style.display = 'none';
-    }
-
-    $('#qt-archive-toggle').addEventListener('click', () => {
-      const isOpen = archiveWrap.classList.toggle('open');
-      $('#qt-archive-toggle').textContent = isOpen ? '지난 큐티 접기 ▴' : '지난 큐티 보기 ▾';
-      // 열 때마다 1페이지부터 보여줍니다. (렌더링은 열릴 때만 합니다 —
-      // 버튼을 누르기 전부터 페이지 번호가 미리 보이면 안 되기 때문입니다)
-      if (isOpen) {
-        archivePage = 1;
-        renderArchiveRows();
-        renderArchivePagination();
-      }
-    });
-  }
-
-  // ---------------- 선교사역 (세계지도 + 동역자의 섬김) ----------------
-  function daysSince(dateStr) {
-    if (!dateStr) return null;
-    const start = new Date(dateStr);
-    if (isNaN(start.getTime())) return null;
-    return Math.floor((Date.now() - start.getTime()) / 86400000) + 1;
-  }
-
-  function missionGroupCardHTML(group) {
-    const first = group[0];
-    const flag = window.isoToFlag ? window.isoToFlag(first.countryCode) : '';
-    const items = group
-      .map(
-        (m) => `
-        <div class="mission-pin-card-body">
-          ${m.image ? `<img src="${m.image}" alt="${escapeHtml(m.name || '')}" />` : `<div class="mission-pin-card-avatar"></div>`}
-          <div>
-            <p class="name">${escapeHtml(m.name || '')}${m.tag ? ` <span class="tag">${escapeHtml(m.tag)}</span>` : ''}</p>
-            <p class="desc">${escapeHtml(m.desc || '').replace(/\n/g, '<br>')}</p>
-          </div>
-        </div>`
-      )
-      .join('<hr class="mission-pin-card-divider" />');
-
-    return `
-      <div class="mission-pin-card">
-        <div class="mission-pin-card-head">
-          <span class="flag">${flag}</span>
-          <span class="country">${escapeHtml(first.country || '')}</span>
+      <div class="card">
+        <h3>예배 안내 배경 사진</h3>
+        <p class="hint" style="margin-top:0;">
+          새 사진을 올리거나, <strong>이미 등록된 사진도</strong> 아래 미리보기에서 원하는 지점을 클릭하면
+          그 부분이 항상 중심에 오도록 위치를 다시 잡을 수 있어요. 슬라이더로 확대해서 원하는 만큼
+          크롭할 수도 있고요. 사진을 등록하지 않으면 기존처럼 남색 배경 그대로 나갑니다.
+        </p>
+        <div class="field">
+          <label>배경 사진 (교체하려면 다시 선택)</label>
+          <input type="file" id="s-serviceImageFile" accept="image/*" />
         </div>
-        ${items}
-      </div>`;
-  }
-
-  function renderMissionsMobileList(missions) {
-    const wrap = $('#missions-mobile-list');
-    if (!missions.length) {
-      wrap.innerHTML = '';
-      return;
-    }
-    wrap.innerHTML = missions
-      .map(
-        (m) => `
-        <div class="mission-mobile-card">
-          <span class="mission-mobile-badge">${window.isoToFlag ? window.isoToFlag(m.countryCode) : ''} ${escapeHtml(m.tag || m.country || '')}</span>
-          <div class="mission-pin-card-body">
-            ${m.image ? `<img src="${m.image}" alt="${escapeHtml(m.name || '')}" />` : `<div class="mission-pin-card-avatar"></div>`}
-            <div>
-              <p class="name">${escapeHtml(m.name || '')}</p>
-              <p class="desc">${escapeHtml(m.desc || '').replace(/\n/g, '<br>')}</p>
-            </div>
+        <div class="field">
+          <label>미리보기 — 클릭해서 위치 다시 잡기</label>
+          <div id="s-serviceBgPreviewWrap" style="position:relative; width:100%; max-width:480px; height:220px; border-radius:10px; overflow:hidden; background:#0d1526; display:none; cursor:crosshair;">
+            <img id="s-serviceBgPreviewImg" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover;" alt="" />
+            <div id="s-serviceBgFocalMarker" style="position:absolute; width:22px; height:22px; border:2px solid #fff; border-radius:50%; box-shadow:0 0 0 2px rgba(0,0,0,0.5); transform:translate(-50%,-50%); left:50%; top:50%; pointer-events:none;"></div>
           </div>
-        </div>`
-      )
-      .join('');
-  }
+          <p class="hint" id="s-serviceBgEmptyHint" style="margin-top:6px;">아직 등록된 사진이 없습니다.</p>
+        </div>
+        <div class="field">
+          <label>확대 (<span id="s-serviceZoomValue">100</span>%)</label>
+          <input type="range" id="s-serviceZoom" min="100" max="200" value="100" style="width:100%; max-width:480px;" />
+        </div>
+        <button type="button" id="s-serviceBgSaveBtn" class="btn-primary" style="margin-top:8px;">예배 안내 배경 저장</button>
+        <p class="hint" id="s-serviceBgStatus" style="margin-top:6px;"></p>
+      </div>
 
-  function renderMissionsMap(missions) {
-    const mapEl = $('#missions-map');
-    mapEl.innerHTML = '';
-    if (!missions.length || typeof d3 === 'undefined' || typeof topojson === 'undefined') return;
+      <div class="card">
+        <h3>찬양 섹션 배경 사진</h3>
+        <p class="hint" style="margin-top:0;">
+          예배 안내와 동일한 방식이에요. 새 사진을 올리거나 <strong>이미 등록된 사진도</strong>
+          아래 미리보기를 클릭해서 중심 위치를 다시 잡을 수 있고, 확대 슬라이더로 원하는 만큼
+          크롭할 수 있어요.
+        </p>
+        <div class="field">
+          <label>배경 사진 (교체하려면 다시 선택)</label>
+          <input type="file" id="s-praiseImageFile" accept="image/*" />
+        </div>
+        <div class="field">
+          <label>미리보기 — 클릭해서 위치 다시 잡기</label>
+          <div id="s-praiseBgPreviewWrap" style="position:relative; width:100%; max-width:480px; height:220px; border-radius:10px; overflow:hidden; background:#0d1526; display:none; cursor:crosshair;">
+            <img id="s-praiseBgPreviewImg" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover;" alt="" />
+            <div id="s-praiseBgFocalMarker" style="position:absolute; width:22px; height:22px; border:2px solid #fff; border-radius:50%; box-shadow:0 0 0 2px rgba(0,0,0,0.5); transform:translate(-50%,-50%); left:50%; top:50%; pointer-events:none;"></div>
+          </div>
+          <p class="hint" id="s-praiseBgEmptyHint" style="margin-top:6px;">아직 등록된 사진이 없습니다.</p>
+        </div>
+        <div class="field">
+          <label>확대 (<span id="s-praiseZoomValue">100</span>%)</label>
+          <input type="range" id="s-praiseZoom" min="100" max="200" value="100" style="width:100%; max-width:480px;" />
+        </div>
+        <button type="button" id="s-praiseBgSaveBtn" class="btn-primary" style="margin-top:8px;">찬양 배경 저장</button>
+        <p class="hint" id="s-praiseBgStatus" style="margin-top:6px;"></p>
+      </div>
 
-    const width = 620;
-    const height = 460;
-    const svg = d3
-      .select(mapEl)
-      .append('svg')
-      .attr('viewBox', `0 0 ${width} ${height}`)
-      .attr('width', '100%')
-      .style('display', 'block');
+      <div class="card">
+        <h3>섬김 안내 (모바일 플로팅 버튼)</h3>
+        <p class="hint" style="margin-top:0;">
+          모바일 화면에 따라다니는 "섬김안내" 버튼을 누르면 뜨는 내용이에요. 둘 다 비워두면
+          버튼 자체가 안 보여요. 줄바꿈은 그대로 반영돼요.
+        </p>
+        <div class="field">
+          <label>예배 위원</label>
+          <textarea id="s-ministryWorship" rows="3" placeholder="예: 안내위원 홍길동, 김철수 / 찬양인도 이영희"></textarea>
+        </div>
+        <div class="field">
+          <label>주일 식사 봉사 당번</label>
+          <textarea id="s-ministryMeal" rows="3" placeholder="예: 1팀 박민수, 최지은"></textarea>
+        </div>
+        <button type="button" id="s-ministryDutySaveBtn" class="btn-primary" style="margin-top:8px;">섬김 안내 저장</button>
+        <p class="hint" id="s-ministryDutyStatus" style="margin-top:6px;"></p>
+      </div>
 
-    d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
-      .then((world) => {
-        const countries = topojson.feature(world, world.objects.countries);
-        const pointFeatures = {
-          type: 'FeatureCollection',
-          features: [
-            { type: 'Feature', geometry: { type: 'Point', coordinates: [127.8, 36.5] } },
-            ...missions.map((m) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [m.lon, m.lat] } }))
-          ]
-        };
-        const projection = d3.geoMercator().fitExtent(
-          [
-            [50, 40],
-            [width - 50, height - 40]
-          ],
-          pointFeatures
-        );
-        const path = d3.geoPath(projection);
+      <div class="card">
+        <h3>예배 시간별 세부 설정</h3>
+        <p class="hint" style="margin-top:0;">
+          예배 시간마다 글씨 굵기, 글자 크기, 간단한 설명을 따로 설정할 수 있어요.
+          예배 시간을 추가/삭제/수정하신 뒤에는 새로고침해서 다시 확인해주세요.
+        </p>
+        <div id="s-serviceBoldList" style="display:flex; flex-direction:column; gap:20px;"></div>
+        <button type="button" id="s-serviceBoldSaveBtn" class="btn-primary" style="margin-top:12px;">저장</button>
+        <p class="hint" id="s-serviceBoldStatus" style="margin-top:6px;"></p>
+      </div>
 
-        svg
-          .append('g')
-          .selectAll('path')
-          .data(countries.features)
-          .join('path')
-          .attr('d', path)
-          .attr('fill', 'var(--line)')
-          .attr('stroke', 'var(--ivory-dim)')
-          .attr('stroke-width', 0.6);
+      <div class="card">
+        <h3>설교 영상 섹션</h3>
+        <div class="field">
+          <label>안내 문구 (섹션 제목 아래에 작게 나오는 설명)</label>
+          <input id="s-sermonsIntro" type="text" placeholder="매주 유튜브 채널에 올라오는 설교 영상이 자동으로 갱신됩니다" />
+        </div>
+        <div class="field">
+          <label>설교 카드용 목사님 사진 (선택)</label>
+          <p class="hint" style="margin-top:0;">
+            설교 영상 카드에 목사님 사진 + 자동 배경 + 설교 제목이 합성되어 노출됩니다. 기본 사진 3장이
+            이미 들어가 있고, 여기서 사진을 추가로 올리시면 그것들과 함께 영상마다 자동으로 섞여서
+            사용됩니다. (배경이 복잡한 사진을 올리시면 배경이 그대로 나옵니다 — 깔끔한 인물 사진일수록
+            잘 어울려요)
+          </p>
+          <input type="file" id="s-sermonPhotoFile" accept="image/*" />
+          <div id="s-sermonPhotoList" style="display:flex; flex-wrap:wrap; gap:10px; margin-top:10px;"></div>
+        </div>
+      </div>
 
-        const pinGroup = svg.append('g');
+      <div class="card">
+        <h3>교회 소개</h3>
+        <div class="field"><label>인사말 제목</label><input id="s-aboutGreeting" type="text" /></div>
+        <div class="field">
+          <label>소개 본문</label>
+          <textarea id="s-aboutBody" rows="4" style="display:none;"></textarea>
+          <div id="s-aboutBody-quill" style="background:#fff; border-radius: var(--radius); overflow:hidden;"></div>
+        </div>
+        <div class="field"><label>연혁 (한 줄에 하나씩 입력하세요)</label><textarea id="s-aboutHistory" rows="3"></textarea></div>
+        <div class="field"><label>담임목사 성함</label><input id="s-pastorName" type="text" /></div>
+        <div class="field"><label>목회자 인사말</label><textarea id="s-pastorMessage" rows="3"></textarea></div>
+        <div class="field">
+          <label>교회 소개 이미지</label>
+          <input type="file" id="s-aboutImageFile" accept="image/*" />
+          <img class="preview" id="s-aboutImagePreview" />
+        </div>
+      </div>
 
-        const positioned = missions.map((m) => {
-          const [x, y] = projection([m.lon, m.lat]);
-          return { m, x, y };
-        });
-        const collisionGroups = {};
-        const groupOrder = [];
-        positioned.forEach((p) => {
-          const key = `${Math.round(p.x / 8)}_${Math.round(p.y / 8)}`;
-          if (!collisionGroups[key]) {
-            collisionGroups[key] = [];
-            groupOrder.push(key);
-          }
-          collisionGroups[key].push(p);
-        });
+      <div class="card">
+        <h3>예배 시간</h3>
+        <div id="service-list" class="list-editor"></div>
+        <button class="btn-secondary" id="add-service-btn">+ 예배 시간 추가</button>
+      </div>
 
-        groupOrder.forEach((key) => {
-          const group = collisionGroups[key];
-          const x = group.reduce((sum, p) => sum + p.x, 0) / group.length;
-          const y = group.reduce((sum, p) => sum + p.y, 0) / group.length;
-          const missionsInGroup = group.map((p) => p.m);
+      <div class="card">
+        <h3>연락처 · 오시는 길</h3>
+        <div class="field"><label>주소</label><input id="s-address" type="text" /></div>
+        <div class="field"><label>추가 설명 (선택, 여러 줄 입력 가능)</label><textarea id="s-addressNote" rows="4" placeholder="예: 대동다숲 주상복합 3층
+오색시장 정문에서 도보 3분"></textarea></div>
+        <div class="field"><label>전화번호</label><input id="s-phone" type="text" /></div>
+        <div class="field"><label>이메일</label><input id="s-email" type="text" /></div>
+        <div class="field">
+          <label>지도 임베드 URL (구글맵 등 &lt;iframe&gt; 방식 - 카카오맵을 아래에 설정하지 않았을 때 대신 쓰입니다)</label>
+          <input id="s-mapUrl" type="text" placeholder="https://www.google.com/maps/embed?..." />
+          <p class="hint" style="margin-top:6px;">
+            구글맵(google.com/maps)에서 교회 주소 검색 → 공유 → '지도 퍼가기' → iframe 코드 안의 src="..." 주소만
+            복사해서 붙여넣으면 됩니다. (카카오맵은 더 이상 이 방식의 코드를 제공하지 않아서, 카카오맵을 쓰시려면
+            바로 아래 '카카오맵 연결' 항목을 이용해주세요.)
+          </p>
+        </div>
+      </div>
 
-          pinGroup
-            .append('circle')
-            .attr('cx', x)
-            .attr('cy', y)
-            .attr('r', 7)
-            .attr('fill', 'var(--gold)')
-            .attr('stroke', 'var(--ivory)')
-            .attr('stroke-width', 1.5)
-            .append('title')
-            .text(missionsInGroup.map((m) => `${m.country || ''}${m.name ? ' - ' + m.name : ''}`).join(', '));
+      <div class="card">
+        <h3>카카오맵 연결</h3>
+        <p class="hint" style="margin-top:0;">
+          1) map.kakao.com에서 교회 주소 검색 → 공유 아이콘 → 'HTML 태그 복사' 클릭<br />
+          2) 뜨는 코드를 <strong>전체 다 선택해서(Ctrl+A) 복사</strong>(Ctrl+C)한 다음, 아래 칸에 그대로
+          붙여넣기(Ctrl+V)만 해주세요. 어느 부분만 골라 복사할 필요 없이 통째로 붙여넣으면 됩니다.<br />
+          3) 이 화면 맨 아래 '저장하기' 버튼을 누르면 자동으로 필요한 부분만 인식해서 반영됩니다.<br />
+          4) 홈페이지에는 지도 미리보기 사진이 나오고, 방문자가 클릭하면 실제 카카오맵으로 이동해서
+          확대·길찾기 등을 이용할 수 있습니다.
+        </p>
+        <div class="field">
+          <label>카카오맵 코드 붙여넣기</label>
+          <textarea id="s-kakaoMapCode" rows="6" placeholder="카카오맵에서 복사한 코드를 여기에 그대로 붙여넣으세요"></textarea>
+          <p class="hint" id="kakao-map-status" style="margin-top:6px;"></p>
+        </div>
+      </div>
 
-          if (missionsInGroup.length > 1) {
-            pinGroup
-              .append('text')
-              .attr('x', x)
-              .attr('y', y)
-              .attr('text-anchor', 'middle')
-              .attr('dominant-baseline', 'central')
-              .attr('font-size', '9px')
-              .attr('font-weight', '700')
-              .attr('fill', 'var(--navy-deep)')
-              .style('pointer-events', 'none')
-              .text(missionsInGroup.length);
-          }
+      <div class="card">
+        <h3>헌금 안내</h3>
+        <p class="hint">홈페이지 '헌금 안내' 섹션에 표시됩니다. 계좌번호는 공개되니 신중히 입력해주세요.</p>
+        <div class="field-row">
+          <div class="field"><label>은행명</label><input id="s-offeringBank" type="text" placeholder="OO은행" /></div>
+          <div class="field"><label>계좌번호</label><input id="s-offeringAccount" type="text" placeholder="000-0000-0000" /></div>
+        </div>
+        <div class="field"><label>예금주</label><input id="s-offeringHolder" type="text" placeholder="물댄동산교회" /></div>
+        <div class="field"><label>안내 문구 (헌금 종류 기재 방법 등)</label><textarea id="s-offeringNote" rows="4" placeholder="입금 시 '이름+헌금종류'를 남겨주세요. (예: 홍길동 십일조)"></textarea></div>
+      </div>
 
-          const flipX = x > width * 0.62;
-          const div = document.createElement('div');
-          div.className = 'mission-pin-card-wrap' + (flipX ? ' flip' : '');
-          div.style.left = (x / width) * 100 + '%';
-          div.style.top = (y / height) * 100 + '%';
-          div.innerHTML = missionGroupCardHTML(missionsInGroup);
-          mapEl.appendChild(div);
-        });
-      })
-      .catch((err) => console.error('세계지도를 불러오지 못했습니다:', err));
-  }
+      <div class="card">
+        <h3>선교사역 섹션 타이틀</h3>
+        <p class="hint" style="margin-top:0;">홈페이지 '선교사역' 섹션 상단 제목·부제입니다. 핀·동역자 항목은 좌측 '선교사역' 메뉴에서 관리합니다.</p>
+        <div class="field"><label>제목</label><input id="s-missionsTitle" type="text" placeholder="물댄동산교회가 함께하는 선교지" /></div>
+        <div class="field"><label>부제 (선택)</label><input id="s-missionsSubtitle" type="text" placeholder="함께 걷는 선교의 발걸음을 소개합니다" /></div>
+      </div>
 
-  function renderPartners(partners) {
-    const listEl = $('#partners-list');
-    const pageEl = $('#partners-page');
-    const prevBtn = $('#partners-prev');
-    const nextBtn = $('#partners-next');
-    const perPage = 5;
-    const totalPages = Math.max(1, Math.ceil(partners.length / perPage));
-    let page = 0;
+      <div class="card">
+        <h3>SNS 링크</h3>
+        <div class="field"><label>유튜브 채널 URL</label><input id="s-snsYoutube" type="text" /></div>
+        <div class="field"><label>인스타그램 URL</label><input id="s-snsInstagram" type="text" /></div>
+        <div class="field"><label>페이스북 URL</label><input id="s-snsFacebook" type="text" /></div>
+        <div class="field"><label>네이버 밴드 URL</label><input id="s-snsBand" type="text" placeholder="https://www.band.us/band/1444664" /></div>
+      </div>
 
-    function draw() {
-      const slice = partners.slice(page * perPage, page * perPage + perPage);
-      listEl.innerHTML = slice
-        .map((p) => {
-          const days = daysSince(p.startDate);
-          return `
-          <div class="partner-row">
-            ${p.image ? `<img src="${p.image}" alt="${escapeHtml(p.name || '')}" />` : `<div class="partner-avatar"></div>`}
-            <div class="partner-info">
-              <p class="name">${escapeHtml(p.name || '')}</p>
-              ${p.note ? `<p class="note">${escapeHtml(p.note)}</p>` : ''}
-            </div>
-            ${days !== null ? `<span class="partner-day">D+${days}</span>` : ''}
-          </div>`;
-        })
-        .join('');
-      pageEl.textContent = totalPages > 1 ? `${page + 1} / ${totalPages}` : '';
-      prevBtn.disabled = totalPages <= 1;
-      nextBtn.disabled = totalPages <= 1;
-    }
+      <button class="btn-primary" id="save-site-btn">기본 정보 저장</button>
+      <span class="save-status" id="site-save-status"></span>
+    </section>
 
-    prevBtn.onclick = () => {
-      page = (page - 1 + totalPages) % totalPages;
-      draw();
-    };
-    nextBtn.onclick = () => {
-      page = (page + 1) % totalPages;
-      draw();
-    };
-    draw();
-  }
+    <!-- 메뉴 관리 -->
+    <section class="panel" id="panel-menu">
+      <h2>메뉴 관리</h2>
+      <p class="panel-desc">상단 내비게이션에 표시될 메뉴를 추가, 수정, 삭제, 순서 변경할 수 있습니다.</p>
+      <div class="card">
+        <div id="menu-list" class="list-editor"></div>
+        <div class="menu-add-row">
+          <input type="text" id="new-menu-label" placeholder="메뉴 이름 (예: 새가족)" />
+          <input type="text" id="new-menu-link" placeholder="연결 위치 (예: #about)" />
+          <button class="btn-secondary" id="add-menu-btn">+ 메뉴 추가</button>
+        </div>
+      </div>
+    </section>
 
-  async function loadMissions() {
-    const [missions, partners] = await Promise.all([getJSON('/api/missions'), getJSON('/api/partners')]);
-    const missionsList = missions || [];
-    const partnersList = partners || [];
+    <!-- 게시판 관리 -->
+    <section class="panel" id="panel-board">
+      <h2>소식 · 친교 게시판</h2>
+      <p class="panel-desc">교회 소식과 활동 게시글을 작성, 수정, 삭제합니다. 상단 고정도 가능합니다.</p>
 
-    if (missionsList.length === 0 && partnersList.length === 0) {
-      $('#missions').style.display = 'none';
-      return;
-    }
+      <div class="card">
+        <h3 id="post-form-title">새 글 작성</h3>
+        <div class="field-row">
+          <div class="field"><label>구분</label>
+            <select id="p-category"><option value="소식">소식</option><option value="활동">친교</option><option value="주보">주보</option></select>
+          </div>
+          <div class="field"><label>날짜</label><input id="p-date" type="date" /></div>
+        </div>
+        <div class="field"><label>제목</label><input id="p-title" type="text" /></div>
+        <div class="field">
+          <label>내용</label>
+          <div id="p-content-toolbar">
+            <span class="ql-formats">
+              <select class="ql-size"><option value="small"></option><option selected></option><option value="large"></option><option value="huge"></option></select>
+            </span>
+            <span class="ql-formats">
+              <button class="ql-bold"></button>
+              <button class="ql-italic"></button>
+              <button class="ql-underline"></button>
+            </span>
+            <span class="ql-formats">
+              <select class="ql-color"></select>
+            </span>
+            <span class="ql-formats">
+              <button class="ql-list" value="ordered"></button>
+              <button class="ql-list" value="bullet"></button>
+            </span>
+            <span class="ql-formats">
+              <button class="ql-align" value=""></button>
+              <button class="ql-align" value="center"></button>
+            </span>
+            <span class="ql-formats">
+              <button class="ql-clean"></button>
+            </span>
+          </div>
+          <div id="p-content-editor"></div>
+        </div>
+        <div class="field">
+          <label>첨부 이미지 (선택, 본문 상단에 표시됨)</label>
+          <input type="file" id="p-imageFile" accept="image/*" />
+          <img class="preview" id="p-imagePreview" />
+        </div>
+        <div class="field">
+          <label>첨부파일 (선택, 문서·PDF·한글파일 등, 최대 5개)</label>
+          <input type="file" id="p-attachmentFiles" multiple />
+          <div id="p-attachmentList" class="attachment-edit-list"></div>
+        </div>
+        <div class="field-checkbox"><label><input type="checkbox" id="p-pinned" /> 상단 고정</label></div>
+        <div class="post-form-actions">
+          <button class="btn-primary" id="add-post-btn">게시글 등록</button>
+          <button class="btn-secondary" id="cancel-edit-btn" hidden>취소</button>
+        </div>
+      </div>
 
-    const isDesktop = window.matchMedia('(min-width: 861px)').matches;
+      <div class="card">
+        <h3>게시글 목록</h3>
+        <div id="post-list" class="post-list"></div>
+      </div>
+    </section>
 
-    if (missionsList.length === 0) {
-      $('.missions-map-wrap').style.display = 'none';
-      $('#missions-mobile-list').innerHTML = '';
-    } else if (isDesktop) {
-      $('.missions-map-wrap').style.display = '';
-      $('#missions-mobile-list').style.display = 'none';
-      renderMissionsMap(missionsList);
-    } else {
-      $('.missions-map-wrap').style.display = 'none';
-      $('#missions-mobile-list').style.display = '';
-      renderMissionsMobileList(missionsList);
-    }
+    <!-- 기도 요청 -->
+    <section class="panel" id="panel-prayers">
+      <h2>기도 요청</h2>
+      <p class="panel-desc">
+        홈페이지 '기도 요청'에 성도님들이 남긴 내용입니다. 비밀글로 등록된 항목도
+        목회자 확인을 위해 이 화면에서는 내용이 그대로 보입니다(다른 방문자에게는 비공개).
+      </p>
+      <div class="card">
+        <button class="btn-secondary" id="prayers-refresh-btn" type="button">새로고침</button>
+        <div id="prayers-admin-list" class="post-list" style="margin-top:14px;"></div>
+      </div>
+    </section>
 
-    if (partnersList.length === 0) {
-      $('.missions-partners').style.display = 'none';
-    } else {
-      $('.missions-partners').style.display = '';
-      renderPartners(partnersList);
-    }
-  }
+    <!-- 온라인 문의 -->
+    <section class="panel" id="panel-inquiries">
+      <h2>온라인 문의</h2>
+      <p class="panel-desc">
+        홈페이지 '오시는 길 &gt; 온라인 문의하기'로 접수된 내용입니다. 비밀글로 등록된 항목도
+        이 화면에서는 내용이 그대로 보입니다(다른 방문자에게는 비공개).
+      </p>
+      <div class="card">
+        <button class="btn-secondary" id="inquiries-refresh-btn" type="button">새로고침</button>
+        <div id="inquiries-admin-list" class="post-list" style="margin-top:14px;"></div>
+      </div>
+    </section>
 
-  // ---------------- PWA: 서비스워커 등록 ----------------
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js')
-        .then((reg) => setupPushPrompt(reg))
-        .catch(() => {});
-    });
-  }
+    <!-- 오늘의 큐티 -->
+    <section class="panel" id="panel-qt">
+      <h2>오늘의 큐티</h2>
+      <p class="panel-desc">매일 아침 카카오톡으로 보내시는 큐티 내용을 그대로 붙여넣으면 홈페이지에 자동으로 게시됩니다.</p>
 
-  // ---------------- 푸시 알림 구독 ----------------
-  function urlBase64ToUint8Array(base64String) {
-    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-    const rawData = window.atob(base64);
-    return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
-  }
+      <div class="card">
+        <h3>배경 디자인</h3>
+        <p class="hint">홈 화면 '오늘의 큐티' 카드 뒤쪽 배경을 골라주세요.</p>
+        <div class="field">
+          <label>배경 유형</label>
+          <select id="qt-bg-type">
+            <option value="preset">프리셋</option>
+            <option value="photo">사진 업로드</option>
+          </select>
+        </div>
+        <div class="field" id="qt-bg-preset-field">
+          <label>프리셋</label>
+          <select id="qt-bg-preset">
+            <option value="navy">딥네이비 (기본)</option>
+            <option value="gold">골드 글로우</option>
+            <option value="dawn">새벽빛</option>
+          </select>
+        </div>
+        <div class="field" id="qt-bg-photo-field" hidden>
+          <label>배경 사진</label>
+          <input type="file" id="qt-bg-photoFile" accept="image/*" />
+          <img class="preview" id="qt-bg-photoPreview" />
+        </div>
+        <button class="btn-primary" id="save-qt-bg-btn">배경 저장</button>
+        <span class="save-status" id="qt-bg-save-status"></span>
+      </div>
 
-  async function setupPushPrompt(registration) {
-    if (!('PushManager' in window) || !('Notification' in window)) return; // 미지원 기기(iOS 사파리 등)는 조용히 건너뜀
-    if (Notification.permission === 'denied') return; // 이미 차단한 경우 다시 안 물어봄
-    if (localStorage.getItem('push-prompt-dismissed') === '1') return; // 예전에 닫은 적 있으면 다시 안 보여줌
+      <div class="card">
+        <h3 id="qt-form-title">새 큐티 작성</h3>
+        <div class="field">
+          <label>카톡 붙여넣기로 자동 채우기</label>
+          <p class="hint">카카오톡으로 받은 큐티 원문 전체를 아래에 붙여넣고 "자동 채우기"를 누르면 아래 입력칸이 채워집니다. 채워진 내용은 저장 전에 직접 확인·수정할 수 있습니다.</p>
+          <textarea id="qt-paste" rows="10" placeholder="카카오톡 큐티 원문 전체를 여기에 붙여넣으세요."></textarea>
+          <div class="post-form-actions">
+            <button type="button" class="btn-secondary" id="qt-parse-btn">자동 채우기</button>
+          </div>
+          <span class="hint" id="qt-parse-status"></span>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>날짜</label><input id="qt-date" type="date" /></div>
+          <div class="field"><label>목사님 성함</label><input id="qt-pastor" type="text" placeholder="이기삼 목사" /></div>
+        </div>
+        <div class="field"><label>제목</label><input id="qt-title" type="text" placeholder="나의 도움이 어디서 올까" /></div>
+        <div class="field"><label>말씀 구절 위치</label><input id="qt-verseRef" type="text" placeholder="시편 121편 1-2절" /></div>
+        <div class="field"><label>말씀 본문</label><textarea id="qt-verseText" rows="3" placeholder="내가 산을 향하여 눈을 들리라..."></textarea></div>
+        <div class="field"><label>묵상 나눔</label><textarea id="qt-body" rows="6" placeholder="오늘 말씀은..."></textarea></div>
+        <div class="field-checkbox">
+          <label><input type="checkbox" id="qt-schedule-push-check" /> 등록 후 알림 예약하기</label>
+        </div>
+        <div class="field" id="qt-schedule-push-time-field" style="display:none;">
+          <label>알림 발송 시각</label>
+          <input type="datetime-local" id="qt-schedule-push-time" />
+        </div>
+        <div class="post-form-actions">
+          <button class="btn-primary" id="add-qt-btn">큐티 등록</button>
+          <button class="btn-secondary" id="cancel-qt-edit-btn" hidden>취소</button>
+        </div>
+        <span class="save-status" id="qt-save-status"></span>
+      </div>
 
-    const existing = await registration.pushManager.getSubscription();
-    if (existing) return; // 이미 구독 중이면 배너 안 보여줌
+      <div class="card">
+        <h3>큐티 목록</h3>
+        <div id="qt-list" class="post-list"></div>
+      </div>
+    </section>
 
-    const banner = $('#push-prompt');
-    if (!banner) return;
-    banner.style.display = 'flex';
+    <!-- 말씀 퀴즈 -->
+    <section class="panel" id="panel-quiz">
+      <h2>말씀 퀴즈</h2>
+      <p class="panel-desc">
+        매주 성경 본문을 붙여넣으면 빈칸 채우기 퀴즈로 자동 변환됩니다. 빈칸으로 만들 단어는
+        괄호로 감싸주세요. 예: <code>그러므로 여호와의 (말씀)에 내가 이 족속에게 (재앙)을 계획하나니</code>
+      </p>
 
-    $('#push-dismiss-btn').addEventListener('click', () => {
-      banner.style.display = 'none';
-      localStorage.setItem('push-prompt-dismissed', '1');
-    });
+      <div class="card">
+        <h3 id="quiz-form-title">새 퀴즈 등록</h3>
+        <div class="field">
+          <label>본문 출처 (예: 미가 2:3-5)</label>
+          <input type="text" id="quiz-reference-input" placeholder="미가 2:3-5" />
+        </div>
+        <div class="field">
+          <label>주차 표시 (선택, 비워두면 오늘 날짜로 자동 표시)</label>
+          <input type="text" id="quiz-week-input" placeholder="예: 2026년 8월 3주" />
+        </div>
+        <div class="field">
+          <label>본문 붙여넣기 (한 줄에 절 번호 + 내용, 빈칸은 괄호로)</label>
+          <textarea id="quiz-paste-input" rows="8" placeholder="3 그러므로 여호와의 (말씀)에 내가 이 족속에게 (재앙)을 계획하나니 너희의 목이 이에서 벗어나지 못할 것이요 또한 (교만)하게 다니지 못할 것이라 이는 재앙의 때임이라 하셨느니라
+4 그 때에 너희를 조롱하는 (시)를 지으며 슬픈 (노래)를 불러 이르기를..."></textarea>
+        </div>
+        <button type="button" class="btn-secondary" id="quiz-preview-btn">미리보기</button>
+        <div id="quiz-preview-box" style="display:none; margin-top:14px; padding:16px; background:#fafbfc; border:1px solid var(--line); border-radius:6px;"></div>
+        <div class="field-checkbox" style="margin-top:16px;">
+          <label><input type="checkbox" id="quiz-schedule-push-check" /> 등록 후 알림 예약하기</label>
+        </div>
+        <div class="field" id="quiz-schedule-push-time-field" style="display:none;">
+          <label>알림 발송 시각</label>
+          <input type="datetime-local" id="quiz-schedule-push-time" />
+        </div>
+        <div style="margin-top:16px;">
+          <button type="button" class="btn-primary" id="quiz-register-btn" style="width:auto; padding:11px 22px;">이번 주 퀴즈로 등록</button>
+          <button type="button" class="btn-secondary" id="quiz-cancel-edit-btn" hidden>취소</button>
+          <span class="save-status" id="quiz-save-status"></span>
+        </div>
+      </div>
 
-    $('#push-allow-btn').addEventListener('click', async () => {
-      try {
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
-          banner.style.display = 'none';
-          return;
-        }
-        const { publicKey } = await getJSON('/api/push/vapid-public-key');
-        if (!publicKey) {
-          banner.style.display = 'none';
-          return;
-        }
-        const subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(publicKey)
-        });
-        await fetch('/api/push/subscribe', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(subscription)
-        });
-        banner.style.display = 'none';
-        localStorage.setItem('push-prompt-dismissed', '1');
-      } catch (err) {
-        banner.style.display = 'none';
-      }
-    });
-  }
+      <div class="card">
+        <h3>등록된 퀴즈 목록</h3>
+        <button class="btn-secondary" id="quiz-list-refresh-btn" type="button">새로고침</button>
+        <div id="quiz-admin-list" class="post-list" style="margin-top:14px;"></div>
+      </div>
 
-  // ---------------- 초기 로드 ----------------
-  observeReveals();
-  // ---------------- 말씀 퀴즈 티저 카드 ----------------
-  // 관리자가 이번 주 퀴즈를 등록해뒀을 때만 카드가 보이게 합니다. (없으면 빈 링크가
-  // 보이지 않도록 기본은 숨김 상태로 시작해서, 있을 때만 드러냅니다)
-  async function loadQuizTeaser() {
-    const card = $('#quiz-teaser-card');
-    if (!card) return;
-    try {
-      const res = await fetch('/api/quiz/current');
-      const data = await res.json();
-      if (data) {
-        card.style.display = '';
-        observeReveals(card.parentElement);
-      }
-    } catch (err) {
-      // 실패해도 조용히 숨긴 채로 둡니다.
-    }
-  }
+      <div class="card">
+        <h3>참여 통계</h3>
+        <div class="field">
+          <label>퀴즈 선택</label>
+          <select id="quiz-stats-select"><option value="">등록된 퀴즈가 없습니다</option></select>
+        </div>
+        <div id="quiz-stats-summary"></div>
+        <div id="quiz-stats-list" style="margin-top:16px;"></div>
+      </div>
+    </section>
 
-  // ---------------- 맨 위로 이동 버튼 ----------------
-  function setupScrollTopButton() {
-    const btn = $('#scroll-top-btn');
-    if (!btn) return;
-    let ticking = false;
-    let hideTimer = null;
-    const isMobile = () => window.matchMedia('(max-width: 900px)').matches;
+    <!-- 찬양 -->
+    <section class="panel" id="panel-praise">
+      <h2>찬양</h2>
+      <p class="panel-desc">함께 듣고 싶은 찬양 유튜브 영상을 등록해두면, 홈페이지 '찬양' 섹션에 목록으로 노출됩니다.</p>
 
-    function scheduleAutoHide() {
-      if (hideTimer) clearTimeout(hideTimer);
-      hideTimer = setTimeout(() => {
-        btn.classList.remove('visible');
-      }, 1500);
-    }
+      <div class="card">
+        <h3 id="praise-form-title">새 찬양 등록</h3>
+        <div class="field"><label>제목</label><input id="praise-title" type="text" placeholder="주 은혜임을" /></div>
+        <div class="field"><label>부른이 (선택)</label><input id="praise-singer" type="text" placeholder="어노인팅" /></div>
+        <div class="field">
+          <label>유튜브 주소</label>
+          <input id="praise-youtubeUrl" type="text" placeholder="https://www.youtube.com/watch?v=..." />
+          <p class="hint" style="margin-top:6px;">유튜브에서 영상 공유 → 링크 복사한 걸 그대로 붙여넣으면 됩니다.</p>
+        </div>
+        <div class="field">
+          <label>컨셉 (여러 개 선택 가능)</label>
+          <div id="praise-category-checks" class="permission-checks"></div>
+        </div>
+        <div class="post-form-actions">
+          <button class="btn-primary" id="add-praise-btn">찬양 등록</button>
+          <button class="btn-secondary" id="cancel-praise-edit-btn" hidden>취소</button>
+        </div>
+        <span class="save-status" id="praise-save-status"></span>
+      </div>
 
-    function update() {
-      const pastThreshold = window.scrollY > 600;
-      if (isMobile()) {
-        // 모바일: 스크롤 중일 때만 보이고, 멈추면 잠시 후 사라짐 (기준 스크롤 위치를 넘었을 때만)
-        if (pastThreshold) {
-          btn.classList.add('visible');
-          scheduleAutoHide();
-        } else {
-          btn.classList.remove('visible');
-        }
-      } else {
-        btn.classList.toggle('visible', pastThreshold);
-      }
-      ticking = false;
-    }
-    window.addEventListener('scroll', () => {
-      if (!ticking) {
-        requestAnimationFrame(update);
-        ticking = true;
-      }
-    });
-    btn.addEventListener('click', () => {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
-  }
-  setupScrollTopButton();
+      <div class="card">
+        <h3>찬양 컨셉 관리</h3>
+        <p class="hint" style="margin-top:0;">
+          "경배와 찬양", "잔잔한 묵상곡" 처럼 자유롭게 만들고 지울 수 있습니다.
+          홈페이지에서는 곡이 하나라도 있는 컨셉만 필터 버튼으로 보여줍니다.
+        </p>
+        <div id="praise-category-list" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;"></div>
+        <div class="menu-add-row">
+          <input type="text" id="praise-category-new-input" placeholder="새 컨셉 이름 (예: 청년부 찬양)" maxlength="20" />
+          <button class="btn-secondary" id="praise-category-add-btn">추가</button>
+        </div>
+      </div>
 
-  // ---------------- 해시(#qt 등)로 진입했을 때, 데이터·폰트 준비 후 한 번만 이동 ----------------
-  // index.html의 head 스크립트에서 location.hash를 미리 떼어 window.__pendingScrollHash에
-  // 저장해뒀습니다(브라우저의 이른 앵커 점프 방지). 설교·찬양·게시판 카드의 사진 자리는
-  // CSS aspect-ratio로 이미 예약돼 있어 사진 로딩 자체를 따로 기다릴 필요는 없습니다.
-  // 아래 함수는 head 스크립트가 "데이터 + 폰트"까지 모두 준비된 뒤 딱 한 번만 호출해서,
-  // 화면이 공개되기 직전에 정확한 위치로 이동시켜 줍니다.
-  window.__performPendingScroll = function () {
-    const hash = window.__pendingScrollHash;
-    if (!hash) return;
-    window.__pendingScrollHash = null;
-    const target = document.querySelector(hash);
-    if (!target) return;
-    // style.css에 html { scroll-behavior: smooth; }가 걸려 있어서, 그냥
-    // scrollIntoView({ behavior: 'auto' })만으로는 "즉시 이동"이 아니라
-    // CSS를 따라 부드럽게(smooth) 움직여버립니다. 화면 공개 직전 딱 이 순간만큼은
-    // 확실하게 즉시 이동하도록 scroll-behavior를 잠깐 꺼뒀다가 되돌립니다.
-    const html = document.documentElement;
-    const prevScrollBehavior = html.style.scrollBehavior;
-    html.style.scrollBehavior = 'auto';
-    target.scrollIntoView({ block: 'start', behavior: 'auto' });
-    html.style.scrollBehavior = prevScrollBehavior;
-    // 주소창에 #qt를 다시 붙이면, 그 이후 평범하게 새로고침할 때마다 계속
-    // 큐티로 이동해버리는 문제가 생기므로 URL은 계속 깨끗한 '/'로 둡니다.
-  };
+      <div class="card">
+        <h3>찬양 목록</h3>
+        <div id="praise-list" class="post-list"></div>
+      </div>
+    </section>
 
-  // 큐티(#qt)보다 위쪽 섹션(사이트정보·메뉴·설교·찬양·게시판·큐티)의 데이터만 스크롤
-  // 위치 계산에 영향을 줍니다. 아래쪽 섹션(선교·퀴즈)은 화면 공개를 굳이 기다릴
-  // 필요가 없어서, 느린 네트워크에서도 화면이 빨리 뜨도록 따로 분리해 불러옵니다.
-  Promise.all([loadSite(), loadMenu(), loadSermons(), loadPraises(), loadBoard(), loadQT()])
-    .catch((err) => {
-      console.error('콘텐츠를 불러오는 중 오류가 발생했습니다:', err);
-    })
-    .finally(() => {
-      if (window.__resolveDataReady) window.__resolveDataReady();
-    });
+    <!-- 선교사역 -->
+    <section class="panel" id="panel-missions">
+      <h2>선교사역</h2>
+      <p class="panel-desc">세계지도에 표시할 선교지 핀과, 교회를 후원해주시는 동역자(기관·개인) 정보를 관리합니다. 섹션 제목은 '기본 정보' 메뉴에서 수정합니다.</p>
 
-  Promise.all([loadMissions(), loadQuizTeaser()]).catch((err) => {
-    console.error('선교/퀴즈 콘텐츠를 불러오는 중 오류가 발생했습니다:', err);
-  });
-})();
+      <div class="card">
+        <h3 id="mission-form-title">선교지 추가</h3>
+        <div class="field-row">
+          <div class="field">
+            <label>국가</label>
+            <select id="m-countryCode"></select>
+          </div>
+          <div class="field"><label>배지 문구 (선택, 비우면 국가명이 표시됨)</label><input id="m-tag" type="text" placeholder="예: 송아지 · 장학" /></div>
+        </div>
+        <div class="field"><label>선교사님 성함</label><input id="m-name" type="text" placeholder="홍길동 선교사" /></div>
+        <div class="field"><label>사역 세부 내용 (여러 줄 입력 가능)</label><textarea id="m-desc" rows="3" placeholder="현지에서 어떤 사역을 하고 계신지 소개해주세요."></textarea></div>
+        <div class="field">
+          <label>사진 (선택)</label>
+          <input type="file" id="m-imageFile" accept="image/*" />
+          <img class="preview" id="m-imagePreview" />
+        </div>
+        <div class="post-form-actions">
+          <button class="btn-primary" id="add-mission-btn">선교지 등록</button>
+          <button class="btn-secondary" id="cancel-mission-edit-btn" hidden>취소</button>
+        </div>
+        <span class="save-status" id="mission-save-status"></span>
+      </div>
+
+      <div class="card">
+        <h3>선교지 목록</h3>
+        <div id="mission-list" class="post-list"></div>
+      </div>
+
+      <div class="card">
+        <h3 id="partner-form-title">동역자 추가</h3>
+        <div class="field-row">
+          <div class="field"><label>이름 / 기관명</label><input id="pt-name" type="text" placeholder="한마음선교회 또는 홍길동 집사" /></div>
+          <div class="field"><label>동역 시작일</label><input id="pt-startDate" type="date" /></div>
+        </div>
+        <div class="field"><label>소개 문구 (선택)</label><input id="pt-note" type="text" placeholder="꾸준히 함께해주고 계신 동역자입니다" /></div>
+        <div class="field">
+          <label>사진 (선택)</label>
+          <input type="file" id="pt-imageFile" accept="image/*" />
+          <img class="preview" id="pt-imagePreview" />
+        </div>
+        <div class="post-form-actions">
+          <button class="btn-primary" id="add-partner-btn">동역자 등록</button>
+          <button class="btn-secondary" id="cancel-partner-edit-btn" hidden>취소</button>
+        </div>
+        <span class="save-status" id="partner-save-status"></span>
+      </div>
+
+      <div class="card">
+        <h3>동역자 목록</h3>
+        <p class="hint" style="margin-top:0;">홈페이지에는 이 순서대로 표시되며, D-day는 동역 시작일 기준으로 매일 자동 계산됩니다.</p>
+        <div id="partner-list" class="post-list"></div>
+      </div>
+    </section>
+
+    <!-- 통계 -->
+    <section class="panel" id="panel-stats">
+      <h2>통계</h2>
+      <p class="panel-desc">홈페이지 방문 수와 콘텐츠별 클릭 현황을 확인할 수 있습니다.</p>
+
+      <div class="card">
+        <h3>방문 수</h3>
+        <div class="stats-cards" id="stats-summary-cards"></div>
+      </div>
+
+      <div class="card">
+        <h3>기기별 방문 현황 (최근 7일)</h3>
+        <div class="stats-cards" id="stats-device-cards"></div>
+      </div>
+
+      <div class="card">
+        <h3>인기 콘텐츠 클릭 (최근 7일)</h3>
+        <div id="stats-click-list" class="stats-bar-list"></div>
+      </div>
+
+      <div class="card">
+        <h3>페이지별 조회수 (최근 7일)</h3>
+        <div id="stats-page-list" class="stats-bar-list"></div>
+      </div>
+
+      <div class="card">
+        <h3>가장 많이 본 설교 (최근 30일)</h3>
+        <div id="stats-sermon-list" class="stats-bar-list"></div>
+      </div>
+
+      <div class="card">
+        <h3>가장 많이 들은 찬양 (최근 30일)</h3>
+        <div id="stats-praise-list" class="stats-bar-list"></div>
+      </div>
+
+      <div class="card">
+        <h3>인기 찬양 컨셉 (최근 30일)</h3>
+        <div id="stats-praise-category-list" class="stats-bar-list"></div>
+      </div>
+
+      <div class="card">
+        <h3>가장 많이 본 큐티 (최근 30일)</h3>
+        <div id="stats-qt-list" class="stats-bar-list"></div>
+      </div>
+
+      <div class="card">
+        <h3>가장 많이 본 소식·친교 게시글 (최근 30일)</h3>
+        <div id="stats-board-list" class="stats-bar-list"></div>
+      </div>
+
+      <div class="card">
+        <h3>페이지별 평균 체류시간 (최근 7일)</h3>
+        <p class="hint" style="margin-top:0;">막대 길이는 방문 횟수를, 괄호 안 숫자는 평균 머문 시간을 뜻합니다.</p>
+        <div id="stats-timespent-list" class="stats-bar-list"></div>
+      </div>
+    </section>
+
+    <!-- 기부금 영수증 신청 -->
+    <section class="panel" id="panel-receipts">
+      <h2>기부금 영수증 신청</h2>
+      <p class="panel-desc">홈페이지 '헌금 안내'에서 성도님들이 신청한 내역입니다. 확인 후 개별 연락하시고, 처리가 끝나면 목록에서 삭제해주세요.</p>
+      <div class="card">
+        <div id="receipt-list" class="post-list"></div>
+      </div>
+    </section>
+
+    <!-- 푸시 알림 -->
+    <section class="panel" id="panel-push">
+      <h2>푸시 알림</h2>
+      <p class="panel-desc">
+        홈 화면에 사이트를 추가하고 알림을 허용한 방문자에게 알림을 보냅니다. 새 설교·큐티·소식이
+        올라왔을 때 직접 눌러서 보내주세요 (자동으로는 발송되지 않아요).
+      </p>
+
+      <div class="card">
+        <h3>자주 쓰는 문구</h3>
+        <p class="hint" style="margin-top:0;">클릭하면 아래 입력칸에 바로 채워집니다.</p>
+        <div id="push-template-chips" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px;"></div>
+      </div>
+
+      <div class="card">
+        <div class="field">
+          <label>알림 제목</label>
+          <input type="text" id="push-title-input" placeholder="예: 새로운 설교 영상이 올라왔어요" maxlength="60" />
+        </div>
+        <div class="field">
+          <label>알림 내용 (선택)</label>
+          <input type="text" id="push-body-input" placeholder="예: 이번 주 말씀을 확인해보세요" maxlength="120" />
+        </div>
+        <div class="field">
+          <label>알림을 누르면 이동할 위치 (선택, 비워두면 홈으로)</label>
+          <input type="text" id="push-url-input" placeholder="예: /#sermons, /quiz.html" />
+        </div>
+        <button type="button" class="btn-primary" id="push-send-btn" style="width:auto; padding:11px 22px;">알림 보내기</button>
+        <button type="button" class="btn-secondary" id="push-save-template-btn">이 문구 저장</button>
+        <span class="save-status" id="push-send-status"></span>
+      </div>
+
+      <div class="card">
+        <h3>예약된 알림</h3>
+        <p class="hint" style="margin-top:0;">
+          큐티·말씀 퀴즈 등록 화면에서 "알림 예약하기"를 체크하면 여기에 나타납니다.
+          아직 안 보낸 예약은 취소할 수 있어요.
+        </p>
+        <button class="btn-secondary" id="push-scheduled-refresh-btn" type="button">새로고침</button>
+        <div id="push-scheduled-list" class="post-list" style="margin-top:14px;"></div>
+      </div>
+    </section>
+
+    <!-- 설교 영상 (유튜브) -->
+    <section class="panel" id="panel-sermons">
+      <h2>설교 영상 (유튜브 자동 업데이트)</h2>
+      <p class="panel-desc">
+        교회 유튜브 채널ID를 서버 환경변수(YOUTUBE_CHANNEL_ID)에 등록하면,
+        매일 지정된 시간에 자동으로 최신 설교 영상을 가져옵니다.
+        아래 버튼으로 지금 바로 새로고침할 수도 있습니다.
+      </p>
+      <div class="card">
+        <h3>수동 새로고침</h3>
+        <div class="field"><label>유튜브 채널ID (비워두면 서버 기본값 사용)</label><input id="yt-channelId" type="text" placeholder="UCxxxxxxxxxxxxxxxxxxxxxx" /></div>
+        <button class="btn-primary" id="refresh-sermons-btn">지금 새로고침</button>
+        <span class="save-status" id="sermon-refresh-status"></span>
+        <p class="hint">※ 채널ID는 유튜브 채널의 '정보' 페이지에서 확인할 수 있습니다 (UC로 시작하는 문자열).</p>
+      </div>
+      <div class="card">
+        <h3>사용할 사진 직접 고르기</h3>
+        <p class="hint" style="margin-top:0;">
+          평소엔 영상마다 자동으로 사진이 골라지는데(같은 영상이면 항상 같은 사진), 특정 사진으로
+          고정해서 쓰고 싶으시면 아래에서 골라주세요. "자동 선택"으로 두면 다시 자동 방식으로 돌아갑니다.
+        </p>
+        <div class="field">
+          <label>사용할 사진</label>
+          <select id="sermon-photo-override-select"><option value="">자동 선택</option></select>
+        </div>
+        <button class="btn-primary" id="sermon-photo-override-save-btn" style="width:auto; padding:11px 22px;">저장</button>
+        <span class="save-status" id="sermon-photo-override-status"></span>
+      </div>
+      <div class="card">
+        <h3>설교 카드 이미지 다시 만들기</h3>
+        <p class="hint" style="margin-top:0;">
+          설교 카드(목사님 사진+제목이 합성된 이미지)는 한 번 만들면 저장해뒀다가 재사용합니다.
+          디자인을 바꿨거나, 예전에 이상하게 만들어진 카드가 있다면 아래 버튼으로 전부 지우고
+          새로 만들게 할 수 있습니다. (다음에 홈페이지를 열 때 자동으로 다시 생성됩니다)
+        </p>
+        <button class="btn-secondary" id="clear-sermon-posters-btn">모든 설교 카드 이미지 다시 만들기</button>
+        <span class="save-status" id="sermon-posters-clear-status"></span>
+      </div>
+      <div class="card">
+        <h3>설교 테마 관리</h3>
+        <p class="hint" style="margin-top:0;">
+          "주일설교", "수요예배" 처럼 자유롭게 만들고 지울 수 있습니다.
+          아래 영상 목록에서 각 영상에 테마를 체크해두면, 홈페이지에서 테마별로 걸러볼 수 있어요.
+        </p>
+        <div id="sermon-category-list" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;"></div>
+        <div class="menu-add-row">
+          <input type="text" id="sermon-category-new-input" placeholder="새 테마 이름 (예: 청년부 집회)" maxlength="20" />
+          <button class="btn-secondary" id="sermon-category-add-btn">추가</button>
+        </div>
+      </div>
+      <div class="card">
+        <h3>현재 캐시된 영상 목록</h3>
+        <p id="sermon-last-updated" class="hint"></p>
+        <div id="sermon-preview-list" class="sermon-preview-list"></div>
+      </div>
+    </section>
+
+    <!-- 계정 관리 -->
+    <section class="panel" id="panel-account">
+      <h2>계정 관리</h2>
+      <p class="panel-desc">내 비밀번호를 변경하거나, 메인 관리자인 경우 부관리자 계정과 권한을 관리할 수 있습니다.</p>
+
+      <div class="card">
+        <h3>내 비밀번호 변경</h3>
+        <div class="field"><label>현재 비밀번호</label><input id="pw-current" type="password" autocomplete="current-password" /></div>
+        <div class="field"><label>새 비밀번호 (6자 이상)</label><input id="pw-new" type="password" autocomplete="new-password" /></div>
+        <div class="field"><label>새 비밀번호 확인</label><input id="pw-confirm" type="password" autocomplete="new-password" /></div>
+        <button class="btn-primary" id="save-password-btn">비밀번호 변경</button>
+        <span class="save-status" id="password-save-status"></span>
+      </div>
+
+      <div class="card" id="account-add-card" hidden>
+        <h3>부관리자 계정 추가</h3>
+        <div class="field-row">
+          <div class="field"><label>아이디</label><input id="acc-username" type="text" autocomplete="off" /></div>
+          <div class="field"><label>비밀번호 (6자 이상)</label><input id="acc-password" type="password" autocomplete="new-password" /></div>
+        </div>
+        <div class="field">
+          <label>권한 범위</label>
+          <div class="permission-checks">
+            <label><input type="checkbox" id="acc-perm-site" /> 기본 정보</label>
+            <label><input type="checkbox" id="acc-perm-menu" /> 메뉴 관리</label>
+            <label><input type="checkbox" id="acc-perm-posts" /> 소식·친교 게시판</label>
+            <label><input type="checkbox" id="acc-perm-sermons" /> 설교 영상</label>
+            <label><input type="checkbox" id="acc-perm-qt" /> 오늘의 큐티</label>
+            <label><input type="checkbox" id="acc-perm-missions" /> 선교사역</label>
+            <label><input type="checkbox" id="acc-perm-stats" /> 통계</label>
+            <label><input type="checkbox" id="acc-perm-receipts" /> 영수증 신청</label>
+          </div>
+        </div>
+        <button class="btn-primary" id="add-account-btn">계정 추가</button>
+        <span class="save-status" id="account-add-status"></span>
+      </div>
+
+      <div class="card" id="account-list-card" hidden>
+        <h3>전체 관리자 계정</h3>
+        <div id="account-list" class="account-list"></div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.min.js"></script>
+<script src="/js/font-catalog.js"></script>
+<script src="/js/countries.js"></script>
+<script src="/admin/js/admin.js?v=26"></script>
+<script src="/admin/js/service-background-admin.js?v=3"></script>
+<script src="/admin/js/richtext-about-admin.js?v=2"></script>
+
+</body>
+</html>
