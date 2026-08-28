@@ -44,6 +44,10 @@ function createSectionBackgroundEditor(opts) {
   async function loadCurrent() {
     try {
       const res = await fetch('/api/admin/site', { credentials: 'include' });
+      if (!res.ok) {
+        setStatus(`불러오기 실패 (서버 응답 ${res.status}). 로그인 상태를 확인해주세요.`, true);
+        return;
+      }
       const site = await res.json();
       const cfg = site && site[opts.siteKey];
       if (cfg && cfg.backgroundImage) {
@@ -59,6 +63,7 @@ function createSectionBackgroundEditor(opts) {
       }
     } catch (err) {
       console.error(opts.label + ' 배경 불러오기 실패:', err);
+      setStatus('불러오기 중 오류가 발생했어요: ' + err.message, true);
     }
   }
 
