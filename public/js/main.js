@@ -15,6 +15,47 @@
       .replace(/>/g, '&gt;');
   }
 
+  // 관리자 페이지 리치 텍스트 에디터(Quill)에서 저장된 HTML을 안전하게 렌더링하기 위한
+  // 화이트리스트 방식 정제 함수. 허용된 태그/속성만 남기고 나머지(script, on* 이벤트,
+  // 위험한 style 속성 등)는 전부 제거합니다.
+  const RICH_TEXT_ALLOWED_TAGS = new Set([
+    'P', 'BR', 'B', 'STRONG', 'I', 'EM', 'U', 'S', 'SPAN', 'UL', 'OL', 'LI'
+  ]);
+  const RICH_TEXT_ALLOWED_STYLES = new Set(['text-align', 'font-size']);
+
+  function sanitizeRichText(html = '') {
+    const container = document.createElement('div');
+    container.innerHTML = html;
+
+    function clean(node) {
+      Array.from(node.childNodes).forEach((child) => {
+        if (child.nodeType === 3) return; // 텍스트 노드는 그대로 둠
+        if (child.nodeType !== 1) {
+          node.removeChild(child);
+          return;
+        }
+        if (!RICH_TEXT_ALLOWED_TAGS.has(child.tagName)) {
+          // 허용 안 된 태그(script, img, iframe 등)는 태그만 제거하고 내부 텍스트만 남김
+          const text = document.createTextNode(child.textContent);
+          node.replaceChild(text, child);
+          return;
+        }
+        Array.from(child.attributes).forEach((attr) => {
+          if (attr.name === 'style') {
+            Array.from(child.style).forEach((prop) => {
+              if (!RICH_TEXT_ALLOWED_STYLES.has(prop)) child.style.removeProperty(prop);
+            });
+          } else {
+            child.removeAttribute(attr.name);
+          }
+        });
+        clean(child);
+      });
+    }
+    clean(container);
+    return container.innerHTML;
+  }
+
   // ---------------- 스크롤 등장 애니메이션 ----------------
   // 화면에 들어오면 나타나고, 화면 밖으로 나가면 사라졌다가, 다시 스크롤해서
   // 들어오면 또 나타나도록 반복합니다 (한 번 보고 나면 계속 그대로 두지 않음).
@@ -328,7 +369,7 @@
 
     if (site.about) {
       $('#about-greeting').textContent = site.about.greeting || site.about.title || '교회 소개';
-      $('#about-body-text').textContent = site.about.body || '';
+      $('#about-body-text').innerHTML = sanitizeRichText(site.about.body || '');
       $('#about-history').textContent = site.about.history || '';
       $('#pastor-name').textContent = site.about.pastorName || '';
       $('#pastor-message').textContent = site.about.pastorMessage || '';
