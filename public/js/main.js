@@ -407,6 +407,7 @@
     applyMinistryDuty(site.ministryDuty);
     sitePraiseConfig = site.praise;
     applyPraiseBackground(sitePraiseConfig);
+    applySermonBackground(site.sermon);
     setupServiceDots(serviceGrid, serviceTimesList.length);
 
     if (site.contact) {
@@ -1473,6 +1474,9 @@
   }
   function applyPraiseBackground(cfg) {
     applySectionBackground('#praise', '#praise-bg-img', '.praise-bg-overlay', cfg);
+  }
+  function applySermonBackground(cfg) {
+    applySectionBackground('#sermons', '#sermon-bg-img', '.sermon-bg-overlay', cfg);
   }
 
   // ---------------- 섬김 안내 (예배 위원 / 식사 봉사) ----------------
