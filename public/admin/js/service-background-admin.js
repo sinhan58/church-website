@@ -5,6 +5,26 @@
 // (같은 페이지에 $ 헬퍼와 로그인 세션 쿠키가 이미 있다는 전제로 작성했습니다.
 //  $가 없다면 document.getElementById로 바꿔서 쓰시면 됩니다.)
 // ===================================================================
+
+// 로그인 화면(#dashboard가 hidden 상태)에서 페이지가 열리면, 바로 데이터를 불러오려다
+// 401(로그인 필요) 에러만 받고 끝나버립니다. #dashboard의 hidden 속성이 없어지는
+// 순간(=로그인 완료)을 감지해서 그때 콜백을 실행합니다. 이미 로그인된 상태로 열렸다면
+// 바로 실행합니다.
+function runAfterAdminLogin(callback) {
+  const dashboard = document.querySelector('#dashboard');
+  if (!dashboard || !dashboard.hasAttribute('hidden')) {
+    callback();
+    return;
+  }
+  const observer = new MutationObserver(() => {
+    if (!dashboard.hasAttribute('hidden')) {
+      observer.disconnect();
+      callback();
+    }
+  });
+  observer.observe(dashboard, { attributes: true, attributeFilter: ['hidden'] });
+}
+
 function createSectionBackgroundEditor(opts) {
   const $ = (sel) => document.querySelector(sel);
 
@@ -144,7 +164,7 @@ function createSectionBackgroundEditor(opts) {
     }
   });
 
-  loadCurrent();
+  runAfterAdminLogin(loadCurrent);
 }
 
 createSectionBackgroundEditor({
@@ -284,5 +304,5 @@ createSectionBackgroundEditor({
     }
   });
 
-  loadList();
+  runAfterAdminLogin(loadList);
 })();
