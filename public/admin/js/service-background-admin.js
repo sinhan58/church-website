@@ -195,6 +195,20 @@ createSectionBackgroundEditor({
   statusId: '#s-praiseBgStatus'
 });
 
+createSectionBackgroundEditor({
+  label: '설교 영상',
+  siteKey: 'sermon',
+  fileInputId: '#s-sermonImageFile',
+  previewWrapId: '#s-sermonBgPreviewWrap',
+  previewImgId: '#s-sermonBgPreviewImg',
+  markerId: '#s-sermonBgFocalMarker',
+  emptyHintId: '#s-sermonBgEmptyHint',
+  zoomInputId: '#s-sermonZoom',
+  zoomValueId: '#s-sermonZoomValue',
+  saveBtnId: '#s-sermonBgSaveBtn',
+  statusId: '#s-sermonBgStatus'
+});
+
 // ===================================================================
 // 예배 시간별 세부 설정(굵게 / 글자 크기 / 설명) — 관리자 화면 연동 스크립트
 // 기존 예배 시간 목록(#service-list)은 별도 관리자 스크립트가 렌더링하므로,
