@@ -128,7 +128,16 @@ function createSectionBackgroundEditor(opts) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ [opts.siteKey]: state })
       });
-      if (!res.ok) throw new Error('저장 실패');
+      if (!res.ok) {
+        let detail = `서버 응답 ${res.status}`;
+        try {
+          const errBody = await res.json();
+          if (errBody && errBody.error) detail += `: ${errBody.error}`;
+        } catch (parseErr) {
+          // 응답이 JSON이 아니면(로그인 페이지 HTML 등) 상태 코드만 표시
+        }
+        throw new Error(detail);
+      }
       setStatus('저장되었습니다. 홈페이지에서 확인해보세요.', false);
     } catch (err) {
       setStatus('저장 실패: ' + err.message, true);
