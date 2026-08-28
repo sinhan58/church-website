@@ -133,6 +133,14 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   padding: 96px 0;
 }
 .section--tight { padding: 64px 0; }
+@media (min-width: 901px) {
+  #sermons, .qt-section {
+    min-height: 65vh;
+    display: flex;
+    align-items: center;
+  }
+  #sermons .container, .qt-section .container { width: 100%; }
+}
 .section--dark {
   background: var(--navy-deep);
   color: var(--ivory-dim);
