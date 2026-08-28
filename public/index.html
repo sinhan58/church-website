@@ -72,7 +72,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link class="gfont-link" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;600;700&display=block" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
-<link rel="stylesheet" href="/css/style.css?v=7" />
+<link rel="stylesheet" href="/css/style.css?v=8" />
 <meta property="og:title" content="물댄동산교회 - 오산시 중앙동" />
 <meta property="og:description" content="경기도 오산시 중앙동 대동다숲(오색시장 인근)에 위치한 물댄동산교회입니다. 담임목사 이기삼." />
 <meta property="og:image" content="https://muldaen.com/uploads/0001.png" />
@@ -435,6 +435,26 @@
 </div>
 
 <!-- 찬양 미니 플레이어 (유튜브 IFrame Player API로 제어, 화면 하단 고정) -->
+<!-- 섬김 안내 (예배 위원 / 주일 식사 봉사 당번) — 모바일 전용 플로팅 버튼 -->
+<button type="button" id="ministry-duty-fab" class="ministry-duty-fab" style="display:none;">
+  <svg viewBox="0 0 24 24" fill="none"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zM4 21a8 8 0 0116 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  <span>섬김안내</span>
+</button>
+<div class="ministry-duty-modal" id="ministry-duty-modal">
+  <div class="ministry-duty-modal-inner">
+    <button type="button" class="ministry-duty-modal-close" id="ministry-duty-modal-close" aria-label="닫기">✕</button>
+    <h3>이번 주 섬김 안내</h3>
+    <div class="ministry-duty-section">
+      <h4>예배 위원</h4>
+      <p id="ministry-duty-worship">등록된 내용이 없습니다.</p>
+    </div>
+    <div class="ministry-duty-section">
+      <h4>주일 식사 봉사 당번</h4>
+      <p id="ministry-duty-meal">등록된 내용이 없습니다.</p>
+    </div>
+  </div>
+</div>
+
 <div id="mini-player" class="mini-player" style="display:none;">
   <div class="mini-player-video" id="mini-player-video" role="button" aria-label="크게/작게 보기">
     <div id="mini-player-yt-mount"></div>
@@ -478,6 +498,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
 <script src="/js/countries.js"></script>
 <script src="/js/font-catalog.js"></script>
-<script src="/js/main.js?v=3"></script>
+<script src="/js/main.js?v=4"></script>
 </body>
 </html>
