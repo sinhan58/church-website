@@ -40,6 +40,15 @@
   let syncingFromTextarea = false;
   let lastPushedByQuill = null;
 
+  function setQuillHtml(html) {
+    syncingFromTextarea = true;
+    quill.setText(''); // 기존 내용을 Quill의 정식 API로 비운 뒤
+    if (html) {
+      quill.clipboard.dangerouslyPasteHTML(0, html); // Quill 내부 모델까지 같이 갱신되는 정식 API로 삽입
+    }
+    syncingFromTextarea = false;
+  }
+
   function pushQuillToTextarea() {
     if (syncingFromTextarea) return;
     // 내용이 비어있을 때 Quill이 남기는 빈 <p><br></p>는 저장하지 않고 빈 문자열로
@@ -56,18 +65,12 @@
   // "우리가 방금 쓴 값이 아닌" 변화가 감지되면 그때마다 Quill에 반영합니다. (한 번만 확인하고
   // 멈추면, 로딩 중간에 잠깐 있던 임시값을 최종값으로 착각해서 내용이 잘려 보일 수 있었습니다.)
   let lastSeenValue = textarea.value;
-  if (lastSeenValue) {
-    syncingFromTextarea = true;
-    quill.root.innerHTML = lastSeenValue;
-    syncingFromTextarea = false;
-  }
+  if (lastSeenValue) setQuillHtml(lastSeenValue);
   setInterval(() => {
     const current = textarea.value;
     if (current !== lastSeenValue && current !== lastPushedByQuill) {
       lastSeenValue = current;
-      syncingFromTextarea = true;
-      quill.root.innerHTML = current || '<p><br></p>';
-      syncingFromTextarea = false;
+      setQuillHtml(current);
     } else {
       lastSeenValue = current;
     }
