@@ -38,11 +38,13 @@
   });
 
   let syncingFromTextarea = false;
+  let lastPushedByQuill = null;
 
   function pushQuillToTextarea() {
     if (syncingFromTextarea) return;
     // 내용이 비어있을 때 Quill이 남기는 빈 <p><br></p>는 저장하지 않고 빈 문자열로
     const html = quill.getText().trim() === '' ? '' : quill.root.innerHTML;
+    lastPushedByQuill = html;
     textarea.value = html;
     textarea.dispatchEvent(new Event('input', { bubbles: true }));
     textarea.dispatchEvent(new Event('change', { bubbles: true }));
@@ -50,19 +52,24 @@
 
   quill.on('text-change', pushQuillToTextarea);
 
-  // 기존 admin.js가 비동기로 textarea 값을 채워 넣는 타이밍을 기다렸다가,
-  // 값이 처음 채워지는 순간 딱 한 번 Quill에 반영합니다.
-  let attempts = 0;
-  const maxAttempts = 50; // 200ms x 50 = 10초까지 대기
-  const poll = setInterval(() => {
-    attempts += 1;
-    if (textarea.value) {
+  // 기존 admin.js가 언제 textarea 값을 채우거나 바꾸는지 알 수 없어서, 계속 지켜보다가
+  // "우리가 방금 쓴 값이 아닌" 변화가 감지되면 그때마다 Quill에 반영합니다. (한 번만 확인하고
+  // 멈추면, 로딩 중간에 잠깐 있던 임시값을 최종값으로 착각해서 내용이 잘려 보일 수 있었습니다.)
+  let lastSeenValue = textarea.value;
+  if (lastSeenValue) {
+    syncingFromTextarea = true;
+    quill.root.innerHTML = lastSeenValue;
+    syncingFromTextarea = false;
+  }
+  setInterval(() => {
+    const current = textarea.value;
+    if (current !== lastSeenValue && current !== lastPushedByQuill) {
+      lastSeenValue = current;
       syncingFromTextarea = true;
-      quill.root.innerHTML = textarea.value;
+      quill.root.innerHTML = current || '<p><br></p>';
       syncingFromTextarea = false;
-      clearInterval(poll);
-    } else if (attempts >= maxAttempts) {
-      clearInterval(poll);
+    } else {
+      lastSeenValue = current;
     }
-  }, 200);
+  }, 300);
 })();
