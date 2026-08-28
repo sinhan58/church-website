@@ -62,7 +62,7 @@
   // 단, 찬양 카드(.praise-card)와 게시판 카드(.board-card)는 화면 경계를 넘나들 때마다
   // 애니메이션이 재생되면서 스크롤 중 흔들리거나(찬양) 마지막 카드가 스르륵 사라지는
   // 것처럼 보이는 문제(게시판)가 있어, 한 번 나타난 뒤에는 고정합니다.
-  const REVEAL_ONCE_CLASSES = ['praise-card', 'board-card', 'board-list'];
+  const REVEAL_ONCE_CLASSES = ['praise-card', 'board-card', 'board-list', 'service-card'];
   const revealObserver =
     'IntersectionObserver' in window
       ? new IntersectionObserver(
