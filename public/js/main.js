@@ -2087,8 +2087,29 @@
     const btn = $('#scroll-top-btn');
     if (!btn) return;
     let ticking = false;
+    let hideTimer = null;
+    const isMobile = () => window.matchMedia('(max-width: 900px)').matches;
+
+    function scheduleAutoHide() {
+      if (hideTimer) clearTimeout(hideTimer);
+      hideTimer = setTimeout(() => {
+        btn.classList.remove('visible');
+      }, 1500);
+    }
+
     function update() {
-      btn.classList.toggle('visible', window.scrollY > 600);
+      const pastThreshold = window.scrollY > 600;
+      if (isMobile()) {
+        // 모바일: 스크롤 중일 때만 보이고, 멈추면 잠시 후 사라짐 (기준 스크롤 위치를 넘었을 때만)
+        if (pastThreshold) {
+          btn.classList.add('visible');
+          scheduleAutoHide();
+        } else {
+          btn.classList.remove('visible');
+        }
+      } else {
+        btn.classList.toggle('visible', pastThreshold);
+      }
       ticking = false;
     }
     window.addEventListener('scroll', () => {
