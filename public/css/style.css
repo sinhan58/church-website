@@ -1025,7 +1025,11 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   .praise-card .praise-overlay-text .title {
     font-size: 0.66rem;
     line-height: 1.25;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 1;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: block;
   }
   .praise-card .praise-overlay-text .singer { display: none; } /* 타일이 작아 제목만 표시 */
   .praise-tile-title { display: none; } /* 사진 안쪽 오버레이로 대체 */
