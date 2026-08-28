@@ -164,6 +164,24 @@
       </div>
 
       <div class="card">
+        <h3>섬김 안내 (모바일 플로팅 버튼)</h3>
+        <p class="hint" style="margin-top:0;">
+          모바일 화면에 따라다니는 "섬김안내" 버튼을 누르면 뜨는 내용이에요. 둘 다 비워두면
+          버튼 자체가 안 보여요. 줄바꿈은 그대로 반영돼요.
+        </p>
+        <div class="field">
+          <label>예배 위원</label>
+          <textarea id="s-ministryWorship" rows="3" placeholder="예: 안내위원 홍길동, 김철수 / 찬양인도 이영희"></textarea>
+        </div>
+        <div class="field">
+          <label>주일 식사 봉사 당번</label>
+          <textarea id="s-ministryMeal" rows="3" placeholder="예: 1팀 박민수, 최지은"></textarea>
+        </div>
+        <button type="button" id="s-ministryDutySaveBtn" class="btn-primary" style="margin-top:8px;">섬김 안내 저장</button>
+        <p class="hint" id="s-ministryDutyStatus" style="margin-top:6px;"></p>
+      </div>
+
+      <div class="card">
         <h3>예배 시간별 세부 설정</h3>
         <p class="hint" style="margin-top:0;">
           예배 시간마다 글씨 굵기, 글자 크기, 간단한 설명을 따로 설정할 수 있어요.
@@ -833,7 +851,7 @@
 <script src="/js/font-catalog.js"></script>
 <script src="/js/countries.js"></script>
 <script src="/admin/js/admin.js?v=26"></script>
-<script src="/admin/js/service-background-admin.js?v=2"></script>
+<script src="/admin/js/service-background-admin.js?v=3"></script>
 <script src="/admin/js/richtext-about-admin.js?v=2"></script>
 
 </body>
