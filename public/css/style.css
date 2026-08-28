@@ -141,6 +141,14 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 
 /* ---------------- 예배 안내 배경 사진 ---------------- */
 #service { position: relative; overflow: hidden; }
+@media (min-width: 901px) {
+  #service {
+    min-height: 70vh;
+    display: flex;
+    align-items: center;
+  }
+  #service .container { width: 100%; }
+}
 .service-bg-img {
   position: absolute;
   inset: 0;
@@ -170,6 +178,14 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 
 /* ---------------- 찬양 배경 사진 ---------------- */
 #praise { position: relative; overflow: hidden; }
+@media (min-width: 901px) {
+  #praise {
+    min-height: 70vh;
+    display: flex;
+    align-items: center;
+  }
+  #praise .container { width: 100%; }
+}
 .praise-bg-img {
   position: absolute;
   inset: 0;
