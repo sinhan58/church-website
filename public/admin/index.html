@@ -196,7 +196,11 @@
       <div class="card">
         <h3>교회 소개</h3>
         <div class="field"><label>인사말 제목</label><input id="s-aboutGreeting" type="text" /></div>
-        <div class="field"><label>소개 본문</label><textarea id="s-aboutBody" rows="4"></textarea></div>
+        <div class="field">
+          <label>소개 본문</label>
+          <textarea id="s-aboutBody" rows="4" style="display:none;"></textarea>
+          <div id="s-aboutBody-quill" style="background:#fff; border-radius: var(--radius); overflow:hidden;"></div>
+        </div>
         <div class="field"><label>연혁 한 줄</label><input id="s-aboutHistory" type="text" /></div>
         <div class="field"><label>담임목사 성함</label><input id="s-pastorName" type="text" /></div>
         <div class="field"><label>목회자 인사말</label><textarea id="s-pastorMessage" rows="3"></textarea></div>
@@ -830,6 +834,7 @@
 <script src="/js/countries.js"></script>
 <script src="/admin/js/admin.js?v=26"></script>
 <script src="/admin/js/service-background-admin.js"></script>
+<script src="/admin/js/richtext-about-admin.js"></script>
 
 </body>
 </html>
