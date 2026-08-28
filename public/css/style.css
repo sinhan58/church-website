@@ -106,6 +106,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 .btn:active,
 .btn-gold:active,
 .band-fab:active,
+.ministry-duty-fab:active,
 .nav-mobile a:active {
   filter: brightness(0.92);
 }
@@ -2109,6 +2110,86 @@ body.has-mini-player .scroll-top-btn { bottom: calc(84px + 68px); }
   .mini-player-video { width: 48px; height: 48px; }
   body.has-mini-player .band-fab { bottom: calc(74px + 60px); }
   body.has-mini-player .scroll-top-btn { bottom: calc(14px + 60px); }
+}
+
+/* ---------------- 섬김 안내 (예배 위원 / 식사 봉사) ---------------- */
+.ministry-duty-fab {
+  display: none; /* PC에서는 숨김, 모바일 전용 */
+  position: fixed;
+  left: 14px;
+  bottom: 74px;
+  z-index: 90;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 56px;
+  padding: 8px 4px;
+  border: none;
+  border-radius: 14px;
+  background: var(--navy-deep);
+  color: #fff;
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+.ministry-duty-fab svg { width: 20px; height: 20px; }
+.ministry-duty-fab span { font-size: 0.68rem; font-weight: 600; white-space: nowrap; }
+body.has-mini-player .ministry-duty-fab { bottom: calc(74px + 60px); }
+
+.ministry-duty-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(13,21,38,0.55);
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+.ministry-duty-modal.open { display: flex; }
+.ministry-duty-modal-inner {
+  position: relative;
+  width: 100%;
+  max-width: 420px;
+  max-height: 80vh;
+  overflow-y: auto;
+  background: #fff;
+  border-radius: var(--radius);
+  padding: 32px 24px 24px;
+  box-shadow: var(--shadow);
+}
+.ministry-duty-modal-inner h3 {
+  margin: 0 0 20px;
+  font-family: var(--font-heading);
+  text-align: center;
+}
+.ministry-duty-section { margin-bottom: 18px; }
+.ministry-duty-section:last-child { margin-bottom: 0; }
+.ministry-duty-section h4 {
+  margin: 0 0 6px;
+  font-size: 0.85rem;
+  color: var(--gold-deep);
+}
+.ministry-duty-section p {
+  margin: 0;
+  font-size: 0.92rem;
+  color: var(--ink);
+  white-space: pre-line;
+  line-height: 1.7;
+  word-break: keep-all;
+}
+.ministry-duty-modal-close {
+  position: absolute;
+  top: 14px;
+  right: 14px;
+  background: none;
+  border: none;
+  font-size: 1rem;
+  color: var(--muted);
+  cursor: pointer;
+}
+@media (max-width: 900px) {
+  .ministry-duty-fab { display: flex; }
 }
 
 /* ---------------- 밴드 바로가기 (오른쪽 하단 떠있는 버튼) ---------------- */
