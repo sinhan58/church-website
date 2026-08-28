@@ -564,6 +564,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   margin-top: -32px;
   margin-bottom: 40px;
 }
+#sermons .sermon-updated { color: #b9bccb; }
 /* 설교·찬양 캐러셀 공용 래퍼 (좌우 화살표 버튼 위치 기준) */
 .carousel-wrap { position: relative; }
 
@@ -632,11 +633,8 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   display: grid;
   grid-template-columns: 61% 39%; /* 메인 설교 영역 추가 확대, 지난 설교 목록 1cm 추가 축소 */
   margin-top: 8px;
-  background: linear-gradient(135deg, var(--navy-deep) 0%, #241a35 100%);
   border-radius: var(--radius);
   overflow: hidden;
-  box-shadow: var(--shadow);
-  border: 2px solid var(--gold);
 }
 @media (max-width: 900px) {
   .sermon-layout {
