@@ -998,9 +998,10 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
     display: grid;
     grid-auto-flow: column;
     grid-template-rows: repeat(3, auto);
-    grid-auto-columns: calc((100% - 4px) / 3); /* 한 화면에 정확히 3열(=9개)이 꽉 차게 */
-    gap: 2px 2px;
-    padding: 0; /* 완전 풀블리드: 화면 가장자리까지 타일이 딱 붙음 */
+    grid-auto-columns: calc((100% - 6mm - 2mm) / 3); /* 좌우 여백 3mm씩 + 열 사이 간격 1mm x 2 를 뺀 나머지를 3등분 */
+    gap: 1mm 1mm;
+    padding: 0 3mm; /* 양옆에 살짝 여유를 둠 */
+    scroll-padding-left: 3mm;
     overflow-x: auto;
     overflow-y: hidden; /* 의도치 않은 세로 오버스크롤 바운스 방지 */
     scroll-snap-type: x mandatory; /* 9개 단위로 한 페이지씩 딱딱 넘어가도록 */
@@ -1031,7 +1032,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   #praise-scroll-track { display: none; } /* 막대 스크롤바 대신 아래 점 인디케이터를 사용 */
 }
 @media (max-width: 560px) {
-  .praise-grid { gap: 1px 1px; }
+  .praise-grid { gap: 1mm 1mm; }
 }
 
 /* 찬양 캐러셀 하단 점 페이지 인디케이터 (모바일 전용) */
