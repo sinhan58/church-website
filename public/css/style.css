@@ -1690,6 +1690,8 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   .hamburger { display: flex; }
   .nav-mobile { display: flex; }
   .about-grid { grid-template-columns: 1fr; }
+  #about-body-text p { margin: 0 0 0.35em; }
+  #about-body-text p:last-child { margin-bottom: 0; }
   .contact-grid { grid-template-columns: 1fr; }
   .map-box { display: none; }
   .section { padding: 64px 0; }
