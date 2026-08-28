@@ -517,7 +517,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   display: none;
   justify-content: center;
   gap: 8px;
-  margin-top: 18px;
+  margin-top: 40px;
 }
 .service-dots .dot {
   width: 7px;
