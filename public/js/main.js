@@ -787,6 +787,7 @@
     renderSermonCategoryChips();
     renderSermonHero();
     renderSermonList();
+    requestAnimationFrame(syncSermonHeroHeight);
   }
 
   function renderSermonCategoryChips() {
@@ -821,6 +822,7 @@
         $$('.praise-chip', wrap).forEach((c) => c.classList.toggle('active', c === chip));
         renderSermonHero();
         renderSermonList();
+        requestAnimationFrame(syncSermonHeroHeight);
       });
     });
   }
@@ -859,6 +861,25 @@
       openVideoModal(hero.videoId);
     };
   }
+
+  // 메인 설교(사진) 카드 높이를 지난 설교 목록 카드의 실제 렌더링 높이에 정확히 맞춥니다.
+  // (PC에서만: 모바일은 세로로 쌓이는 구조라 서로 높이를 맞출 필요가 없음)
+  function syncSermonHeroHeight() {
+    const heroCard = $('#sermon-hero-card');
+    const listWrap = $('.sermon-list-wrap');
+    if (!heroCard || !listWrap) return;
+    if (window.matchMedia('(max-width: 900px)').matches) {
+      heroCard.style.height = ''; // 모바일에서는 CSS(aspect-ratio)에 맡김
+      return;
+    }
+    const listHeight = listWrap.getBoundingClientRect().height;
+    if (listHeight > 0) heroCard.style.height = `${listHeight}px`;
+  }
+  let sermonHeroHeightSyncTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(sermonHeroHeightSyncTimer);
+    sermonHeroHeightSyncTimer = setTimeout(syncSermonHeroHeight, 150);
+  });
 
   function renderSermonList() {
     const listEl = $('#sermon-list');
@@ -1493,6 +1514,12 @@
       fab.style.display = 'none';
       return;
     }
+    const titleEl = $('#ministry-duty-title');
+    const worshipLabelEl = $('#ministry-duty-worship-label');
+    const mealLabelEl = $('#ministry-duty-meal-label');
+    if (titleEl) titleEl.textContent = (duty && duty.title) || '이번 주 섬김 안내';
+    if (worshipLabelEl) worshipLabelEl.textContent = (duty && duty.worshipLabel) || '예배 위원';
+    if (mealLabelEl) mealLabelEl.textContent = (duty && duty.mealLabel) || '주일 식사 봉사 당번';
     if (worshipEl) worshipEl.textContent = worship || '등록된 내용이 없습니다.';
     if (mealEl) mealEl.textContent = meal || '등록된 내용이 없습니다.';
     fab.style.display = ''; // 인라인 display:none 해제 → CSS(모바일 전용 flex)가 적용됨
