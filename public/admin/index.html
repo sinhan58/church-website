@@ -191,17 +191,29 @@
       </div>
 
       <div class="card">
-        <h3>섬김 안내 (모바일 플로팅 버튼)</h3>
+        <h3>섬김 안내 (모바일·PC 플로팅 버튼)</h3>
         <p class="hint" style="margin-top:0;">
-          모바일 화면에 따라다니는 "섬김안내" 버튼을 누르면 뜨는 내용이에요. 둘 다 비워두면
+          "섬김안내" 버튼을 누르면 뜨는 팝업 내용이에요. 예배 위원/식사 봉사 내용을 둘 다 비워두면
           버튼 자체가 안 보여요. 줄바꿈은 그대로 반영돼요.
         </p>
         <div class="field">
-          <label>예배 위원</label>
+          <label>팝업 제목</label>
+          <input type="text" id="s-ministryTitle" placeholder="이번 주 섬김 안내" />
+        </div>
+        <div class="field">
+          <label>첫 번째 소제목</label>
+          <input type="text" id="s-ministryWorshipLabel" placeholder="예배 위원" />
+        </div>
+        <div class="field">
+          <label>첫 번째 내용</label>
           <textarea id="s-ministryWorship" rows="3" placeholder="예: 안내위원 홍길동, 김철수 / 찬양인도 이영희"></textarea>
         </div>
         <div class="field">
-          <label>주일 식사 봉사 당번</label>
+          <label>두 번째 소제목</label>
+          <input type="text" id="s-ministryMealLabel" placeholder="주일 식사 봉사 당번" />
+        </div>
+        <div class="field">
+          <label>두 번째 내용</label>
           <textarea id="s-ministryMeal" rows="3" placeholder="예: 1팀 박민수, 최지은"></textarea>
         </div>
         <button type="button" id="s-ministryDutySaveBtn" class="btn-primary" style="margin-top:8px;">섬김 안내 저장</button>
@@ -878,7 +890,7 @@
 <script src="/js/font-catalog.js"></script>
 <script src="/js/countries.js"></script>
 <script src="/admin/js/admin.js?v=26"></script>
-<script src="/admin/js/service-background-admin.js?v=4"></script>
+<script src="/admin/js/service-background-admin.js?v=5"></script>
 <script src="/admin/js/richtext-about-admin.js?v=2"></script>
 
 </body>
