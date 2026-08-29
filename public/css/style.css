@@ -699,6 +699,9 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   display: block;
   transition: transform 0.3s ease, filter 0.15s ease;
 }
+@media (min-width: 901px) {
+  .sermon-hero-card { aspect-ratio: 16 / 9; } /* 이미지가 레터박스 없이 카드에 꽉 차게 (라벨/띠가 진짜 상단·하단에 붙도록) */
+}
 .sermon-hero-card:hover { transform: translateY(-6px); box-shadow: 0 16px 40px rgba(0,0,0,0.45), 0 0 0 1px rgba(228,200,118,0.35); }
 .sermon-hero-card .sermon-hero-play {
   position: absolute;
