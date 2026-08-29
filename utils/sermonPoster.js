@@ -105,7 +105,7 @@ function escapeXml(str = '') {
 // 왼쪽 텍스트 영역: "주일 설교" 라벨 + 제목 + 구절 + 교회명 + 목사님 성함.
 function buildTextSvg({ title, verseRef, pastorName, churchName }) {
   const textX = 56;
-  const textMaxWidth = W - PHOTO_W - 56 - 40 + 140; // 오른쪽 줄바꿈 경계를 더 오른쪽으로 확장
+  const textMaxWidth = W - PHOTO_W - 56 - 40 + 200; // 오른쪽 줄바꿈 경계를 더 오른쪽으로 확장 (사진 확대로 줄어든 폭 보정 + 사진과 안 겹치게 적당히)
 
   let titleFontSize = 56;
   let lineHeight = 68;
