@@ -322,12 +322,15 @@ createSectionBackgroundEditor({
 })();
 
 // ===================================================================
-// 섬김 안내 (예배 위원 / 주일 식사 봉사 당번) — 관리자 화면 연동 스크립트
+// 섬김 안내 (팝업 제목 / 소제목 2개 / 내용 2개) — 관리자 화면 연동 스크립트
 // ===================================================================
 (function () {
   const $ = (sel) => document.querySelector(sel);
 
+  const titleInput = $('#s-ministryTitle');
+  const worshipLabelInput = $('#s-ministryWorshipLabel');
   const worshipInput = $('#s-ministryWorship');
+  const mealLabelInput = $('#s-ministryMealLabel');
   const mealInput = $('#s-ministryMeal');
   const saveBtn = $('#s-ministryDutySaveBtn');
   const statusEl = $('#s-ministryDutyStatus');
@@ -348,7 +351,10 @@ createSectionBackgroundEditor({
       }
       const site = await res.json();
       const duty = site && site.ministryDuty;
+      if (titleInput) titleInput.value = (duty && duty.title) || '';
+      if (worshipLabelInput) worshipLabelInput.value = (duty && duty.worshipLabel) || '';
       worshipInput.value = (duty && duty.worship) || '';
+      if (mealLabelInput) mealLabelInput.value = (duty && duty.mealLabel) || '';
       mealInput.value = (duty && duty.meal) || '';
     } catch (err) {
       setStatus('불러오기 중 오류가 발생했어요: ' + err.message, true);
@@ -363,7 +369,13 @@ createSectionBackgroundEditor({
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          ministryDuty: { worship: worshipInput.value, meal: mealInput.value }
+          ministryDuty: {
+            title: titleInput ? titleInput.value : '',
+            worshipLabel: worshipLabelInput ? worshipLabelInput.value : '',
+            worship: worshipInput.value,
+            mealLabel: mealLabelInput ? mealLabelInput.value : '',
+            meal: mealInput.value
+          }
         })
       });
       if (!res.ok) {
