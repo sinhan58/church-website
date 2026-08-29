@@ -53,7 +53,7 @@ const BUILTIN_PHOTOS = (() => {
 })();
 
 const W = 1200;
-const H = 675;
+const H = 970; // 사진이 커진 만큼(1.4375배) 세로로 잘리지 않도록 캔버스 자체를 늘림 (기존 675)
 const PHOTO_W = 660; // 오른쪽 사진 영역 폭 (전체의 55%로 확대, 왼쪽 제목 영역이 45%)
 const GOLD = '#c9a227';
 const WHITE = '#ffffff';
@@ -249,7 +249,7 @@ async function generateSermonPoster({
   if (photoBuffer) {
     // 오려낸 인물 사진은 자르지 않고, 세로 기준으로만 맞춰서 전체가 다 보이게 합니다
     // (사람 실루엣은 사각형이 아니라서, cover로 자르면 머리나 팔이 잘릴 수 있습니다).
-    const targetH = Math.round(H * 1.4375); // 사진 15% 추가 확대 (기존 1.25 → 1.4375)
+    const targetH = Math.round(675 * 1.4375); // 사진 15% 추가 확대 (기존 1.25 → 1.4375) — 캔버스가 커져도 사진 크기는 원래 기준(675)에 고정
     const cutoutBuf = await sharp(photoBuffer)
       .resize({ height: targetH, fit: 'inside', withoutEnlargement: false })
       .ensureAlpha()
