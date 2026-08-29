@@ -745,7 +745,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 }
 @media (max-width: 900px) {
   /* 기본(PC) 규칙보다 뒤에 있어야 실제로 이깁니다 */
-  .sermon-hero-band { height: calc(30px + 4mm); font-size: 9px; letter-spacing: 1.2px; }
+  .sermon-hero-band { height: calc(30px + 4mm); font-size: 13.5px; letter-spacing: 1.2px; }
   .sermon-hero-label { left: 14px; top: 12px; font-size: 11px; padding-bottom: 4px; border-bottom-width: 2px; }
   .sermon-hero-card img { transform: translateY(0.4cm); } /* 모바일 카드는 작아서 PC와 같은 1.2cm를 그대로 쓰면 사진이 띠 아래로 밀려 들어감 */
 }
