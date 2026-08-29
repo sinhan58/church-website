@@ -117,13 +117,7 @@ function buildTextSvg({ title, verseRef, pastorName, churchName }) {
     titleLines[2] = last.slice(0, Math.max(0, last.length - 1)) + '…';
   }
 
-  // 이미지 안에 작은 라벨을 넣어서, 바깥에 별도 "주일 설교" 제목을 안 둬도 되게 합니다.
-  // 제목 줄 수와 무관하게 항상 캔버스 좌상단에 고정됩니다.
-  const labelY = 56;
-  const labelSvg = `<text x="${textX}" y="${labelY}" font-size="20" font-family="${FONT_FAMILY}" font-weight="700" fill="${GOLD}" letter-spacing="2">주일 예배 설교</text>
-    <rect x="${textX}" y="${labelY + 14}" width="46" height="4" fill="${GOLD}"/>`;
-
-  let y = H / 2 - ((titleLines.length - 1) * lineHeight) / 2 - 20;
+  let y = H / 2 - ((titleLines.length - 1) * lineHeight) / 2 - 60; // 하단 띠와 안 겹치도록 전체적으로 위로 이동
   let titleTspans = '';
   for (const line of titleLines) {
     titleTspans += `<text x="${textX}" y="${y}" font-size="${titleFontSize}" font-family="${FONT_FAMILY}" font-weight="900" fill="${WHITE}">${escapeXml(line)}</text>`;
@@ -148,7 +142,6 @@ function buildTextSvg({ title, verseRef, pastorName, churchName }) {
 
   return `
   <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
-    ${labelSvg}
     ${titleTspans}
     ${verseSvg}
     <line x1="${textX}" y1="${lineY}" x2="${textX + 280}" y2="${lineY}" stroke="#ffffff" stroke-opacity="0.3" stroke-width="1"/>
