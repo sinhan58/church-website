@@ -2211,8 +2211,8 @@ body.has-mini-player .scroll-top-btn { bottom: calc(84px + 68px); }
 .ministry-duty-fab {
   display: none; /* PC에서는 숨김, 모바일 전용 */
   position: fixed;
-  left: 14px;
-  bottom: 74px;
+  right: 20px;
+  bottom: 14px; /* 밴드 버튼(bottom:74px) 바로 아래 */
   z-index: 90;
   flex-direction: column;
   align-items: center;
@@ -2221,15 +2221,15 @@ body.has-mini-player .scroll-top-btn { bottom: calc(84px + 68px); }
   padding: 8px 4px;
   border: none;
   border-radius: 14px;
-  background: var(--navy-deep);
-  color: #fff;
+  background: var(--ivory-dim);
+  color: var(--navy-deep);
   box-shadow: var(--shadow);
   cursor: pointer;
   transition: filter 0.15s ease;
 }
 .ministry-duty-fab svg { width: 20px; height: 20px; }
 .ministry-duty-fab span { font-size: 0.68rem; font-weight: 600; white-space: nowrap; }
-body.has-mini-player .ministry-duty-fab { bottom: calc(74px + 60px); }
+body.has-mini-player .ministry-duty-fab { bottom: calc(14px + 60px); }
 
 .ministry-duty-modal {
   display: none;
@@ -2321,6 +2321,7 @@ body.has-mini-player .ministry-duty-fab { bottom: calc(74px + 60px); }
 @media (max-width: 560px) {
   .band-fab { right: 14px; padding: 8px; }
   .band-fab > span:not(.band-fab-badge) { display: none; } /* 좁은 화면에서는 BAND 배지만 */
+  .ministry-duty-fab { right: 14px; }
 }
 
 /* ---------------- 맨 위로 이동 버튼 ---------------- */
