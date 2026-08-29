@@ -699,7 +699,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 .sermon-hero-card:hover img { transform: scale(1.035); }
 .sermon-hero-card .sermon-hero-play {
   position: absolute;
-  left: 25%; bottom: 12.7%; /* 성경구절과 안 겹치도록 2cm 아래로(교회명·목사님 이름 사이) */
+  left: 25%; bottom: calc(12.7% + 57px); /* 성경구절과 안 겹치도록 2cm 아래로(교회명·목사님 이름 사이) + 하단 띠 높이만큼 추가로 위로 */
   width: 56px; height: 56px;
   border-radius: 50%;
   background: rgba(255,255,255,0.92);
@@ -711,6 +711,23 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 .sermon-hero-card .sermon-hero-play svg { width: 24px; height: 24px; }
 .sermon-hero-card .sermon-hero-play-text { display: none; } /* PC에서는 아이콘만, 글자는 숨김 */
 .sermon-hero-card:hover .sermon-hero-play { transform: scale(1.08); background: var(--gold); }
+
+.sermon-hero-band {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 57px; /* 기존 1cm(38px)의 1.5배 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(13,21,38,0.85);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  z-index: 2;
+}
 
 @media (max-width: 900px) {
   /* 모바일: 사진 쪽(오른쪽 팔 소매 부근)에, 둥근 사각형 + "설교 보기" 글자 버튼으로 */
