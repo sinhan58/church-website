@@ -684,6 +684,8 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   position: relative;
   cursor: pointer;
   overflow: hidden; /* 확대돼도 카드 테두리 밖으로는 절대 안 나가도록(글씨 잘림 방지) */
+  background: rgba(255,255,255,0.04); /* 지난 설교 목록 카드와 동일한 톤으로 짝을 맞춤 */
+  backdrop-filter: blur(6px); /* 뒤에 섹션 배경 사진이 있으면 뿌옇게 비치는 "미스트" 느낌 */
   border-radius: var(--radius);
   box-shadow: 0 10px 30px rgba(0,0,0,0.35);
 }
@@ -734,6 +736,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   justify-content: flex-start;
   padding: 30px 32px;
   background: rgba(255,255,255,0.04);
+  backdrop-filter: blur(6px);
   border-radius: var(--radius);
   box-shadow: 0 10px 30px rgba(0,0,0,0.35);
 }
