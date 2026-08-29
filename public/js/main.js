@@ -843,6 +843,7 @@
     const posterUrl = `/api/sermon-poster/${encodeURIComponent(hero.videoId)}?title=${encodeURIComponent(hero.title || '')}`;
     card.innerHTML = `
       <img src="${posterUrl}" alt="${escapeHtml(hero.title || '')}" onerror="this.onerror=null;this.src='${escapeHtml(hero.thumbnail)}';" />
+      <div class="sermon-hero-label">주일 예배 설교</div>
       <span class="sermon-hero-play" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.5 7.5v9l8-4.5-8-4.5z"/></svg>
       </span>
