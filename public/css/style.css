@@ -678,6 +678,8 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   /* PC는 그리드 stretch로 목록 높이에 자동으로 맞춰지지만, 모바일은 세로로
      쌓이는 구조라 맞춰줄 짝이 없어서 사진 실제 비율(4:3)을 그대로 지정합니다. */
   .sermon-hero-card { aspect-ratio: 4/3; }
+  .sermon-hero-band { height: 30px; font-size: 10px; letter-spacing: 1.5px; }
+  .sermon-hero-card .sermon-hero-play { bottom: calc(12.7% + 30px); }
 }
 
 .sermon-hero-card {
@@ -688,6 +690,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   backdrop-filter: blur(6px); /* 뒤에 섹션 배경 사진이 있으면 뿌옇게 비치는 "미스트" 느낌 */
   border-radius: var(--radius);
   box-shadow: 0 10px 30px rgba(0,0,0,0.35);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
 }
 .sermon-hero-card img {
   width: 100%;
@@ -696,7 +699,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   display: block;
   transition: transform 0.3s ease, filter 0.15s ease;
 }
-.sermon-hero-card:hover img { transform: scale(1.035); }
+.sermon-hero-card:hover { transform: translateY(-6px); box-shadow: 0 16px 40px rgba(0,0,0,0.45), 0 0 0 1px rgba(228,200,118,0.35); }
 .sermon-hero-card .sermon-hero-play {
   position: absolute;
   left: 25%; bottom: calc(12.7% + 57px); /* 성경구절과 안 겹치도록 2cm 아래로(교회명·목사님 이름 사이) + 하단 띠 높이만큼 추가로 위로 */
