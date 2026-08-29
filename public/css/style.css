@@ -695,6 +695,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   height: 100%;
   object-fit: contain; /* 어떤 경우에도 사진/글씨가 잘리지 않도록 절대 크롭 안 함 */
   object-position: 50% 0%; /* 위쪽 기준 — 내용(제목/사진) 전체를 위로 올림 */
+  transform: translateY(2.5cm); /* 너무 많이 올라간 만큼 다시 아래로 */
   display: block;
   transition: transform 0.3s ease, filter 0.15s ease;
 }
