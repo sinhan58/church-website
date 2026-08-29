@@ -117,7 +117,7 @@ function buildTextSvg({ title, verseRef, pastorName, churchName }) {
     titleLines[2] = last.slice(0, Math.max(0, last.length - 1)) + '…';
   }
 
-  let y = H / 2 - ((titleLines.length - 1) * lineHeight) / 2 - 60; // 하단 띠와 안 겹치도록 전체적으로 위로 이동
+  let y = H / 2 - ((titleLines.length - 1) * lineHeight) / 2 - 90; // 글씨 커진 만큼 하단 띠와 안 겹치도록 더 위로 이동
   let titleTspans = '';
   for (const line of titleLines) {
     titleTspans += `<text x="${textX}" y="${y}" font-size="${titleFontSize}" font-family="${FONT_FAMILY}" font-weight="900" fill="${WHITE}">${escapeXml(line)}</text>`;
@@ -133,11 +133,11 @@ function buildTextSvg({ title, verseRef, pastorName, churchName }) {
 
   y += 16;
   const lineY = y;
-  y += 30;
-  const churchSvg = `<text x="${textX}" y="${y}" font-size="24" font-family="${FONT_FAMILY}" font-weight="700" fill="${WHITE}">${escapeXml(churchName)}</text>`;
-  y += 34;
+  y += 40;
+  const churchSvg = `<text x="${textX}" y="${y}" font-size="36" font-family="${FONT_FAMILY}" font-weight="700" fill="${WHITE}">${escapeXml(churchName)}</text>`;
+  y += 44;
   const pastorSvg = pastorName
-    ? `<text x="${textX}" y="${y}" font-size="19" font-family="${FONT_FAMILY}" fill="#c8c8c3">${escapeXml(pastorName)}</text>`
+    ? `<text x="${textX}" y="${y}" font-size="29" font-family="${FONT_FAMILY}" fill="#c8c8c3">${escapeXml(pastorName)}</text>`
     : '';
 
   return `
@@ -249,7 +249,7 @@ async function generateSermonPoster({
   if (photoBuffer) {
     // 오려낸 인물 사진은 자르지 않고, 세로 기준으로만 맞춰서 전체가 다 보이게 합니다
     // (사람 실루엣은 사각형이 아니라서, cover로 자르면 머리나 팔이 잘릴 수 있습니다).
-    const targetH = Math.round(H * 1.25); // 사진 자체를 더 크게 (기존 1.06 → 1.25)
+    const targetH = Math.round(H * 1.4375); // 사진 15% 추가 확대 (기존 1.25 → 1.4375)
     const cutoutBuf = await sharp(photoBuffer)
       .resize({ height: targetH, fit: 'inside', withoutEnlargement: false })
       .ensureAlpha()
@@ -269,9 +269,10 @@ async function generateSermonPoster({
       cutoutH = H;
     }
 
-    // 사진 영역(오른쪽) 안에서 가운데 정렬 후 왼쪽으로 살짝(약 1.5cm) 이동, 바닥에 붙입니다.
-    const SHIFT_LEFT = 133; // 약 3.5cm (1.5cm + 추가 2cm)
-    let left = Math.round(zoneLeft + PHOTO_W / 2 - cutoutW / 2) - SHIFT_LEFT;
+    // 사진 영역(오른쪽) 안에서 왼쪽 시작점은 고정해두고, 사진이 커지는 만큼
+    // 오른쪽으로 채워지도록(오른쪽 캔버스 끝까지) 자리를 잡습니다.
+    const SHIFT_LEFT = 60; // 왼쪽 기준점(왼쪽으로 살짝만 당김, 크기와 무관하게 고정)
+    let left = zoneLeft - SHIFT_LEFT;
     left = Math.max(zoneLeft - 170, Math.min(left, W - cutoutW + 10)); // 캔버스 밖으로 심하게 나가지 않도록 보정
     const top = Math.max(0, H - cutoutH);
 
