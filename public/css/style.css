@@ -2229,7 +2229,7 @@ body.has-mini-player .scroll-top-btn { bottom: calc(148px + 68px); }
   transition: filter 0.15s ease;
 }
 .ministry-duty-fab svg { width: 16px; height: 16px; }
-.ministry-duty-fab span { font-size: 0.62rem; font-weight: 700; white-space: nowrap; }
+.ministry-duty-fab span { font-size: 0.68rem; font-weight: 700; white-space: nowrap; }
 body.has-mini-player .ministry-duty-fab { bottom: calc(84px + 60px); }
 
 .ministry-duty-modal {
