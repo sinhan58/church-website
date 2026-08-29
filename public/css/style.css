@@ -693,12 +693,10 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 .sermon-hero-card img {
   width: 100%;
   height: 100%;
-  object-fit: contain;
+  object-fit: cover;
+  object-position: 50% 0%; /* 위쪽(얼굴) 기준 고정 — 모자라면 아래쪽만 잘림, 얼굴은 절대 안 잘림 */
   display: block;
   transition: transform 0.3s ease, filter 0.15s ease;
-}
-@media (min-width: 901px) {
-  .sermon-hero-card { aspect-ratio: 16 / 9; } /* 이미지와 정확히 같은 비율 — 레터박스(빈 여백) 자체가 안 생기게 */
 }
 .sermon-hero-card:hover { transform: translateY(-6px); box-shadow: 0 16px 40px rgba(0,0,0,0.45), 0 0 0 1px rgba(228,200,118,0.35); }
 .sermon-hero-card .sermon-hero-play {
