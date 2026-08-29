@@ -679,7 +679,6 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
      쌓이는 구조라 맞춰줄 짝이 없어서 사진 실제 비율(4:3)을 그대로 지정합니다. */
   .sermon-hero-card { aspect-ratio: 4/3; }
   .sermon-hero-band { height: 30px; font-size: 10px; letter-spacing: 1.5px; }
-  .sermon-hero-card .sermon-hero-play { bottom: calc(12.7% + 30px); }
 }
 
 .sermon-hero-card {
@@ -702,7 +701,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 .sermon-hero-card:hover { transform: translateY(-6px); box-shadow: 0 16px 40px rgba(0,0,0,0.45), 0 0 0 1px rgba(228,200,118,0.35); }
 .sermon-hero-card .sermon-hero-play {
   position: absolute;
-  left: 62%; bottom: calc(12.7% + 57px); /* 사진 영역 쪽으로 옮겨서 길어진 제목과 안 겹치게 */
+  left: auto; right: 5%; bottom: calc(12.7% + 57px); /* 사진 우측 하단 쪽(얼굴 안 가리게), 길어진 제목과도 안 겹치게 */
   width: 56px; height: 56px;
   border-radius: 50%;
   background: rgba(255,255,255,0.92);
@@ -747,7 +746,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 @media (max-width: 900px) {
   /* 모바일: 사진 쪽(오른쪽 팔 소매 부근)에, 둥근 사각형 + "설교 보기" 글자 버튼으로 */
   .sermon-hero-card .sermon-hero-play {
-    left: auto; right: 6%; bottom: 10%;
+    left: auto; right: 6%; bottom: calc(10% + 30px); /* 하단 띠(30px)와 안 겹치게 */
     width: auto; height: auto;
     padding: 10px 18px;
     border-radius: 12px;
