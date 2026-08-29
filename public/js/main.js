@@ -845,7 +845,8 @@
       <img src="${posterUrl}" alt="${escapeHtml(hero.title || '')}" onerror="this.onerror=null;this.src='${escapeHtml(hero.thumbnail)}';" />
       <span class="sermon-hero-play" aria-hidden="true">
         <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.5 7.5v9l8-4.5-8-4.5z"/></svg>
-      </span>`;
+      </span>
+      <div class="sermon-hero-band">MULDAEN DONGSAN CHURCH</div>`;
     card.dataset.videoId = hero.videoId;
     card.onclick = () => {
       track('click', {
