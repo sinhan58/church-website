@@ -2199,7 +2199,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 
 /* 미니 플레이어가 떠 있을 때는 우측 하단 버튼들을 그만큼 밀어올림 */
 body.has-mini-player .band-fab { bottom: calc(20px + 68px); }
-body.has-mini-player .scroll-top-btn { bottom: calc(84px + 68px); }
+body.has-mini-player .scroll-top-btn { bottom: calc(148px + 68px); }
 @media (max-width: 900px) {
   .mini-player { padding: 6px 10px; gap: 10px; }
   .mini-player-video { width: 48px; height: 48px; }
@@ -2209,10 +2209,10 @@ body.has-mini-player .scroll-top-btn { bottom: calc(84px + 68px); }
 
 /* ---------------- 섬김 안내 (예배 위원 / 식사 봉사) ---------------- */
 .ministry-duty-fab {
-  display: none; /* PC에서는 숨김, 모바일 전용 */
+  display: flex; /* 이제 PC/모바일 둘 다 표시 */
   position: fixed;
   right: 20px;
-  bottom: 14px; /* 밴드 버튼(bottom:74px) 바로 아래 */
+  bottom: 84px; /* PC: 밴드 버튼(bottom:20px) 바로 위 */
   z-index: 90;
   flex-direction: column;
   align-items: center;
@@ -2229,8 +2229,8 @@ body.has-mini-player .scroll-top-btn { bottom: calc(84px + 68px); }
   transition: filter 0.15s ease;
 }
 .ministry-duty-fab svg { width: 16px; height: 16px; }
-.ministry-duty-fab span { font-size: 0.55rem; font-weight: 700; white-space: nowrap; }
-body.has-mini-player .ministry-duty-fab { bottom: calc(14px + 60px); }
+.ministry-duty-fab span { font-size: 0.62rem; font-weight: 700; white-space: nowrap; }
+body.has-mini-player .ministry-duty-fab { bottom: calc(84px + 60px); }
 
 .ministry-duty-modal {
   display: none;
@@ -2285,7 +2285,8 @@ body.has-mini-player .ministry-duty-fab { bottom: calc(14px + 60px); }
   cursor: pointer;
 }
 @media (max-width: 900px) {
-  .ministry-duty-fab { display: flex; }
+  .ministry-duty-fab { bottom: 14px; } /* 모바일: 밴드 버튼(bottom:74px) 바로 아래 */
+  body.has-mini-player .ministry-duty-fab { bottom: calc(14px + 60px); }
 }
 
 /* ---------------- 밴드 바로가기 (오른쪽 하단 떠있는 버튼) ---------------- */
@@ -2330,10 +2331,10 @@ body.has-mini-player .ministry-duty-fab { bottom: calc(14px + 60px); }
 .scroll-top-btn {
   position: fixed;
   right: 20px;
-  bottom: 84px; /* 밴드 버튼 위에 쌓이도록 */
+  bottom: 148px; /* 밴드(20px) → 섬김안내(84px) → 맨위로(148px) 순서로 쌓임 */
   z-index: 90;
-  width: 46px;
-  height: 46px;
+  width: 56px;
+  height: 56px;
   border-radius: 50%;
   border: 1px solid var(--line);
   background: #fff;
@@ -2352,20 +2353,20 @@ body.has-mini-player .ministry-duty-fab { bottom: calc(14px + 60px); }
 @media (hover: hover) {
   .scroll-top-btn:hover { background: var(--gold); border-color: var(--gold); color: var(--navy-deep); }
 }
-.scroll-top-btn svg { width: 22px; height: 22px; }
+.scroll-top-btn svg { width: 24px; height: 24px; }
 @media (max-width: 900px) {
   /* 모바일: 화면 하단 가운데에 작은 버튼으로 */
   .scroll-top-btn {
     left: 50%;
     right: auto;
     bottom: 14px;
-    width: 38px;
-    height: 38px;
+    width: 56px;
+    height: 56px;
     transform: translateX(-50%) translateY(10px);
   }
   .scroll-top-btn.visible { transform: translateX(-50%) translateY(0); }
   #scroll-top-btn:active { transform: translateX(-50%) translateY(0) scale(0.97); }
-  .scroll-top-btn svg { width: 18px; height: 18px; }
+  .scroll-top-btn svg { width: 24px; height: 24px; }
   .band-fab { bottom: 74px; }
 }
 
