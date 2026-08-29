@@ -120,7 +120,7 @@ function buildTextSvg({ title, verseRef, pastorName, churchName }) {
   // 이미지 안에 작은 라벨을 넣어서, 바깥에 별도 "주일 설교" 제목을 안 둬도 되게 합니다.
   // 제목 줄 수와 무관하게 항상 캔버스 좌상단에 고정됩니다.
   const labelY = 56;
-  const labelSvg = `<text x="${textX}" y="${labelY}" font-size="20" font-family="${FONT_FAMILY}" font-weight="700" fill="${GOLD}" letter-spacing="2">주일 설교</text>
+  const labelSvg = `<text x="${textX}" y="${labelY}" font-size="20" font-family="${FONT_FAMILY}" font-weight="700" fill="${GOLD}" letter-spacing="2">주일 예배 설교</text>
     <rect x="${textX}" y="${labelY + 14}" width="46" height="4" fill="${GOLD}"/>`;
 
   let y = H / 2 - ((titleLines.length - 1) * lineHeight) / 2 - 20;
