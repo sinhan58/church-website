@@ -743,14 +743,14 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 }
 @media (max-width: 900px) {
   /* 기본(PC) 규칙보다 뒤에 있어야 실제로 이깁니다 */
-  .sermon-hero-band { height: 20px; font-size: 8px; letter-spacing: 1px; }
+  .sermon-hero-band { height: 30px; font-size: 9px; letter-spacing: 1.2px; }
   .sermon-hero-label { left: 14px; top: 12px; font-size: 11px; padding-bottom: 4px; border-bottom-width: 2px; }
 }
 
 @media (max-width: 900px) {
   /* 모바일: 사진 쪽(오른쪽 팔 소매 부근)에, 둥근 사각형 + "설교 보기" 글자 버튼으로 */
   .sermon-hero-card .sermon-hero-play {
-    left: auto; right: 6%; bottom: calc(10% + 20px); /* 하단 띠(20px)와 안 겹치게 */
+    left: auto; right: 6%; bottom: calc(10% + 30px); /* 하단 띠(30px)와 안 겹치게 */
     width: auto; height: auto;
     padding: 10px 18px;
     border-radius: 12px;
