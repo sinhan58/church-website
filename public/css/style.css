@@ -2214,19 +2214,19 @@ body.has-mini-player .scroll-top-btn { bottom: calc(84px + 68px); }
   right: 20px;
   bottom: 14px; /* 밴드 버튼(bottom:74px) 바로 아래 */
   z-index: 90;
-  flex-direction: column;
   align-items: center;
-  gap: 2px;
+  justify-content: center;
   width: 56px;
-  padding: 8px 4px;
-  border: none;
-  border-radius: 14px;
+  height: 56px;
+  border: 1.5px solid #dcdcdc;
+  border-radius: 50%;
   background: var(--ivory-dim);
   color: var(--navy-deep);
   box-shadow: var(--shadow);
   cursor: pointer;
   transition: filter 0.15s ease;
 }
+.ministry-duty-fab span { display: none; } /* 동그라미 안에는 아이콘만 */
 .ministry-duty-fab svg { width: 20px; height: 20px; }
 .ministry-duty-fab span { font-size: 0.68rem; font-weight: 600; white-space: nowrap; }
 body.has-mini-player .ministry-duty-fab { bottom: calc(14px + 60px); }
@@ -2295,9 +2295,10 @@ body.has-mini-player .ministry-duty-fab { bottom: calc(14px + 60px); }
   z-index: 90;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 12px 18px 12px 14px;
-  border-radius: 999px;
+  justify-content: center;
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
   background: #00c73c; /* 네이버 밴드 브랜드 색상 */
   color: #fff;
   font-size: 0.9rem;
@@ -2313,14 +2314,14 @@ body.has-mini-player .ministry-duty-fab { bottom: calc(14px + 60px); }
   justify-content: center;
   background: #fff;
   color: #00c73c;
-  border-radius: 10px;
-  padding: 4px 9px;
+  border-radius: 8px;
+  padding: 3px 6px;
   letter-spacing: -0.02em;
   font-weight: 800;
 }
+.band-fab > span:not(.band-fab-badge) { display: none; } /* 동그라미 안에는 배지만, 텍스트는 항상 숨김 */
 @media (max-width: 560px) {
-  .band-fab { right: 14px; padding: 8px; }
-  .band-fab > span:not(.band-fab-badge) { display: none; } /* 좁은 화면에서는 BAND 배지만 */
+  .band-fab { right: 14px; }
   .ministry-duty-fab { right: 14px; }
 }
 
