@@ -117,13 +117,17 @@ function buildTextSvg({ title, verseRef, pastorName, churchName }) {
     titleLines[2] = last.slice(0, Math.max(0, last.length - 1)) + '…';
   }
 
-  let y = H / 2 - ((titleLines.length - 1) * lineHeight) / 2 - 90; // 글씨 커진 만큼 하단 띠와 안 겹치도록 더 위로 이동
+  const baseY = H / 2 - ((titleLines.length - 1) * lineHeight) / 2 - 90; // 글씨 커진 만큼 하단 띠와 안 겹치도록 더 위로 이동
+  const TITLE_SHIFT_UP = 38; // 약 1cm — 제목만 이만큼 추가로 위로
+  let titleY = baseY - TITLE_SHIFT_UP;
   let titleTspans = '';
   for (const line of titleLines) {
-    titleTspans += `<text x="${textX}" y="${y}" font-size="${titleFontSize}" font-family="${FONT_FAMILY}" font-weight="900" fill="${WHITE}">${escapeXml(line)}</text>`;
-    y += lineHeight;
+    titleTspans += `<text x="${textX}" y="${titleY}" font-size="${titleFontSize}" font-family="${FONT_FAMILY}" font-weight="900" fill="${WHITE}">${escapeXml(line)}</text>`;
+    titleY += lineHeight;
   }
 
+  // 구절/교회명/성함은 제목이 위로 이동한 것과 무관하게, 원래(밀리지 않은) 기준선에서 이어서 계산합니다.
+  let y = baseY + titleLines.length * lineHeight;
   y += 26;
   let verseSvg = '';
   if (verseRef) {
