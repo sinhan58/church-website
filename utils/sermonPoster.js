@@ -13,7 +13,6 @@ const os = require('os');
 
 const FONT_DIR = path.join(__dirname, 'fonts');
 const FONT_FAMILY = 'Noto Sans CJK KR Black';
-const FONT_FAMILY_REGULAR = 'Noto Sans CJK KR'; // 새로 추가한 보통 굵기 폰트 (교회명·목사님 이름용)
 
 try {
   const fontconfigDir = path.join(os.tmpdir(), 'church-sermon-poster-fontconfig');
@@ -54,7 +53,7 @@ const BUILTIN_PHOTOS = (() => {
 })();
 
 const W = 1200;
-const H = 900; // 4:3 비율 (지난 설교 목록의 자연스러운 높이와 맞도록 16:9에서 변경)
+const H = 675;
 const PHOTO_W = 480; // 오른쪽 사진 영역 폭 (전체의 40%, 왼쪽 제목 영역이 60%)
 const GOLD = '#c9a227';
 const WHITE = '#ffffff';
@@ -105,50 +104,45 @@ function escapeXml(str = '') {
 
 // 왼쪽 텍스트 영역: "주일 설교" 라벨 + 제목 + 구절 + 교회명 + 목사님 성함.
 function buildTextSvg({ title, verseRef, pastorName, churchName }) {
-  const textX = 96; // 호버 확대(가운데 기준 5%) 시 왼쪽이 잘려도 글자는 안 걸리도록 여유를 둠
-  const textMaxWidth = W - PHOTO_W - textX - 40;
+  const textX = 56;
+  const textMaxWidth = W - PHOTO_W - 56 - 40;
 
   let titleFontSize = 56;
   let lineHeight = 68;
   let titleLines = wrapByWidth(title, titleFontSize, textMaxWidth, 0.86);
   const fullLines = wrapByWidth(title, titleFontSize, textMaxWidth, 0.86);
-  titleLines = titleLines.slice(0, 4);
-  if (fullLines.length > 4) {
-    const last = titleLines[3] || '';
-    titleLines[3] = last.slice(0, Math.max(0, last.length - 1)) + '…';
+  titleLines = titleLines.slice(0, 3);
+  if (fullLines.length > 3) {
+    const last = titleLines[2] || '';
+    titleLines[2] = last.slice(0, Math.max(0, last.length - 1)) + '…';
   }
 
-  // '주일 설교' 라벨을, 오른쪽 테마 표시와 통일감 있게 알약 모양 배지로 그립니다.
-  const labelY = 70;
-  const labelPillW = 106;
-  const labelSvg = `<rect x="${textX}" y="${labelY - 24}" width="${labelPillW}" height="34" rx="17" fill="rgba(201,162,39,0.18)"/>
-    <text x="${textX + labelPillW / 2}" y="${labelY}" font-size="18" font-family="${FONT_FAMILY}" font-weight="700" fill="${GOLD}" letter-spacing="1" text-anchor="middle">주일 설교</text>`;
+  // 이미지 안에 작은 라벨을 넣어서, 바깥에 별도 "주일 설교" 제목을 안 둬도 되게 합니다.
+  const labelY = 64;
+  const labelSvg = `<text x="${textX}" y="${labelY}" font-size="20" font-family="${FONT_FAMILY}" font-weight="700" fill="${GOLD}" letter-spacing="2">주일 설교</text>
+    <rect x="${textX}" y="${labelY + 14}" width="46" height="4" fill="${GOLD}"/>`;
 
-  // 캔버스가 커진 만큼(4:3), 가운데로 몰리지 않도록 위쪽부터 여유 있게 고정 간격으로 배치합니다.
-  // 제목을 약 7mm(26px) 아래로, 줄간격은 약 2mm(8px) 더 넓게 조정했습니다.
-  lineHeight = 76;
-  let y = 256;
+  let y = H / 2 - ((titleLines.length - 1) * lineHeight) / 2 - 20;
   let titleTspans = '';
   for (const line of titleLines) {
     titleTspans += `<text x="${textX}" y="${y}" font-size="${titleFontSize}" font-family="${FONT_FAMILY}" font-weight="900" fill="${WHITE}">${escapeXml(line)}</text>`;
     y += lineHeight;
   }
 
-  y += 60;
+  y += 26;
   let verseSvg = '';
   if (verseRef) {
-    verseSvg = `<text x="${textX}" y="${y}" font-size="26" font-family="${FONT_FAMILY}" font-weight="400" fill="${GOLD}">${escapeXml(verseRef)}</text>`;
-    y += 60;
+    verseSvg = `<text x="${textX}" y="${y}" font-size="26" font-family="${FONT_FAMILY}" fill="${GOLD}">${escapeXml(verseRef)}</text>`;
+    y += 44;
   }
 
-  y += 40;
+  y += 16;
   const lineY = y;
-  y += 50;
-  // 교회명 글씨체를 담임목사님 이름과 통일(글씨 굵기를 맞춤), 크기는 기존 교회명 크기(24) 유지
-  const churchSvg = `<text x="${textX}" y="${y}" font-size="26" font-family="${FONT_FAMILY_REGULAR}" font-weight="400" fill="${WHITE}">${escapeXml(churchName)}</text>`;
-  y += 50;
+  y += 30;
+  const churchSvg = `<text x="${textX}" y="${y}" font-size="24" font-family="${FONT_FAMILY}" font-weight="700" fill="${WHITE}">${escapeXml(churchName)}</text>`;
+  y += 34;
   const pastorSvg = pastorName
-    ? `<text x="${textX}" y="${y}" font-size="26" font-family="${FONT_FAMILY_REGULAR}" font-weight="400" fill="#c8c8c3">${escapeXml(pastorName)}</text>`
+    ? `<text x="${textX}" y="${y}" font-size="19" font-family="${FONT_FAMILY}" fill="#c8c8c3">${escapeXml(pastorName)}</text>`
     : '';
 
   return `
@@ -168,6 +162,9 @@ function buildTextSvg({ title, verseRef, pastorName, churchName }) {
 function buildPanelSvg() {
   return `
   <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
+    <!-- 테스트: 배경 패널(남색 + 빛 번짐)을 걷어내고 완전히 투명하게 둡니다.
+         원래대로 되돌리려면 이 주석 아래 주석 처리된 원본 내용을 다시 사용하세요. -->
+    <!--
     <defs>
       <radialGradient id="tealGlow" cx="15%" cy="10%" r="65%">
         <stop offset="0%" stop-color="#0f8f9a" stop-opacity="0.5"/>
@@ -184,6 +181,7 @@ function buildPanelSvg() {
       <rect width="${W}" height="${H}" fill="url(#tealGlow)"/>
       <rect width="${W}" height="${H}" fill="url(#wineGlow)"/>
     </g>
+    -->
   </svg>`;
 }
 
@@ -255,25 +253,21 @@ async function generateSermonPoster({
   if (photoBuffer) {
     // 오려낸 인물 사진은 자르지 않고, 세로 기준으로만 맞춰서 전체가 다 보이게 합니다
     // (사람 실루엣은 사각형이 아니라서, cover로 자르면 머리나 팔이 잘릴 수 있습니다).
-    const targetH = Math.round(H * 1.22); // 더 확대
+    const targetH = Math.round(H * 1.06); // 조금 더 확대
     const cutoutBuf = await sharp(photoBuffer)
       .resize({ height: targetH, fit: 'inside', withoutEnlargement: false })
       .ensureAlpha()
       .png()
       .toBuffer();
-
-    // 투명하게 남는 여백 없이 실제로 보이는 그림만 딱 맞게 잘라냅니다. 이렇게 해야
-    // 팔·소매가 잘린 자리가 캔버스 바닥과 정확히 맞닿아서, 공중에 뜬 느낌이 사라집니다.
-    const trimmed = await sharp(cutoutBuf).trim().toBuffer();
-    const meta = await sharp(trimmed).metadata();
+    const meta = await sharp(cutoutBuf).metadata();
     const cutoutW = meta.width || Math.round(PHOTO_W);
     let cutoutH = meta.height || targetH;
 
     // 확대하면서 캔버스보다 커질 수 있는데, 머리가 잘리면 안 되니 위쪽은 그대로 두고
-    // 아래쪽만 잘라내서 캔버스 안에 맞춥니다.
-    let finalCutoutBuf = trimmed;
+    // 아래쪽(강대상 부분)만 잘라내서 캔버스 안에 맞춥니다.
+    let finalCutoutBuf = cutoutBuf;
     if (cutoutH > H) {
-      finalCutoutBuf = await sharp(trimmed)
+      finalCutoutBuf = await sharp(cutoutBuf)
         .extract({ left: 0, top: 0, width: cutoutW, height: H })
         .toBuffer();
       cutoutH = H;
@@ -283,14 +277,7 @@ async function generateSermonPoster({
     const zoneLeft = W - PHOTO_W;
     const SHIFT_LEFT = 133; // 약 3.5cm (1.5cm + 추가 2cm)
     let left = Math.round(zoneLeft + PHOTO_W / 2 - cutoutW / 2) - SHIFT_LEFT;
-    const maxLeft = W - cutoutW; // 오른쪽 끝이 캔버스를 넘지 않는 절대 상한 (팔이 잘리지 않도록)
-    const minLeft = zoneLeft - 170; // 왼쪽으로 너무 안 가게 하는 하한(선호값)
-    if (minLeft <= maxLeft) {
-      left = Math.max(minLeft, Math.min(left, maxLeft));
-    } else {
-      // 사진이 너무 커서 두 기준이 서로 충돌하면, "잘리지 않는 것"을 최우선으로 합니다.
-      left = maxLeft;
-    }
+    left = Math.max(zoneLeft - 170, Math.min(left, W - cutoutW + 10)); // 캔버스 밖으로 심하게 나가지 않도록 보정
     const top = Math.max(0, H - cutoutH);
 
     return sharp(Buffer.from(panelSvg))
@@ -326,11 +313,11 @@ async function buildAndCacheSermonPoster({ videoId, rawTitle, videoIndex, upload
     churchName,
     videoIndex,
     photoOverride,
-    format: 'jpeg'
+    format: 'png' // 테스트: 배경 투명 처리를 위해 PNG로 변경 (JPEG는 투명도를 지원하지 않음)
   });
 
-  const filename = `sermon-poster-${videoId}-${Date.now()}.jpg`;
-  const url = await saveUploadedFile(buffer, filename, 'image/jpeg', uploadsDir);
+  const filename = `sermon-poster-${videoId}-${Date.now()}.png`;
+  const url = await saveUploadedFile(buffer, filename, 'image/png', uploadsDir);
 
   const posters = (await readData('sermonPosters')) || {};
   posters[videoId] = { url, title: rawTitle, createdAt: new Date().toISOString() };
