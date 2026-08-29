@@ -54,7 +54,7 @@ const BUILTIN_PHOTOS = (() => {
 
 const W = 1200;
 const H = 675;
-const PHOTO_W = 480; // 오른쪽 사진 영역 폭 (전체의 40%, 왼쪽 제목 영역이 60%)
+const PHOTO_W = 560; // 오른쪽 사진 영역 폭 (전체의 약 47%로 확대, 왼쪽 제목 영역이 53%)
 const GOLD = '#c9a227';
 const WHITE = '#ffffff';
 const NAVY = '#0d1526';
