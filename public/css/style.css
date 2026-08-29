@@ -2214,8 +2214,10 @@ body.has-mini-player .scroll-top-btn { bottom: calc(84px + 68px); }
   right: 20px;
   bottom: 14px; /* 밴드 버튼(bottom:74px) 바로 아래 */
   z-index: 90;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
+  gap: 1px;
   width: 56px;
   height: 56px;
   border: 1.5px solid #dcdcdc;
@@ -2226,9 +2228,8 @@ body.has-mini-player .scroll-top-btn { bottom: calc(84px + 68px); }
   cursor: pointer;
   transition: filter 0.15s ease;
 }
-.ministry-duty-fab span { display: none; } /* 동그라미 안에는 아이콘만 */
-.ministry-duty-fab svg { width: 20px; height: 20px; }
-.ministry-duty-fab span { font-size: 0.68rem; font-weight: 600; white-space: nowrap; }
+.ministry-duty-fab svg { width: 16px; height: 16px; }
+.ministry-duty-fab span { font-size: 0.55rem; font-weight: 700; white-space: nowrap; }
 body.has-mini-player .ministry-duty-fab { bottom: calc(14px + 60px); }
 
 .ministry-duty-modal {
