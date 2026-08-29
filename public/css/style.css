@@ -678,7 +678,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   /* PC는 그리드 stretch로 목록 높이에 자동으로 맞춰지지만, 모바일은 세로로
      쌓이는 구조라 맞춰줄 짝이 없어서 사진 실제 비율(4:3)을 그대로 지정합니다. */
   .sermon-hero-card { aspect-ratio: 4/3; }
-  .sermon-hero-band { height: 30px; font-size: 10px; letter-spacing: 1.5px; }
+  .sermon-hero-band { height: 20px; font-size: 8px; letter-spacing: 1px; }
 }
 
 .sermon-hero-card {
@@ -746,7 +746,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 @media (max-width: 900px) {
   /* 모바일: 사진 쪽(오른쪽 팔 소매 부근)에, 둥근 사각형 + "설교 보기" 글자 버튼으로 */
   .sermon-hero-card .sermon-hero-play {
-    left: auto; right: 6%; bottom: calc(10% + 30px); /* 하단 띠(30px)와 안 겹치게 */
+    left: auto; right: 6%; bottom: calc(10% + 20px); /* 하단 띠(20px)와 안 겹치게 */
     width: auto; height: auto;
     padding: 10px 18px;
     border-radius: 12px;
