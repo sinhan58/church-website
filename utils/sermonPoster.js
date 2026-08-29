@@ -251,13 +251,7 @@ async function generateSermonPoster({
   const textSvg = buildTextSvg({ title, verseRef, pastorName, churchName });
   const panelSvg = buildPanelSvg();
 
-  const BAND_HEIGHT = 38; // 약 1cm
   const zoneLeft = W - PHOTO_W;
-  const bandSvg = `
-  <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
-    <rect x="${zoneLeft}" y="${H - BAND_HEIGHT}" width="${PHOTO_W}" height="${BAND_HEIGHT}" fill="${NAVY}" fill-opacity="0.85"/>
-    <text x="${zoneLeft + PHOTO_W / 2}" y="${H - BAND_HEIGHT / 2 + 5}" font-size="14" font-family="${FONT_FAMILY}" font-weight="700" letter-spacing="2" fill="${WHITE}" text-anchor="middle">MULDAEN DONGSAN CHURCH</text>
-  </svg>`;
 
   if (photoBuffer) {
     // 오려낸 인물 사진은 자르지 않고, 세로 기준으로만 맞춰서 전체가 다 보이게 합니다
@@ -273,26 +267,24 @@ async function generateSermonPoster({
     let cutoutH = meta.height || targetH;
 
     // 확대하면서 캔버스보다 커질 수 있는데, 머리가 잘리면 안 되니 위쪽은 그대로 두고
-    // 아래쪽(강대상 부분)만 잘라내서 캔버스 안에 맞춥니다. 하단 띠 높이(BAND_HEIGHT)만큼은
-    // 사진이 침범하지 않도록 여유를 둡니다.
+    // 아래쪽(강대상 부분)만 잘라내서 캔버스 안에 맞춥니다.
     let finalCutoutBuf = cutoutBuf;
-    if (cutoutH > H - BAND_HEIGHT) {
+    if (cutoutH > H) {
       finalCutoutBuf = await sharp(cutoutBuf)
-        .extract({ left: 0, top: 0, width: cutoutW, height: H - BAND_HEIGHT })
+        .extract({ left: 0, top: 0, width: cutoutW, height: H })
         .toBuffer();
-      cutoutH = H - BAND_HEIGHT;
+      cutoutH = H;
     }
 
-    // 사진 영역(오른쪽) 안에서 가운데 정렬 후 왼쪽으로 살짝(약 1.5cm) 이동, 띠 바로 위에 붙입니다.
+    // 사진 영역(오른쪽) 안에서 가운데 정렬 후 왼쪽으로 살짝(약 1.5cm) 이동, 바닥에 붙입니다.
     const SHIFT_LEFT = 133; // 약 3.5cm (1.5cm + 추가 2cm)
     let left = Math.round(zoneLeft + PHOTO_W / 2 - cutoutW / 2) - SHIFT_LEFT;
     left = Math.max(zoneLeft - 170, Math.min(left, W - cutoutW + 10)); // 캔버스 밖으로 심하게 나가지 않도록 보정
-    const top = Math.max(0, H - BAND_HEIGHT - cutoutH);
+    const top = Math.max(0, H - cutoutH);
 
     return sharp(Buffer.from(panelSvg))
       .composite([
         { input: finalCutoutBuf, left, top },
-        { input: Buffer.from(bandSvg), left: 0, top: 0 },
         { input: Buffer.from(textSvg), left: 0, top: 0 }
       ])
       [format === 'png' ? 'png' : 'jpeg'](format === 'png' ? undefined : { quality: 88 })
@@ -301,7 +293,6 @@ async function generateSermonPoster({
 
   // 사진이 아예 없을 때를 대비한 기본 배경
   const fallback = sharp(Buffer.from(panelSvg)).composite([
-    { input: Buffer.from(bandSvg), left: 0, top: 0 },
     { input: Buffer.from(textSvg), left: 0, top: 0 }
   ]);
   return format === 'png' ? fallback.png().toBuffer() : fallback.jpeg({ quality: 88 }).toBuffer();
