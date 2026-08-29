@@ -699,13 +699,10 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   display: block;
   transition: transform 0.3s ease, filter 0.15s ease;
 }
-@media (min-width: 901px) {
-  .sermon-hero-card { aspect-ratio: 16 / 9; } /* 이미지가 레터박스 없이 카드에 꽉 차게 (라벨/띠가 진짜 상단·하단에 붙도록) */
-}
 .sermon-hero-card:hover { transform: translateY(-6px); box-shadow: 0 16px 40px rgba(0,0,0,0.45), 0 0 0 1px rgba(228,200,118,0.35); }
 .sermon-hero-card .sermon-hero-play {
   position: absolute;
-  left: 25%; bottom: calc(12.7% + 57px); /* 성경구절과 안 겹치도록 2cm 아래로(교회명·목사님 이름 사이) + 하단 띠 높이만큼 추가로 위로 */
+  left: 62%; bottom: calc(12.7% + 57px); /* 사진 영역 쪽으로 옮겨서 길어진 제목과 안 겹치게 */
   width: 56px; height: 56px;
   border-radius: 50%;
   background: rgba(255,255,255,0.92);
@@ -733,6 +730,18 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   font-weight: 700;
   letter-spacing: 2px;
   z-index: 2;
+}
+.sermon-hero-label {
+  position: absolute;
+  left: 24px;
+  top: 22px;
+  z-index: 2;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: var(--gold);
+  padding-bottom: 8px;
+  border-bottom: 3px solid var(--gold);
 }
 
 @media (max-width: 900px) {
