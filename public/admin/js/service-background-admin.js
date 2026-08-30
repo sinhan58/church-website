@@ -422,6 +422,7 @@ createSectionBackgroundEditor({
   if (!wrap || !saveBtn) return;
 
   const pendingFiles = [null, null, null];
+  let loadedPhotos = ['', '', '']; // 서버에서 불러온 사진 주소를 카드별로 안전하게 따로 보관 (DOM에서 다시 읽지 않음)
 
   function setStatus(msg, isError) {
     statusEl.textContent = msg;
@@ -430,6 +431,9 @@ createSectionBackgroundEditor({
 
   function renderForm(cards) {
     wrap.innerHTML = '';
+    loadedPhotos = [0, 1, 2].map((i) => (cards && cards[i] && cards[i].photo) || '');
+    pendingFiles[0] = pendingFiles[1] = pendingFiles[2] = null;
+
     for (let i = 0; i < 3; i += 1) {
       const c = (cards && cards[i]) || {};
       const block = document.createElement('div');
@@ -487,6 +491,7 @@ createSectionBackgroundEditor({
     });
     if (!res.ok) throw new Error(`이미지 업로드 실패 (서버 응답 ${res.status})`);
     const data = await res.json();
+    if (!data || !data.url) throw new Error('업로드 응답에 이미지 주소가 없습니다.');
     return data.url;
   }
 
@@ -497,7 +502,9 @@ createSectionBackgroundEditor({
       const cards = [];
       for (let i = 0; i < blocks.length; i += 1) {
         const block = blocks[i];
-        let photo = block.querySelector('.mc-photo-preview').getAttribute('src') || '';
+        // 사진을 새로 고른 카드만 업로드하고, 나머지는 처음 불러온 주소를 그대로 씁니다
+        // (화면의 미리보기 태그에서 다시 읽지 않아서, 다른 카드에 영향이 없습니다).
+        let photo = loadedPhotos[i] || '';
         if (pendingFiles[i]) {
           photo = await uploadFile(pendingFiles[i]);
         }
@@ -524,6 +531,7 @@ createSectionBackgroundEditor({
         }
         throw new Error(detail);
       }
+      loadedPhotos = cards.map((c) => c.photo || '');
       pendingFiles[0] = pendingFiles[1] = pendingFiles[2] = null;
       setStatus('저장되었습니다. 홈페이지에서 확인해보세요.', false);
     } catch (err) {
