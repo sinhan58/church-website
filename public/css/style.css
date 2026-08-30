@@ -1853,10 +1853,10 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   /* 예배 이름(관리자가 자유롭게 수정하는 값)을 예배를 대표하는 큰 제목으로,
      시간은 그 아래 보조 정보로 작게 표시 */
   .service-card .name {
-    font-size: 1.9rem;
+    font-size: 1.98rem;
     font-weight: 800;
     color: #fff;
-    line-height: 2.6;
+    line-height: 2.2;
     margin-bottom: 12px;
     word-break: keep-all;
   }
