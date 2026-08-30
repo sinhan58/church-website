@@ -376,6 +376,14 @@ router.put('/site', requirePermission('site'), async (req, res) => {
       });
     }
 
+    // missions도 마찬가지입니다 — '기본 정보' 화면은 title(섹션 제목)만, 선교사 카드
+    // 화면은 cards만 각각 따로 저장하다 보니, 통째로 덮어쓰면 한쪽이 사라져버립니다.
+    // 그래서 필드 단위로 합쳐서 저장합니다.
+    if (incoming.missions && typeof incoming.missions === 'object') {
+      const currentMissions = (current.missions && typeof current.missions === 'object') ? current.missions : {};
+      incoming.missions = { ...currentMissions, ...incoming.missions };
+    }
+
     const updated = { ...current, ...incoming };
     await writeData('site', updated);
     res.json(updated);
