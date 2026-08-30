@@ -2084,40 +2084,68 @@
   }
 
   function renderMissionCards(cards) {
-    const list = Array.isArray(cards) ? cards : [];
-    for (let i = 1; i <= 3; i += 1) {
-      const c = list[i - 1] || {};
-      const photoImg = $(`#mission-card-${i}-photo`);
-      const photoEmpty = $(`#mission-card-${i}-empty`);
-      const countryEl = $(`#mission-card-${i}-country`);
-      const nameEl = $(`#mission-card-${i}-name`);
-      const contentEl = $(`#mission-card-${i}-content`);
-      if (c.photo) {
-        photoImg.src = c.photo;
-        photoImg.style.display = '';
-        if (photoEmpty) photoEmpty.style.display = 'none';
-      } else {
-        photoImg.style.display = 'none';
-        if (photoEmpty) photoEmpty.style.display = '';
-      }
-      if (countryEl) countryEl.textContent = c.country || '';
-      if (nameEl) nameEl.textContent = c.name || '';
-      if (contentEl) contentEl.textContent = c.content || '';
+    const listEl = $('#mission-cards-row');
+    const pageEl = $('#mission-cards-page');
+    const prevBtn = $('#mission-cards-prev');
+    const nextBtn = $('#mission-cards-next');
+    if (!listEl) return;
+    const perPage = 3;
+    const totalPages = Math.max(1, Math.ceil(cards.length / perPage));
+    let page = 0;
+
+    function draw() {
+      const slice = cards.slice(page * perPage, page * perPage + perPage);
+      listEl.innerHTML = slice
+        .map(
+          (c) => `
+          <div class="mission-card">
+            <div class="mission-card-photo-wrap">
+              ${c.photo ? `<img class="mission-card-photo" src="${c.photo}" alt="${escapeHtml(c.name || '')}" />` : `<div class="mission-card-photo-empty"></div>`}
+            </div>
+            <span class="mission-card-country">${escapeHtml(c.country || '')}</span>
+            <h4 class="mission-card-name">${escapeHtml(c.name || '')}</h4>
+            <p class="mission-card-content">${escapeHtml(c.content || '')}</p>
+          </div>`
+        )
+        .join('');
+      if (pageEl) pageEl.textContent = totalPages > 1 ? `${page + 1} / ${totalPages}` : '';
+      if (prevBtn) prevBtn.disabled = totalPages <= 1;
+      if (nextBtn) nextBtn.disabled = totalPages <= 1;
     }
+
+    if (prevBtn) {
+      prevBtn.onclick = () => {
+        page = (page - 1 + totalPages) % totalPages;
+        draw();
+      };
+    }
+    if (nextBtn) {
+      nextBtn.onclick = () => {
+        page = (page + 1) % totalPages;
+        draw();
+      };
+    }
+    draw();
   }
 
   async function loadMissions() {
     const [site, partners] = await Promise.all([getJSON('/api/site'), getJSON('/api/partners')]);
-    const missionCards = (site && site.missions && site.missions.cards) || [];
+    const rawCards = (site && site.missions && site.missions.cards) || [];
+    const missionCards = rawCards.filter((c) => c && (c.name || c.country || c.content || c.photo));
     const partnersList = partners || [];
-    const hasAnyCard = missionCards.some((c) => c && (c.name || c.country || c.content || c.photo));
 
-    if (!hasAnyCard && partnersList.length === 0) {
+    if (missionCards.length === 0 && partnersList.length === 0) {
       $('#missions').style.display = 'none';
       return;
     }
 
-    renderMissionCards(missionCards);
+    const cardsWrap = $('.mission-cards-wrap');
+    if (missionCards.length === 0) {
+      if (cardsWrap) cardsWrap.style.display = 'none';
+    } else {
+      if (cardsWrap) cardsWrap.style.display = '';
+      renderMissionCards(missionCards);
+    }
 
     if (partnersList.length === 0) {
       $('.missions-partners').style.display = 'none';
