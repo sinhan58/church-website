@@ -209,6 +209,20 @@ createSectionBackgroundEditor({
   statusId: '#s-sermonBgStatus'
 });
 
+createSectionBackgroundEditor({
+  label: '선교',
+  siteKey: 'missionsBg',
+  fileInputId: '#s-missionsImageFile',
+  previewWrapId: '#s-missionsBgPreviewWrap',
+  previewImgId: '#s-missionsBgPreviewImg',
+  markerId: '#s-missionsBgFocalMarker',
+  emptyHintId: '#s-missionsBgEmptyHint',
+  zoomInputId: '#s-missionsZoom',
+  zoomValueId: '#s-missionsZoomValue',
+  saveBtnId: '#s-missionsBgSaveBtn',
+  statusId: '#s-missionsBgStatus'
+});
+
 // ===================================================================
 // 예배 시간별 세부 설정(굵게 / 글자 크기 / 설명) — 관리자 화면 연동 스크립트
 // 기존 예배 시간 목록(#service-list)은 별도 관리자 스크립트가 렌더링하므로,
@@ -388,6 +402,129 @@ createSectionBackgroundEditor({
         }
         throw new Error(detail);
       }
+      setStatus('저장되었습니다. 홈페이지에서 확인해보세요.', false);
+    } catch (err) {
+      setStatus('저장 실패: ' + err.message, true);
+    }
+  });
+
+  runAfterAdminLogin(loadCurrent);
+})();
+
+// ===================================================================
+// 선교사님 소개 카드 3개 — 관리자 화면 연동 스크립트
+// ===================================================================
+(function () {
+  const $ = (sel) => document.querySelector(sel);
+  const wrap = $('#mission-cards-admin');
+  const saveBtn = $('#mission-cards-save-btn');
+  const statusEl = $('#mission-cards-save-status');
+  if (!wrap || !saveBtn) return;
+
+  const pendingFiles = [null, null, null];
+
+  function setStatus(msg, isError) {
+    statusEl.textContent = msg;
+    statusEl.style.color = isError ? '#b3413a' : '#2f6d3a';
+  }
+
+  function renderForm(cards) {
+    wrap.innerHTML = '';
+    for (let i = 0; i < 3; i += 1) {
+      const c = (cards && cards[i]) || {};
+      const block = document.createElement('div');
+      block.className = 'card';
+      block.style.background = '#faf9f5';
+      block.innerHTML = `
+        <h4 style="margin-top:0;">카드 ${i + 1}</h4>
+        <div class="field"><label>나라명</label><input type="text" class="mc-country" placeholder="예: 케냐" value="${(c.country || '').replace(/"/g, '&quot;')}" /></div>
+        <div class="field"><label>선교사님 성함</label><input type="text" class="mc-name" placeholder="홍길동 선교사" value="${(c.name || '').replace(/"/g, '&quot;')}" /></div>
+        <div class="field"><label>사역 내용 (여러 줄 가능)</label><textarea class="mc-content" rows="3" placeholder="현지에서 어떤 사역을 하고 계신지 소개해주세요.">${(c.content || '')}</textarea></div>
+        <div class="field">
+          <label>사진 (교체하려면 다시 선택)</label>
+          <input type="file" class="mc-photo-file" accept="image/*" />
+          <img class="preview mc-photo-preview" src="${c.photo || ''}" style="max-width:120px; border-radius:50%; margin-top:8px; ${c.photo ? '' : 'display:none;'}" />
+        </div>
+      `;
+      wrap.appendChild(block);
+
+      const fileInput = block.querySelector('.mc-photo-file');
+      const previewImg = block.querySelector('.mc-photo-preview');
+      fileInput.addEventListener('change', () => {
+        const file = fileInput.files && fileInput.files[0];
+        if (!file) return;
+        pendingFiles[i] = file;
+        previewImg.src = URL.createObjectURL(file);
+        previewImg.style.display = '';
+      });
+    }
+  }
+
+  async function loadCurrent() {
+    try {
+      const res = await fetch('/api/admin/site', { credentials: 'include' });
+      if (!res.ok) {
+        setStatus(`불러오기 실패 (서버 응답 ${res.status}). 로그인 상태를 확인해주세요.`, true);
+        renderForm([]);
+        return;
+      }
+      const site = await res.json();
+      const cards = (site && site.missions && site.missions.cards) || [];
+      renderForm(cards);
+    } catch (err) {
+      setStatus('불러오기 중 오류가 발생했어요: ' + err.message, true);
+      renderForm([]);
+    }
+  }
+
+  async function uploadFile(file) {
+    const formData = new FormData();
+    formData.append('image', file);
+    const res = await fetch('/api/admin/upload', {
+      method: 'POST',
+      credentials: 'include',
+      body: formData
+    });
+    if (!res.ok) throw new Error(`이미지 업로드 실패 (서버 응답 ${res.status})`);
+    const data = await res.json();
+    return data.url;
+  }
+
+  saveBtn.addEventListener('click', async () => {
+    setStatus('저장 중...', false);
+    try {
+      const blocks = wrap.querySelectorAll('.card');
+      const cards = [];
+      for (let i = 0; i < blocks.length; i += 1) {
+        const block = blocks[i];
+        let photo = block.querySelector('.mc-photo-preview').getAttribute('src') || '';
+        if (pendingFiles[i]) {
+          photo = await uploadFile(pendingFiles[i]);
+        }
+        cards.push({
+          country: block.querySelector('.mc-country').value,
+          name: block.querySelector('.mc-name').value,
+          content: block.querySelector('.mc-content').value,
+          photo
+        });
+      }
+      const res = await fetch('/api/admin/site', {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ missions: { cards } })
+      });
+      if (!res.ok) {
+        let detail = `서버 응답 ${res.status}`;
+        try {
+          const errBody = await res.json();
+          if (errBody && errBody.error) detail += `: ${errBody.error}`;
+        } catch (parseErr) {
+          // 무시
+        }
+        throw new Error(detail);
+      }
+      pendingFiles[0] = pendingFiles[1] = pendingFiles[2] = null;
       setStatus('저장되었습니다. 홈페이지에서 확인해보세요.', false);
     } catch (err) {
       setStatus('저장 실패: ' + err.message, true);
