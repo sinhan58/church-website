@@ -793,8 +793,12 @@
   function renderSermonCategoryChips() {
     const wrap = $('#sermon-category-chips');
     if (!wrap) return;
+    const knownVideoIds = new Set(allSermonVideos.map((v) => v.videoId));
     const usedIds = new Set();
-    Object.values(sermonCategoryTags).forEach((ids) => (ids || []).forEach((id) => usedIds.add(id)));
+    Object.entries(sermonCategoryTags).forEach(([videoId, ids]) => {
+      if (!knownVideoIds.has(videoId)) return; // 실제 영상 데이터가 없는(완전히 사라진) 태그는 무시
+      (ids || []).forEach((id) => usedIds.add(id));
+    });
     const usable = sermonCategoryList.filter((c) => usedIds.has(c.id));
 
     if (usable.length === 0) {
