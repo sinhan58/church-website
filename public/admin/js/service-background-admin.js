@@ -412,56 +412,69 @@ createSectionBackgroundEditor({
 })();
 
 // ===================================================================
-// 선교사님 소개 카드 3개 — 관리자 화면 연동 스크립트
+// 선교사님 소개 카드 (몇 개든 추가 가능) — 관리자 화면 연동 스크립트
 // ===================================================================
 (function () {
   const $ = (sel) => document.querySelector(sel);
   const wrap = $('#mission-cards-admin');
+  const addBtn = $('#mission-card-add-btn');
   const saveBtn = $('#mission-cards-save-btn');
   const statusEl = $('#mission-cards-save-status');
   if (!wrap || !saveBtn) return;
 
-  const pendingFiles = [null, null, null];
-  let loadedPhotos = ['', '', '']; // 서버에서 불러온 사진 주소를 카드별로 안전하게 따로 보관 (DOM에서 다시 읽지 않음)
+  let nextBlockId = 1;
 
   function setStatus(msg, isError) {
     statusEl.textContent = msg;
     statusEl.style.color = isError ? '#b3413a' : '#2f6d3a';
   }
 
+  function addBlock(card) {
+    const c = card || {};
+    const blockId = nextBlockId;
+    nextBlockId += 1;
+
+    const block = document.createElement('div');
+    block.className = 'card';
+    block.style.background = '#faf9f5';
+    block.dataset.loadedPhoto = c.photo || ''; // 처음 불러온 사진 주소를 이 블록에만 안전하게 보관 (다른 카드에 영향 없음)
+    block.innerHTML = `
+      <div style="display:flex; align-items:center; justify-content:space-between;">
+        <h4 style="margin:0;">카드</h4>
+        <button type="button" class="btn-secondary mc-remove-btn" style="padding:4px 10px; font-size:12px;">삭제</button>
+      </div>
+      <div class="field"><label>나라명</label><input type="text" class="mc-country" placeholder="예: 케냐" value="${(c.country || '').replace(/"/g, '&quot;')}" /></div>
+      <div class="field"><label>선교사님 성함</label><input type="text" class="mc-name" placeholder="홍길동 선교사" value="${(c.name || '').replace(/"/g, '&quot;')}" /></div>
+      <div class="field"><label>사역 내용 (여러 줄 가능)</label><textarea class="mc-content" rows="3" placeholder="현지에서 어떤 사역을 하고 계신지 소개해주세요.">${(c.content || '')}</textarea></div>
+      <div class="field">
+        <label>사진 (교체하려면 다시 선택)</label>
+        <input type="file" class="mc-photo-file" accept="image/*" />
+        <img class="preview mc-photo-preview" src="${c.photo || ''}" style="max-width:120px; border-radius:50%; margin-top:8px; ${c.photo ? '' : 'display:none;'}" />
+      </div>
+    `;
+    wrap.appendChild(block);
+
+    const fileInput = block.querySelector('.mc-photo-file');
+    const previewImg = block.querySelector('.mc-photo-preview');
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files && fileInput.files[0];
+      if (!file) return;
+      block.pendingFile = file; // 블록 DOM 노드 자체에 보관 — 다른 카드와 절대 안 섞임
+      previewImg.src = URL.createObjectURL(file);
+      previewImg.style.display = '';
+    });
+
+    block.querySelector('.mc-remove-btn').addEventListener('click', () => {
+      block.remove();
+    });
+
+    return blockId;
+  }
+
   function renderForm(cards) {
     wrap.innerHTML = '';
-    loadedPhotos = [0, 1, 2].map((i) => (cards && cards[i] && cards[i].photo) || '');
-    pendingFiles[0] = pendingFiles[1] = pendingFiles[2] = null;
-
-    for (let i = 0; i < 3; i += 1) {
-      const c = (cards && cards[i]) || {};
-      const block = document.createElement('div');
-      block.className = 'card';
-      block.style.background = '#faf9f5';
-      block.innerHTML = `
-        <h4 style="margin-top:0;">카드 ${i + 1}</h4>
-        <div class="field"><label>나라명</label><input type="text" class="mc-country" placeholder="예: 케냐" value="${(c.country || '').replace(/"/g, '&quot;')}" /></div>
-        <div class="field"><label>선교사님 성함</label><input type="text" class="mc-name" placeholder="홍길동 선교사" value="${(c.name || '').replace(/"/g, '&quot;')}" /></div>
-        <div class="field"><label>사역 내용 (여러 줄 가능)</label><textarea class="mc-content" rows="3" placeholder="현지에서 어떤 사역을 하고 계신지 소개해주세요.">${(c.content || '')}</textarea></div>
-        <div class="field">
-          <label>사진 (교체하려면 다시 선택)</label>
-          <input type="file" class="mc-photo-file" accept="image/*" />
-          <img class="preview mc-photo-preview" src="${c.photo || ''}" style="max-width:120px; border-radius:50%; margin-top:8px; ${c.photo ? '' : 'display:none;'}" />
-        </div>
-      `;
-      wrap.appendChild(block);
-
-      const fileInput = block.querySelector('.mc-photo-file');
-      const previewImg = block.querySelector('.mc-photo-preview');
-      fileInput.addEventListener('change', () => {
-        const file = fileInput.files && fileInput.files[0];
-        if (!file) return;
-        pendingFiles[i] = file;
-        previewImg.src = URL.createObjectURL(file);
-        previewImg.style.display = '';
-      });
-    }
+    const list = cards && cards.length ? cards : [{}, {}, {}]; // 처음엔 빈 카드 3개로 시작
+    list.forEach((c) => addBlock(c));
   }
 
   async function loadCurrent() {
@@ -495,18 +508,20 @@ createSectionBackgroundEditor({
     return data.url;
   }
 
+  if (addBtn) {
+    addBtn.addEventListener('click', () => addBlock({}));
+  }
+
   saveBtn.addEventListener('click', async () => {
     setStatus('저장 중...', false);
     try {
-      const blocks = wrap.querySelectorAll('.card');
+      const blocks = Array.from(wrap.querySelectorAll('.card'));
       const cards = [];
-      for (let i = 0; i < blocks.length; i += 1) {
-        const block = blocks[i];
-        // 사진을 새로 고른 카드만 업로드하고, 나머지는 처음 불러온 주소를 그대로 씁니다
-        // (화면의 미리보기 태그에서 다시 읽지 않아서, 다른 카드에 영향이 없습니다).
-        let photo = loadedPhotos[i] || '';
-        if (pendingFiles[i]) {
-          photo = await uploadFile(pendingFiles[i]);
+      for (const block of blocks) {
+        // 사진을 새로 고른 카드만 업로드하고, 나머지는 그 블록이 처음 불러온 주소를 그대로 씁니다.
+        let photo = block.dataset.loadedPhoto || '';
+        if (block.pendingFile) {
+          photo = await uploadFile(block.pendingFile);
         }
         cards.push({
           country: block.querySelector('.mc-country').value,
@@ -531,8 +546,10 @@ createSectionBackgroundEditor({
         }
         throw new Error(detail);
       }
-      loadedPhotos = cards.map((c) => c.photo || '');
-      pendingFiles[0] = pendingFiles[1] = pendingFiles[2] = null;
+      blocks.forEach((block, i) => {
+        block.dataset.loadedPhoto = cards[i].photo || '';
+        block.pendingFile = null;
+      });
       setStatus('저장되었습니다. 홈페이지에서 확인해보세요.', false);
     } catch (err) {
       setStatus('저장 실패: ' + err.message, true);
