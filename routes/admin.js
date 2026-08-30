@@ -502,7 +502,17 @@ router.delete('/posts/:id', requirePermission('posts'), async (req, res) => {
 // ---------- 설교 영상(유튜브) 관리 ----------
 router.get('/sermons', async (req, res) => {
   try {
-    res.json(await getCachedSermons());
+    const data = await getCachedSermons();
+    let archive = [];
+    try {
+      archive = (await readData('sermonsArchive')) || [];
+    } catch (archiveErr) {
+      archive = []; // 보관함을 못 읽어도 최신 목록은 정상적으로 내려줘야 함
+    }
+    const existingIds = new Set((data.videos || []).map((v) => v.videoId));
+    const archiveOnly = archive.filter((v) => !existingIds.has(v.videoId));
+    // 보관함 영상은 최신 목록 뒤에 붙여서, 관리자가 테마 태그를 해제할 수 있도록 목록에 나오게 합니다.
+    res.json({ ...data, videos: [...(data.videos || []), ...archiveOnly] });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
