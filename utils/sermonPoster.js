@@ -109,28 +109,26 @@ function buildTextSvg({ title, verseRef, pastorName, churchName }) {
 
   let titleFontSize = 56;
   let lineHeight = 68;
-  let titleLines = wrapByWidth(title, titleFontSize, textMaxWidth, 0.86);
-  const fullLines = wrapByWidth(title, titleFontSize, textMaxWidth, 0.86);
-  titleLines = titleLines.slice(0, 3);
-  if (fullLines.length > 3) {
-    const last = titleLines[2] || '';
-    titleLines[2] = last.slice(0, Math.max(0, last.length - 1)) + '…';
-  }
+  const titleLines = wrapByWidth(title, titleFontSize, textMaxWidth, 0.86); // 줄 수 제한 없음, 말줄임표 없음
 
-  const baseY = H / 2 - ((titleLines.length - 1) * lineHeight) / 2 - 90; // 글씨 커진 만큼 하단 띠와 안 겹치도록 더 위로 이동
+  const NOMINAL_LINES = 3; // 검증된 레이아웃의 기준 줄 수 — 구절/교회명/성함 자리는 이 기준으로 항상 고정
+  const baseY = H / 2 - ((NOMINAL_LINES - 1) * lineHeight) / 2 - 90; // 글씨 커진 만큼 하단 띠와 안 겹치도록 더 위로 이동 (기존과 동일한 고정값)
   const TITLE_SHIFT_UP = 38; // 약 1cm — 제목만 이만큼 추가로 위로
   const TITLE_LINE_GAP_EXTRA = 11; // 약 3mm — 제목 줄간격만 이만큼 더 넓게
   const titleLineHeight = lineHeight + TITLE_LINE_GAP_EXTRA;
-  let titleY = baseY - TITLE_SHIFT_UP;
+  // 제목이 기준(3줄)보다 길어지면, 초과된 줄 수만큼 제목 시작점을 추가로 위로 올려서
+  // 구절/교회명/성함 자리를 침범하지 않게 합니다. 3줄 이하일 때는 기존과 완전히 동일합니다.
+  const extraLines = Math.max(0, titleLines.length - NOMINAL_LINES);
+  let titleY = baseY - TITLE_SHIFT_UP - extraLines * titleLineHeight;
   let titleTspans = '';
   for (const line of titleLines) {
     titleTspans += `<text x="${textX}" y="${titleY}" font-size="${titleFontSize}" font-family="${FONT_FAMILY}" font-weight="900" fill="${WHITE}">${escapeXml(line)}</text>`;
     titleY += titleLineHeight;
   }
 
-  // 구절/교회명/성함은 제목이 위로 이동하거나 줄간격이 넓어진 것과 무관하게,
-  // 원래(기존 lineHeight 기준) 자리에서 그대로 이어서 계산합니다.
-  let y = baseY + titleLines.length * lineHeight;
+  // 구절/교회명/성함은 제목이 몇 줄이든(짧든 길든) 상관없이, 항상 기준(3줄) 자리에서
+  // 그대로 이어서 계산합니다 — 기존 레이아웃과 완전히 동일하게 유지됩니다.
+  let y = baseY + NOMINAL_LINES * lineHeight;
   y += 26;
   let verseSvg = '';
   if (verseRef) {
