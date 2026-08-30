@@ -618,34 +618,44 @@
     <!-- 선교사역 -->
     <section class="panel" id="panel-missions">
       <h2>선교사역</h2>
-      <p class="panel-desc">세계지도에 표시할 선교지 핀과, 교회를 후원해주시는 동역자(기관·개인) 정보를 관리합니다. 섹션 제목은 '기본 정보' 메뉴에서 수정합니다.</p>
+      <p class="panel-desc">선교 섹션 배경 사진, 선교사님 소개 카드 3개, 동역자(기관·개인) 정보를 관리합니다. 섹션 제목은 '기본 정보' 메뉴에서 수정합니다.</p>
 
       <div class="card">
-        <h3 id="mission-form-title">선교지 추가</h3>
-        <div class="field-row">
-          <div class="field">
-            <label>국가</label>
-            <select id="m-countryCode"></select>
-          </div>
-          <div class="field"><label>배지 문구 (선택, 비우면 국가명이 표시됨)</label><input id="m-tag" type="text" placeholder="예: 송아지 · 장학" /></div>
-        </div>
-        <div class="field"><label>선교사님 성함</label><input id="m-name" type="text" placeholder="홍길동 선교사" /></div>
-        <div class="field"><label>사역 세부 내용 (여러 줄 입력 가능)</label><textarea id="m-desc" rows="3" placeholder="현지에서 어떤 사역을 하고 계신지 소개해주세요."></textarea></div>
+        <h3>선교 섹션 배경 사진</h3>
+        <p class="hint" style="margin-top:0;">
+          다른 섹션과 동일한 방식이에요. 새 사진을 올리거나 이미 등록된 사진도
+          아래 미리보기를 클릭해서 중심 위치를 다시 잡을 수 있고, 확대 슬라이더로 원하는 만큼
+          크롭할 수 있어요.
+        </p>
         <div class="field">
-          <label>사진 (선택)</label>
-          <input type="file" id="m-imageFile" accept="image/*" />
-          <img class="preview" id="m-imagePreview" />
+          <label>배경 사진 (교체하려면 다시 선택)</label>
+          <input type="file" id="s-missionsImageFile" accept="image/*" />
         </div>
-        <div class="post-form-actions">
-          <button class="btn-primary" id="add-mission-btn">선교지 등록</button>
-          <button class="btn-secondary" id="cancel-mission-edit-btn" hidden>취소</button>
+        <div class="field">
+          <label>미리보기 — 클릭해서 위치 다시 잡기</label>
+          <div id="s-missionsBgPreviewWrap" style="position:relative; width:100%; max-width:480px; height:220px; border-radius:10px; overflow:hidden; background:#0d1526; display:none; cursor:crosshair;">
+            <img id="s-missionsBgPreviewImg" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover;" alt="" />
+            <div id="s-missionsBgFocalMarker" style="position:absolute; width:22px; height:22px; border:2px solid #fff; border-radius:50%; box-shadow:0 0 0 2px rgba(0,0,0,0.5); transform:translate(-50%,-50%); left:50%; top:50%; pointer-events:none;"></div>
+          </div>
+          <p class="hint" id="s-missionsBgEmptyHint" style="margin-top:6px;">아직 등록된 사진이 없습니다.</p>
         </div>
-        <span class="save-status" id="mission-save-status"></span>
+        <div class="field">
+          <label>확대 (<span id="s-missionsZoomValue">100</span>%)</label>
+          <input type="range" id="s-missionsZoom" min="100" max="200" value="100" style="width:100%; max-width:480px;" />
+        </div>
+        <button type="button" id="s-missionsBgSaveBtn" class="btn-primary" style="margin-top:8px;">선교 배경 저장</button>
+        <p class="hint" id="s-missionsBgStatus" style="margin-top:6px;"></p>
       </div>
 
       <div class="card">
-        <h3>선교지 목록</h3>
-        <div id="mission-list" class="post-list"></div>
+        <h3>선교사님 소개 카드 (3개 고정)</h3>
+        <p class="hint" style="margin-top:0;">
+          홈페이지에 나라명 → 사진 → 이름 → 사역 내용 순서로 나오는 세로형 카드 3개예요.
+          비워두면 그 카드는 빈 채로(사진 없이) 나가요.
+        </p>
+        <div id="mission-cards-admin"></div>
+        <button type="button" id="mission-cards-save-btn" class="btn-primary" style="margin-top:8px;">선교사님 카드 저장</button>
+        <span class="save-status" id="mission-cards-save-status"></span>
       </div>
 
       <div class="card">
@@ -890,7 +900,7 @@
 <script src="/js/font-catalog.js"></script>
 <script src="/js/countries.js"></script>
 <script src="/admin/js/admin.js?v=26"></script>
-<script src="/admin/js/service-background-admin.js?v=5"></script>
+<script src="/admin/js/service-background-admin.js?v=6"></script>
 <script src="/admin/js/richtext-about-admin.js?v=2"></script>
 
 </body>
