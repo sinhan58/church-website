@@ -838,6 +838,7 @@
   }
   function bindImageField(inputId, previewId) {
     const input = $('#' + inputId);
+    if (!input) return; // 이 화면에 없는 필드면 조용히 건너뜀 (초기화 스크립트 전체가 멈추지 않도록)
     input.addEventListener('change', () => {
       const file = input.files[0];
       if (!file) return;
@@ -1873,18 +1874,21 @@
 
   function populateCountrySelect() {
     const select = $('#m-countryCode');
+    if (!select) return; // 예전 선교지 폼(지금은 선교사 카드 방식으로 교체됨)이 없는 화면이면 건너뜀
     select.innerHTML = window.COUNTRY_LIST
       .map((c) => `<option value="${c.code}">${window.isoToFlag(c.code)} ${escapeHtml(c.name)}</option>`)
       .join('');
   }
 
   async function loadMissionList() {
+    if (!$('#mission-list')) return; // 예전 선교지 목록 화면이 없으면 건너뜀
     currentMissionList = await api('/api/admin/missions');
     renderMissionList(currentMissionList);
   }
 
   function renderMissionList(list) {
     const container = $('#mission-list');
+    if (!container) return;
     if (!list || list.length === 0) {
       container.innerHTML = `<p class="hint">등록된 선교지가 없습니다.</p>`;
       return;
@@ -1923,6 +1927,7 @@
   }
 
   function resetMissionForm() {
+    if (!$('#mission-form-title')) return; // 예전 선교지 폼이 없는 화면이면 건너뜀
     editingMissionId = null;
     $('#mission-form-title').textContent = '선교지 추가';
     $('#add-mission-btn').textContent = '선교지 등록';
@@ -1951,6 +1956,7 @@
   }
 
   function setupMissionEditor() {
+    if (!$('#add-mission-btn')) return; // 예전 선교지 폼(지금은 선교사 카드 방식)이 없는 화면이면 건너뜀
     populateCountrySelect();
 
     $('#cancel-mission-edit-btn').addEventListener('click', () => {
