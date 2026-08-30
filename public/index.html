@@ -72,7 +72,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link class="gfont-link" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;600;700&display=block" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
-<link rel="stylesheet" href="/css/style.css?v=52" />
+<link rel="stylesheet" href="/css/style.css?v=53" />
 <meta property="og:title" content="물댄동산교회 - 오산시 중앙동" />
 <meta property="og:description" content="경기도 오산시 중앙동 대동다숲(오색시장 인근)에 위치한 물댄동산교회입니다. 담임목사 이기삼." />
 <meta property="og:image" content="https://muldaen.com/uploads/0001.png" />
@@ -275,6 +275,8 @@
     </div>
   </section>
   <section class="section" id="missions">
+    <img class="missions-bg-img" id="missions-bg-img" alt="" />
+    <div class="missions-bg-overlay"></div>
     <div class="container">
       <div class="section-head reveal">
         <span class="eyebrow">MISSIONS</span>
@@ -284,13 +286,35 @@
       </div>
 
       <div class="missions-layout">
-        <div class="missions-map-wrap reveal">
-          <div id="missions-map"></div>
-          <p class="missions-empty" id="missions-empty" style="display:none;">아직 등록된 선교지가 없습니다.</p>
+        <div class="mission-cards-row reveal" id="mission-cards-row">
+          <div class="mission-card" data-slot="1">
+            <div class="mission-card-photo-wrap">
+              <img class="mission-card-photo" id="mission-card-1-photo" alt="" style="display:none;" />
+              <div class="mission-card-photo-empty" id="mission-card-1-empty"></div>
+            </div>
+            <span class="mission-card-country" id="mission-card-1-country"></span>
+            <h4 class="mission-card-name" id="mission-card-1-name"></h4>
+            <p class="mission-card-content" id="mission-card-1-content"></p>
+          </div>
+          <div class="mission-card" data-slot="2">
+            <div class="mission-card-photo-wrap">
+              <img class="mission-card-photo" id="mission-card-2-photo" alt="" style="display:none;" />
+              <div class="mission-card-photo-empty" id="mission-card-2-empty"></div>
+            </div>
+            <span class="mission-card-country" id="mission-card-2-country"></span>
+            <h4 class="mission-card-name" id="mission-card-2-name"></h4>
+            <p class="mission-card-content" id="mission-card-2-content"></p>
+          </div>
+          <div class="mission-card" data-slot="3">
+            <div class="mission-card-photo-wrap">
+              <img class="mission-card-photo" id="mission-card-3-photo" alt="" style="display:none;" />
+              <div class="mission-card-photo-empty" id="mission-card-3-empty"></div>
+            </div>
+            <span class="mission-card-country" id="mission-card-3-country"></span>
+            <h4 class="mission-card-name" id="mission-card-3-name"></h4>
+            <p class="mission-card-content" id="mission-card-3-content"></p>
+          </div>
         </div>
-
-        <!-- 모바일 전용 목록형 대체 화면(지도 대신 카드 나열) - 선교지 정보가 동역자보다 먼저 보이도록 이 위치에 배치 -->
-        <div class="missions-mobile-list" id="missions-mobile-list"></div>
 
         <div class="missions-partners reveal">
           <div class="missions-partners-head">
@@ -500,6 +524,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
 <script src="/js/countries.js"></script>
 <script src="/js/font-catalog.js"></script>
-<script src="/js/main.js?v=10"></script>
+<script src="/js/main.js?v=11"></script>
 </body>
 </html>
