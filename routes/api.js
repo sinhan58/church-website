@@ -9,14 +9,6 @@ const { VAPID_PUBLIC_KEY, saveSubscription, removeSubscription } = require('../u
 
 const uploadsDir = path.join(__dirname, '..', 'public', 'uploads');
 
-// API 응답은 항상 최신 데이터여야 하므로, 중간에 있는 캐시(Cloudflare 등)가 절대
-// 캐싱하지 않도록 모든 API 응답에 명시적으로 표시해둡니다. (이게 없으면, 관리자
-// 페이지에서 분명히 저장했는데 홈페이지엔 예전 데이터가 계속 보이는 문제가 생깁니다)
-router.use((req, res, next) => {
-  res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
-  next();
-});
-
 // ---------- 푸시 알림 구독 (공개) ----------
 router.get('/push/vapid-public-key', (req, res) => {
   res.json({ publicKey: VAPID_PUBLIC_KEY });
@@ -127,8 +119,18 @@ router.get('/posts/:id', async (req, res) => {
 router.get('/sermons', async (req, res) => {
   try {
     const data = await getCachedSermons();
-    res.json(data);
-    if (data && Array.isArray(data.videos)) pregenerateMissingSermonPosters(data.videos, uploadsDir);
+    let archive = [];
+    try {
+      archive = (await readData('sermonsArchive')) || [];
+    } catch (archiveErr) {
+      archive = []; // 보관함을 못 읽어도 최신 목록은 정상적으로 내려줘야 함
+    }
+    const existingIds = new Set((data.videos || []).map((v) => v.videoId));
+    const archiveOnly = archive.filter((v) => !existingIds.has(v.videoId));
+    // 보관함 영상은 항상 최신 목록 "뒤"에 붙여서, 전체보기의 최신순/히어로 선정에는 영향을 주지 않습니다.
+    const merged = { ...data, videos: [...(data.videos || []), ...archiveOnly] };
+    res.json(merged);
+    if (merged && Array.isArray(merged.videos)) pregenerateMissingSermonPosters(merged.videos, uploadsDir);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
