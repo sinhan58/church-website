@@ -408,6 +408,7 @@
     sitePraiseConfig = site.praise;
     applyPraiseBackground(sitePraiseConfig);
     applySermonBackground(site.sermon);
+    applyMissionsBackground(site.missionsBg);
     setupServiceDots(serviceGrid, serviceTimesList.length);
 
     if (site.contact) {
@@ -1505,6 +1506,9 @@
   function applySermonBackground(cfg) {
     applySectionBackground('#sermons', '#sermon-bg-img', '.sermon-bg-overlay', cfg);
   }
+  function applyMissionsBackground(cfg) {
+    applySectionBackground('#missions', '#missions-bg-img', '.missions-bg-overlay', cfg);
+  }
 
   // ---------------- 섬김 안내 (예배 위원 / 식사 봉사) ----------------
   function applyMinistryDuty(duty) {
@@ -2079,30 +2083,41 @@
     draw();
   }
 
-  async function loadMissions() {
-    const [missions, partners] = await Promise.all([getJSON('/api/missions'), getJSON('/api/partners')]);
-    const missionsList = missions || [];
-    const partnersList = partners || [];
+  function renderMissionCards(cards) {
+    const list = Array.isArray(cards) ? cards : [];
+    for (let i = 1; i <= 3; i += 1) {
+      const c = list[i - 1] || {};
+      const photoImg = $(`#mission-card-${i}-photo`);
+      const photoEmpty = $(`#mission-card-${i}-empty`);
+      const countryEl = $(`#mission-card-${i}-country`);
+      const nameEl = $(`#mission-card-${i}-name`);
+      const contentEl = $(`#mission-card-${i}-content`);
+      if (c.photo) {
+        photoImg.src = c.photo;
+        photoImg.style.display = '';
+        if (photoEmpty) photoEmpty.style.display = 'none';
+      } else {
+        photoImg.style.display = 'none';
+        if (photoEmpty) photoEmpty.style.display = '';
+      }
+      if (countryEl) countryEl.textContent = c.country || '';
+      if (nameEl) nameEl.textContent = c.name || '';
+      if (contentEl) contentEl.textContent = c.content || '';
+    }
+  }
 
-    if (missionsList.length === 0 && partnersList.length === 0) {
+  async function loadMissions() {
+    const [site, partners] = await Promise.all([getJSON('/api/site'), getJSON('/api/partners')]);
+    const missionCards = (site && site.missions && site.missions.cards) || [];
+    const partnersList = partners || [];
+    const hasAnyCard = missionCards.some((c) => c && (c.name || c.country || c.content || c.photo));
+
+    if (!hasAnyCard && partnersList.length === 0) {
       $('#missions').style.display = 'none';
       return;
     }
 
-    const isDesktop = window.matchMedia('(min-width: 861px)').matches;
-
-    if (missionsList.length === 0) {
-      $('.missions-map-wrap').style.display = 'none';
-      $('#missions-mobile-list').innerHTML = '';
-    } else if (isDesktop) {
-      $('.missions-map-wrap').style.display = '';
-      $('#missions-mobile-list').style.display = 'none';
-      renderMissionsMap(missionsList);
-    } else {
-      $('.missions-map-wrap').style.display = 'none';
-      $('#missions-mobile-list').style.display = '';
-      renderMissionsMobileList(missionsList);
-    }
+    renderMissionCards(missionCards);
 
     if (partnersList.length === 0) {
       $('.missions-partners').style.display = 'none';
