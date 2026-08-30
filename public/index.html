@@ -72,7 +72,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link class="gfont-link" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;600;700&display=block" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
-<link rel="stylesheet" href="/css/style.css?v=53" />
+<link rel="stylesheet" href="/css/style.css?v=54" />
 <meta property="og:title" content="물댄동산교회 - 오산시 중앙동" />
 <meta property="og:description" content="경기도 오산시 중앙동 대동다숲(오색시장 인근)에 위치한 물댄동산교회입니다. 담임목사 이기삼." />
 <meta property="og:image" content="https://muldaen.com/uploads/0001.png" />
@@ -286,34 +286,19 @@
       </div>
 
       <div class="missions-layout">
-        <div class="mission-cards-row reveal" id="mission-cards-row">
-          <div class="mission-card" data-slot="1">
-            <div class="mission-card-photo-wrap">
-              <img class="mission-card-photo" id="mission-card-1-photo" alt="" style="display:none;" />
-              <div class="mission-card-photo-empty" id="mission-card-1-empty"></div>
+        <div class="mission-cards-wrap reveal">
+          <div class="mission-cards-head">
+            <div>
+              <span class="eyebrow-sm">MISSIONARIES</span>
+              <h3>선교사님 소개</h3>
             </div>
-            <span class="mission-card-country" id="mission-card-1-country"></span>
-            <h4 class="mission-card-name" id="mission-card-1-name"></h4>
-            <p class="mission-card-content" id="mission-card-1-content"></p>
-          </div>
-          <div class="mission-card" data-slot="2">
-            <div class="mission-card-photo-wrap">
-              <img class="mission-card-photo" id="mission-card-2-photo" alt="" style="display:none;" />
-              <div class="mission-card-photo-empty" id="mission-card-2-empty"></div>
+            <div class="missions-partners-nav">
+              <button type="button" class="icon-btn-round" id="mission-cards-prev" aria-label="이전 선교사님">‹</button>
+              <button type="button" class="icon-btn-round" id="mission-cards-next" aria-label="다음 선교사님">›</button>
             </div>
-            <span class="mission-card-country" id="mission-card-2-country"></span>
-            <h4 class="mission-card-name" id="mission-card-2-name"></h4>
-            <p class="mission-card-content" id="mission-card-2-content"></p>
           </div>
-          <div class="mission-card" data-slot="3">
-            <div class="mission-card-photo-wrap">
-              <img class="mission-card-photo" id="mission-card-3-photo" alt="" style="display:none;" />
-              <div class="mission-card-photo-empty" id="mission-card-3-empty"></div>
-            </div>
-            <span class="mission-card-country" id="mission-card-3-country"></span>
-            <h4 class="mission-card-name" id="mission-card-3-name"></h4>
-            <p class="mission-card-content" id="mission-card-3-content"></p>
-          </div>
+          <div class="mission-cards-row" id="mission-cards-row"></div>
+          <p class="missions-partners-page" id="mission-cards-page"></p>
         </div>
 
         <div class="missions-partners reveal">
@@ -524,6 +509,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
 <script src="/js/countries.js"></script>
 <script src="/js/font-catalog.js"></script>
-<script src="/js/main.js?v=11"></script>
+<script src="/js/main.js?v=12"></script>
 </body>
 </html>
