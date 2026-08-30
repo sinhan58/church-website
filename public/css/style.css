@@ -2515,18 +2515,18 @@ a:focus-visible, button:focus-visible {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  padding: 12px 14px;
-  width: 190px;
+  padding: 14px 16px;
+  width: 240px;
   pointer-events: auto;
 }
 .mission-pin-card-head { display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
 .mission-pin-card-head .flag { font-size: 15px; }
 .mission-pin-card-head .country { font-size: 11px; font-weight: 600; color: var(--muted); }
-.mission-pin-card-body { display: flex; gap: 10px; align-items: flex-start; }
+.mission-pin-card-body { display: flex; gap: 12px; align-items: flex-start; }
 .mission-pin-card-body img,
 .mission-pin-card-avatar {
-  width: 32px;
-  height: 32px;
+  width: 84px;
+  height: 84px;
   border-radius: 50%;
   object-fit: cover;
   background: var(--line);
@@ -2608,31 +2608,23 @@ a:focus-visible, button:focus-visible {
 .icon-btn-round:disabled { opacity: 0.3; cursor: default; }
 
 .partner-row {
-  display: flex; align-items: center; gap: 14px;
-  padding: 14px;
-  margin-top: 10px;
-  border-top: none;
-  background: var(--ivory);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.15s ease;
+  display: flex; align-items: center; gap: 10px;
+  padding: 12px 0;
+  border-top: 1px solid var(--line);
 }
-.partner-row:first-child { margin-top: 0; }
-.partner-row:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(13,21,38,0.1); }
 .partner-row img, .partner-avatar {
-  width: 68px; height: 68px;
+  width: 36px; height: 36px;
   border-radius: 50%;
   object-fit: cover;
   background: var(--line);
   flex-shrink: 0;
-  border: 2px solid var(--ivory-dim);
 }
 .partner-info { flex: 1; min-width: 0; }
 .partner-info .name {
-  margin: 0; font-size: 15px; font-weight: 700; color: var(--ink);
+  margin: 0; font-size: 13px; font-weight: 600; color: var(--ink);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.partner-info .note { margin: 3px 0 0; font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.partner-info .note { margin: 2px 0 0; font-size: 11px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .partner-day {
   font-size: 10.5px; font-weight: 600;
   color: var(--navy-deep);
