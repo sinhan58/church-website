@@ -2508,7 +2508,7 @@ a:focus-visible, button:focus-visible {
   display: grid;
   grid-template-columns: 1.9fr 1fr;
   gap: 24px;
-  align-items: start;
+  align-items: stretch;
 }
 @media (max-width: 860px) {
   .missions-layout { grid-template-columns: 1fr; gap: 32px; }
@@ -2520,14 +2520,17 @@ a:focus-visible, button:focus-visible {
   border-radius: var(--radius);
   padding: 18px 16px;
   box-sizing: border-box;
+  min-height: 420px; /* 카드 페이지가 바뀌어도 섹션 높이(=배경 사진)가 흔들리지 않도록 고정 */
+  display: flex;
+  flex-direction: column;
 }
 .mission-cards-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .mission-cards-head h3 { font-family: var(--font-heading); font-size: 16px; font-weight: 500; margin: 0; color: var(--ink); }
 
 .mission-cards-row {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 18px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
 }
 @media (max-width: 860px) {
   .mission-cards-row { grid-template-columns: 1fr; }
@@ -2716,3 +2719,14 @@ a:focus-visible, button:focus-visible {
   white-space: nowrap;
 }
 .missions-partners-page { text-align: center; font-size: 10.5px; color: var(--muted); margin: 10px 0 0; }
+.mission-cards-dots { display: flex; align-items: center; justify-content: center; gap: 7px; margin: 14px 0 0; }
+.mission-cards-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  background: var(--line);
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.2s ease;
+}
+.mission-cards-dot.active { background: var(--gold); transform: scale(1.3); }
