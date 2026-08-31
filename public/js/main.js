@@ -1575,16 +1575,33 @@
     let resumeTimer = null;
     let destroyed = false;
     let paused = false;
+    let animating = false;
 
-    function afterSettle(cb) {
-      // 이번 이동(스크롤 애니메이션 + 정렬 복구)이 완전히 끝난 뒤에만 콜백을 실행합니다.
-      // 이전 이동이 안 끝났는데 다음 이동이 겹쳐 시작되는 것을 막아서, 여러 사이클이 지나도
-      // 상태가 꼬이지 않게 합니다.
-      if ('onscrollend' in window) {
-        row.addEventListener('scrollend', cb, { once: true });
-      } else {
-        setTimeout(cb, 650);
+    function easeInOutQuad(t) {
+      return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
+    }
+
+    // 브라우저 네이티브 스크롤(scrollTo)과 CSS scroll-snap이 서로 충돌해서 방향이 꼬이는
+    // 문제가 있었어서, 직접 매 프레임 scrollLeft 값을 계산해서 움직입니다. 항상 지정한
+    // 방향으로만 이동하고, 다 끝나기 전까지는 다음 이동이 절대 끼어들 수 없습니다.
+    function animateScrollTo(targetLeft, duration, done) {
+      const startLeft = row.scrollLeft;
+      const distance = targetLeft - startLeft;
+      const startTime = performance.now();
+      animating = true;
+      function step(now) {
+        if (destroyed) return;
+        const elapsed = now - startTime;
+        const t = Math.min(1, elapsed / duration);
+        row.scrollLeft = startLeft + distance * easeInOutQuad(t);
+        if (t < 1) {
+          requestAnimationFrame(step);
+        } else {
+          animating = false;
+          if (done) done();
+        }
       }
+      requestAnimationFrame(step);
     }
 
     function scheduleNext() {
@@ -1593,26 +1610,19 @@
     }
 
     function goNext() {
-      if (destroyed || paused) return;
+      if (destroyed || paused || animating) return;
       const pageWidth = row.clientWidth || 1;
       index += 1;
-      row.style.scrollSnapType = 'none'; // 프로그래밍으로 움직이는 동안 스냅 기능과 충돌(역방향 튕김)하지 않도록 잠시 해제
-      row.scrollTo({ left: index * pageWidth, behavior: 'smooth' });
-
-      if (index === itemCount) {
-        afterSettle(() => {
-          if (destroyed || paused) return;
-          row.scrollTo({ left: 0, behavior: 'auto' }); // 애니메이션 없이 즉시 진짜 첫 카드로
+      row.style.scrollSnapType = 'none'; // 애니메이션 중에는 스냅이 값을 되돌리지 못하도록 꺼둠
+      animateScrollTo(index * pageWidth, 500, () => {
+        if (destroyed) return;
+        if (index === itemCount) {
+          row.scrollLeft = 0; // 애니메이션 없이 즉시 진짜 첫 카드로 (복제본과 내용이 같아 티가 안 남)
           index = 0;
-          row.style.scrollSnapType = '';
-          scheduleNext();
-        });
-      } else {
-        afterSettle(() => {
-          row.style.scrollSnapType = '';
-          scheduleNext();
-        });
-      }
+        }
+        row.style.scrollSnapType = '';
+        scheduleNext();
+      });
     }
 
     function stopTicking() {
