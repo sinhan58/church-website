@@ -1623,9 +1623,11 @@
       if (destroyed || paused) return;
       const pageWidth = row.clientWidth || 1;
       pos += 1;
+      row.style.scrollSnapType = 'none'; // 이 애니메이션이 진행되는 짧은 순간만 스냅과 충돌하지 않도록 잠시 꺼둠
       animateScrollTo(pos * pageWidth, 500, () => {
         if (destroyed) return;
         correctIfOnClone();
+        row.style.scrollSnapType = ''; // 다 움직였으니 바로 복구 (평소·사용자가 밀 때는 항상 스냅 켜진 상태)
         if (!destroyed && !paused) tickTimer = setTimeout(goNext, intervalMs);
       });
     }
