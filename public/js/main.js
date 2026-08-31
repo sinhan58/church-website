@@ -426,19 +426,25 @@
       serviceAutoScrollStop = null;
     }
     if (isServiceMobile && serviceTimesList.length > 1) {
-      const s0 = serviceTimesList[0];
-      const cloneHTML = `
+      const buildCardHTML = (s) => `
         <div class="service-card">
           <div class="service-card-shape"></div>
-          <div class="service-card-content${s0.bold ? ' is-bold' : ''} service-card-content--${s0.fontSize || 'md'}">
-            <div class="name">${escapeHtml(s0.name)}</div>
-            <div class="time">${escapeHtml(s0.time)}</div>
-            ${s0.description ? `<div class="desc">${escapeHtml(s0.description)}</div>` : ''}
+          <div class="service-card-content${s.bold ? ' is-bold' : ''} service-card-content--${s.fontSize || 'md'}">
+            <div class="name">${escapeHtml(s.name)}</div>
+            <div class="time">${escapeHtml(s.time)}</div>
+            ${s.description ? `<div class="desc">${escapeHtml(s.description)}</div>` : ''}
           </div>
         </div>`;
-      const cloneWrap = document.createElement('div');
-      cloneWrap.innerHTML = cloneHTML;
-      serviceGrid.appendChild(cloneWrap.firstElementChild);
+      const sLast = serviceTimesList[serviceTimesList.length - 1];
+      const lastCloneWrap = document.createElement('div');
+      lastCloneWrap.innerHTML = buildCardHTML(sLast);
+      serviceGrid.insertBefore(lastCloneWrap.firstElementChild, serviceGrid.firstChild);
+
+      const s0 = serviceTimesList[0];
+      const firstCloneWrap = document.createElement('div');
+      firstCloneWrap.innerHTML = buildCardHTML(s0);
+      serviceGrid.appendChild(firstCloneWrap.firstElementChild);
+
       serviceAutoScrollStop = setupInfiniteAutoScroll(serviceGrid, serviceTimesList.length, 3000);
     }
 
@@ -1568,9 +1574,12 @@
   // 가로 스와이프 캐러셀이 마지막 카드에서 처음으로 돌아갈 때, 역방향으로 튕기지 않고
   // 같은 방향으로 계속 넘어가는 것처럼 보이게 합니다. (첫 카드를 맨 뒤에 하나 복제해두고,
   // 그 복제본까지 도착하면 애니메이션 없이 진짜 첫 카드 위치로 순간 이동합니다.)
+  // row 안에는 [마지막 카드 복제본, 실제 카드 1~N, 첫 카드 복제본] 순서로 들어있어야 합니다.
+  // (호출하는 쪽에서 이렇게 구성해줍니다.) 그래야 자동 넘김과 손가락 스와이프 둘 다
+  // 양쪽 방향으로 끝없이 순환하는 것처럼 보입니다.
   function setupInfiniteAutoScroll(row, itemCount, intervalMs) {
     if (!row || itemCount <= 1) return () => {};
-    let index = 0;
+    let pos = 1; // 1..itemCount = 실제 카드, 0 = 마지막 복제본, itemCount+1 = 첫 복제본
     let tickTimer = null;
     let destroyed = false;
     let paused = false;
@@ -1579,8 +1588,6 @@
       return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
     }
 
-    // 브라우저 네이티브 스크롤(scrollTo)과 CSS scroll-snap이 서로 충돌해서 방향이 꼬이는
-    // 문제가 있었어서, 직접 매 프레임 scrollLeft 값을 계산해서 움직입니다.
     function animateScrollTo(targetLeft, duration, done) {
       const startLeft = row.scrollLeft;
       const distance = targetLeft - startLeft;
@@ -1599,17 +1606,26 @@
       requestAnimationFrame(step);
     }
 
+    // 복제본 자리에 도착했으면, 애니메이션 없이 즉시 진짜 카드 자리로 순간 이동합니다.
+    // (복제본과 내용이 똑같아서 티가 안 남)
+    function correctIfOnClone() {
+      const pageWidth = row.clientWidth || 1;
+      if (pos === itemCount + 1) {
+        row.scrollLeft = 1 * pageWidth;
+        pos = 1;
+      } else if (pos === 0) {
+        row.scrollLeft = itemCount * pageWidth;
+        pos = itemCount;
+      }
+    }
+
     function goNext() {
       if (destroyed || paused) return;
       const pageWidth = row.clientWidth || 1;
-      index += 1;
-      animateScrollTo(index * pageWidth, 500, () => {
+      pos += 1;
+      animateScrollTo(pos * pageWidth, 500, () => {
         if (destroyed) return;
-        if (index === itemCount) {
-          row.scrollLeft = 0; // 애니메이션 없이 즉시 진짜 첫 카드로 (복제본과 내용이 같아 티가 안 남)
-          index = 0;
-        }
-        // 카드가 자리에 멈춘 바로 이 시점부터 정확히 intervalMs를 세고 다음으로 넘어갑니다.
+        correctIfOnClone();
         if (!destroyed && !paused) tickTimer = setTimeout(goNext, intervalMs);
       });
     }
@@ -1625,26 +1641,30 @@
       if (destroyed) return;
       paused = false;
       const pageWidth = row.clientWidth || 1;
-      index = Math.round(row.scrollLeft / pageWidth) % itemCount; // 사용자가 놓아둔 위치부터 이어서
+      pos = Math.round(row.scrollLeft / pageWidth); // 사용자가 놓아둔 위치부터 이어서
+      correctIfOnClone(); // 손으로 밀어서 복제본 자리에 놓았을 수도 있으니 여기서도 보정
       tickTimer = setTimeout(goNext, intervalMs);
     }
 
-    // 세로 스크롤 등 실제로 가로로 밀지 않은 터치는 무시하고, 진짜로 카드를 미는
-    // 동작(가로로 8px 이상 이동)이 감지될 때만 자동 넘김을 잠깐 멈춥니다.
-    // 손을 뗀 순간 바로 3초 카운트를 시작해서 다시 이어집니다.
+    // 세로 스크롤(약간의 가로 흔들림 포함)은 무시하고, 가로로 밀리는 정도가 세로보다
+    // 뚜렷하게 클 때만 "진짜 카드 스와이프"로 인정해서 자동 넘김을 잠깐 멈춥니다.
     let touchStartX = null;
+    let touchStartY = null;
     let hasMovedEnough = false;
-    const MOVE_THRESHOLD = 8;
+    const MOVE_THRESHOLD = 10;
 
     function onTouchStart(e) {
       const point = e.touches ? e.touches[0] : e;
       touchStartX = point.clientX;
+      touchStartY = point.clientY;
       hasMovedEnough = false;
     }
     function onTouchMove(e) {
       if (touchStartX === null || hasMovedEnough) return;
       const point = e.touches ? e.touches[0] : e;
-      if (Math.abs(point.clientX - touchStartX) > MOVE_THRESHOLD) {
+      const dx = Math.abs(point.clientX - touchStartX);
+      const dy = Math.abs(point.clientY - touchStartY);
+      if (dx > MOVE_THRESHOLD && dx > dy) {
         hasMovedEnough = true;
         pause();
       }
@@ -1652,6 +1672,7 @@
     function onTouchFinish() {
       if (hasMovedEnough) resume();
       touchStartX = null;
+      touchStartY = null;
       hasMovedEnough = false;
     }
 
@@ -1662,6 +1683,8 @@
     row.addEventListener('pointermove', onTouchMove, { passive: true });
     row.addEventListener('pointerup', onTouchFinish, { passive: true });
 
+    // 시작 위치를 진짜 첫 카드(1번)로 맞춰둡니다 (0번은 복제본이라서요).
+    row.scrollLeft = row.clientWidth || 0;
     tickTimer = setTimeout(goNext, intervalMs);
 
     return function destroy() {
@@ -2299,9 +2322,14 @@
       // 모바일: 전체 카드를 한 번에 렌더링하고, 손가락 스와이프(가로 스크롤)로 넘겨봅니다.
       listEl.innerHTML = cards.map(cardHTML).join('');
       if (cards.length > 1) {
-        const cloneEl = document.createElement('div');
-        cloneEl.innerHTML = cardHTML(cards[0], 0);
-        listEl.appendChild(cloneEl.firstElementChild);
+        // 앞쪽엔 마지막 카드 복제본, 뒤쪽엔 첫 카드 복제본을 둬서 양쪽 다 끝없이 순환하게 합니다.
+        const lastCloneEl = document.createElement('div');
+        lastCloneEl.innerHTML = cardHTML(cards[cards.length - 1], cards.length - 1);
+        listEl.insertBefore(lastCloneEl.firstElementChild, listEl.firstChild);
+
+        const firstCloneEl = document.createElement('div');
+        firstCloneEl.innerHTML = cardHTML(cards[0], 0);
+        listEl.appendChild(firstCloneEl.firstElementChild);
       }
       bindCardClicks();
       if (prevBtn) prevBtn.style.display = 'none';
@@ -2384,7 +2412,7 @@
     function updateActiveDot() {
       ticking = false;
       const pageWidth = row.clientWidth || 1;
-      const idx = Math.round(row.scrollLeft / pageWidth);
+      const idx = Math.round(row.scrollLeft / pageWidth) - 1; // 맨 앞 복제 카드만큼 한 칸 보정
       const clamped = Math.max(0, Math.min(count - 1, idx));
       dots.forEach((dot, i) => dot.classList.toggle('active', i === clamped));
     }
