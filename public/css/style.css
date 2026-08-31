@@ -519,9 +519,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   font-weight: 800;
   word-break: keep-all;
   margin: 0 0 14px;
-  letter-spacing: 0.3px;
   color: #fff;
-  text-shadow: 0 2px 6px rgba(0,0,0,0.4);
 }
 .service-card-content.is-bold .time { font-weight: 800; }
 .service-card-content.is-bold .name { font-weight: 700; color: #fff; }
