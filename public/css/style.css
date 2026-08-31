@@ -520,12 +520,8 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   word-break: keep-all;
   margin: 0 0 14px;
   letter-spacing: 0.3px;
-  background: linear-gradient(135deg, #fff 0%, var(--gold-soft) 45%, var(--gold) 70%, var(--gold-soft) 100%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: #fff; /* 그라데이션 미지원 브라우저용 대비 색상 */
-  filter: drop-shadow(0 2px 6px rgba(0,0,0,0.35));
+  color: #fff;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.4);
 }
 .service-card-content.is-bold .time { font-weight: 800; }
 .service-card-content.is-bold .name { font-weight: 700; color: #fff; }
