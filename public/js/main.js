@@ -334,6 +334,7 @@
     }
   }
 
+  let serviceAutoScrollStop = null;
   async function loadSite() {
     const site = await getJSON('/api/site');
 
@@ -420,15 +421,25 @@
       });
     }
 
-    if (isServiceMobile && serviceTimesList.length > 1 && !serviceGrid.dataset.autoScrollSetup) {
-      serviceGrid.dataset.autoScrollSetup = '1';
-      const firstCard = serviceGrid.querySelector('.service-card');
-      if (firstCard) {
-        const clone = firstCard.cloneNode(true);
-        clone.removeAttribute('id');
-        serviceGrid.appendChild(clone);
-      }
-      setupInfiniteAutoScroll(serviceGrid, serviceTimesList.length, 3000);
+    if (serviceAutoScrollStop) {
+      serviceAutoScrollStop();
+      serviceAutoScrollStop = null;
+    }
+    if (isServiceMobile && serviceTimesList.length > 1) {
+      const s0 = serviceTimesList[0];
+      const cloneHTML = `
+        <div class="service-card">
+          <div class="service-card-shape"></div>
+          <div class="service-card-content${s0.bold ? ' is-bold' : ''} service-card-content--${s0.fontSize || 'md'}">
+            <div class="name">${escapeHtml(s0.name)}</div>
+            <div class="time">${escapeHtml(s0.time)}</div>
+            ${s0.description ? `<div class="desc">${escapeHtml(s0.description)}</div>` : ''}
+          </div>
+        </div>`;
+      const cloneWrap = document.createElement('div');
+      cloneWrap.innerHTML = cloneHTML;
+      serviceGrid.appendChild(cloneWrap.firstElementChild);
+      serviceAutoScrollStop = setupInfiniteAutoScroll(serviceGrid, serviceTimesList.length, 3000);
     }
 
     if (site.contact) {
