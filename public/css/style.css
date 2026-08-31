@@ -2506,7 +2506,7 @@ a:focus-visible, button:focus-visible {
 
 .missions-layout {
   display: grid;
-  grid-template-columns: 1.6fr 1fr;
+  grid-template-columns: 1.9fr 1fr;
   gap: 24px;
   align-items: start;
 }
@@ -2526,8 +2526,8 @@ a:focus-visible, button:focus-visible {
 
 .mission-cards-row {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 14px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 18px;
 }
 @media (max-width: 860px) {
   .mission-cards-row { grid-template-columns: 1fr; }
@@ -2542,31 +2542,31 @@ a:focus-visible, button:focus-visible {
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: none;
-  padding: 20px 14px;
+  padding: 28px 20px;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
 }
 .mission-card:hover { transform: translateY(-4px); box-shadow: 0 14px 32px rgba(13,21,38,0.12); }
 .mission-card-photo-wrap {
-  width: 68px;
-  height: 68px;
+  width: 100px;
+  height: 100px;
   border-radius: 50%;
   overflow: hidden;
   background: var(--ivory-dim);
-  margin-bottom: 12px;
+  margin-bottom: 14px;
   flex-shrink: 0;
 }
 .mission-card-photo { width: 100%; height: 100%; object-fit: cover; display: block; }
 .mission-card-photo-empty { width: 100%; height: 100%; }
 .mission-card-country {
-  font-size: 10.5px;
+  font-size: 12px;
   font-weight: 700;
-  letter-spacing: 0.5px;
+  letter-spacing: 1px;
   color: var(--gold-deep);
   text-transform: uppercase;
-  margin-bottom: 4px;
+  margin-bottom: 6px;
 }
-.mission-card-name { margin: 0 0 8px; font-size: 14.5px; font-weight: 700; color: var(--ink); }
-.mission-card-content { margin: 0; font-size: 12px; line-height: 1.6; color: var(--muted); white-space: pre-line; word-break: keep-all; }
+.mission-card-name { margin: 0 0 10px; font-size: 17px; font-weight: 700; color: var(--ink); }
+.mission-card-content { margin: 0; font-size: 13.5px; line-height: 1.7; color: var(--muted); white-space: pre-line; word-break: keep-all; }
 
 @media (max-width: 860px) {
   .missions-layout { grid-template-columns: 1fr; }
@@ -2665,6 +2665,9 @@ a:focus-visible, button:focus-visible {
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
+}
+@media (min-width: 861px) {
+  .missions-partners { max-width: calc(100% - 3cm); }
 }
 #partners-list { display: flex; flex-direction: column; }
 .missions-partners-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
