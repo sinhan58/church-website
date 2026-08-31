@@ -2497,7 +2497,7 @@ a:focus-visible, button:focus-visible {
 .missions-bg-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(250,247,240,0.94) 0%, rgba(250,247,240,0.88) 100%);
+  background: linear-gradient(180deg, rgba(250,247,240,0.85) 0%, rgba(250,247,240,0.78) 100%);
   z-index: 1;
   display: none;
 }
@@ -2515,7 +2515,7 @@ a:focus-visible, button:focus-visible {
 }
 
 .mission-cards-wrap {
-  background: var(--ivory);
+  background: transparent;
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 18px 16px;
@@ -2541,7 +2541,8 @@ a:focus-visible, button:focus-visible {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  background: var(--ivory);
+  background: rgba(250,247,240,0.78);
+  backdrop-filter: blur(6px);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: none;
@@ -2661,7 +2662,8 @@ a:focus-visible, button:focus-visible {
 .mission-mobile-card .desc { font-size: 12.5px; }
 
 .missions-partners {
-  background: var(--ivory);
+  background: rgba(250,247,240,0.78);
+  backdrop-filter: blur(6px);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 18px 16px;
