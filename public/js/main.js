@@ -1651,10 +1651,37 @@
       }, 3000);
     }
 
-    row.addEventListener('touchstart', onInteractStart, { passive: true });
-    row.addEventListener('pointerdown', onInteractStart, { passive: true });
-    row.addEventListener('touchend', onInteractEnd, { passive: true });
-    row.addEventListener('pointerup', onInteractEnd, { passive: true });
+    let touchStartX = null;
+    let hasMovedEnough = false;
+    const MOVE_THRESHOLD = 8; // px — 이 이상 가로로 밀려야 "진짜 스와이프"로 인정
+
+    function onTouchStart(e) {
+      const point = e.touches ? e.touches[0] : e;
+      touchStartX = point.clientX;
+      hasMovedEnough = false;
+    }
+    function onTouchMove(e) {
+      if (touchStartX === null || hasMovedEnough) return;
+      const point = e.touches ? e.touches[0] : e;
+      if (Math.abs(point.clientX - touchStartX) > MOVE_THRESHOLD) {
+        hasMovedEnough = true;
+        onInteractStart(); // 실제로 밀기 시작한 시점에만 자동 넘김을 멈춥니다
+      }
+    }
+    function onTouchFinish() {
+      if (hasMovedEnough) {
+        onInteractEnd(); // 진짜로 스와이프했을 때만 "3초 후 재개" 예약
+      }
+      touchStartX = null;
+      hasMovedEnough = false;
+    }
+
+    row.addEventListener('touchstart', onTouchStart, { passive: true });
+    row.addEventListener('touchmove', onTouchMove, { passive: true });
+    row.addEventListener('touchend', onTouchFinish, { passive: true });
+    row.addEventListener('pointerdown', onTouchStart, { passive: true });
+    row.addEventListener('pointermove', onTouchMove, { passive: true });
+    row.addEventListener('pointerup', onTouchFinish, { passive: true });
 
     startTicking();
 
