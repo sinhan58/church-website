@@ -1862,7 +1862,6 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
     overflow-x: auto;
     overflow-y: hidden;
     scroll-snap-type: x mandatory;
-    scroll-behavior: smooth;
     scrollbar-width: none;
     overscroll-behavior-x: contain;
     touch-action: pan-x pan-y;
