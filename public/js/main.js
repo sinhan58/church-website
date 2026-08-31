@@ -1572,23 +1572,19 @@
     if (!row || itemCount <= 1) return () => {};
     let index = 0;
     let tickTimer = null;
-    let resumeTimer = null;
     let destroyed = false;
     let paused = false;
-    let animating = false;
 
     function easeInOutQuad(t) {
       return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
     }
 
     // 브라우저 네이티브 스크롤(scrollTo)과 CSS scroll-snap이 서로 충돌해서 방향이 꼬이는
-    // 문제가 있었어서, 직접 매 프레임 scrollLeft 값을 계산해서 움직입니다. 항상 지정한
-    // 방향으로만 이동하고, 다 끝나기 전까지는 다음 이동이 절대 끼어들 수 없습니다.
+    // 문제가 있었어서, 직접 매 프레임 scrollLeft 값을 계산해서 움직입니다.
     function animateScrollTo(targetLeft, duration, done) {
       const startLeft = row.scrollLeft;
       const distance = targetLeft - startLeft;
       const startTime = performance.now();
-      animating = true;
       function step(now) {
         if (destroyed) return;
         const elapsed = now - startTime;
@@ -1596,21 +1592,15 @@
         row.scrollLeft = startLeft + distance * easeInOutQuad(t);
         if (t < 1) {
           requestAnimationFrame(step);
-        } else {
-          animating = false;
-          if (done) done();
+        } else if (done) {
+          done();
         }
       }
       requestAnimationFrame(step);
     }
 
-    function scheduleNext() {
-      if (destroyed || paused) return;
-      tickTimer = setTimeout(goNext, intervalMs);
-    }
-
     function goNext() {
-      if (destroyed || paused || animating) return;
+      if (destroyed || paused) return;
       const pageWidth = row.clientWidth || 1;
       index += 1;
       animateScrollTo(index * pageWidth, 500, () => {
@@ -1619,41 +1609,32 @@
           row.scrollLeft = 0; // 애니메이션 없이 즉시 진짜 첫 카드로 (복제본과 내용이 같아 티가 안 남)
           index = 0;
         }
-        scheduleNext();
+        // 카드가 자리에 멈춘 바로 이 시점부터 정확히 intervalMs를 세고 다음으로 넘어갑니다.
+        if (!destroyed && !paused) tickTimer = setTimeout(goNext, intervalMs);
       });
     }
 
-    function stopTicking() {
+    function pause() {
       paused = true;
       if (tickTimer) {
         clearTimeout(tickTimer);
         tickTimer = null;
       }
     }
-    function startTicking() {
+    function resume() {
+      if (destroyed) return;
       paused = false;
-      row.style.scrollSnapType = 'none'; // 자동 넘김이 켜져있는 동안은 계속 꺼둡니다 (브라우저 스냅 기능과 계속 충돌하는 것을 방지)
-      scheduleNext();
+      const pageWidth = row.clientWidth || 1;
+      index = Math.round(row.scrollLeft / pageWidth) % itemCount; // 사용자가 놓아둔 위치부터 이어서
+      tickTimer = setTimeout(goNext, intervalMs);
     }
 
-    function onInteractStart() {
-      stopTicking();
-      row.style.scrollSnapType = ''; // 사용자가 직접 만질 때는 스냅을 켜서 자연스럽게 붙게 함
-      if (resumeTimer) clearTimeout(resumeTimer);
-    }
-    function onInteractEnd() {
-      if (resumeTimer) clearTimeout(resumeTimer);
-      resumeTimer = setTimeout(() => {
-        if (destroyed) return;
-        const pageWidth = row.clientWidth || 1;
-        index = Math.round(row.scrollLeft / pageWidth) % itemCount; // 사용자가 놓아둔 위치부터 이어서
-        startTicking();
-      }, 3000);
-    }
-
+    // 세로 스크롤 등 실제로 가로로 밀지 않은 터치는 무시하고, 진짜로 카드를 미는
+    // 동작(가로로 8px 이상 이동)이 감지될 때만 자동 넘김을 잠깐 멈춥니다.
+    // 손을 뗀 순간 바로 3초 카운트를 시작해서 다시 이어집니다.
     let touchStartX = null;
     let hasMovedEnough = false;
-    const MOVE_THRESHOLD = 8; // px — 이 이상 가로로 밀려야 "진짜 스와이프"로 인정
+    const MOVE_THRESHOLD = 8;
 
     function onTouchStart(e) {
       const point = e.touches ? e.touches[0] : e;
@@ -1665,13 +1646,11 @@
       const point = e.touches ? e.touches[0] : e;
       if (Math.abs(point.clientX - touchStartX) > MOVE_THRESHOLD) {
         hasMovedEnough = true;
-        onInteractStart(); // 실제로 밀기 시작한 시점에만 자동 넘김을 멈춥니다
+        pause();
       }
     }
     function onTouchFinish() {
-      if (hasMovedEnough) {
-        onInteractEnd(); // 진짜로 스와이프했을 때만 "3초 후 재개" 예약
-      }
+      if (hasMovedEnough) resume();
       touchStartX = null;
       hasMovedEnough = false;
     }
@@ -1683,13 +1662,11 @@
     row.addEventListener('pointermove', onTouchMove, { passive: true });
     row.addEventListener('pointerup', onTouchFinish, { passive: true });
 
-    startTicking();
+    tickTimer = setTimeout(goNext, intervalMs);
 
     return function destroy() {
       destroyed = true;
-      stopTicking();
-      if (resumeTimer) clearTimeout(resumeTimer);
-      row.style.scrollSnapType = '';
+      if (tickTimer) clearTimeout(tickTimer);
     };
   }
 
