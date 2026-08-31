@@ -1571,51 +1571,64 @@
   function setupInfiniteAutoScroll(row, itemCount, intervalMs) {
     if (!row || itemCount <= 1) return () => {};
     let index = 0;
-    let timer = null;
+    let tickTimer = null;
     let resumeTimer = null;
     let destroyed = false;
+    let paused = false;
+
+    function afterSettle(cb) {
+      // 이번 이동(스크롤 애니메이션 + 정렬 복구)이 완전히 끝난 뒤에만 콜백을 실행합니다.
+      // 이전 이동이 안 끝났는데 다음 이동이 겹쳐 시작되는 것을 막아서, 여러 사이클이 지나도
+      // 상태가 꼬이지 않게 합니다.
+      if ('onscrollend' in window) {
+        row.addEventListener('scrollend', cb, { once: true });
+      } else {
+        setTimeout(cb, 650);
+      }
+    }
+
+    function scheduleNext() {
+      if (destroyed || paused) return;
+      tickTimer = setTimeout(goNext, intervalMs);
+    }
 
     function goNext() {
+      if (destroyed || paused) return;
       const pageWidth = row.clientWidth || 1;
       index += 1;
       row.style.scrollSnapType = 'none'; // 프로그래밍으로 움직이는 동안 스냅 기능과 충돌(역방향 튕김)하지 않도록 잠시 해제
       row.scrollTo({ left: index * pageWidth, behavior: 'smooth' });
-      const restoreSnap = () => {
-        row.style.scrollSnapType = '';
-      };
+
       if (index === itemCount) {
-        const finish = () => {
+        afterSettle(() => {
+          if (destroyed || paused) return;
           row.scrollTo({ left: 0, behavior: 'auto' }); // 애니메이션 없이 즉시 진짜 첫 카드로
           index = 0;
-          restoreSnap();
-        };
-        if ('onscrollend' in window) {
-          row.addEventListener('scrollend', finish, { once: true });
-        } else {
-          setTimeout(finish, 700);
-        }
-      } else if ('onscrollend' in window) {
-        row.addEventListener('scrollend', restoreSnap, { once: true });
+          row.style.scrollSnapType = '';
+          scheduleNext();
+        });
       } else {
-        setTimeout(restoreSnap, 700);
+        afterSettle(() => {
+          row.style.scrollSnapType = '';
+          scheduleNext();
+        });
       }
     }
 
-    function startTimer() {
-      if (timer) clearInterval(timer);
-      timer = setInterval(() => {
-        if (!destroyed) goNext();
-      }, intervalMs);
-    }
-    function stopTimer() {
-      if (timer) {
-        clearInterval(timer);
-        timer = null;
+    function stopTicking() {
+      paused = true;
+      if (tickTimer) {
+        clearTimeout(tickTimer);
+        tickTimer = null;
       }
+    }
+    function startTicking() {
+      paused = false;
+      scheduleNext();
     }
 
     function onInteractStart() {
-      stopTimer();
+      stopTicking();
       if (resumeTimer) clearTimeout(resumeTimer);
     }
     function onInteractEnd() {
@@ -1625,7 +1638,7 @@
         const pageWidth = row.clientWidth || 1;
         index = Math.round(row.scrollLeft / pageWidth) % itemCount; // 사용자가 놓아둔 위치부터 이어서
         row.style.scrollSnapType = '';
-        startTimer();
+        startTicking();
       }, 3000);
     }
 
@@ -1634,11 +1647,11 @@
     row.addEventListener('touchend', onInteractEnd, { passive: true });
     row.addEventListener('pointerup', onInteractEnd, { passive: true });
 
-    startTimer();
+    startTicking();
 
     return function destroy() {
       destroyed = true;
-      stopTimer();
+      stopTicking();
       if (resumeTimer) clearTimeout(resumeTimer);
     };
   }
