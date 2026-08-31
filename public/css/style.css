@@ -1870,7 +1870,8 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   .service-grid::-webkit-scrollbar { display: none; }
   .service-card {
     flex: 0 0 100%;
-    scroll-snap-align: center;
+    min-width: 0;
+    scroll-snap-align: start;
     padding: 40px 20px;
   }
   .service-card-shape {
