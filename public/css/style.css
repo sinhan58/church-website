@@ -514,7 +514,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   white-space: pre-line;
   word-break: keep-all;
 }
-.service-card .name { color: #fff; font-size: 1.3rem; font-weight: 800; word-break: keep-all; }
+.service-card .name { color: #fff; font-size: 1.3rem; font-weight: 800; word-break: keep-all; margin: 0 0 14px; }
 .service-card-content.is-bold .time { font-weight: 800; }
 .service-card-content.is-bold .name { font-weight: 700; color: #fff; }
 /* 관리자가 예배별로 고르는 글자 크기 (시간/이름 둘 다 같은 비율로 조정) */
