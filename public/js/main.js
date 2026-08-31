@@ -1613,14 +1613,11 @@
       if (destroyed || paused || animating) return;
       const pageWidth = row.clientWidth || 1;
       index += 1;
-      console.log('[autoScroll] goNext →', { index, itemCount, pageWidth, scrollLeftBefore: row.scrollLeft, target: index * pageWidth });
       animateScrollTo(index * pageWidth, 500, () => {
         if (destroyed) return;
-        console.log('[autoScroll] settled', { index, scrollLeftAfter: row.scrollLeft });
         if (index === itemCount) {
           row.scrollLeft = 0; // 애니메이션 없이 즉시 진짜 첫 카드로 (복제본과 내용이 같아 티가 안 남)
           index = 0;
-          console.log('[autoScroll] wrapped to 0', { scrollLeftAfterReset: row.scrollLeft });
         }
         scheduleNext();
       });
@@ -1635,11 +1632,13 @@
     }
     function startTicking() {
       paused = false;
+      row.style.scrollSnapType = 'none'; // 자동 넘김이 켜져있는 동안은 계속 꺼둡니다 (브라우저 스냅 기능과 계속 충돌하는 것을 방지)
       scheduleNext();
     }
 
     function onInteractStart() {
       stopTicking();
+      row.style.scrollSnapType = ''; // 사용자가 직접 만질 때는 스냅을 켜서 자연스럽게 붙게 함
       if (resumeTimer) clearTimeout(resumeTimer);
     }
     function onInteractEnd() {
@@ -1663,6 +1662,7 @@
       destroyed = true;
       stopTicking();
       if (resumeTimer) clearTimeout(resumeTimer);
+      row.style.scrollSnapType = '';
     };
   }
 
