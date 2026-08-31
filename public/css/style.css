@@ -2515,7 +2515,8 @@ a:focus-visible, button:focus-visible {
 }
 
 .mission-cards-wrap {
-  background: transparent;
+  background: rgba(250,247,240,0.62);
+  backdrop-filter: blur(6px);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   padding: 18px 16px;
