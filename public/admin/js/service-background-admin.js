@@ -433,11 +433,13 @@ createSectionBackgroundEditor({
     const c = card || {};
     const blockId = nextBlockId;
     nextBlockId += 1;
+    const gallery = Array.isArray(c.gallery) ? c.gallery : [];
 
     const block = document.createElement('div');
     block.className = 'card';
     block.style.background = '#faf9f5';
     block.dataset.loadedPhoto = c.photo || ''; // 처음 불러온 사진 주소를 이 블록에만 안전하게 보관 (다른 카드에 영향 없음)
+    block.dataset.loadedGallery = JSON.stringify(gallery);
     block.innerHTML = `
       <div style="display:flex; align-items:center; justify-content:space-between;">
         <h4 style="margin:0;">카드</h4>
@@ -445,11 +447,23 @@ createSectionBackgroundEditor({
       </div>
       <div class="field"><label>나라명</label><input type="text" class="mc-country" placeholder="예: 케냐" value="${(c.country || '').replace(/"/g, '&quot;')}" /></div>
       <div class="field"><label>선교사님 성함</label><input type="text" class="mc-name" placeholder="홍길동 선교사" value="${(c.name || '').replace(/"/g, '&quot;')}" /></div>
-      <div class="field"><label>사역 내용 (여러 줄 가능)</label><textarea class="mc-content" rows="3" placeholder="현지에서 어떤 사역을 하고 계신지 소개해주세요.">${(c.content || '')}</textarea></div>
+      <div class="field"><label>사역 내용 (카드에는 일부만 요약 표시, 클릭 시 전체 표시)</label><textarea class="mc-content" rows="3" placeholder="현지에서 어떤 사역을 하고 계신지 소개해주세요.">${(c.content || '')}</textarea></div>
+      <div class="field"><label>기도제목 (선택, 클릭 시 팝업에 표시)</label><textarea class="mc-prayer" rows="2" placeholder="예: 현지 언어 습득과 사역지 정착을 위해 기도해주세요.">${(c.prayer || '')}</textarea></div>
       <div class="field">
-        <label>사진 (교체하려면 다시 선택)</label>
+        <label>대표 사진 (교체하려면 다시 선택)</label>
         <input type="file" class="mc-photo-file" accept="image/*" />
         <img class="preview mc-photo-preview" src="${c.photo || ''}" style="max-width:120px; border-radius:50%; margin-top:8px; ${c.photo ? '' : 'display:none;'}" />
+      </div>
+      <div class="field">
+        <label>추가 사진 (선택, 최대 3장 — 클릭 시 팝업에 갤러리로 표시)</label>
+        <div class="mc-gallery-inputs">
+          <input type="file" class="mc-gallery-file" accept="image/*" data-slot="0" />
+          <img class="preview mc-gallery-preview" data-slot="0" src="${gallery[0] || ''}" style="max-width:70px; border-radius:8px; margin-top:6px; ${gallery[0] ? '' : 'display:none;'}" />
+          <input type="file" class="mc-gallery-file" accept="image/*" data-slot="1" style="margin-top:10px;" />
+          <img class="preview mc-gallery-preview" data-slot="1" src="${gallery[1] || ''}" style="max-width:70px; border-radius:8px; margin-top:6px; ${gallery[1] ? '' : 'display:none;'}" />
+          <input type="file" class="mc-gallery-file" accept="image/*" data-slot="2" style="margin-top:10px;" />
+          <img class="preview mc-gallery-preview" data-slot="2" src="${gallery[2] || ''}" style="max-width:70px; border-radius:8px; margin-top:6px; ${gallery[2] ? '' : 'display:none;'}" />
+        </div>
       </div>
     `;
     wrap.appendChild(block);
@@ -462,6 +476,19 @@ createSectionBackgroundEditor({
       block.pendingFile = file; // 블록 DOM 노드 자체에 보관 — 다른 카드와 절대 안 섞임
       previewImg.src = URL.createObjectURL(file);
       previewImg.style.display = '';
+    });
+
+    block.pendingGalleryFiles = [null, null, null];
+    block.querySelectorAll('.mc-gallery-file').forEach((galleryInput) => {
+      galleryInput.addEventListener('change', () => {
+        const file = galleryInput.files && galleryInput.files[0];
+        if (!file) return;
+        const slot = Number(galleryInput.dataset.slot);
+        block.pendingGalleryFiles[slot] = file;
+        const preview = block.querySelector(`.mc-gallery-preview[data-slot="${slot}"]`);
+        preview.src = URL.createObjectURL(file);
+        preview.style.display = '';
+      });
     });
 
     block.querySelector('.mc-remove-btn').addEventListener('click', () => {
@@ -523,11 +550,25 @@ createSectionBackgroundEditor({
         if (block.pendingFile) {
           photo = await uploadFile(block.pendingFile);
         }
+        let gallery = [];
+        try {
+          gallery = JSON.parse(block.dataset.loadedGallery || '[]');
+        } catch (parseErr) {
+          gallery = [];
+        }
+        for (let slot = 0; slot < 3; slot += 1) {
+          if (block.pendingGalleryFiles && block.pendingGalleryFiles[slot]) {
+            gallery[slot] = await uploadFile(block.pendingGalleryFiles[slot]);
+          }
+        }
+        gallery = gallery.filter(Boolean);
         cards.push({
           country: block.querySelector('.mc-country').value,
           name: block.querySelector('.mc-name').value,
           content: block.querySelector('.mc-content').value,
-          photo
+          prayer: block.querySelector('.mc-prayer').value,
+          photo,
+          gallery
         });
       }
       const res = await fetch('/api/admin/site', {
@@ -549,6 +590,8 @@ createSectionBackgroundEditor({
       blocks.forEach((block, i) => {
         block.dataset.loadedPhoto = cards[i].photo || '';
         block.pendingFile = null;
+        block.dataset.loadedGallery = JSON.stringify(cards[i].gallery || []);
+        block.pendingGalleryFiles = [null, null, null];
       });
       setStatus('저장되었습니다. 홈페이지에서 확인해보세요.', false);
     } catch (err) {
