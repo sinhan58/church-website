@@ -2089,7 +2089,7 @@
     const prevBtn = $('#mission-cards-prev');
     const nextBtn = $('#mission-cards-next');
     if (!listEl) return;
-    const perPage = 2;
+    const perPage = 3;
     const totalPages = Math.max(1, Math.ceil(cards.length / perPage));
     let page = 0;
 
@@ -2108,7 +2108,20 @@
           </div>`
         )
         .join('');
-      if (pageEl) pageEl.textContent = totalPages > 1 ? `${page + 1} / ${totalPages}` : '';
+      if (pageEl) {
+        pageEl.innerHTML =
+          totalPages > 1
+            ? Array.from({ length: totalPages })
+                .map((_, i) => `<button type="button" class="mission-cards-dot${i === page ? ' active' : ''}" data-page="${i}" aria-label="${i + 1}번째 화면"></button>`)
+                .join('')
+            : '';
+        $$('.mission-cards-dot', pageEl).forEach((dot) => {
+          dot.onclick = () => {
+            page = Number(dot.dataset.page);
+            draw();
+          };
+        });
+      }
       if (prevBtn) prevBtn.disabled = totalPages <= 1;
       if (nextBtn) nextBtn.disabled = totalPages <= 1;
     }
