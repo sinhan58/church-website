@@ -2524,6 +2524,9 @@ a:focus-visible, button:focus-visible {
   display: flex;
   flex-direction: column;
 }
+@media (max-width: 860px) {
+  .mission-cards-wrap { min-height: 300px; } /* 모바일은 카드 1개만 보이므로 3개 기준 높이가 필요 없음 */
+}
 .mission-cards-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
 .mission-cards-head h3 { font-family: var(--font-heading); font-size: 16px; font-weight: 500; margin: 0; color: var(--ink); }
 
