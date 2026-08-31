@@ -2544,15 +2544,19 @@ a:focus-visible, button:focus-visible {
   flex-direction: column;
   align-items: center;
   text-align: center;
-  background: rgba(250,247,240,0.62);
-  backdrop-filter: blur(6px);
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
+  background: transparent;
+  border: none;
+  border-left: 1px solid var(--line);
+  border-radius: 0;
   box-shadow: none;
-  padding: 28px 20px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  padding: 20px 18px;
+  transition: transform 0.2s ease;
 }
-.mission-card:hover { transform: translateY(-4px); box-shadow: 0 14px 32px rgba(13,21,38,0.12); }
+.mission-card:first-child { border-left: none; }
+@media (max-width: 860px) {
+  .mission-card { border-left: none; }
+}
+.mission-card:hover { transform: translateY(-3px); }
 .mission-card-photo-wrap {
   width: 100px;
   height: 100px;
