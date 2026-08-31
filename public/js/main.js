@@ -2089,7 +2089,7 @@
     const prevBtn = $('#mission-cards-prev');
     const nextBtn = $('#mission-cards-next');
     if (!listEl) return;
-    const perPage = 3;
+    const perPage = 2;
     const totalPages = Math.max(1, Math.ceil(cards.length / perPage));
     let page = 0;
 
