@@ -411,13 +411,21 @@
     applyMissionsBackground(site.missionsBg);
     setupServiceDots(serviceGrid, serviceTimesList.length);
 
-    if (window.matchMedia('(max-width: 900px)').matches && serviceTimesList.length > 1 && !serviceGrid.dataset.autoScrollSetup) {
+    const isServiceMobile = window.matchMedia('(max-width: 900px)').matches;
+    if (isServiceMobile) {
+      // 모바일은 가로로 스와이프/자동 이동하는 구조라, 아래에서 위로 올라오는 페이드인 효과가
+      // 같이 있으면 두 움직임이 겹쳐 어색해집니다. 모바일에서는 반응형 효과를 뺍니다.
+      $$('.service-card', serviceGrid).forEach((card) => {
+        card.classList.remove('reveal', 'reveal-delay-1', 'reveal-delay-2', 'reveal-delay-3', 'reveal-delay-4', 'reveal-delay-5', 'reveal-delay-6');
+      });
+    }
+
+    if (isServiceMobile && serviceTimesList.length > 1 && !serviceGrid.dataset.autoScrollSetup) {
       serviceGrid.dataset.autoScrollSetup = '1';
       const firstCard = serviceGrid.querySelector('.service-card');
       if (firstCard) {
         const clone = firstCard.cloneNode(true);
         clone.removeAttribute('id');
-        clone.classList.remove('reveal'); // 나중에 복제돼서 스크롤 관찰 대상에 안 잡히므로, 계속 숨김 상태로 남지 않도록
         serviceGrid.appendChild(clone);
       }
       setupInfiniteAutoScroll(serviceGrid, serviceTimesList.length, 3000);
@@ -1559,10 +1567,15 @@
       index += 1;
       row.scrollTo({ left: index * pageWidth, behavior: 'smooth' });
       if (index === itemCount) {
-        setTimeout(() => {
+        const snapBack = () => {
           row.scrollTo({ left: 0, behavior: 'auto' }); // 애니메이션 없이 즉시 진짜 첫 카드로
           index = 0;
-        }, 450);
+        };
+        if ('onscrollend' in window) {
+          row.addEventListener('scrollend', snapBack, { once: true });
+        } else {
+          setTimeout(snapBack, 700); // scrollend 미지원 브라우저용 여유있는 대기 시간
+        }
       }
     }, intervalMs);
     function stop() {
