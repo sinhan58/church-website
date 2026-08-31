@@ -1560,30 +1560,76 @@
   function setupInfiniteAutoScroll(row, itemCount, intervalMs) {
     if (!row || itemCount <= 1) return () => {};
     let index = 0;
-    let stopped = false;
-    const timer = setInterval(() => {
-      if (stopped) return;
+    let timer = null;
+    let resumeTimer = null;
+    let destroyed = false;
+
+    function goNext() {
       const pageWidth = row.clientWidth || 1;
       index += 1;
+      row.style.scrollSnapType = 'none'; // 프로그래밍으로 움직이는 동안 스냅 기능과 충돌(역방향 튕김)하지 않도록 잠시 해제
       row.scrollTo({ left: index * pageWidth, behavior: 'smooth' });
+      const restoreSnap = () => {
+        row.style.scrollSnapType = '';
+      };
       if (index === itemCount) {
-        const snapBack = () => {
+        const finish = () => {
           row.scrollTo({ left: 0, behavior: 'auto' }); // 애니메이션 없이 즉시 진짜 첫 카드로
           index = 0;
+          restoreSnap();
         };
         if ('onscrollend' in window) {
-          row.addEventListener('scrollend', snapBack, { once: true });
+          row.addEventListener('scrollend', finish, { once: true });
         } else {
-          setTimeout(snapBack, 700); // scrollend 미지원 브라우저용 여유있는 대기 시간
+          setTimeout(finish, 700);
         }
+      } else if ('onscrollend' in window) {
+        row.addEventListener('scrollend', restoreSnap, { once: true });
+      } else {
+        setTimeout(restoreSnap, 700);
       }
-    }, intervalMs);
-    function stop() {
-      stopped = true;
-      clearInterval(timer);
     }
-    ['pointerdown', 'touchstart'].forEach((evt) => row.addEventListener(evt, stop, { passive: true, once: true }));
-    return stop;
+
+    function startTimer() {
+      if (timer) clearInterval(timer);
+      timer = setInterval(() => {
+        if (!destroyed) goNext();
+      }, intervalMs);
+    }
+    function stopTimer() {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+    }
+
+    function onInteractStart() {
+      stopTimer();
+      if (resumeTimer) clearTimeout(resumeTimer);
+    }
+    function onInteractEnd() {
+      if (resumeTimer) clearTimeout(resumeTimer);
+      resumeTimer = setTimeout(() => {
+        if (destroyed) return;
+        const pageWidth = row.clientWidth || 1;
+        index = Math.round(row.scrollLeft / pageWidth) % itemCount; // 사용자가 놓아둔 위치부터 이어서
+        row.style.scrollSnapType = '';
+        startTimer();
+      }, 3000);
+    }
+
+    row.addEventListener('touchstart', onInteractStart, { passive: true });
+    row.addEventListener('pointerdown', onInteractStart, { passive: true });
+    row.addEventListener('touchend', onInteractEnd, { passive: true });
+    row.addEventListener('pointerup', onInteractEnd, { passive: true });
+
+    startTimer();
+
+    return function destroy() {
+      destroyed = true;
+      stopTimer();
+      if (resumeTimer) clearTimeout(resumeTimer);
+    };
   }
 
   function setupServiceDots(grid, count) {
