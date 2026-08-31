@@ -1685,9 +1685,22 @@
     row.addEventListener('pointermove', onTouchMove, { passive: true });
     row.addEventListener('pointerup', onTouchFinish, { passive: true });
 
-    // 시작 위치를 진짜 첫 카드(1번)로 맞춰둡니다 (0번은 복제본이라서요).
-    row.scrollLeft = row.clientWidth || 0;
-    tickTimer = setTimeout(goNext, intervalMs);
+    // 폰트 로딩 등으로 레이아웃이 아직 다 안 잡힌 상태에서 카드 폭을 재면 계산이 어긋날 수
+    // 있어서, 레이아웃이 확실히 자리잡은 다음(폰트 로딩 완료 + 한 프레임 더) 시작합니다.
+    function begin() {
+      // 시작 위치를 진짜 첫 카드(1번)로 맞춰둡니다 (0번은 복제본이라서요).
+      row.scrollLeft = row.clientWidth || 0;
+      tickTimer = setTimeout(goNext, intervalMs);
+    }
+    const fontsReady = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
+    fontsReady.then(() => {
+      if (destroyed) return;
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          if (!destroyed) begin();
+        });
+      });
+    });
 
     return function destroy() {
       destroyed = true;
