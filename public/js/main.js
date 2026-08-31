@@ -411,11 +411,13 @@
     applyMissionsBackground(site.missionsBg);
     setupServiceDots(serviceGrid, serviceTimesList.length);
 
-    if (window.matchMedia('(max-width: 900px)').matches && serviceTimesList.length > 1) {
+    if (window.matchMedia('(max-width: 900px)').matches && serviceTimesList.length > 1 && !serviceGrid.dataset.autoScrollSetup) {
+      serviceGrid.dataset.autoScrollSetup = '1';
       const firstCard = serviceGrid.querySelector('.service-card');
       if (firstCard) {
         const clone = firstCard.cloneNode(true);
         clone.removeAttribute('id');
+        clone.classList.remove('reveal'); // 나중에 복제돼서 스크롤 관찰 대상에 안 잡히므로, 계속 숨김 상태로 남지 않도록
         serviceGrid.appendChild(clone);
       }
       setupInfiniteAutoScroll(serviceGrid, serviceTimesList.length, 3000);
