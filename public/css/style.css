@@ -2364,13 +2364,13 @@ body.has-mini-player .ministry-duty-fab { bottom: calc(84px + 60px); }
     left: 50%;
     right: auto;
     bottom: 14px;
-    width: 56px;
-    height: 56px;
+    width: 44px;
+    height: 44px;
     transform: translateX(-50%) translateY(10px);
   }
   .scroll-top-btn.visible { transform: translateX(-50%) translateY(0); }
   #scroll-top-btn:active { transform: translateX(-50%) translateY(0) scale(0.97); }
-  .scroll-top-btn svg { width: 24px; height: 24px; }
+  .scroll-top-btn svg { width: 20px; height: 20px; }
   .band-fab { bottom: 74px; }
 }
 
