@@ -2541,8 +2541,11 @@ a:focus-visible, button:focus-visible {
   backdrop-filter: blur(6px);
   border: 1px solid var(--line);
   border-radius: var(--radius);
+  box-shadow: 0 4px 16px rgba(13,21,38,0.08); /* 지도 배경과 헷갈리지 않도록 경계를 뚜렷하게 */
   padding: 18px 16px;
   box-sizing: border-box;
+  width: 100%;
+  overflow: hidden;
   min-height: 420px; /* 카드 페이지가 바뀌어도 섹션 높이(=배경 사진)가 흔들리지 않도록 고정 */
   display: flex;
   flex-direction: column;
@@ -2721,8 +2724,11 @@ a:focus-visible, button:focus-visible {
   backdrop-filter: blur(6px);
   border: 1px solid var(--line);
   border-radius: var(--radius);
+  box-shadow: 0 4px 16px rgba(13,21,38,0.08); /* 지도 배경과 헷갈리지 않도록 경계를 뚜렷하게 */
   padding: 18px 16px;
   box-sizing: border-box;
+  width: 100%;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
 }
