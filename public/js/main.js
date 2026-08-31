@@ -411,6 +411,16 @@
     applyMissionsBackground(site.missionsBg);
     setupServiceDots(serviceGrid, serviceTimesList.length);
 
+    if (window.matchMedia('(max-width: 900px)').matches && serviceTimesList.length > 1) {
+      const firstCard = serviceGrid.querySelector('.service-card');
+      if (firstCard) {
+        const clone = firstCard.cloneNode(true);
+        clone.removeAttribute('id');
+        serviceGrid.appendChild(clone);
+      }
+      setupInfiniteAutoScroll(serviceGrid, serviceTimesList.length, 3000);
+    }
+
     if (site.contact) {
       $('#contact-address').textContent = site.contact.address || '';
       if (site.contact.addressNote) {
@@ -1534,6 +1544,33 @@
   }
 
   // 모바일에서 카드를 스와이프할 때, 화면 중앙에 가장 가까운 카드에 맞춰 점을 켜줍니다
+  // 가로 스와이프 캐러셀이 마지막 카드에서 처음으로 돌아갈 때, 역방향으로 튕기지 않고
+  // 같은 방향으로 계속 넘어가는 것처럼 보이게 합니다. (첫 카드를 맨 뒤에 하나 복제해두고,
+  // 그 복제본까지 도착하면 애니메이션 없이 진짜 첫 카드 위치로 순간 이동합니다.)
+  function setupInfiniteAutoScroll(row, itemCount, intervalMs) {
+    if (!row || itemCount <= 1) return () => {};
+    let index = 0;
+    let stopped = false;
+    const timer = setInterval(() => {
+      if (stopped) return;
+      const pageWidth = row.clientWidth || 1;
+      index += 1;
+      row.scrollTo({ left: index * pageWidth, behavior: 'smooth' });
+      if (index === itemCount) {
+        setTimeout(() => {
+          row.scrollTo({ left: 0, behavior: 'auto' }); // 애니메이션 없이 즉시 진짜 첫 카드로
+          index = 0;
+        }, 450);
+      }
+    }, intervalMs);
+    function stop() {
+      stopped = true;
+      clearInterval(timer);
+    }
+    ['pointerdown', 'touchstart'].forEach((evt) => row.addEventListener(evt, stop, { passive: true, once: true }));
+    return stop;
+  }
+
   function setupServiceDots(grid, count) {
     const dotsWrap = $('#service-dots');
     if (!dotsWrap) return;
@@ -2128,7 +2165,7 @@
   let missionCardsAutoTimer = null;
   function stopMissionCardsAuto() {
     if (missionCardsAutoTimer) {
-      clearInterval(missionCardsAutoTimer);
+      missionCardsAutoTimer();
       missionCardsAutoTimer = null;
     }
   }
@@ -2162,19 +2199,18 @@
     if (isMobile) {
       // 모바일: 전체 카드를 한 번에 렌더링하고, 손가락 스와이프(가로 스크롤)로 넘겨봅니다.
       listEl.innerHTML = cards.map(cardHTML).join('');
+      if (cards.length > 1) {
+        const cloneEl = document.createElement('div');
+        cloneEl.innerHTML = cardHTML(cards[0], 0);
+        listEl.appendChild(cloneEl.firstElementChild);
+      }
       bindCardClicks();
       if (prevBtn) prevBtn.style.display = 'none';
       if (nextBtn) nextBtn.style.display = 'none';
       setupMissionCardDots(listEl, pageEl, cards.length);
 
       if (cards.length > 1) {
-        missionCardsAutoTimer = setInterval(() => {
-          const pageWidth = listEl.clientWidth || 1;
-          const current = Math.round(listEl.scrollLeft / pageWidth);
-          const next = (current + 1) % cards.length;
-          listEl.scrollTo({ left: next * pageWidth, behavior: 'smooth' });
-        }, 6000);
-        ['pointerdown', 'touchstart'].forEach((evt) => listEl.addEventListener(evt, stopMissionCardsAuto, { passive: true, once: true }));
+        missionCardsAutoTimer = setupInfiniteAutoScroll(listEl, cards.length, 3000);
       }
       return;
     }
@@ -2226,10 +2262,11 @@
     draw();
 
     if (totalPages > 1) {
-      missionCardsAutoTimer = setInterval(() => {
+      const intervalId = setInterval(() => {
         page = (page + 1) % totalPages;
         draw();
-      }, 6000);
+      }, 3000);
+      missionCardsAutoTimer = () => clearInterval(intervalId);
     }
   }
 
