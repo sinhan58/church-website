@@ -1672,7 +1672,14 @@
       }
     }
     function onTouchFinish() {
-      if (hasMovedEnough) resume();
+      if (hasMovedEnough) {
+        // 손을 뗀 시점이 아니라, 스냅/관성 스크롤이 완전히 멈춘 시점부터 3초를 셉니다.
+        if ('onscrollend' in window) {
+          row.addEventListener('scrollend', resume, { once: true });
+        } else {
+          setTimeout(resume, 150); // scrollend 미지원 브라우저용 짧은 여유
+        }
+      }
       touchStartX = null;
       touchStartY = null;
       hasMovedEnough = false;
