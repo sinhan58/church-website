@@ -1613,14 +1613,15 @@
       if (destroyed || paused || animating) return;
       const pageWidth = row.clientWidth || 1;
       index += 1;
-      row.style.scrollSnapType = 'none'; // 애니메이션 중에는 스냅이 값을 되돌리지 못하도록 꺼둠
+      console.log('[autoScroll] goNext →', { index, itemCount, pageWidth, scrollLeftBefore: row.scrollLeft, target: index * pageWidth });
       animateScrollTo(index * pageWidth, 500, () => {
         if (destroyed) return;
+        console.log('[autoScroll] settled', { index, scrollLeftAfter: row.scrollLeft });
         if (index === itemCount) {
           row.scrollLeft = 0; // 애니메이션 없이 즉시 진짜 첫 카드로 (복제본과 내용이 같아 티가 안 남)
           index = 0;
+          console.log('[autoScroll] wrapped to 0', { scrollLeftAfterReset: row.scrollLeft });
         }
-        row.style.scrollSnapType = '';
         scheduleNext();
       });
     }
@@ -1647,7 +1648,6 @@
         if (destroyed) return;
         const pageWidth = row.clientWidth || 1;
         index = Math.round(row.scrollLeft / pageWidth) % itemCount; // 사용자가 놓아둔 위치부터 이어서
-        row.style.scrollSnapType = '';
         startTicking();
       }, 3000);
     }
