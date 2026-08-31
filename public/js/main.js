@@ -2083,31 +2083,113 @@
     draw();
   }
 
+  function openMissionModal(card) {
+    $('#mission-modal-name').textContent = card.name || '';
+    $('#mission-modal-country').textContent = card.country || '';
+    const photoImg = $('#mission-modal-photo');
+    if (card.photo) {
+      photoImg.src = card.photo;
+      photoImg.style.display = '';
+    } else {
+      photoImg.style.display = 'none';
+    }
+    $('#mission-modal-content').textContent = card.content || '';
+
+    const galleryWrap = $('#mission-modal-gallery');
+    const gallery = Array.isArray(card.gallery) ? card.gallery.filter(Boolean) : [];
+    galleryWrap.innerHTML = gallery
+      .map((url) => `<img src="${url}" alt="${escapeHtml(card.name || '')} 사진" />`)
+      .join('');
+
+    const prayerWrap = $('#mission-modal-prayer-wrap');
+    if (card.prayer) {
+      $('#mission-modal-prayer').textContent = card.prayer;
+      prayerWrap.style.display = '';
+    } else {
+      prayerWrap.style.display = 'none';
+    }
+
+    $('#mission-modal').classList.add('open');
+    lockScroll();
+  }
+  function closeMissionModal() {
+    $('#mission-modal').classList.remove('open');
+    unlockScroll();
+  }
+  const missionModalCloseBtn = $('#mission-modal-close');
+  if (missionModalCloseBtn) missionModalCloseBtn.addEventListener('click', closeMissionModal);
+  const missionModalEl = $('#mission-modal');
+  if (missionModalEl) {
+    missionModalEl.addEventListener('click', (e) => {
+      if (e.target.id === 'mission-modal') closeMissionModal();
+    });
+  }
+
+  let missionCardsAutoTimer = null;
+  function stopMissionCardsAuto() {
+    if (missionCardsAutoTimer) {
+      clearInterval(missionCardsAutoTimer);
+      missionCardsAutoTimer = null;
+    }
+  }
+
   function renderMissionCards(cards) {
     const listEl = $('#mission-cards-row');
     const pageEl = $('#mission-cards-page');
     const prevBtn = $('#mission-cards-prev');
     const nextBtn = $('#mission-cards-next');
     if (!listEl) return;
-    const perPage = window.matchMedia('(max-width: 860px)').matches ? 1 : 3;
+    stopMissionCardsAuto();
+
+    const cardHTML = (c, i) => `
+      <div class="mission-card" data-index="${i}">
+        <div class="mission-card-photo-wrap">
+          ${c.photo ? `<img class="mission-card-photo" src="${c.photo}" alt="${escapeHtml(c.name || '')}" />` : `<div class="mission-card-photo-empty"></div>`}
+        </div>
+        <span class="mission-card-country">${escapeHtml(c.country || '')}</span>
+        <h4 class="mission-card-name">${escapeHtml(c.name || '')}</h4>
+        <p class="mission-card-content">${escapeHtml(c.content || '')}</p>
+      </div>`;
+
+    function bindCardClicks() {
+      $$('.mission-card', listEl).forEach((el) => {
+        el.onclick = () => openMissionModal(cards[Number(el.dataset.index)]);
+      });
+    }
+
+    const isMobile = window.matchMedia('(max-width: 860px)').matches;
+
+    if (isMobile) {
+      // 모바일: 전체 카드를 한 번에 렌더링하고, 손가락 스와이프(가로 스크롤)로 넘겨봅니다.
+      listEl.innerHTML = cards.map(cardHTML).join('');
+      bindCardClicks();
+      if (prevBtn) prevBtn.style.display = 'none';
+      if (nextBtn) nextBtn.style.display = 'none';
+      setupMissionCardDots(listEl, pageEl, cards.length);
+
+      if (cards.length > 1) {
+        missionCardsAutoTimer = setInterval(() => {
+          const pageWidth = listEl.clientWidth || 1;
+          const current = Math.round(listEl.scrollLeft / pageWidth);
+          const next = (current + 1) % cards.length;
+          listEl.scrollTo({ left: next * pageWidth, behavior: 'smooth' });
+        }, 6000);
+        ['pointerdown', 'touchstart'].forEach((evt) => listEl.addEventListener(evt, stopMissionCardsAuto, { passive: true, once: true }));
+      }
+      return;
+    }
+
+    // PC: 3개씩 페이지 버튼으로 넘겨봅니다 (자동 순환 포함).
+    if (prevBtn) prevBtn.style.display = '';
+    if (nextBtn) nextBtn.style.display = '';
+    const perPage = 3;
     const totalPages = Math.max(1, Math.ceil(cards.length / perPage));
     let page = 0;
 
     function draw() {
       const slice = cards.slice(page * perPage, page * perPage + perPage);
-      listEl.innerHTML = slice
-        .map(
-          (c) => `
-          <div class="mission-card">
-            <div class="mission-card-photo-wrap">
-              ${c.photo ? `<img class="mission-card-photo" src="${c.photo}" alt="${escapeHtml(c.name || '')}" />` : `<div class="mission-card-photo-empty"></div>`}
-            </div>
-            <span class="mission-card-country">${escapeHtml(c.country || '')}</span>
-            <h4 class="mission-card-name">${escapeHtml(c.name || '')}</h4>
-            <p class="mission-card-content">${escapeHtml(c.content || '')}</p>
-          </div>`
-        )
-        .join('');
+      listEl.innerHTML = slice.map((c, i) => cardHTML(c, page * perPage + i)).join('');
+      bindCardClicks();
       if (pageEl) {
         pageEl.innerHTML =
           totalPages > 1
@@ -2119,6 +2201,7 @@
           dot.onclick = () => {
             page = Number(dot.dataset.page);
             draw();
+            stopMissionCardsAuto();
           };
         });
       }
@@ -2130,15 +2213,55 @@
       prevBtn.onclick = () => {
         page = (page - 1 + totalPages) % totalPages;
         draw();
+        stopMissionCardsAuto();
       };
     }
     if (nextBtn) {
       nextBtn.onclick = () => {
         page = (page + 1) % totalPages;
         draw();
+        stopMissionCardsAuto();
       };
     }
     draw();
+
+    if (totalPages > 1) {
+      missionCardsAutoTimer = setInterval(() => {
+        page = (page + 1) % totalPages;
+        draw();
+      }, 6000);
+    }
+  }
+
+  function setupMissionCardDots(row, dotsWrap, count) {
+    if (!dotsWrap) return;
+    if (!count || count <= 1) {
+      dotsWrap.innerHTML = '';
+      return;
+    }
+    dotsWrap.innerHTML = Array.from({ length: count })
+      .map((_, i) => `<span class="mission-cards-dot${i === 0 ? ' active' : ''}"></span>`)
+      .join('');
+    const dots = $$('.mission-cards-dot', dotsWrap);
+
+    let ticking = false;
+    function updateActiveDot() {
+      ticking = false;
+      const pageWidth = row.clientWidth || 1;
+      const idx = Math.round(row.scrollLeft / pageWidth);
+      const clamped = Math.max(0, Math.min(count - 1, idx));
+      dots.forEach((dot, i) => dot.classList.toggle('active', i === clamped));
+    }
+    row.addEventListener(
+      'scroll',
+      () => {
+        if (!ticking) {
+          ticking = true;
+          requestAnimationFrame(updateActiveDot);
+        }
+      },
+      { passive: true }
+    );
   }
 
   async function loadMissions() {
