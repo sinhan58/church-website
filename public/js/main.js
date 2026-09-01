@@ -1804,6 +1804,17 @@
     }
   }
 
+  // 아멘 개수에 따라 뱃지 단계를 정합니다. (숫자는 절대 노출하지 않고, 문구/아이콘만 바뀝니다)
+  function getQtAmenTier(amen) {
+    const n = amen || 0;
+    if (n <= 0) return null;
+    if (n === 1) return { level: 1, icon: '🙏', label: '첫 아멘이 도착했어요' };
+    if (n <= 5) return { level: 2, icon: '💛', label: '은혜를 나누고 있어요' };
+    if (n <= 9) return { level: 3, icon: '✨', label: '은혜가 번지고 있어요' };
+    if (n <= 14) return { level: 4, icon: '🔥', label: '뜨거운 은혜의 시간' };
+    return { level: 5, icon: '🎉', label: '전교인 큐티 참여 완료' };
+  }
+
   function formatQtDate(dateStr = '') {
     const d = new Date(dateStr);
     if (isNaN(d)) return dateStr;
@@ -1928,9 +1939,11 @@
         ${q.verseRef ? `<p class="qt-card-ref">${escapeHtml(q.verseRef)}</p>` : ''}
       </a>`;
 
+    const todayTier = getQtAmenTier(latest.amen);
     const todayCardHtml = `
       <a class="qt-card qt-card--today" href="/qt/${latest.id}?from=home" data-id="${latest.id}" data-title="${escapeHtml(latest.title || '')}">
         <span class="qt-badge">오늘의 큐티</span>
+        ${todayTier ? `<span class="qt-amen-badge qt-amen-badge--lv${todayTier.level}">${todayTier.icon} ${todayTier.label}</span>` : ''}
         <h3 class="qt-card-title">${escapeHtml(latest.title || '')}</h3>
         ${latest.verseRef ? `<p class="qt-card-ref">${escapeHtml(latest.verseRef)}</p>` : ''}
         <div class="qt-card-foot">
