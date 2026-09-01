@@ -1639,14 +1639,6 @@
         tickTimer = null;
       }
     }
-    function resume() {
-      if (destroyed) return;
-      paused = false;
-      const pageWidth = row.clientWidth || 1;
-      pos = Math.round(row.scrollLeft / pageWidth); // 사용자가 놓아둔 위치부터 이어서
-      correctIfOnClone(); // 손으로 밀어서 복제본 자리에 놓았을 수도 있으니 여기서도 보정
-      tickTimer = setTimeout(goNext, intervalMs);
-    }
 
     // 세로 스크롤(약간의 가로 흔들림 포함)은 무시하고, 가로로 밀리는 정도가 세로보다
     // 뚜렷하게 클 때만 "진짜 카드 스와이프"로 인정해서 자동 넘김을 잠깐 멈춥니다.
@@ -1671,14 +1663,28 @@
         pause();
       }
     }
+    function resyncPos() {
+      const pageWidth = row.clientWidth || 1;
+      pos = Math.round(row.scrollLeft / pageWidth);
+      correctIfOnClone();
+    }
+
     function onTouchFinish() {
-      if (hasMovedEnough) {
-        // 손을 뗀 시점이 아니라, 스냅/관성 스크롤이 완전히 멈춘 시점부터 3초를 셉니다.
-        if ('onscrollend' in window) {
-          row.addEventListener('scrollend', resume, { once: true });
-        } else {
-          setTimeout(resume, 150); // scrollend 미지원 브라우저용 짧은 여유
+      const wasPausedByThisGesture = paused;
+      const settle = () => {
+        // 빠르게 휙 미는 동작은 touchmove가 몇 번 못 잡고 끝나버려서 "진짜 스와이프"로
+        // 인식을 못 할 수 있습니다. 그래도 실제로는 카드가 움직였을 수 있으니, 스와이프
+        // 인식 여부와 상관없이 손을 뗄 때마다 항상 실제 위치로 다시 맞춰줍니다.
+        resyncPos();
+        if (wasPausedByThisGesture) {
+          paused = false;
+          tickTimer = setTimeout(goNext, intervalMs);
         }
+      };
+      if ('onscrollend' in window) {
+        row.addEventListener('scrollend', settle, { once: true });
+      } else {
+        setTimeout(settle, 150);
       }
       touchStartX = null;
       touchStartY = null;
