@@ -1520,6 +1520,8 @@
     $('#qt-date').value = new Date().toISOString().slice(0, 10);
     $('#qt-pastor').value = localStorage.getItem('qtLastPastor') || '';
     $('#qt-title').value = '';
+    const subtitleResetInput = $('#qt-subtitle');
+    if (subtitleResetInput) subtitleResetInput.value = '';
     $('#qt-verseRef').value = '';
     $('#qt-verseText').value = '';
     $('#qt-body').value = '';
@@ -1535,6 +1537,8 @@
     $('#qt-date').value = item.date || '';
     $('#qt-pastor').value = item.pastor || '';
     $('#qt-title').value = item.title || '';
+    const subtitleLoadInput = $('#qt-subtitle');
+    if (subtitleLoadInput) subtitleLoadInput.value = item.subtitle || '';
     $('#qt-verseRef').value = item.verseRef || '';
     $('#qt-verseText').value = item.verseText || '';
     $('#qt-body').value = item.body || '';
@@ -1758,6 +1762,7 @@
         date: $('#qt-date').value || new Date().toISOString().slice(0, 10),
         pastor: $('#qt-pastor').value.trim(),
         title,
+        subtitle: ($('#qt-subtitle') && $('#qt-subtitle').value.trim()) || '',
         verseRef: $('#qt-verseRef').value.trim(),
         verseText: $('#qt-verseText').value.trim(),
         body: $('#qt-body').value.trim()
@@ -1807,7 +1812,8 @@
     if (!normalized) return null;
 
     const lines = normalized.split('\n');
-    const isBracketLine = (line) => /^[\[【].*[\]】]\s*$/.test(line.trim());
+    // 줄 맨 앞에 콜론(:)이나 공백이 붙어서 복사되는 경우가 있어서, 그런 것도 대괄호 줄로 인식하게 합니다.
+    const isBracketLine = (line) => /^[\s:：]*[\[【].*[\]】]\s*$/.test(line.trim());
     const bracketIndices = [];
     lines.forEach((line, i) => {
       if (isBracketLine(line)) bracketIndices.push(i);
@@ -1819,9 +1825,14 @@
     const firstBracketIdx = bracketIndices[0];
     const secondBracketIdx = bracketIndices[1];
 
-    // 제목: 두 번째 대괄호(묵상 글 바로 위에 있는 것)를 씁니다.
-    const bracketMatch = lines[secondBracketIdx].trim().match(/^[\[【]([\s\S]*?)[\]】]$/);
-    const title = bracketMatch ? bracketMatch[1].trim() : lines[secondBracketIdx].trim();
+    // 제목: 첫 번째 대괄호(성경 구절 바로 위에 있는 것)를 씁니다.
+    const bracketMatch = lines[firstBracketIdx].trim().match(/^[\s:：]*[\[【]([\s\S]*?)[\]】]\s*$/);
+    const title = bracketMatch ? bracketMatch[1].trim() : lines[firstBracketIdx].trim();
+
+    // 부제목: 두 번째 대괄호(묵상 글 바로 위에 있는 것). 메인 화면 카드 이미지에서만 쓰고,
+    // 본문(body)에는 아래에서 이 줄 자체를 그대로 남겨둡니다.
+    const subtitleMatch = lines[secondBracketIdx].trim().match(/^[\s:：]*[\[【]([\s\S]*?)[\]】]\s*$/);
+    const subtitle = subtitleMatch ? subtitleMatch[1].trim() : lines[secondBracketIdx].trim();
 
     // 첫 대괄호와 두 번째 대괄호 사이 = 성경 구절 영역.
     const verseLines = lines
@@ -1840,14 +1851,15 @@
     }
     const verseText = verseTextLines.join('\n');
 
-    // 두 번째 대괄호 이후 = 본문(묵상·기도문). 문단 사이에 빈 줄을 넣어 읽기 좋게 정리합니다.
+    // 두 번째 대괄호(부제목 줄) 포함 그 이후 전체 = 본문(묵상·기도문). 대괄호 소제목 줄도
+    // 그대로 살려서 본문 안에 남겨둡니다. 문단 사이에 빈 줄을 넣어 읽기 좋게 정리합니다.
     const bodyLines = lines
-      .slice(secondBracketIdx + 1)
+      .slice(secondBracketIdx)
       .map((l) => l.trim())
       .filter((l) => l.length > 0);
     const body = bodyLines.join('\n\n');
 
-    return { title, verseRef, verseText, body };
+    return { title, subtitle, verseRef, verseText, body };
   }
 
   function setupQtPasteParser() {
@@ -1861,6 +1873,8 @@
         return;
       }
       $('#qt-title').value = parsed.title;
+      const subtitleInput = $('#qt-subtitle');
+      if (subtitleInput) subtitleInput.value = parsed.subtitle || '';
       $('#qt-verseRef').value = parsed.verseRef;
       $('#qt-verseText').value = parsed.verseText;
       $('#qt-body').value = parsed.body;
