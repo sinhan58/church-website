@@ -1582,6 +1582,7 @@
     let pos = 1; // 1..itemCount = 실제 카드, 0 = 마지막 복제본, itemCount+1 = 첫 복제본
     let tickTimer = null;
     let settleTimer = null;
+    let waitingForSettle = false;
     let destroyed = false;
     let animating = false; // 제 코드가 만든 애니메이션이 지금 진행 중인지
 
@@ -1662,8 +1663,10 @@
           clearTimeout(tickTimer);
           tickTimer = null;
         }
-        if (settleTimer) clearTimeout(settleTimer);
-        settleTimer = setTimeout(() => {
+        if (waitingForSettle) return; // 이미 "정착 감지"를 걸어둔 상태면 중복으로 또 걸지 않음
+        waitingForSettle = true;
+        const onSettle = () => {
+          waitingForSettle = false;
           settleTimer = null;
           if (destroyed) return;
           const pageWidth = row.clientWidth || 1;
@@ -1671,7 +1674,15 @@
           correctIfOnClone();
           notifyPos();
           scheduleNext();
-        }, 150);
+        };
+        if ('onscrollend' in window) {
+          // scrollend는 "지금 이 스와이프"가 실제로 멈추는 시점에 정확히 한 번 울립니다.
+          // 연속으로 빠르게 여러 번 스와이프해도, 스와이프 하나하나가 끝날 때마다 바로
+          // 보정되어서 다음 스와이프가 항상 정상적으로 이어집니다.
+          row.addEventListener('scrollend', onSettle, { once: true });
+        } else {
+          settleTimer = setTimeout(onSettle, 150);
+        }
       },
       { passive: true }
     );
