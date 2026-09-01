@@ -410,7 +410,7 @@
     applyPraiseBackground(sitePraiseConfig);
     applySermonBackground(site.sermon);
     applyMissionsBackground(site.missionsBg);
-    setupServiceDots(serviceGrid, serviceTimesList.length);
+    const setActiveServiceDot = setupServiceDots(serviceGrid, serviceTimesList.length);
 
     const isServiceMobile = window.matchMedia('(max-width: 900px)').matches;
     if (isServiceMobile) {
@@ -445,7 +445,7 @@
       firstCloneWrap.innerHTML = buildCardHTML(s0);
       serviceGrid.appendChild(firstCloneWrap.firstElementChild);
 
-      serviceAutoScrollStop = setupInfiniteAutoScroll(serviceGrid, serviceTimesList.length, 3000);
+      serviceAutoScrollStop = setupInfiniteAutoScroll(serviceGrid, serviceTimesList.length, 3000, setActiveServiceDot);
     }
 
     if (site.contact) {
@@ -1577,12 +1577,15 @@
   // row 안에는 [마지막 카드 복제본, 실제 카드 1~N, 첫 카드 복제본] 순서로 들어있어야 합니다.
   // (호출하는 쪽에서 이렇게 구성해줍니다.) 그래야 자동 넘김과 손가락 스와이프 둘 다
   // 양쪽 방향으로 끝없이 순환하는 것처럼 보입니다.
-  function setupInfiniteAutoScroll(row, itemCount, intervalMs) {
+  function setupInfiniteAutoScroll(row, itemCount, intervalMs, onPosChange) {
     if (!row || itemCount <= 1) return () => {};
     let pos = 1; // 1..itemCount = 실제 카드, 0 = 마지막 복제본, itemCount+1 = 첫 복제본
     let tickTimer = null;
     let destroyed = false;
     let paused = false;
+    function notifyPos() {
+      if (onPosChange) onPosChange(pos - 1); // 0-based 실제 카드 인덱스로 알려줌
+    }
 
     function easeInOutQuad(t) {
       return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
@@ -1613,9 +1616,11 @@
       if (pos === itemCount + 1) {
         row.scrollLeft = 1 * pageWidth;
         pos = 1;
+        notifyPos();
       } else if (pos === 0) {
         row.scrollLeft = itemCount * pageWidth;
         pos = itemCount;
+        notifyPos();
       }
     }
 
@@ -1627,6 +1632,7 @@
       animateScrollTo(pos * pageWidth, 500, () => {
         if (destroyed) return;
         correctIfOnClone();
+        notifyPos(); // 위에서 보정이 안 일어난(=일반적으로 한 칸만 이동한) 경우에도 확실하게 알려줌
         row.style.scrollSnapType = ''; // 다 움직였으니 바로 복구 (평소·사용자가 밀 때는 항상 스냅 켜진 상태)
         if (!destroyed && !paused) tickTimer = setTimeout(goNext, intervalMs);
       });
@@ -1667,6 +1673,7 @@
       const pageWidth = row.clientWidth || 1;
       pos = Math.round(row.scrollLeft / pageWidth);
       correctIfOnClone();
+      notifyPos();
     }
 
     let pendingSettleCleanup = null;
@@ -1736,17 +1743,22 @@
 
   function setupServiceDots(grid, count) {
     const dotsWrap = $('#service-dots');
-    if (!dotsWrap) return;
+    if (!dotsWrap) return null;
     if (!count) {
       dotsWrap.innerHTML = '';
-      return;
+      return null;
     }
     dotsWrap.innerHTML = Array.from({ length: count })
       .map((_, i) => `<span class="dot${i === 0 ? ' is-active' : ''}"></span>`)
       .join('');
     const dots = $$('.dot', dotsWrap);
     const cards = $$('.service-card', grid);
-    if (!cards.length) return;
+    if (!cards.length) return null;
+
+    function setActiveByIndex(idx) {
+      const clamped = Math.max(0, Math.min(dots.length - 1, idx));
+      dots.forEach((dot, i) => dot.classList.toggle('is-active', i === clamped));
+    }
 
     let ticking = false;
     function updateActiveDot() {
@@ -1764,7 +1776,7 @@
           closestIndex = i;
         }
       });
-      dots.forEach((dot, i) => dot.classList.toggle('is-active', i === closestIndex));
+      setActiveByIndex(closestIndex);
     }
     grid.addEventListener(
       'scroll',
@@ -1776,6 +1788,8 @@
       },
       { passive: true }
     );
+
+    return setActiveByIndex;
   }
 
   // 찬양 캐러셀: 9개씩 한 페이지로 넘어갈 때, 페이지 단위로 점을 켜줍니다 (모바일 전용)
@@ -2375,10 +2389,10 @@
       bindCardClicks();
       if (prevBtn) prevBtn.style.display = 'none';
       if (nextBtn) nextBtn.style.display = 'none';
-      setupMissionCardDots(listEl, pageEl, cards.length);
+      const setActiveDot = setupMissionCardDots(listEl, pageEl, cards.length);
 
       if (cards.length > 1) {
-        missionCardsAutoTimer = setupInfiniteAutoScroll(listEl, cards.length, 3000);
+        missionCardsAutoTimer = setupInfiniteAutoScroll(listEl, cards.length, 3000, setActiveDot);
       }
       return;
     }
@@ -2439,23 +2453,27 @@
   }
 
   function setupMissionCardDots(row, dotsWrap, count) {
-    if (!dotsWrap) return;
+    if (!dotsWrap) return null;
     if (!count || count <= 1) {
       dotsWrap.innerHTML = '';
-      return;
+      return null;
     }
     dotsWrap.innerHTML = Array.from({ length: count })
       .map((_, i) => `<span class="mission-cards-dot${i === 0 ? ' active' : ''}"></span>`)
       .join('');
     const dots = $$('.mission-cards-dot', dotsWrap);
 
+    function setActiveByIndex(idx) {
+      const clamped = Math.max(0, Math.min(count - 1, idx));
+      dots.forEach((dot, i) => dot.classList.toggle('active', i === clamped));
+    }
+
     let ticking = false;
     function updateActiveDot() {
       ticking = false;
       const pageWidth = row.clientWidth || 1;
       const idx = Math.round(row.scrollLeft / pageWidth) - 1; // 맨 앞 복제 카드만큼 한 칸 보정
-      const clamped = Math.max(0, Math.min(count - 1, idx));
-      dots.forEach((dot, i) => dot.classList.toggle('active', i === clamped));
+      setActiveByIndex(idx);
     }
     row.addEventListener(
       'scroll',
@@ -2467,6 +2485,8 @@
       },
       { passive: true }
     );
+
+    return setActiveByIndex;
   }
 
   async function loadMissions() {
