@@ -14,20 +14,28 @@
   }
   track('pageview', { path: location.pathname });
 
-  // '홈으로' 버튼: 홈페이지의 큐티 섹션을 보다가 들어온 경우엔, 새로 페이지를
-  // 불러와서 스크롤 위치를 다시 계산하는 대신 브라우저의 "뒤로가기"를 그대로
-  // 사용합니다. PC에서 뒤로가기를 눌렀을 때처럼 스크롤 위치까지 그대로 즉시
-  // 복원되어(bfcache), 로딩이나 스크롤 이동이 전혀 보이지 않습니다.
-  // 뒤로 갈 페이지가 없는 경우(새 탭으로 열었거나 등)에는 그냥 평소 링크(/#qt)로
-  // 안전하게 이동하도록 놔둡니다.
-  const homeBtn = document.getElementById('qt-home-btn');
-  if (homeBtn && homeBtn.dataset.cameFromHome === '1') {
-    homeBtn.addEventListener('click', (e) => {
-      if (window.history.length > 1) {
-        e.preventDefault();
-        window.history.back();
-      }
-    });
+  // 아멘 개수에 따라 뱃지 단계를 정합니다. (숫자는 절대 노출하지 않고, 문구/아이콘만 바뀝니다)
+  function getQtAmenTier(amen) {
+    const n = amen || 0;
+    if (n <= 0) return null;
+    if (n === 1) return { level: 1, icon: '🙏', label: '첫 아멘이 도착했어요', hearts: 3, color: '#f4a6c1' };
+    if (n <= 5) return { level: 2, icon: '💛', label: '은혜를 나누고 있어요', hearts: 5, color: '#f07a9e' };
+    if (n <= 9) return { level: 3, icon: '✨', label: '은혜가 번지고 있어요', hearts: 7, color: '#ea4c78' };
+    if (n <= 14) return { level: 4, icon: '🔥', label: '뜨거운 은혜의 시간', hearts: 9, color: '#e8482f' };
+    return { level: 5, icon: '🎉', label: '전교인 큐티 참여 완료', hearts: 12, color: '#d61f1f' };
+  }
+
+  function updateAmenBadge(amen) {
+    const badgeEl = document.getElementById('qt-amen-badge');
+    if (!badgeEl) return;
+    const tier = getQtAmenTier(amen);
+    if (!tier) {
+      badgeEl.style.display = 'none';
+      return;
+    }
+    badgeEl.className = `qt-amen-badge qt-amen-badge--lv${tier.level}`;
+    badgeEl.textContent = `${tier.icon} ${tier.label}`;
+    badgeEl.style.display = '';
   }
 
   const amenBtn = document.getElementById('qt-amen-btn');
@@ -43,15 +51,17 @@
       heartEl.textContent = pressed ? '♥' : '♡';
     }
 
-    function playPopEffect() {
+    function playPopEffect(amen) {
+      const tier = getQtAmenTier(amen) || { hearts: 5, color: '#f07a9e' };
       amenBtn.classList.remove('pop');
       void amenBtn.offsetWidth; // 리플레이를 위해 강제로 리플로우
       amenBtn.classList.add('pop');
 
-      for (let i = 0; i < 5; i++) {
+      for (let i = 0; i < tier.hearts; i++) {
         const p = document.createElement('span');
         p.className = 'qt-heart-particle';
         p.textContent = '♥';
+        p.style.color = tier.color;
         p.style.left = `${50 + (Math.random() * 40 - 20)}%`;
         p.style.animationDelay = `${i * 0.05}s`;
         amenBtn.appendChild(p);
@@ -67,10 +77,6 @@
 
       // 먼저 화면을 바꿔서 반응이 즉각적으로 느껴지게 하고, 실패하면 되돌립니다.
       setPressedState(!alreadyPressed);
-      if (!alreadyPressed) {
-        playPopEffect();
-        track('click', { label: 'amen_button' });
-      }
 
       try {
         const res = await fetch(`/api/qt/${qtId}/amen`, {
@@ -79,7 +85,13 @@
           body: JSON.stringify({ action })
         });
         if (!res.ok) throw new Error('요청 실패');
+        const data = await res.json();
         localStorage.setItem(storageKey, alreadyPressed ? '0' : '1');
+        updateAmenBadge(data.amen);
+        if (!alreadyPressed) {
+          playPopEffect(data.amen);
+          track('click', { label: 'amen_button' });
+        }
       } catch (err) {
         setPressedState(alreadyPressed); // 실패 시 원상복구
       }
