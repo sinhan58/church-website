@@ -1583,8 +1583,8 @@
     let tickTimer = null;
     let destroyed = false;
     let paused = false;
-    function notifyPos() {
-      if (onPosChange) onPosChange(pos - 1); // 0-based 실제 카드 인덱스로 알려줌
+    function notifyPos(instant) {
+      if (onPosChange) onPosChange(pos - 1, instant); // 0-based 실제 카드 인덱스로 알려줌
     }
 
     function easeInOutQuad(t) {
@@ -1618,11 +1618,11 @@
       if (pos === itemCount + 1) {
         row.scrollLeft = 1 * pageWidth;
         pos = 1;
-        notifyPos();
+        notifyPos(true); // 카드가 순간이동했으니 점도 애니메이션 없이 즉시 반영
       } else if (pos === 0) {
         row.scrollLeft = itemCount * pageWidth;
         pos = itemCount;
-        notifyPos();
+        notifyPos(true);
       }
     }
 
@@ -1764,9 +1764,17 @@
     const cards = $$('.service-card', grid);
     if (!cards.length) return null;
 
-    function setActiveByIndex(idx) {
+    function setActiveByIndex(idx, instant) {
       const clamped = Math.max(0, Math.min(dots.length - 1, idx));
+      if (instant) {
+        dots.forEach((dot) => { dot.style.transition = 'none'; });
+      }
       dots.forEach((dot, i) => dot.classList.toggle('is-active', i === clamped));
+      if (instant) {
+        // 강제로 한 번 반영시킨 뒤(reflow), 트랜지션을 다시 켜서 다음 변화부터는 원래대로 부드럽게
+        if (dots[0]) dots[0].offsetHeight;
+        dots.forEach((dot) => { dot.style.transition = ''; });
+      }
     }
 
     let ticking = false;
@@ -2472,9 +2480,16 @@
       .join('');
     const dots = $$('.mission-cards-dot', dotsWrap);
 
-    function setActiveByIndex(idx) {
+    function setActiveByIndex(idx, instant) {
       const clamped = Math.max(0, Math.min(count - 1, idx));
+      if (instant) {
+        dots.forEach((dot) => { dot.style.transition = 'none'; });
+      }
       dots.forEach((dot, i) => dot.classList.toggle('active', i === clamped));
+      if (instant) {
+        if (dots[0]) dots[0].offsetHeight;
+        dots.forEach((dot) => { dot.style.transition = ''; });
+      }
     }
 
     let ticking = false;
