@@ -1639,12 +1639,22 @@
       animating = true;
       const pageWidth = row.clientWidth || 1;
       pos += 1;
+      // 마지막→첫번째(또는 그 반대)로 넘어가는 슬라이드라면, 애니메이션이 끝난 뒤가 아니라
+      // "지금 이 슬라이드가 시작되는 순간"부터 점을 미리 업데이트합니다. 그래야 슬라이드가
+      // 진행되는 0.5초 내내 점이 카드와 같이 움직이는 것처럼 느껴지고, 슬라이드가 다 끝난
+      // 뒤에야 점이 뒤늦게 딸깍 바뀌는 "분리된 느낌"이 없어집니다.
+      if (pos === itemCount + 1) {
+        if (onPosChange) onPosChange(0);
+      } else if (pos === 0) {
+        if (onPosChange) onPosChange(itemCount - 1);
+      } else {
+        notifyPos();
+      }
       row.style.scrollSnapType = 'none'; // 이 애니메이션이 진행되는 짧은 순간만 스냅과 충돌하지 않도록 잠시 꺼둠
       animateScrollTo(pos * pageWidth, 500, () => {
         animating = false;
         if (destroyed) return;
         correctIfOnClone();
-        notifyPos();
         row.style.scrollSnapType = ''; // 다 움직였으니 바로 복구
         scheduleNext();
       });
