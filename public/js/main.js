@@ -1741,35 +1741,6 @@
       dots.forEach((dot, i) => dot.classList.toggle('is-active', i === clamped));
     }
 
-    let ticking = false;
-    function updateActiveDot() {
-      ticking = false;
-      const gridRect = grid.getBoundingClientRect();
-      const gridCenter = gridRect.left + gridRect.width / 2;
-      let closestIndex = 0;
-      let closestDist = Infinity;
-      cards.forEach((card, i) => {
-        const rect = card.getBoundingClientRect();
-        const cardCenter = rect.left + rect.width / 2;
-        const dist = Math.abs(cardCenter - gridCenter);
-        if (dist < closestDist) {
-          closestDist = dist;
-          closestIndex = i;
-        }
-      });
-      setActiveByIndex(closestIndex);
-    }
-    grid.addEventListener(
-      'scroll',
-      () => {
-        if (!ticking) {
-          ticking = true;
-          requestAnimationFrame(updateActiveDot);
-        }
-      },
-      { passive: true }
-    );
-
     return setActiveByIndex;
   }
 
@@ -2448,24 +2419,6 @@
       const clamped = Math.max(0, Math.min(count - 1, idx));
       dots.forEach((dot, i) => dot.classList.toggle('active', i === clamped));
     }
-
-    let ticking = false;
-    function updateActiveDot() {
-      ticking = false;
-      const pageWidth = row.clientWidth || 1;
-      const idx = Math.round(row.scrollLeft / pageWidth) - 1; // 맨 앞 복제 카드만큼 한 칸 보정
-      setActiveByIndex(idx);
-    }
-    row.addEventListener(
-      'scroll',
-      () => {
-        if (!ticking) {
-          ticking = true;
-          requestAnimationFrame(updateActiveDot);
-        }
-      },
-      { passive: true }
-    );
 
     return setActiveByIndex;
   }
