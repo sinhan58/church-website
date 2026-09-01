@@ -1669,22 +1669,35 @@
       correctIfOnClone();
     }
 
+    let pendingSettleCleanup = null;
+
     function onTouchFinish() {
+      // 이전 스와이프의 "정착 대기" 처리가 아직 안 끝났는데 또 스와이프하면, 두 개의
+      // 대기 콜백이 동시에 쌓여서 타이머가 중복으로 걸릴 수 있습니다. 새로 시작하기 전에
+      // 이전 대기를 확실히 취소합니다.
+      if (pendingSettleCleanup) {
+        pendingSettleCleanup();
+        pendingSettleCleanup = null;
+      }
       const wasPausedByThisGesture = paused;
       const settle = () => {
+        pendingSettleCleanup = null;
         // 빠르게 휙 미는 동작은 touchmove가 몇 번 못 잡고 끝나버려서 "진짜 스와이프"로
         // 인식을 못 할 수 있습니다. 그래도 실제로는 카드가 움직였을 수 있으니, 스와이프
         // 인식 여부와 상관없이 손을 뗄 때마다 항상 실제 위치로 다시 맞춰줍니다.
         resyncPos();
         if (wasPausedByThisGesture) {
           paused = false;
+          if (tickTimer) clearTimeout(tickTimer); // 혹시 남아있을 이전 타이머까지 확실히 정리
           tickTimer = setTimeout(goNext, intervalMs);
         }
       };
       if ('onscrollend' in window) {
         row.addEventListener('scrollend', settle, { once: true });
+        pendingSettleCleanup = () => row.removeEventListener('scrollend', settle);
       } else {
-        setTimeout(settle, 150);
+        const fallbackTimer = setTimeout(settle, 150);
+        pendingSettleCleanup = () => clearTimeout(fallbackTimer);
       }
       touchStartX = null;
       touchStartY = null;
