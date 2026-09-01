@@ -1590,6 +1590,14 @@
       if (onPosChange) onPosChange(pos - 1); // 0-based 실제 카드 인덱스로 알려줌
     }
 
+    function finishAnimating() {
+      // scrollLeft를 직접 바꾼 직후엔 브라우저가 'scroll' 이벤트를 살짝 늦게(비동기로) 보내는데,
+      // 그 이벤트가 뒤늦게 도착했을 때도 여전히 "내가 한 것"으로 인식되도록 짧은 유예를 둡니다.
+      setTimeout(() => {
+        animating = false;
+      }, 60);
+    }
+
     function easeInOutQuad(t) {
       return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
     }
@@ -1652,9 +1660,9 @@
       }
       row.style.scrollSnapType = 'none'; // 이 애니메이션이 진행되는 짧은 순간만 스냅과 충돌하지 않도록 잠시 꺼둠
       animateScrollTo(pos * pageWidth, 500, () => {
-        animating = false;
         if (destroyed) return;
-        correctIfOnClone();
+        correctIfOnClone(); // animating이 아직 true인 상태에서 처리 — 이 안에서 생기는 scrollLeft 변화도 "내가 한 것"으로 인식되게
+        finishAnimating();
         row.style.scrollSnapType = ''; // 다 움직였으니 바로 복구
         scheduleNext();
       });
@@ -1681,7 +1689,9 @@
           if (destroyed) return;
           const pageWidth = row.clientWidth || 1;
           pos = Math.round(row.scrollLeft / pageWidth);
+          animating = true; // correctIfOnClone()이 만드는 scrollLeft 변화도 "내가 한 것"으로 인식되게
           correctIfOnClone();
+          finishAnimating();
           notifyPos();
           scheduleNext();
         };
