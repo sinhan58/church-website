@@ -1591,12 +1591,14 @@
       return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
     }
 
+    let animGen = 0; // 애니메이션 세대 번호 — 새 애니메이션이 시작되면 이전 애니메이션은 스스로 멈춥니다.
     function animateScrollTo(targetLeft, duration, done) {
+      const myGen = ++animGen;
       const startLeft = row.scrollLeft;
       const distance = targetLeft - startLeft;
       const startTime = performance.now();
       function step(now) {
-        if (destroyed) return;
+        if (destroyed || myGen !== animGen) return; // 더 최신 애니메이션에 밀렸으면 즉시 멈춤 (서로 겹쳐서 싸우지 않도록)
         const elapsed = now - startTime;
         const t = Math.min(1, elapsed / duration);
         row.scrollLeft = startLeft + distance * easeInOutQuad(t);
@@ -1624,22 +1626,29 @@
       }
     }
 
+    let animating = false;
     function goNext() {
-      if (destroyed || paused) return;
+      if (destroyed || paused || animating) return;
+      animating = true;
       const pageWidth = row.clientWidth || 1;
       pos += 1;
       row.style.scrollSnapType = 'none'; // 이 애니메이션이 진행되는 짧은 순간만 스냅과 충돌하지 않도록 잠시 꺼둠
       animateScrollTo(pos * pageWidth, 500, () => {
+        animating = false;
         if (destroyed) return;
         correctIfOnClone();
         notifyPos(); // 위에서 보정이 안 일어난(=일반적으로 한 칸만 이동한) 경우에도 확실하게 알려줌
         row.style.scrollSnapType = ''; // 다 움직였으니 바로 복구 (평소·사용자가 밀 때는 항상 스냅 켜진 상태)
+        if (tickTimer) clearTimeout(tickTimer); // 혹시 남아있을 이전 타이머까지 확실히 정리
         if (!destroyed && !paused) tickTimer = setTimeout(goNext, intervalMs);
       });
     }
 
     function pause() {
       paused = true;
+      animGen += 1; // 혹시 진행 중이던 애니메이션이 있으면 다음 프레임에 스스로 멈추게 함
+      animating = false;
+      row.style.scrollSnapType = ''; // 사용자가 만지기 시작했으니 스냅을 바로 되살림
       if (tickTimer) {
         clearTimeout(tickTimer);
         tickTimer = null;
