@@ -19,11 +19,26 @@ function formatDateLabel(dateStr = '') {
   return `${d.getFullYear()}년 ${d.getMonth() + 1}월 ${d.getDate()}일 (${days[d.getDay()]})`;
 }
 
+// 아멘 개수에 따라 뱃지 단계를 정합니다. (숫자는 절대 노출하지 않고, 문구/아이콘만 바뀝니다)
+function getQtAmenTier(amen) {
+  const n = amen || 0;
+  if (n <= 0) return null;
+  if (n === 1) return { level: 1, icon: '🙏', label: '첫 아멘이 도착했어요' };
+  if (n <= 5) return { level: 2, icon: '💛', label: '은혜를 나누고 있어요' };
+  if (n <= 9) return { level: 3, icon: '✨', label: '은혜가 번지고 있어요' };
+  if (n <= 14) return { level: 4, icon: '🔥', label: '뜨거운 은혜의 시간' };
+  return { level: 5, icon: '🎉', label: '전교인 큐티 참여 완료' };
+}
+
+function renderQtAmenBadgeHtml(amen) {
+  const tier = getQtAmenTier(amen);
+  if (!tier) return '<span class="qt-amen-badge" id="qt-amen-badge" style="display:none;"></span>';
+  return `<span class="qt-amen-badge qt-amen-badge--lv${tier.level}" id="qt-amen-badge">${tier.icon} ${tier.label}</span>`;
+}
+
 // 큐티 상세 페이지 전체 HTML을 문자열로 만들어 돌려줍니다.
 // 검색엔진이 자바스크립트 실행 없이도 그날의 큐티 내용을 온전히 읽을 수 있도록 서버에서 직접 렌더링합니다.
-// cameFromHome: 홈페이지(큐티 섹션)를 둘러보다가 들어온 경우 true. 이 경우엔 '홈으로'를 누르면
-// 다시 큐티 섹션(#qt)으로 돌아가고, 그 외(푸시 알림 등으로 바로 들어온 경우)엔 홈 최상단으로 보냅니다.
-function renderQtDetailPage({ site, item, prev, next, siteUrl, cameFromHome = false }) {
+function renderQtDetailPage({ site, item, prev, next, siteUrl }) {
   const churchName = site.churchName || '교회';
   const pastor = item.pastor || site.about?.pastorName || '';
   const pageTitle = `${item.title || '오늘의 큐티'} | ${churchName} 오늘의 큐티`;
@@ -139,13 +154,14 @@ ${fontStyleTag}
         <button class="qt-amen-btn" id="qt-amen-btn" data-id="${escapeHtml(item.id)}">
           <span class="qt-heart" id="qt-heart">♡</span> '아멘' 누르기
         </button>
+        ${renderQtAmenBadgeHtml(item.amen)}
         <button class="qt-share-btn" id="qt-share-btn"
           data-title="${escapeHtml(item.title || '오늘의 큐티')}"
           data-text="${escapeHtml((item.verseText || '').slice(0, 60))}"
           data-url="${pageUrl}">
           공유
         </button>
-        <a href="${cameFromHome ? '/#qt' : '/'}" class="qt-home-btn" id="qt-home-btn"${cameFromHome ? ' data-came-from-home="1"' : ''}>홈으로</a>
+        <a href="/#qt" class="qt-home-btn">홈으로</a>
       </div>
 
       ${navHtml}
