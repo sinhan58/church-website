@@ -1581,10 +1581,12 @@
     if (!row || itemCount <= 1) return () => {};
     let pos = 1; // 1..itemCount = 실제 카드, 0 = 마지막 복제본, itemCount+1 = 첫 복제본
     let tickTimer = null;
+    let settleTimer = null;
     let destroyed = false;
-    let paused = false;
-    function notifyPos(instant) {
-      if (onPosChange) onPosChange(pos - 1, instant); // 0-based 실제 카드 인덱스로 알려줌
+    let animating = false; // 제 코드가 만든 애니메이션이 지금 진행 중인지
+
+    function notifyPos() {
+      if (onPosChange) onPosChange(pos - 1); // 0-based 실제 카드 인덱스로 알려줌
     }
 
     function easeInOutQuad(t) {
@@ -1598,7 +1600,7 @@
       const distance = targetLeft - startLeft;
       const startTime = performance.now();
       function step(now) {
-        if (destroyed || myGen !== animGen) return; // 더 최신 애니메이션에 밀렸으면 즉시 멈춤 (서로 겹쳐서 싸우지 않도록)
+        if (destroyed || myGen !== animGen) return; // 더 최신 애니메이션에 밀렸으면 즉시 멈춤
         const elapsed = now - startTime;
         const t = Math.min(1, elapsed / duration);
         row.scrollLeft = startLeft + distance * easeInOutQuad(t);
@@ -1618,17 +1620,21 @@
       if (pos === itemCount + 1) {
         row.scrollLeft = 1 * pageWidth;
         pos = 1;
-        notifyPos(true); // 카드가 순간이동했으니 점도 애니메이션 없이 즉시 반영
+        notifyPos();
       } else if (pos === 0) {
         row.scrollLeft = itemCount * pageWidth;
         pos = itemCount;
-        notifyPos(true);
+        notifyPos();
       }
     }
 
-    let animating = false;
+    function scheduleNext() {
+      if (tickTimer) clearTimeout(tickTimer);
+      if (!destroyed) tickTimer = setTimeout(goNext, intervalMs);
+    }
+
     function goNext() {
-      if (destroyed || paused || animating) return;
+      if (destroyed || animating) return;
       animating = true;
       const pageWidth = row.clientWidth || 1;
       pos += 1;
@@ -1637,102 +1643,45 @@
         animating = false;
         if (destroyed) return;
         correctIfOnClone();
-        notifyPos(); // 위에서 보정이 안 일어난(=일반적으로 한 칸만 이동한) 경우에도 확실하게 알려줌
-        row.style.scrollSnapType = ''; // 다 움직였으니 바로 복구 (평소·사용자가 밀 때는 항상 스냅 켜진 상태)
-        if (tickTimer) clearTimeout(tickTimer); // 혹시 남아있을 이전 타이머까지 확실히 정리
-        if (!destroyed && !paused) tickTimer = setTimeout(goNext, intervalMs);
+        notifyPos();
+        row.style.scrollSnapType = ''; // 다 움직였으니 바로 복구
+        scheduleNext();
       });
     }
 
-    function pause() {
-      paused = true;
-      animGen += 1; // 혹시 진행 중이던 애니메이션이 있으면 다음 프레임에 스스로 멈추게 함
-      animating = false;
-      row.style.scrollSnapType = ''; // 사용자가 만지기 시작했으니 스냅을 바로 되살림
-      if (tickTimer) {
-        clearTimeout(tickTimer);
-        tickTimer = null;
-      }
-    }
-
-    // 세로 스크롤(약간의 가로 흔들림 포함)은 무시하고, 가로로 밀리는 정도가 세로보다
-    // 뚜렷하게 클 때만 "진짜 카드 스와이프"로 인정해서 자동 넘김을 잠깐 멈춥니다.
-    let touchStartX = null;
-    let touchStartY = null;
-    let hasMovedEnough = false;
-    const MOVE_THRESHOLD = 10;
-
-    function onTouchStart(e) {
-      const point = e.touches ? e.touches[0] : e;
-      touchStartX = point.clientX;
-      touchStartY = point.clientY;
-      hasMovedEnough = false;
-    }
-    function onTouchMove(e) {
-      if (touchStartX === null || hasMovedEnough) return;
-      const point = e.touches ? e.touches[0] : e;
-      const dx = Math.abs(point.clientX - touchStartX);
-      const dy = Math.abs(point.clientY - touchStartY);
-      if (dx > MOVE_THRESHOLD && dx > dy) {
-        hasMovedEnough = true;
-        pause();
-      }
-    }
-    function resyncPos() {
-      const pageWidth = row.clientWidth || 1;
-      pos = Math.round(row.scrollLeft / pageWidth);
-      correctIfOnClone();
-      notifyPos();
-    }
-
-    let pendingSettleCleanup = null;
-
-    function onTouchFinish() {
-      // 이전 스와이프의 "정착 대기" 처리가 아직 안 끝났는데 또 스와이프하면, 두 개의
-      // 대기 콜백이 동시에 쌓여서 타이머가 중복으로 걸릴 수 있습니다. 새로 시작하기 전에
-      // 이전 대기를 확실히 취소합니다.
-      if (pendingSettleCleanup) {
-        pendingSettleCleanup();
-        pendingSettleCleanup = null;
-      }
-      const wasPausedByThisGesture = paused;
-      const settle = () => {
-        pendingSettleCleanup = null;
-        // 빠르게 휙 미는 동작은 touchmove가 몇 번 못 잡고 끝나버려서 "진짜 스와이프"로
-        // 인식을 못 할 수 있습니다. 그래도 실제로는 카드가 움직였을 수 있으니, 스와이프
-        // 인식 여부와 상관없이 손을 뗄 때마다 항상 실제 위치로 다시 맞춰줍니다.
-        resyncPos();
-        if (wasPausedByThisGesture) {
-          paused = false;
-          if (tickTimer) clearTimeout(tickTimer); // 혹시 남아있을 이전 타이머까지 확실히 정리
-          tickTimer = setTimeout(goNext, intervalMs);
+    // 터치/포인터 제스처를 직접 해석하려 하지 않고, "실제 스크롤 위치가 지금 움직이고
+    // 있는가"만 그대로 관찰합니다. 스크롤이 멈추면(150ms 동안 추가 변화 없음) 그 시점의
+    // 실제 위치를 기준으로 다시 맞추고 다음 자동 넘김을 예약합니다. 이 방식은 손가락으로
+    // 얼마나 빠르게 여러 번 연속으로 넘기든, 세로로 스크롤하든(이 요소 자체의 가로 스크롤
+    // 위치는 안 바뀌므로 애초에 이 리스너가 반응하지 않음) 항상 실제 상태와 어긋나지 않습니다.
+    row.addEventListener(
+      'scroll',
+      () => {
+        if (animating) return; // 제 코드가 만든 스크롤이면 무시 (goNext 쪽에서 알아서 처리)
+        if (tickTimer) {
+          clearTimeout(tickTimer);
+          tickTimer = null;
         }
-      };
-      if ('onscrollend' in window) {
-        row.addEventListener('scrollend', settle, { once: true });
-        pendingSettleCleanup = () => row.removeEventListener('scrollend', settle);
-      } else {
-        const fallbackTimer = setTimeout(settle, 150);
-        pendingSettleCleanup = () => clearTimeout(fallbackTimer);
-      }
-      touchStartX = null;
-      touchStartY = null;
-      hasMovedEnough = false;
-    }
-
-    row.addEventListener('touchstart', onTouchStart, { passive: true });
-    row.addEventListener('touchmove', onTouchMove, { passive: true });
-    row.addEventListener('touchend', onTouchFinish, { passive: true });
-    row.addEventListener('pointerdown', onTouchStart, { passive: true });
-    row.addEventListener('pointermove', onTouchMove, { passive: true });
-    row.addEventListener('pointerup', onTouchFinish, { passive: true });
+        if (settleTimer) clearTimeout(settleTimer);
+        settleTimer = setTimeout(() => {
+          settleTimer = null;
+          if (destroyed) return;
+          const pageWidth = row.clientWidth || 1;
+          pos = Math.round(row.scrollLeft / pageWidth);
+          correctIfOnClone();
+          notifyPos();
+          scheduleNext();
+        }, 150);
+      },
+      { passive: true }
+    );
 
     // 폰트 로딩 등으로 레이아웃이 아직 다 안 잡힌 상태에서 카드 폭을 재면 계산이 어긋날 수
     // 있어서, 레이아웃이 확실히 자리잡은 다음(폰트 로딩 완료 + 한 프레임 더) 시작합니다.
     function begin() {
       // 시작 위치를 진짜 첫 카드(1번)로 맞춰둡니다 (0번은 복제본이라서요).
       row.scrollLeft = row.clientWidth || 0;
-      tickTimer = setTimeout(goNext, intervalMs);
+      scheduleNext();
     }
     const fontsReady = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
     fontsReady.then(() => {
@@ -1747,8 +1696,10 @@
     return function destroy() {
       destroyed = true;
       if (tickTimer) clearTimeout(tickTimer);
+      if (settleTimer) clearTimeout(settleTimer);
     };
   }
+
 
   function setupServiceDots(grid, count) {
     const dotsWrap = $('#service-dots');
