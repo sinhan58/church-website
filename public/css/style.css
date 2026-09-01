@@ -2018,6 +2018,13 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   background: var(--line);
   color: var(--muted);
 }
+.qt-card .qt-amen-badge {
+  display: block;
+  width: fit-content;
+  font-size: 0.68rem;
+  padding: 5px 12px;
+  margin: -6px 0 12px;
+}
 .qt-card-title {
   font-family: var(--font-heading);
   font-size: 1.15rem;
@@ -2113,7 +2120,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 .qt-verse-ref { font-size: 0.85rem; color: var(--muted); margin: 0; }
 .qt-detail-body { font-size: 1rem; line-height: 1.9; margin-bottom: 28px; }
 
-.qt-reaction-bar { display: flex; gap: 10px; justify-content: center; margin-bottom: 28px; }
+.qt-reaction-bar { display: flex; gap: 10px; justify-content: center; margin-bottom: 28px; flex-wrap: wrap; }
 .qt-amen-btn, .qt-share-btn, .qt-home-btn {
   display: flex; align-items: center; gap: 6px;
   font-size: 0.86rem;
@@ -2148,6 +2155,21 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   pointer-events: none;
   animation: qtHeartFloat 0.9s ease forwards;
 }
+
+.qt-amen-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 8px 16px;
+  border-radius: 999px;
+  white-space: nowrap;
+}
+.qt-amen-badge--lv1 { background: #fdeef3; color: #c2537a; }
+.qt-amen-badge--lv2 { background: #fde3ec; color: #d1487a; }
+.qt-amen-badge--lv3 { background: #fbd3e0; color: #c22a5c; }
+.qt-amen-badge--lv4 { background: #ffe3d6; color: #d5451f; }
+.qt-amen-badge--lv5 { background: linear-gradient(135deg, #ffdca8, #ff8a8a); color: #9c1616; font-weight: 700; }
 
 .qt-detail-nav {
   display: flex; align-items: center; justify-content: space-between;
