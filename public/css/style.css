@@ -2040,15 +2040,12 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   z-index: 1;
   color: #fff;
   text-align: center;
-  font-size: 0.78rem;
+  font-size: 1.01rem;
   font-weight: 500;
   opacity: 0.92;
   margin: 0 0 10px;
   word-break: keep-all;
   text-shadow: 0 2px 6px rgba(0,0,0,0.35);
-}
-@media (max-width: 900px) {
-  .qt-card-subtitle { font-size: 1.01rem; }
 }
 .qt-card-photo-verseref {
   position: relative;
