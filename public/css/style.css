@@ -2171,6 +2171,24 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 .qt-amen-badge--lv4 { background: #ffe3d6; color: #d5451f; }
 .qt-amen-badge--lv5 { background: linear-gradient(135deg, #ffdca8, #ff8a8a); color: #9c1616; font-weight: 700; }
 
+@keyframes qtHeartbeat {
+  0%, 100% { transform: scale(1); }
+  14% { transform: scale(1.35); }
+  28% { transform: scale(1); }
+  42% { transform: scale(1.35); }
+  70% { transform: scale(1); }
+}
+.qt-amen-badge-heart {
+  display: inline-block;
+  margin-right: 2px;
+  color: #f0c419; /* 1단계 기본값: 노랑 */
+  animation: qtHeartbeat 1.6s ease-in-out infinite;
+}
+.qt-amen-badge--lv2 .qt-amen-badge-heart { color: #ff5fa2; animation-duration: 1.4s; } /* 핑크 */
+.qt-amen-badge--lv3 .qt-amen-badge-heart { color: #ff8c2b; animation-duration: 1.2s; } /* 주황 */
+.qt-amen-badge--lv4 .qt-amen-badge-heart { color: #e8382f; animation-duration: 1s; }   /* 빨강 */
+.qt-amen-badge--lv5 .qt-amen-badge-heart { color: #c41414; animation-duration: 0.8s; } /* 빨강(더 진하게) */
+
 .qt-detail-nav {
   display: flex; align-items: center; justify-content: space-between;
   border-top: 1px solid var(--line);
