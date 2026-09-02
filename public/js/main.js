@@ -1943,7 +1943,7 @@
     const todayCardHtml = `
       <a class="qt-card qt-card--today" href="/qt/${latest.id}?from=home" data-id="${latest.id}" data-title="${escapeHtml(latest.title || '')}">
         <span class="qt-badge">오늘의 큐티</span>
-        ${todayTier ? `<span class="qt-amen-badge qt-amen-badge--lv${todayTier.level}">${todayTier.icon} ${todayTier.label}</span>` : ''}
+        ${todayTier ? `<span class="qt-amen-badge qt-amen-badge--lv${todayTier.level}"><span class="qt-amen-badge-heart">♥</span> ${todayTier.label}</span>` : ''}
         <h3 class="qt-card-title">${escapeHtml(latest.title || '')}</h3>
         ${latest.verseRef ? `<p class="qt-card-ref">${escapeHtml(latest.verseRef)}</p>` : ''}
         <div class="qt-card-foot">
