@@ -1934,7 +1934,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 
 @media (min-width: 861px) {
   .qt-carousel--coverflow {
-    height: 280px;
+    height: 500px;
     cursor: grab;
   }
   .qt-carousel--coverflow.dragging { cursor: grabbing; }
@@ -1953,6 +1953,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
     transition: transform 0.5s cubic-bezier(0.22, 0.68, 0, 1.01), opacity 0.4s ease;
     will-change: transform, opacity;
   }
+  .qt-carousel--coverflow .qt-card--today { width: min(420px, 92vw); }
   .qt-carousel--coverflow .qt-card:hover { transform-origin: center; }
   .qt-carousel--coverflow .qt-card--archive {
     display: block;
@@ -2044,9 +2045,84 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   font-size: 0.78rem;
   color: var(--muted);
 }
-.qt-stage--navy { background: linear-gradient(180deg, var(--navy-deep) 0%, var(--navy-soft) 100%); }
-.qt-stage--gold { background: linear-gradient(160deg, #7a5c12 0%, var(--navy-deep) 70%); }
-.qt-stage--dawn { background: linear-gradient(160deg, #4a3a63 0%, #b06a4f 55%, #e0a86a 100%); }
+
+/* ---- 오늘의 큐티 카드: 사진 배경 + 제목/부제목 오버레이 + 말씀 인용구 박스 ---- */
+.qt-card--today {
+  padding: 0;
+  overflow: hidden;
+  width: min(420px, 92%);
+}
+.qt-card-badges {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 18px 20px 0;
+}
+.qt-card--today .qt-badge,
+.qt-card--today .qt-amen-badge {
+  margin: 0;
+}
+.qt-card-photo {
+  position: relative;
+  min-height: 200px;
+  margin: 14px 20px 0;
+  border-radius: 14px;
+  overflow: hidden;
+  padding: 28px 22px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  background: var(--qt-photo-bg, linear-gradient(160deg, var(--navy-deep), var(--navy-soft))) center/cover no-repeat;
+}
+.qt-card-photo::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(13,21,38,0.3), rgba(13,21,38,0.55));
+}
+.qt-card--today .qt-card-title {
+  position: relative;
+  z-index: 1;
+  color: #fff;
+  text-align: center;
+  font-size: 1.25rem;
+  margin: 0 0 8px;
+  text-shadow: 0 2px 8px rgba(0,0,0,0.4);
+}
+.qt-card-subtitle {
+  position: relative;
+  z-index: 1;
+  color: #fff;
+  text-align: center;
+  font-size: 0.88rem;
+  font-weight: 500;
+  opacity: 0.92;
+  margin: 0;
+  word-break: keep-all;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.35);
+}
+.qt-card-verse-box {
+  margin: 18px 20px 0;
+  padding: 14px 16px;
+  border-left: 3px solid var(--gold);
+  background: var(--ivory-dim);
+  border-radius: 0 8px 8px 0;
+}
+.qt-card-verse-text {
+  font-size: 0.86rem;
+  line-height: 1.65;
+  color: var(--ink);
+  margin: 0 0 6px;
+  white-space: pre-line;
+  word-break: keep-all;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.qt-card--today .qt-card-ref { margin: 0; font-weight: 600; }
+.qt-card--today .qt-card-foot { margin: 16px 20px 0; padding: 12px 0 20px; }
 
 .qt-empty { text-align: center; color: var(--ivory-dim); padding: 40px 0; position: relative; }
 
