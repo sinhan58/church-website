@@ -1,2886 +1,1370 @@
-(function () {
-  const $ = (sel) => document.querySelector(sel);
-  const $$ = (sel, ctx) => Array.from((ctx || document).querySelectorAll(sel));
+const express = require('express');
+const router = express.Router();
+const bcrypt = require('bcryptjs');
+const multer = require('multer');
+const path = require('path');
+const fs = require('fs');
 
-  let currentSession = null; // { username, role, permissions }
+// sharp(이미지 압축용)는 배포 환경에 따라 설치가 안 돼있거나 실패할 수 있어서,
+// 여기서 에러가 나도 로그인을 포함한 관리자 기능 전체가 죽지 않도록 안전하게 불러옵니다.
+// 이 경우 이미지 압축만 건너뛰고(원본 그대로 저장) 나머지 기능은 정상 동작합니다.
+let sharp = null;
+try {
+  sharp = require('sharp');
+} catch (err) {
+  console.error('[admin] sharp 모듈을 불러오지 못했습니다. 이미지 자동 압축 기능은 비활성화됩니다:', err.message);
+}
 
-  async function api(url, options = {}) {
-    const res = await fetch(url, {
-      headers: { 'Content-Type': 'application/json' },
-      ...options
-    });
-    if (res.status === 401) {
-      showLogin();
-      throw new Error('로그인이 필요합니다.');
-    }
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(data.error || '요청 처리 중 오류가 발생했습니다.');
-    return data;
+const { readData, writeData, makeId, saveUploadedFile } = require('../utils/db');
+const { requireAuth, requireMainAdmin, requirePermission } = require('../middleware/auth');
+const { updateSermonsCache, getCachedSermons } = require('../utils/youtube');
+const { pregenerateMissingSermonPosters, listBuiltinPhotoFilenames } = require('../utils/sermonPoster');
+const { sendToAll } = require('../utils/push');
+
+const uploadsDir = path.join(__dirname, '..', 'public', 'uploads');
+
+// 푸시 알림에 들어갈 이미지 URL이 우리 서버에 업로드된 파일이거나(/uploads/...),
+// 신뢰할 수 있는 https 링크인 경우만 허용합니다 (javascript: 등 악성 스킴 차단).
+function isSafeMediaUrl(value) {
+  if (!value || typeof value !== 'string') return false;
+  const v = value.trim();
+  if (!v) return false;
+  return v.startsWith('/uploads/') || /^https:\/\//.test(v);
+}
+
+// ---------- 파일 업로드 설정 ----------
+// 파일을 메모리에 잠깐 담아두었다가(diskStorage 대신 memoryStorage), 아래에서
+// Supabase 연결 여부에 따라 Storage에 올리거나 로컬 디스크에 저장합니다.
+const storage = multer.memoryStorage();
+const upload = multer({
+  storage,
+  limits: { fileSize: 8 * 1024 * 1024 }, // 8MB 제한
+  fileFilter: (req, file, cb) => {
+    const ok = /image\/(jpeg|png|gif|webp)/.test(file.mimetype);
+    cb(ok ? null : new Error('이미지 파일만 업로드할 수 있습니다.'), ok);
   }
+});
 
-  async function uploadImage(file) {
-    const form = new FormData();
-    form.append('image', file);
-    const res = await fetch('/api/admin/upload', { method: 'POST', body: form });
-    let data;
-    try {
-      data = await res.json();
-    } catch (parseErr) {
-      // 서버가 JSON이 아닌 응답(HTML 에러 페이지 등)을 준 경우 — 보통 로그인 만료,
-      // 파일 용량 초과, 서버 오류일 때 발생합니다.
-      if (res.status === 401 || res.status === 403) {
-        throw new Error('로그인이 만료되었습니다. 새로고침 후 다시 로그인해주세요.');
-      }
-      if (res.status === 413) {
-        throw new Error('사진 파일이 너무 큽니다. 더 작은 용량의 사진으로 다시 시도해주세요.');
-      }
-      throw new Error(`이미지 업로드 실패 (서버 응답 ${res.status}). 파일 용량을 줄이거나 다시 로그인 후 시도해주세요.`);
-    }
-    if (!res.ok) throw new Error(data.error || '이미지 업로드 실패');
-    return data.url;
-  }
+// 첨부파일(이미지 외 문서 등) 업로드 - 확장자 제한 없이 허용
+const attachmentUpload = multer({
+  storage,
+  limits: { fileSize: 15 * 1024 * 1024 } // 15MB 제한
+});
 
-  async function uploadAttachments(files) {
-    const form = new FormData();
-    Array.from(files).forEach((f) => form.append('files', f));
-    const res = await fetch('/api/admin/upload-attachment', { method: 'POST', body: form });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || '첨부파일 업로드 실패');
-    return data.files; // [{name, url}]
-  }
+// 업로드된 이미지를 적당한 크기/용량으로 자동 압축합니다.
+// - 가로 1600px보다 크면 1600px로 축소 (세로는 비율 유지, 더 작은 원본은 확대하지 않음)
+//   ※ 사이트에서 사진이 실제로 화면에 보이는 가장 큰 크기(사진 확대 보기)가 1100px
+//     안팎이라, 1600px면 고화질 화면에서도 충분히 선명하면서 용량은 확실히 줄어듭니다.
+// - jpeg/webp는 화질 78 정도로 재압축해서 용량을 크게 줄임
+// - PNG로 올라온 파일이라도, 실제로 투명한 부분(알파 채널)이 없는 '사진'이면 JPEG로
+//   바꿔서 저장합니다. PNG는 무손실 압축이라 사진처럼 색이 복잡한 이미지에 쓰면 같은
+//   화질이어도 용량이 몇 배씩 부풀어 오릅니다 (예: 8.7MB PNG 사진이 압축 후에도 PNG로
+//   저장되면 1.8MB로 밖에 안 줄지만, JPEG로 바꾸면 0.2MB까지 줄어듭니다). 로고처럼
+//   실제로 투명 배경이 있는 PNG는 그대로 PNG로 유지해서 투명도가 깨지지 않게 합니다.
+// - 움짤(gif)은 원본 그대로 둠
+const MAX_IMAGE_DIMENSION = 1600;
 
-  // ---------------- 화면 전환 ----------------
-  function showLogin() {
-    $('#login-screen').hidden = false;
-    $('#dashboard').hidden = true;
-  }
-  function showDashboard() {
-    $('#login-screen').hidden = true;
-    $('#dashboard').hidden = false;
-    initDashboard();
-  }
+async function compressImageIfNeeded(file) {
+  const isCompressibleImage = /^image\/(jpeg|png|webp)/.test(file.mimetype);
+  if (!isCompressibleImage || !sharp) return file.buffer;
 
-  // ---------------- 로그인 ----------------
-  $('#login-form').addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const form = e.target;
-    const username = form.username.value;
-    const password = form.password.value;
-    const errorEl = $('#login-error');
-    errorEl.textContent = '';
-    try {
-      const result = await api('/api/admin/login', { method: 'POST', body: JSON.stringify({ username, password }) });
-      currentSession = { username: result.username, role: result.role, permissions: result.permissions };
-      showDashboard();
-    } catch (err) {
-      errorEl.textContent = err.message;
-    }
-  });
+  try {
+    const image = sharp(file.buffer, { failOn: 'none' });
+    const metadata = await image.metadata();
 
-  $('#logout-btn').addEventListener('click', async () => {
-    await api('/api/admin/logout', { method: 'POST' });
-    showLogin();
-  });
-
-  async function checkSession() {
-    try {
-      const session = await api('/api/admin/session');
-      if (session.isAdmin) {
-        currentSession = { username: session.username, role: session.role, permissions: session.permissions };
-        showDashboard();
-      } else {
-        showLogin();
-      }
-    } catch {
-      showLogin();
-    }
-  }
-
-  // ---------------- 사이드바 탭 전환 ----------------
-  let dashboardInitialized = false;
-  function setupNav() {
-    const sidebarNav = $('#sidebar-nav');
-    const toggleBtn = $('#sidebar-toggle-btn');
-    const toggleCurrentLabel = $('#sidebar-toggle-current');
-
-    // 모바일: 메뉴 접기/펴기 버튼
-    if (toggleBtn && sidebarNav) {
-      toggleBtn.addEventListener('click', () => {
-        sidebarNav.classList.toggle('open');
-      });
+    let pipeline = image.rotate(); // 사진의 EXIF 방향 정보를 반영해 실제로 보이는 방향대로 회전 보정
+    if (metadata.width && metadata.width > MAX_IMAGE_DIMENSION) {
+      pipeline = pipeline.resize({ width: MAX_IMAGE_DIMENSION, withoutEnlargement: true });
     }
 
-    $$('.nav-item').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        $$('.nav-item').forEach((b) => b.classList.remove('active'));
-        $$('.panel').forEach((p) => p.classList.remove('active'));
-        btn.classList.add('active');
-        $('#' + btn.dataset.panel).classList.add('active');
-
-        // 모바일에서 메뉴를 고르면 자동으로 접어서, 바로 그 화면 내용이 보이게 합니다.
-        if (toggleCurrentLabel) toggleCurrentLabel.textContent = btn.textContent;
-        if (sidebarNav) sidebarNav.classList.remove('open');
-      });
-    });
-  }
-
-  let postEditor = null;
-
-  // ---------------- 기도 요청 / 온라인 문의 (관리자 확인) ----------------
-  // key: 'prayers' 또는 'inquiries'. inquiries만 답글 입력창 + 답변완료 배지를 보여줍니다.
-  function setupSecretBoardAdminPanel(key, { listElId, refreshBtnId, withReply, showSecretBadge }) {
-    const listEl = $('#' + listElId);
-    const refreshBtn = $('#' + refreshBtnId);
-    if (!listEl || !refreshBtn) return;
-
-    function statusBadgeHTML(item) {
-      if (!withReply) return '';
-      const answered = !!(item.reply && item.reply.trim());
-      const bg = answered ? '#2f6d3a' : '#b3413a';
-      const label = answered ? '답변완료' : '미답변';
-      return `<span class="status-badge" data-id="${item.id}" style="margin-left:8px; padding:2px 10px; border-radius:999px; font-size:0.76rem; font-weight:700; background:${bg}; color:#fff;">${label}</span>`;
-    }
-
-    function cardHTML(item) {
-      const dateStr = escapeHtml(item.date || '');
-      const nameStr = escapeHtml(item.name || '익명');
-      const contentStr = escapeHtml(item.content || '').replace(/\n/g, '<br>');
-      const secretBadge = showSecretBadge && item.secret ? '<span class="badge" style="margin-left:8px;">🔒 비밀글</span>' : '';
-      const replyBlock = withReply
-        ? `
-          <div style="margin-top:10px; padding-top:10px; border-top:1px dashed #ddd;">
-            <textarea class="reply-input" data-id="${item.id}" rows="2" placeholder="답글을 입력하세요 (작성자가 본인 비밀번호로 다시 열어보면 보여요)" style="width:100%; box-sizing:border-box; padding:8px; border:1px solid #ddd; border-radius:6px; font-family:inherit; font-size:0.85rem;">${escapeHtml(item.reply || '')}</textarea>
-            <button type="button" class="btn-secondary reply-save-btn" data-id="${item.id}" style="margin-top:6px;">답글 저장</button>
-            <span class="reply-status" data-id="${item.id}" style="margin-left:8px; font-size:0.82rem; color:#8f6b17;"></span>
-          </div>`
-        : '';
-      return `
-        <div class="post-row" data-id="${item.id}" style="display:block; padding:14px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
-            <div>
-              <strong>${nameStr}</strong>
-              <span class="hint" style="margin-left:8px;">${dateStr}</span>
-              ${secretBadge}${statusBadgeHTML(item)}
-            </div>
-            <div style="display:flex; gap:6px;">
-              <button type="button" class="btn-secondary board-toggle-btn" data-id="${item.id}">내용보기</button>
-              <button type="button" class="btn-secondary board-delete-btn" data-id="${item.id}">삭제</button>
-            </div>
-          </div>
-          <div class="board-detail" data-id="${item.id}" style="display:none; margin-top:10px;">
-            <p style="margin:0; white-space:pre-wrap; word-break:keep-all;">${contentStr}</p>
-            ${replyBlock}
-          </div>
-        </div>`;
-    }
-
-    async function load() {
-      listEl.innerHTML = `<p class="hint">불러오는 중...</p>`;
-      try {
-        const list = await api(`/api/admin/${key}`);
-        if (!list || list.length === 0) {
-          listEl.innerHTML = `<p class="hint">등록된 글이 없습니다.</p>`;
-          return;
-        }
-        listEl.innerHTML = list.map(cardHTML).join('');
-        bindRowActions();
-      } catch (err) {
-        listEl.innerHTML = `<p class="hint">불러오지 못했습니다: ${escapeHtml(err.message)}</p>`;
-      }
-    }
-
-    function bindRowActions() {
-      $$('.board-toggle-btn', listEl).forEach((btn) => {
-        btn.addEventListener('click', () => {
-          const id = btn.dataset.id;
-          const detail = listEl.querySelector(`.board-detail[data-id="${id}"]`);
-          const isOpen = detail.style.display !== 'none';
-          detail.style.display = isOpen ? 'none' : 'block';
-          btn.textContent = isOpen ? '내용보기' : '접기';
-        });
-      });
-
-      $$('.board-delete-btn', listEl).forEach((btn) => {
-        btn.addEventListener('click', async () => {
-          if (!confirm('이 글을 삭제하시겠습니까?')) return;
-          try {
-            await api(`/api/admin/${key}/${btn.dataset.id}`, { method: 'DELETE' });
-            load();
-          } catch (err) {
-            alert(err.message);
-          }
-        });
-      });
-
-      if (withReply) {
-        $$('.reply-save-btn', listEl).forEach((btn) => {
-          btn.addEventListener('click', async () => {
-            const id = btn.dataset.id;
-            const textarea = listEl.querySelector(`.reply-input[data-id="${id}"]`);
-            const statusEl = listEl.querySelector(`.reply-status[data-id="${id}"]`);
-            const replyText = textarea.value.trim();
-            statusEl.textContent = '저장 중...';
-            try {
-              await api(`/api/admin/${key}/${id}/reply`, {
-                method: 'PUT',
-                body: JSON.stringify({ reply: replyText })
-              });
-              statusEl.textContent = '저장 완료 ✓';
-              setTimeout(() => (statusEl.textContent = ''), 2500);
-              // 목록을 통째로 다시 불러오지 않고, 방금 저장한 행의 배지만 바로 바꿔줍니다.
-              // (전체 새로고침을 하면 펼쳐둔 내용이 다시 접혀버려서 불편하기 때문)
-              const badgeEl = listEl.querySelector(`.status-badge[data-id="${id}"]`);
-              if (badgeEl) {
-                const answered = !!replyText;
-                badgeEl.textContent = answered ? '답변완료' : '미답변';
-                badgeEl.style.background = answered ? '#2f6d3a' : '#b3413a';
-              }
-            } catch (err) {
-              statusEl.textContent = '저장 실패: ' + err.message;
-            }
-          });
-        });
-      }
-    }
-
-    refreshBtn.addEventListener('click', load);
-    load();
-  }
-
-  function setupPrayersAdminPanel() {
-    setupSecretBoardAdminPanel('prayers', {
-      listElId: 'prayers-admin-list',
-      refreshBtnId: 'prayers-refresh-btn',
-      withReply: false,
-      showSecretBadge: true // 기도 요청은 비밀글 여부를 직접 선택하므로 표시가 의미 있음
-    });
-  }
-
-  function setupInquiriesAdminPanel() {
-    setupSecretBoardAdminPanel('inquiries', {
-      listElId: 'inquiries-admin-list',
-      refreshBtnId: 'inquiries-refresh-btn',
-      withReply: true,
-      showSecretBadge: false // 온라인 문의는 항상 비밀글이라 표시가 불필요함
-    });
-  }
-
-  // ---------------- 말씀 퀴즈 관리 ----------------
-  // 서버(routes/admin.js)와 같은 규칙으로 괄호 안 단어를 빈칸으로 파싱합니다.
-  // 괄호가 없는 줄 = 새 성경 출처(참조) 시작, 괄호가 있는 줄 = 그 출처의 문제 내용.
-  // 참조 줄 없이 바로 내용부터 시작하면, 폼에 입력해둔 '본문 출처' 값을 기본으로 사용합니다.
-  function parseQuizPaste(raw, defaultReference) {
-    const lines = raw.split('\n').map((l) => l.trim()).filter(Boolean);
-    const verses = [];
-    let currentRef = null;
-
-    lines.forEach((line) => {
-      const hasBlank = /\(([^)]*)\)/.test(line);
-      if (!hasBlank) {
-        currentRef = line;
-        return;
-      }
-      const reference = currentRef || defaultReference || '';
-      const m = line.match(/^(\d+)\s+(.*)$/);
-      if (m) {
-        verses.push({ reference, verseLabel: m[1], rawText: m[2] });
-      } else {
-        verses.push({ reference, verseLabel: '', rawText: line });
-      }
-    });
-
-    return verses;
-  }
-
-  function renderQuizPreviewVerse(v) {
-    const withBlanks = (v.rawText || '').replace(/\(([^)]+)\)/g, () => '____');
-    const label = [v.reference, v.verseLabel].filter(Boolean).join(' ');
-    return `<p style="margin:0 0 10px; line-height:1.8;"><strong>${escapeHtml(label)}</strong> ${escapeHtml(withBlanks)}</p>`;
-  }
-
-  function setupQuizAdminPanel() {
-    const refInput = $('#quiz-reference-input');
-    const weekInput = $('#quiz-week-input');
-    const pasteInput = $('#quiz-paste-input');
-    const previewBtn = $('#quiz-preview-btn');
-    const previewBox = $('#quiz-preview-box');
-    const registerBtn = $('#quiz-register-btn');
-    const cancelEditBtn = $('#quiz-cancel-edit-btn');
-    const formTitleEl = $('#quiz-form-title');
-    const statusEl = $('#quiz-save-status');
-    const listEl = $('#quiz-admin-list');
-    const refreshBtn = $('#quiz-list-refresh-btn');
-
-    if (!refInput) return; // 권한이 없어 패널 자체가 없는 부관리자는 조용히 건너뜀
-
-    let editingQuizId = null; // null이면 '새로 등록', 값이 있으면 '그 퀴즈 수정 중'
-
-    // 서버에 저장된 markedText({{b1}} 등)+blanks(정답)를 다시 "(정답)" 형태의
-    // 원본 붙여넣기 텍스트로 되돌립니다. '수정하기'를 눌렀을 때 폼에 그대로 채워 넣기 위함입니다.
-    function reconstructRawText(v) {
-      let text = v.markedText;
-      v.blanks.forEach((b) => {
-        text = text.replace(`{{${b.id}}}`, `(${b.answer})`);
-      });
-      return text;
-    }
-
-    function resetForm() {
-      editingQuizId = null;
-      refInput.value = '';
-      weekInput.value = '';
-      pasteInput.value = '';
-      previewBox.style.display = 'none';
-      registerBtn.textContent = '이번 주 퀴즈로 등록';
-      if (formTitleEl) formTitleEl.textContent = '새 퀴즈 등록';
-      if (cancelEditBtn) cancelEditBtn.hidden = true;
-    }
-
-    function loadQuizIntoForm(q) {
-      editingQuizId = q.id;
-      refInput.value = q.reference || '';
-      weekInput.value = q.weekLabel || '';
-
-      const lines = [];
-      let lastRef = null;
-      q.verses.forEach((v) => {
-        if (v.reference && v.reference !== lastRef) {
-          lines.push(v.reference);
-          lastRef = v.reference;
-        }
-        const prefix = v.verseLabel ? `${v.verseLabel} ` : '';
-        lines.push(`${prefix}${reconstructRawText(v)}`);
-      });
-      pasteInput.value = lines.join('\n');
-
-      previewBox.style.display = 'none';
-      registerBtn.textContent = '수정 내용 저장';
-      if (formTitleEl) formTitleEl.textContent = '퀴즈 수정 중';
-      if (cancelEditBtn) cancelEditBtn.hidden = false;
-      refInput.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    }
-
-    function doPreview() {
-      const verses = parseQuizPaste(pasteInput.value, refInput.value.trim());
-      if (verses.length === 0) {
-        previewBox.style.display = 'block';
-        previewBox.innerHTML = `<p class="hint">붙여넣은 내용에서 절을 찾지 못했어요. "3 그러므로..." 처럼 절 번호로 시작하는지 확인해주세요.</p>`;
-        return;
-      }
-      const totalBlanks = verses.reduce((sum, v) => {
-        const matches = v.rawText.match(/\(([^)]+)\)/g) || [];
-        return sum + matches.length;
-      }, 0);
-      previewBox.style.display = 'block';
-      previewBox.innerHTML = `
-        <p class="hint" style="margin-bottom:10px;">${verses.length}개 절 · 빈칸 ${totalBlanks}개로 인식됐어요.</p>
-        ${verses.map(renderQuizPreviewVerse).join('')}`;
-    }
-
-    previewBtn.addEventListener('click', doPreview);
-
-    if (cancelEditBtn) {
-      cancelEditBtn.addEventListener('click', resetForm);
-    }
-
-    registerBtn.addEventListener('click', async () => {
-      const reference = refInput.value.trim();
-      const verses = parseQuizPaste(pasteInput.value, refInput.value.trim());
-      if (!reference) return alert('본문 출처를 입력해주세요.');
-      if (verses.length === 0) return alert('본문 내용을 붙여넣어주세요.');
-
-      const isEditing = !!editingQuizId;
-      statusEl.textContent = isEditing ? '수정 저장 중...' : '등록 중...';
-      try {
-        let savedQuiz;
-        if (isEditing) {
-          savedQuiz = await api(`/api/admin/quiz/${editingQuizId}`, {
-            method: 'PUT',
-            body: JSON.stringify({ reference, weekLabel: weekInput.value.trim(), verses })
-          });
-        } else {
-          savedQuiz = await api('/api/admin/quiz', {
-            method: 'POST',
-            body: JSON.stringify({ reference, weekLabel: weekInput.value.trim(), verses })
-          });
-        }
-        await maybeScheduleLinkedPush({
-          checkboxId: 'quiz-schedule-push-check',
-          timeInputId: 'quiz-schedule-push-time',
-          linkedType: 'quiz',
-          linkedId: savedQuiz.id,
-          title: `이번 주 말씀 퀴즈: ${reference}`,
-          url: '/quiz.html'
-        });
-        statusEl.textContent = isEditing ? '수정 완료 ✓' : '등록 완료 ✓';
-        setTimeout(() => (statusEl.textContent = ''), 2500);
-        resetForm();
-        loadQuizList();
-      } catch (err) {
-        statusEl.textContent = (isEditing ? '수정 실패: ' : '등록 실패: ') + err.message;
-      }
-    });
-
-    function quizRowHTML(q) {
-      const blankCount = q.verses.reduce((sum, v) => sum + v.blanks.length, 0);
-      return `
-        <div class="post-row" data-id="${q.id}" style="display:block; padding:14px;">
-          <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
-            <div>
-              <strong>${escapeHtml(q.reference)}</strong>
-              <span class="hint" style="margin-left:8px;">${escapeHtml(q.weekLabel || '')}</span>
-              <span class="hint" style="margin-left:8px;">${q.verses.length}절 · 빈칸 ${blankCount}개</span>
-            </div>
-            <div style="display:flex; gap:6px;">
-              <button type="button" class="btn-secondary quiz-edit-btn" data-id="${q.id}">수정</button>
-              <button type="button" class="btn-secondary quiz-delete-btn" data-id="${q.id}">삭제</button>
-            </div>
-          </div>
-        </div>`;
-    }
-
-    async function loadQuizList() {
-      listEl.innerHTML = `<p class="hint">불러오는 중...</p>`;
-      try {
-        const list = await api('/api/admin/quiz');
-        populateQuizStatsSelect(list);
-        if (!list || list.length === 0) {
-          listEl.innerHTML = `<p class="hint">등록된 퀴즈가 없습니다.</p>`;
-          return;
-        }
-        listEl.innerHTML = list.map(quizRowHTML).join('');
-        $$('.quiz-edit-btn', listEl).forEach((btn) => {
-          btn.addEventListener('click', () => {
-            const quiz = list.find((q) => q.id === btn.dataset.id);
-            if (quiz) loadQuizIntoForm(quiz);
-          });
-        });
-        $$('.quiz-delete-btn', listEl).forEach((btn) => {
-          btn.addEventListener('click', async () => {
-            if (!confirm('이 퀴즈를 삭제하시겠습니까? (참여 기록은 남아있어요)')) return;
-            try {
-              await api(`/api/admin/quiz/${btn.dataset.id}`, { method: 'DELETE' });
-              if (editingQuizId === btn.dataset.id) resetForm();
-              loadQuizList();
-            } catch (err) {
-              alert(err.message);
-            }
-          });
-        });
-      } catch (err) {
-        listEl.innerHTML = `<p class="hint">불러오지 못했습니다: ${escapeHtml(err.message)}</p>`;
-      }
-    }
-
-    refreshBtn.addEventListener('click', loadQuizList);
-    loadQuizList();
-    setupQuizStats();
-  }
-
-  // ---------------- 말씀 퀴즈: 참여 통계 ----------------
-  function quizBadgeFor(percent) {
-    if (percent >= 90) return { label: '말씀 박사 🏆' };
-    if (percent >= 70) return { label: '은혜의 지식 📖' };
-    if (percent >= 50) return { label: '성실한 도전자 🌱' };
-    return { label: '다음 주 다시 도전 💪' };
-  }
-
-  function populateQuizStatsSelect(list) {
-    const select = $('#quiz-stats-select');
-    if (!select) return;
-    const prevValue = select.value;
-    if (!list || list.length === 0) {
-      select.innerHTML = `<option value="">등록된 퀴즈가 없습니다</option>`;
-      return;
-    }
-    select.innerHTML = list
-      .map((q) => `<option value="${q.id}">${escapeHtml(q.reference)}${q.weekLabel ? ' · ' + escapeHtml(q.weekLabel) : ''}</option>`)
-      .join('');
-    // 이전에 보고 있던 퀴즈가 목록에 여전히 있으면 선택 유지, 없으면 가장 최근(맨 위) 퀴즈로
-    if (prevValue && list.some((q) => q.id === prevValue)) {
-      select.value = prevValue;
-    }
-    loadQuizStats(select.value);
-  }
-
-  async function loadQuizStats(quizId) {
-    const summaryEl = $('#quiz-stats-summary');
-    const listEl = $('#quiz-stats-list');
-    if (!summaryEl || !listEl) return;
-    if (!quizId) {
-      summaryEl.innerHTML = '';
-      listEl.innerHTML = '';
-      return;
-    }
-    summaryEl.innerHTML = `<p class="hint">불러오는 중...</p>`;
-    listEl.innerHTML = '';
-    try {
-      const subs = await api(`/api/admin/quiz/${quizId}/submissions`);
-      if (!subs || subs.length === 0) {
-        summaryEl.innerHTML = `<p class="hint">아직 참여자가 없어요.</p>`;
-        return;
-      }
-
-      const count = subs.length;
-      const avg = Math.round(subs.reduce((sum, s) => sum + s.score, 0) / count);
-      const highest = Math.max(...subs.map((s) => s.score));
-
-      const badgeCounts = {};
-      subs.forEach((s) => {
-        const label = quizBadgeFor(s.score).label;
-        badgeCounts[label] = (badgeCounts[label] || 0) + 1;
-      });
-
-      summaryEl.innerHTML = `
-        <div class="stats-cards" style="margin-top:12px;">
-          <div class="stat-card"><div class="num">${count}</div><div class="label">참여자 수</div></div>
-          <div class="stat-card"><div class="num">${avg}점</div><div class="label">평균 점수</div></div>
-          <div class="stat-card"><div class="num">${highest}점</div><div class="label">최고 점수</div></div>
-        </div>
-        <div class="stats-bar-list" style="margin-top:16px;">
-          ${Object.entries(badgeCounts)
-            .map(
-              ([label, n]) => `
-              <div class="stats-bar-row">
-                <div class="stats-bar-label">${label}</div>
-                <div class="stats-bar-track"><div class="stats-bar-fill" style="width:${Math.round((n / count) * 100)}%;"></div></div>
-                <div class="stats-bar-count">${n}명</div>
-              </div>`
-            )
-            .join('')}
-        </div>`;
-
-      listEl.innerHTML = `
-        <h3 style="font-size:0.95rem; margin:20px 0 10px;">참여자 상세 목록</h3>
-        <div class="post-list">
-          ${subs
-            .map(
-              (s) => `
-              <div class="post-row" style="display:flex; padding:12px 14px;">
-                <div style="flex:1;">
-                  <strong>${escapeHtml(s.name)}</strong>
-                  <span class="hint" style="margin-left:8px;">${new Date(s.submittedAt).toLocaleString('ko-KR')}</span>
-                </div>
-                <div class="hint">${s.correctCount}/${s.totalBlanks}칸 · 한번에 ${s.firstTryCount}개</div>
-                <div style="font-weight:700; color:var(--navy-deep); margin-left:14px;">${s.score}점</div>
-              </div>`
-            )
-            .join('')}
-        </div>`;
-    } catch (err) {
-      summaryEl.innerHTML = `<p class="hint">불러오지 못했습니다: ${escapeHtml(err.message)}</p>`;
-    }
-  }
-
-  function setupQuizStats() {
-    const select = $('#quiz-stats-select');
-    if (!select) return;
-    select.addEventListener('change', () => loadQuizStats(select.value));
-  }
-
-  function setupPushPanel() {
-    const sendBtn = $('#push-send-btn');
-    if (!sendBtn) return; // 권한 없는 부관리자는 조용히 건너뜀
-    const statusEl = $('#push-send-status');
-    const titleInput = $('#push-title-input');
-    const bodyInput = $('#push-body-input');
-    const urlInput = $('#push-url-input');
-
-    sendBtn.addEventListener('click', async () => {
-      const title = titleInput.value.trim();
-      const body = bodyInput.value.trim();
-      const url = urlInput.value.trim();
-      if (!title) return alert('알림 제목을 입력해주세요.');
-      if (!confirm('구독한 모든 방문자에게 알림을 보냅니다. 계속할까요?')) return;
-
-      statusEl.textContent = '발송 중...';
-      try {
-        const result = await api('/api/admin/push/send', {
-          method: 'POST',
-          body: JSON.stringify({ title, body, url })
-        });
-        statusEl.textContent = `발송 완료 ✓ (성공 ${result.sent}건 / 실패 ${result.failed}건)`;
-        titleInput.value = '';
-        bodyInput.value = '';
-        urlInput.value = '';
-      } catch (err) {
-        statusEl.textContent = '발송 실패: ' + err.message;
-      }
-    });
-
-    // ---------------- 자주 쓰는 문구 ----------------
-    async function loadTemplates() {
-      const wrap = $('#push-template-chips');
-      try {
-        const list = await api('/api/admin/push/templates');
-        if (!list || list.length === 0) {
-          wrap.innerHTML = `<p class="hint" style="margin:0;">아직 저장된 문구가 없어요. 아래에 입력하고 "이 문구 저장"을 눌러보세요.</p>`;
-          return;
-        }
-        wrap.innerHTML = list
-          .map(
-            (t) => `
-            <span class="badge push-template-chip" data-id="${t.id}" style="cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
-              ${escapeHtml(t.name)}
-              <button type="button" class="push-template-delete" data-id="${t.id}" style="background:none; border:none; color:inherit; cursor:pointer; font-size:0.9em;">×</button>
-            </span>`
-          )
-          .join('');
-
-        $$('.push-template-chip', wrap).forEach((chip) => {
-          chip.addEventListener('click', (e) => {
-            if (e.target.classList.contains('push-template-delete')) return;
-            const t = list.find((x) => x.id === chip.dataset.id);
-            if (!t) return;
-            titleInput.value = t.title;
-            bodyInput.value = t.body || '';
-            urlInput.value = t.url || '';
-          });
-        });
-        $$('.push-template-delete', wrap).forEach((btn) => {
-          btn.addEventListener('click', async (e) => {
-            e.stopPropagation();
-            if (!confirm('이 문구를 삭제할까요?')) return;
-            try {
-              await api(`/api/admin/push/templates/${btn.dataset.id}`, { method: 'DELETE' });
-              loadTemplates();
-            } catch (err) {
-              alert(err.message);
-            }
-          });
-        });
-      } catch (err) {
-        wrap.innerHTML = `<p class="hint">불러오지 못했습니다.</p>`;
-      }
-    }
-
-    $('#push-save-template-btn').addEventListener('click', async () => {
-      const title = titleInput.value.trim();
-      if (!title) return alert('먼저 알림 제목을 입력해주세요.');
-      const name = prompt('이 문구를 어떤 이름으로 저장할까요? (예: 새 설교 알림)');
-      if (!name || !name.trim()) return;
-      try {
-        await api('/api/admin/push/templates', {
-          method: 'POST',
-          body: JSON.stringify({
-            name: name.trim(),
-            title,
-            body: bodyInput.value.trim(),
-            url: urlInput.value.trim()
-          })
-        });
-        loadTemplates();
-      } catch (err) {
-        alert(err.message);
-      }
-    });
-
-    loadTemplates();
-
-    // ---------------- 예약된 알림 ----------------
-    async function loadScheduled() {
-      const listEl = $('#push-scheduled-list');
-      listEl.innerHTML = `<p class="hint">불러오는 중...</p>`;
-      try {
-        const list = await api('/api/admin/push/scheduled');
-        if (!list || list.length === 0) {
-          listEl.innerHTML = `<p class="hint">예약된 알림이 없습니다.</p>`;
-          return;
-        }
-        const statusLabel = { pending: '⏳ 대기중', sent: '✅ 발송완료', failed: '❌ 발송실패' };
-        listEl.innerHTML = list
-          .map((s) => {
-            const time = new Date(s.sendAt).toLocaleString('ko-KR');
-            const cancelBtn =
-              s.status === 'pending'
-                ? `<button type="button" class="btn-secondary push-schedule-cancel-btn" data-id="${s.id}">취소</button>`
-                : '';
-            return `
-              <div class="post-row" style="display:flex; justify-content:space-between; align-items:center; padding:12px 14px;">
-                <div>
-                  <strong>${escapeHtml(s.title)}</strong>
-                  <span class="hint" style="margin-left:8px;">${time}</span>
-                  <span class="hint" style="margin-left:8px;">${statusLabel[s.status] || s.status}</span>
-                </div>
-                ${cancelBtn}
-              </div>`;
-          })
-          .join('');
-        $$('.push-schedule-cancel-btn', listEl).forEach((btn) => {
-          btn.addEventListener('click', async () => {
-            if (!confirm('이 예약 알림을 취소할까요?')) return;
-            try {
-              await api(`/api/admin/push/scheduled/${btn.dataset.id}`, { method: 'DELETE' });
-              loadScheduled();
-            } catch (err) {
-              alert(err.message);
-            }
-          });
-        });
-      } catch (err) {
-        listEl.innerHTML = `<p class="hint">불러오지 못했습니다: ${escapeHtml(err.message)}</p>`;
-      }
-    }
-
-    $('#push-scheduled-refresh-btn').addEventListener('click', loadScheduled);
-    loadScheduled();
-  }
-
-  // 큐티·말씀 퀴즈 등록 폼의 "알림 예약하기" 체크박스 공통 처리.
-  // 체크하면 시간 선택칸을 보여주고 기본값을 1시간 뒤로 채워둡니다.
-  function setupSchedulePushToggle(checkboxId, fieldId, timeInputId) {
-    const checkbox = $('#' + checkboxId);
-    const field = $('#' + fieldId);
-    const timeInput = $('#' + timeInputId);
-    if (!checkbox) return;
-    checkbox.addEventListener('change', () => {
-      field.style.display = checkbox.checked ? '' : 'none';
-      if (checkbox.checked && !timeInput.value) {
-        const d = new Date(Date.now() + 60 * 60 * 1000); // 기본값: 1시간 뒤
-        d.setSeconds(0, 0);
-        const tzOffset = d.getTimezoneOffset() * 60000;
-        timeInput.value = new Date(d - tzOffset).toISOString().slice(0, 16);
-      }
-    });
-  }
-
-  // 큐티/퀴즈 등록 성공 후, 체크되어 있으면 예약 알림을 같이 만듭니다.
-  async function maybeScheduleLinkedPush({ checkboxId, timeInputId, linkedType, linkedId, title, url }) {
-    const checkbox = $('#' + checkboxId);
-    if (!checkbox || !checkbox.checked) return;
-    const timeInput = $('#' + timeInputId);
-    if (!timeInput.value) return;
-    try {
-      await api('/api/admin/push/scheduled', {
-        method: 'POST',
-        body: JSON.stringify({
-          title,
-          body: '',
-          url: url || '/',
-          sendAt: new Date(timeInput.value).toISOString(),
-          linkedType,
-          linkedId
-        })
-      });
-    } catch (err) {
-      alert('알림 예약에 실패했습니다: ' + err.message);
-    }
-    checkbox.checked = false;
-    timeInput.value = '';
-    $('#' + checkboxId.replace('-check', '-time-field')).style.display = 'none';
-  }
-
-  function initDashboard() {
-    if (dashboardInitialized) return;
-    dashboardInitialized = true;
-    postEditor = new Quill('#p-content-editor', {
-      theme: 'snow',
-      modules: { toolbar: '#p-content-toolbar' },
-      placeholder: '내용을 입력하세요. Enter로 줄바꿈, 위 도구모음으로 글자 크기·굵기·색상을 바꿀 수 있습니다.'
-    });
-    setupNav();
-    const initialActiveNav = $('.nav-item.active');
-    const toggleCurrentLabelInit = $('#sidebar-toggle-current');
-    if (initialActiveNav && toggleCurrentLabelInit) {
-      toggleCurrentLabelInit.textContent = initialActiveNav.textContent;
-    }
-    filterNavByPermission();
-    setupFontPickers();
-    loadSiteIntoForm();
-    loadMenuList();
-    loadPostList();
-    loadSermonCategories().then(() => loadSermonPreview());
-    setupImageUploadFields();
-    setupSermonPhotoUpload();
-    setupHeroImageUpload();
-    setupSiteSave();
-    setupServiceTimeEditor();
-    setupMenuEditor();
-    setupPostEditor();
-    setupSermonRefresh();
-    setupSermonPhotoOverride();
-    setupSermonCategoryManagement();
-    setupAccountPanel();
-    setupQtEditor();
-    setupQtPasteParser();
-    loadQtList();
-    setupQtBackgroundEditor();
-    setupQtBgPoolEditor();
-    setupPraiseEditor();
-    loadPraiseCategories();
-    setupPraiseCategoryManagement();
-    loadPraiseList();
-    setupMissionEditor();
-    loadMissionList();
-    setupPartnerEditor();
-    loadPartnerList();
-    loadStats().catch(() => {}); // 통계 권한이 없는 부관리자는 조용히 건너뜀
-    loadReceiptRequests().catch(() => {}); // 영수증 신청 권한이 없는 부관리자는 조용히 건너뜀
-    setupPrayersAdminPanel();
-    setupInquiriesAdminPanel();
-    setupQuizAdminPanel();
-    setupPushPanel();
-    setupSchedulePushToggle('qt-schedule-push-check', 'qt-schedule-push-time-field', 'qt-schedule-push-time');
-    setupSchedulePushToggle('quiz-schedule-push-check', 'quiz-schedule-push-time-field', 'quiz-schedule-push-time');
-    $('#p-date').value = new Date().toISOString().slice(0, 10);
-    $('#qt-date').value = new Date().toISOString().slice(0, 10);
-    $('#qt-pastor').value = localStorage.getItem('qtLastPastor') || '';
-  }
-
-  // ---------------- 권한별 메뉴 표시 ----------------
-  function filterNavByPermission() {
-    const isMain = currentSession && currentSession.role === 'main';
-    $$('.nav-item[data-permission]').forEach((btn) => {
-      const perm = btn.dataset.permission;
-      const allowed = isMain || (currentSession.permissions && currentSession.permissions[perm]);
-      btn.hidden = !allowed;
-    });
-    const activeBtn = $('.nav-item.active');
-    if (activeBtn && activeBtn.hidden) {
-      const firstVisible = $$('.nav-item').find((b) => !b.hidden);
-      if (firstVisible) firstVisible.click();
-    }
-  }
-
-  // ---------------- 이미지 업로드 필드 공통 처리 ----------------
-  function setupImageUploadFields() {
-    bindImageField('s-aboutImageFile', 's-aboutImagePreview');
-    bindImageField('p-imageFile', 'p-imagePreview');
-    bindImageField('qt-bg-photoFile', 'qt-bg-photoPreview');
-    bindImageField('m-imageFile', 'm-imagePreview');
-    bindImageField('pt-imageFile', 'pt-imagePreview');
-  }
-  function bindImageField(inputId, previewId) {
-    const input = $('#' + inputId);
-    if (!input) return; // 이 화면에 없는 필드면 조용히 건너뜀 (초기화 스크립트 전체가 멈추지 않도록)
-    input.addEventListener('change', () => {
-      const file = input.files[0];
-      if (!file) return;
-      input.disabled = true; // 업로드 도중 같은 칸에서 또 파일을 고르지 못하게 잠급니다
-      const uploadPromise = uploadImage(file)
-        .then((url) => {
-          input.dataset.uploadedUrl = url;
-          $('#' + previewId).src = url;
-        })
-        .catch((err) => {
-          alert(err.message);
-        })
-        .finally(() => {
-          input.disabled = false;
-        });
-      input._uploadPromise = uploadPromise; // 저장 버튼이 이 업로드가 끝날 때까지 기다릴 수 있도록 보관
-    });
-  }
-
-  // 저장 버튼을 눌렀을 때, 방금 고른 사진의 업로드가 아직 끝나지 않았다면 끝날 때까지
-  // 기다려줍니다. (업로드가 끝나기 전에 저장을 눌러서 사진 없이 저장되는 문제 방지)
-  async function waitForPendingUpload(inputId) {
-    const input = $('#' + inputId);
-    if (input && input._uploadPromise) {
-      await input._uploadPromise;
-    }
-  }
-
-  // ---------------- 설교 카드용 목사님 사진 목록 ----------------
-  let sermonCardPhotos = [];
-
-  function renderSermonPhotoList() {
-    const wrap = $('#s-sermonPhotoList');
-    if (sermonCardPhotos.length === 0) {
-      wrap.innerHTML = '<p class="hint" style="margin:0;">기본 사진 3장만 사용됩니다. 추가로 올리시면 여기에 표시됩니다.</p>';
-      return;
-    }
-    wrap.innerHTML = sermonCardPhotos
-      .map(
-        (url, i) => `
-        <div style="position:relative;" data-idx="${i}">
-          <img src="${url}" style="width:72px;height:72px;object-fit:cover;border-radius:6px;border:1px solid #ddd;" />
-          <button type="button" class="remove-sermon-photo" data-idx="${i}"
-            style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:#c0392b;color:#fff;border:none;font-size:12px;cursor:pointer;">×</button>
-        </div>`
-      )
-      .join('');
-    $$('.remove-sermon-photo', wrap).forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const idx = Number(btn.dataset.idx);
-        sermonCardPhotos.splice(idx, 1);
-        renderSermonPhotoList();
-      });
-    });
-  }
-
-  // 히어로 사진·설교 카드 사진처럼 "여러 장 추가" 방식은 배열에 바로 담기 때문에,
-  // 저장 버튼이 눌릴 때 이 배열들에 대한 업로드가 아직 진행 중이면 끝날 때까지 기다립니다.
-  let sitePendingUploads = [];
-  async function waitForSiteUploads() {
-    await Promise.all(sitePendingUploads);
-    sitePendingUploads = [];
-  }
-
-  function setupSermonPhotoUpload() {
-    $('#s-sermonPhotoFile').addEventListener('change', () => {
-      const input = $('#s-sermonPhotoFile');
-      const file = input.files[0];
-      if (!file) return;
-      const p = uploadImage(file)
-        .then((url) => {
-          sermonCardPhotos.push(url);
-          renderSermonPhotoList();
-          input.value = '';
-        })
-        .catch((err) => alert(err.message));
-      sitePendingUploads.push(p);
-    });
-  }
-
-  // ---------------- 대문(히어로) 배경 사진 목록 ----------------
-  let heroBackgroundImages = [];
-
-  function renderHeroImageList() {
-    const wrap = $('#s-heroImageList');
-    if (heroBackgroundImages.length === 0) {
-      wrap.innerHTML = '';
-      return;
-    }
-    wrap.innerHTML = heroBackgroundImages
-      .map(
-        (url, i) => `
-        <div style="position:relative;" data-idx="${i}">
-          <img src="${url}" style="width:96px;height:64px;object-fit:cover;border-radius:6px;border:1px solid #ddd;" />
-          <button type="button" class="remove-hero-photo" data-idx="${i}"
-            style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:#c0392b;color:#fff;border:none;font-size:12px;cursor:pointer;">×</button>
-        </div>`
-      )
-      .join('');
-    $$('.remove-hero-photo', wrap).forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const idx = Number(btn.dataset.idx);
-        heroBackgroundImages.splice(idx, 1);
-        renderHeroImageList();
-      });
-    });
-  }
-
-  function setupHeroImageUpload() {
-    $('#s-heroImageFile').addEventListener('change', () => {
-      const input = $('#s-heroImageFile');
-      const file = input.files[0];
-      if (!file) return;
-      const p = uploadImage(file)
-        .then((url) => {
-          heroBackgroundImages.push(url);
-          renderHeroImageList();
-          input.value = '';
-        })
-        .catch((err) => alert(err.message));
-      sitePendingUploads.push(p);
-    });
-  }
-
-  // ---------------- 기본 정보 (사이트) ----------------
-  let currentSite = null;
-
-  function populateFontSelect(selectEl) {
-    selectEl.innerHTML = window.FONT_CATALOG
-      .map((f) => `<option value="${f.id}">${escapeHtml(f.label)}</option>`)
-      .join('');
-  }
-
-  function updateFontPreview(selectId, previewId) {
-    const id = $('#' + selectId).value;
-    const family = window.getFontFamily(id, 'inherit');
-    $('#' + previewId).style.fontFamily = family;
-  }
-
-  function setupFontPickers() {
-    populateFontSelect($('#s-headingFont'));
-    populateFontSelect($('#s-bodyFont'));
-    $('#s-headingFont').addEventListener('change', () => updateFontPreview('s-headingFont', 's-headingFont-preview'));
-    $('#s-bodyFont').addEventListener('change', () => updateFontPreview('s-bodyFont', 's-bodyFont-preview'));
-  }
-
-  async function loadSiteIntoForm() {
-    currentSite = await api('/api/admin/site');
-    const s = currentSite;
-    $('#s-churchName').value = s.churchName || '';
-
-    $('#s-headingFont').value = s.design?.headingFont || 'noto-serif-kr';
-    $('#s-bodyFont').value = s.design?.bodyFont || 'pretendard';
-    updateFontPreview('s-headingFont', 's-headingFont-preview');
-    updateFontPreview('s-bodyFont', 's-bodyFont-preview');
-    $('#s-heroVerse').value = s.hero?.verse || '';
-    $('#s-heroVerseRef').value = s.hero?.verseRef || '';
-    $('#s-heroSubtitle').value = s.hero?.subtitle || '';
-    heroBackgroundImages = Array.isArray(s.hero?.backgroundImages) && s.hero.backgroundImages.length
-      ? s.hero.backgroundImages.slice()
-      : (s.hero?.backgroundImage ? [s.hero.backgroundImage] : []);
-    renderHeroImageList();
-
-    $('#s-sermonsIntro').value = s.sermonsIntro || '';
-    sermonCardPhotos = Array.isArray(s.sermonCardPhotos) ? [...s.sermonCardPhotos] : [];
-    renderSermonPhotoList();
-    $('#s-aboutGreeting').value = s.about?.greeting || '';
-    $('#s-aboutBody').value = s.about?.body || '';
-    $('#s-aboutHistory').value = s.about?.history || '';
-    $('#s-pastorName').value = s.about?.pastorName || '';
-    $('#s-pastorMessage').value = s.about?.pastorMessage || '';
-    if (s.about?.image) $('#s-aboutImagePreview').src = s.about.image;
-
-    $('#s-address').value = s.contact?.address || '';
-    $('#s-addressNote').value = s.contact?.addressNote || '';
-    $('#s-phone').value = s.contact?.phone || '';
-    $('#s-email').value = s.contact?.email || '';
-    $('#s-mapUrl').value = s.contact?.mapEmbedUrl || '';
-    $('#s-kakaoMapCode').value = '';
-    updateKakaoMapStatus(s.contact?.kakaoMapImageUrl, s.contact?.kakaoMapLinkUrl);
-
-    $('#s-offeringBank').value = s.offering?.bank || '';
-    $('#s-offeringAccount').value = s.offering?.account || '';
-    $('#s-offeringHolder').value = s.offering?.holder || '';
-    $('#s-offeringNote').value = s.offering?.note || '';
-
-    $('#s-snsYoutube').value = s.sns?.youtube || '';
-    $('#s-snsInstagram').value = s.sns?.instagram || '';
-    $('#s-snsFacebook').value = s.sns?.facebook || '';
-    $('#s-snsBand').value = s.sns?.band || '';
-
-    $('#s-missionsTitle').value = s.missions?.title || '';
-    $('#s-missionsSubtitle').value = s.missions?.subtitle || '';
-
-    renderServiceTimes(s.serviceTimes || []);
-
-    const qtBg = s.qtBackground || { type: 'preset', preset: 'navy' };
-    $('#qt-bg-type').value = qtBg.type || 'preset';
-    $('#qt-bg-preset').value = qtBg.preset || 'navy';
-    if (qtBg.image) $('#qt-bg-photoPreview').src = qtBg.image;
-    toggleQtBgFields();
-  }
-
-  function renderServiceTimes(list) {
-    const container = $('#service-list');
-    container.innerHTML = list
-      .map(
-        (svc, idx) => `
-        <div class="list-row" data-id="${svc.id}">
-          <input type="text" class="svc-name" value="${escapeAttr(svc.name)}" placeholder="예배 이름" />
-          <textarea class="svc-time" rows="1" placeholder="시간 (Enter로 줄바꿈 가능)">${escapeHtml(svc.time || '')}</textarea>
-          <button type="button" class="icon-btn remove-svc">삭제</button>
-        </div>`
-      )
-      .join('');
-
-    $$('.remove-svc').forEach((btn) => {
-      btn.addEventListener('click', (e) => {
-        e.target.closest('.list-row').remove();
-      });
-    });
-  }
-
-  $('#add-service-btn').addEventListener('click', () => {
-    const container = $('#service-list');
-    const row = document.createElement('div');
-    row.className = 'list-row';
-    row.dataset.id = 'svc_' + Date.now();
-    row.innerHTML = `
-      <input type="text" class="svc-name" placeholder="예배 이름" />
-      <textarea class="svc-time" rows="1" placeholder="시간 (Enter로 줄바꿈 가능)"></textarea>
-      <button type="button" class="icon-btn remove-svc">삭제</button>`;
-    container.appendChild(row);
-    row.querySelector('.remove-svc').addEventListener('click', () => row.remove());
-  });
-
-  function escapeAttr(str = '') {
-    return String(str).replace(/"/g, '&quot;');
-  }
-
-  function setupServiceTimeEditor() {
-    // 추가/삭제는 위에서 이벤트 바인딩됨. 저장 시점에 값 취합.
-  }
-
-  // ---------------- 카카오맵 (지도 미리보기 이미지 + 링크) ----------------
-  // 카카오맵 '공유 > HTML 태그 복사'로 나오는 코드에서 지도 미리보기 이미지 주소와,
-  // 클릭했을 때 이동할 카카오맵 링크만 안전하게 뽑아서 저장합니다.
-  // (관리자가 붙여넣은 코드를 그대로 저장/실행하지 않는 것이 보안상 더 안전합니다.)
-  function parseKakaoMapCode(raw) {
-    if (!raw || !raw.trim()) return null;
-    const imgMatch = raw.match(/<img[^>]*\ssrc="(https:\/\/staticmap\.kakao\.com\/[^"]+)"/);
-    const linkMatch = raw.match(/href="(https:\/\/map\.kakao\.com\/[^"]+)"/);
-    if (!imgMatch || !linkMatch) return { error: true };
-
-    return {
-      imageUrl: imgMatch[1],
-      linkUrl: linkMatch[1]
-    };
-  }
-
-  function updateKakaoMapStatus(imageUrl, linkUrl) {
-    const el = $('#kakao-map-status');
-    if (!el) return;
-    if (imageUrl && linkUrl) {
-      el.textContent = '✅ 카카오맵이 연결되어 있습니다. (새 코드를 붙여넣지 않으면 지금 설정이 유지됩니다)';
-      el.style.color = '#2f8f4e';
+    // 진짜로 투명한 부분이 있는 PNG만 PNG로 유지하고, 나머지(사진 등)는 전부
+    // 용량이 훨씬 작은 JPEG로 저장합니다.
+    const hasRealTransparency = metadata.format === 'png' && metadata.hasAlpha;
+
+    if (metadata.format === 'webp') {
+      pipeline = pipeline.webp({ quality: 78 });
+    } else if (hasRealTransparency) {
+      pipeline = pipeline.png({ quality: 78, compressionLevel: 9 });
     } else {
-      el.textContent = '카카오맵 미설정 — 아래 코드를 붙여넣으면 적용됩니다. (설정 전까지는 위 구글맵 URL이 사용됩니다)';
-      el.style.color = '';
-    }
-  }
-
-  function collectServiceTimes() {
-    return $$('#service-list .list-row').map((row) => ({
-      id: row.dataset.id,
-      name: row.querySelector('.svc-name').value.trim(),
-      time: row.querySelector('.svc-time').value.trim()
-    })).filter((s) => s.name && s.time);
-  }
-
-  function setupSiteSave() {
-    $('#save-site-btn').addEventListener('click', async () => {
-      const statusEl = $('#site-save-status');
-      statusEl.textContent = '저장 중...';
-      await waitForPendingUpload('s-aboutImageFile');
-      await waitForSiteUploads();
-      const aboutImg = $('#s-aboutImageFile').dataset.uploadedUrl || currentSite.about?.image || '';
-
-      // 카카오맵 코드를 새로 붙여넣었으면 파싱해서 사용, 안 붙여넣었으면 기존 값을 그대로 유지
-      const kakaoRaw = $('#s-kakaoMapCode').value;
-      const parsedKakao = parseKakaoMapCode(kakaoRaw);
-      if (parsedKakao && parsedKakao.error) {
-        statusEl.textContent = '카카오맵 코드를 다시 확인해주세요 (지도 이미지 주소를 찾을 수 없습니다).';
-        statusEl.style.color = '#b3413a';
-        return;
-      }
-      const kakaoMapImageUrl = parsedKakao ? parsedKakao.imageUrl : currentSite.contact?.kakaoMapImageUrl || '';
-      const kakaoMapLinkUrl = parsedKakao ? parsedKakao.linkUrl : currentSite.contact?.kakaoMapLinkUrl || '';
-
-      const payload = {
-        churchName: $('#s-churchName').value.trim(),
-        sermonsIntro: $('#s-sermonsIntro').value.trim(),
-        sermonCardPhotos: sermonCardPhotos,
-        design: {
-          headingFont: $('#s-headingFont').value,
-          bodyFont: $('#s-bodyFont').value
-        },
-        hero: {
-          verse: $('#s-heroVerse').value.trim(),
-          verseRef: $('#s-heroVerseRef').value.trim(),
-          subtitle: $('#s-heroSubtitle').value.trim(),
-          backgroundImages: heroBackgroundImages,
-          backgroundImage: heroBackgroundImages[0] || '' // 예전 방식과의 호환을 위해 첫 사진도 같이 저장
-        },
-        about: {
-          greeting: $('#s-aboutGreeting').value.trim(),
-          body: $('#s-aboutBody').value.trim(),
-          history: $('#s-aboutHistory').value.trim(),
-          pastorName: $('#s-pastorName').value.trim(),
-          pastorMessage: $('#s-pastorMessage').value.trim(),
-          image: aboutImg
-        },
-        serviceTimes: collectServiceTimes(),
-        contact: {
-          address: $('#s-address').value.trim(),
-          addressNote: $('#s-addressNote').value.trim(),
-          phone: $('#s-phone').value.trim(),
-          email: $('#s-email').value.trim(),
-          mapEmbedUrl: $('#s-mapUrl').value.trim(),
-          kakaoMapImageUrl,
-          kakaoMapLinkUrl
-        },
-        offering: {
-          bank: $('#s-offeringBank').value.trim(),
-          account: $('#s-offeringAccount').value.trim(),
-          holder: $('#s-offeringHolder').value.trim(),
-          note: $('#s-offeringNote').value.trim()
-        },
-        sns: {
-          youtube: $('#s-snsYoutube').value.trim(),
-          instagram: $('#s-snsInstagram').value.trim(),
-          facebook: $('#s-snsFacebook').value.trim(),
-          band: $('#s-snsBand').value.trim()
-        },
-        missions: {
-          title: $('#s-missionsTitle').value.trim(),
-          subtitle: $('#s-missionsSubtitle').value.trim()
-        }
-      };
-
-      try {
-        currentSite = await api('/api/admin/site', { method: 'PUT', body: JSON.stringify(payload) });
-        statusEl.textContent = '저장되었습니다 ✓';
-        $('#s-kakaoMapCode').value = '';
-        updateKakaoMapStatus(currentSite.contact?.kakaoMapImageUrl, currentSite.contact?.kakaoMapLinkUrl);
-        setTimeout(() => (statusEl.textContent = ''), 3000);
-      } catch (err) {
-        statusEl.textContent = '';
-        alert(err.message);
-      }
-    });
-  }
-
-  // ---------------- 메뉴 관리 ----------------
-  async function loadMenuList() {
-    const menu = await api('/api/admin/menu');
-    renderMenuList(menu.sort((a, b) => a.order - b.order));
-  }
-
-  function renderMenuList(menu) {
-    const container = $('#menu-list');
-    container.innerHTML = menu
-      .map(
-        (m) => `
-        <div class="list-row" data-id="${m.id}">
-          <input type="text" class="menu-label" value="${escapeAttr(m.label)}" />
-          <input type="text" class="menu-link" value="${escapeAttr(m.link)}" />
-          <button type="button" class="icon-btn move up" title="위로">↑</button>
-          <button type="button" class="icon-btn move down" title="아래로">↓</button>
-          <button type="button" class="icon-btn save-menu" title="저장">저장</button>
-          <button type="button" class="icon-btn remove-menu" title="삭제">삭제</button>
-        </div>`
-      )
-      .join('');
-
-    $$('#menu-list .save-menu').forEach((btn) =>
-      btn.addEventListener('click', async (e) => {
-        const row = e.target.closest('.list-row');
-        const id = row.dataset.id;
-        await api(`/api/admin/menu/${id}`, {
-          method: 'PUT',
-          body: JSON.stringify({
-            label: row.querySelector('.menu-label').value.trim(),
-            link: row.querySelector('.menu-link').value.trim()
-          })
-        });
-        flashSaved(btn);
-      })
-    );
-
-    $$('#menu-list .remove-menu').forEach((btn) =>
-      btn.addEventListener('click', async (e) => {
-        if (!confirm('이 메뉴를 삭제하시겠습니까?')) return;
-        const row = e.target.closest('.list-row');
-        await api(`/api/admin/menu/${row.dataset.id}`, { method: 'DELETE' });
-        loadMenuList();
-      })
-    );
-
-    $$('#menu-list .move.up').forEach((btn) =>
-      btn.addEventListener('click', (e) => {
-        const row = e.target.closest('.list-row');
-        const prev = row.previousElementSibling;
-        if (prev) container.insertBefore(row, prev);
-        saveMenuOrder(container);
-      })
-    );
-    $$('#menu-list .move.down').forEach((btn) =>
-      btn.addEventListener('click', (e) => {
-        const row = e.target.closest('.list-row');
-        const next = row.nextElementSibling;
-        if (next) container.insertBefore(next, row);
-        saveMenuOrder(container);
-      })
-    );
-  }
-
-  async function saveMenuOrder(container) {
-    const order = $$('.list-row', container).map((row) => row.dataset.id);
-    await api('/api/admin/menu-reorder', { method: 'PUT', body: JSON.stringify({ order }) });
-  }
-
-  function flashSaved(btn) {
-    const original = btn.textContent;
-    btn.textContent = '완료✓';
-    setTimeout(() => (btn.textContent = original), 1500);
-  }
-
-  function setupMenuEditor() {
-    $('#add-menu-btn').addEventListener('click', async () => {
-      const label = $('#new-menu-label').value.trim();
-      const link = $('#new-menu-link').value.trim();
-      if (!label || !link) return alert('메뉴 이름과 연결 위치를 모두 입력해주세요.');
-      await api('/api/admin/menu', { method: 'POST', body: JSON.stringify({ label, link }) });
-      $('#new-menu-label').value = '';
-      $('#new-menu-link').value = '';
-      loadMenuList();
-    });
-  }
-
-  // ---------------- 게시판 관리 ----------------
-  async function loadPostList() {
-    const posts = await api('/api/admin/posts');
-    renderPostList(posts);
-  }
-
-  let currentPosts = [];
-
-  function plainTextFromHtml(html = '') {
-    const div = document.createElement('div');
-    div.innerHTML = html;
-    return (div.textContent || '').replace(/\s+/g, ' ').trim();
-  }
-
-  const CATEGORY_LABELS = { 활동: '친교' };
-  const categoryLabel = (cat) => CATEGORY_LABELS[cat] || cat;
-
-  function renderPostList(posts) {
-    currentPosts = posts;
-    const container = $('#post-list');
-    if (posts.length === 0) {
-      container.innerHTML = `<p class="hint">등록된 게시글이 없습니다.</p>`;
-      return;
-    }
-    container.innerHTML = posts
-      .map((p) => {
-        const preview = plainTextFromHtml(p.content);
-        return `
-        <div class="post-row${p.id === editingPostId ? ' editing' : ''}" data-id="${p.id}">
-          <span class="badge">${escapeAttr(categoryLabel(p.category))}</span>
-          <div>
-            <div class="title">${p.pinned ? '📌 ' : ''}${escapeHtml(p.title)}</div>
-            <div class="meta">${escapeHtml(preview.slice(0, 60))}${preview.length > 60 ? '…' : ''}</div>
-          </div>
-          <span class="date">${escapeAttr(p.date)}</span>
-          <button type="button" class="icon-btn edit-post">수정</button>
-          <button type="button" class="icon-btn remove-post">삭제</button>
-        </div>`;
-      })
-      .join('');
-
-    $$('#post-list .remove-post').forEach((btn) =>
-      btn.addEventListener('click', async (e) => {
-        if (!confirm('이 게시글을 삭제하시겠습니까?')) return;
-        const id = e.target.closest('.post-row').dataset.id;
-        await api(`/api/admin/posts/${id}`, { method: 'DELETE' });
-        if (id === editingPostId) resetPostForm();
-        loadPostList();
-      })
-    );
-
-    $$('#post-list .edit-post').forEach((btn) =>
-      btn.addEventListener('click', (e) => {
-        const id = e.target.closest('.post-row').dataset.id;
-        const post = currentPosts.find((p) => p.id === id);
-        if (post) loadPostIntoForm(post);
-      })
-    );
-  }
-
-  function escapeHtml(str = '') {
-    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-  }
-
-  let editingPostId = null;
-  let pendingAttachments = []; // [{name, url}]
-
-  function renderAttachmentEditList() {
-    const box = $('#p-attachmentList');
-    box.innerHTML = pendingAttachments
-      .map(
-        (a, idx) => `
-        <div class="attachment-edit-item" data-idx="${idx}">
-          <span>${escapeHtml(a.name)}</span>
-          <button type="button" class="remove-attachment">삭제</button>
-        </div>`
-      )
-      .join('');
-
-    $$('#p-attachmentList .remove-attachment').forEach((btn) =>
-      btn.addEventListener('click', (e) => {
-        const idx = Number(e.target.closest('.attachment-edit-item').dataset.idx);
-        pendingAttachments.splice(idx, 1);
-        renderAttachmentEditList();
-      })
-    );
-  }
-
-  function resetPostForm() {
-    editingPostId = null;
-    pendingAttachments = [];
-    $('#post-form-title').textContent = '새 글 작성';
-    $('#add-post-btn').textContent = '게시글 등록';
-    $('#cancel-edit-btn').hidden = true;
-    $('#p-title').value = '';
-    postEditor.setContents([]);
-    $('#p-pinned').checked = false;
-    $('#p-imageFile').value = '';
-    $('#p-imageFile').dataset.uploadedUrl = '';
-    $('#p-imagePreview').src = '';
-    $('#p-attachmentFiles').value = '';
-    renderAttachmentEditList();
-    $('#p-date').value = new Date().toISOString().slice(0, 10);
-    $('#p-category').value = '소식';
-  }
-
-  function loadPostIntoForm(post) {
-    editingPostId = post.id;
-    pendingAttachments = Array.isArray(post.attachments) ? [...post.attachments] : [];
-    $('#post-form-title').textContent = '게시글 수정';
-    $('#add-post-btn').textContent = '수정 저장';
-    $('#cancel-edit-btn').hidden = false;
-    $('#p-category').value = post.category || '소식';
-    $('#p-date').value = post.date || '';
-    $('#p-title').value = post.title || '';
-    postEditor.root.innerHTML = post.content || '';
-    $('#p-pinned').checked = !!post.pinned;
-    $('#p-imageFile').value = '';
-    $('#p-imageFile').dataset.uploadedUrl = post.image || '';
-    $('#p-imagePreview').src = post.image || '';
-    renderAttachmentEditList();
-    $('#panel-board').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-
-  function setupPostEditor() {
-    $('#p-attachmentFiles').addEventListener('change', async () => {
-      const files = $('#p-attachmentFiles').files;
-      if (!files || files.length === 0) return;
-      try {
-        const uploaded = await uploadAttachments(files);
-        pendingAttachments = pendingAttachments.concat(uploaded);
-        renderAttachmentEditList();
-      } catch (err) {
-        alert(err.message);
-      } finally {
-        $('#p-attachmentFiles').value = '';
-      }
-    });
-
-    $('#cancel-edit-btn').addEventListener('click', () => {
-      resetPostForm();
-      loadPostList();
-    });
-
-    $('#add-post-btn').addEventListener('click', async () => {
-      const title = $('#p-title').value.trim();
-      const content = postEditor.root.innerHTML;
-      const isEmpty = postEditor.getText().trim().length === 0;
-      if (!title || isEmpty) return alert('제목과 내용을 입력해주세요.');
-      await waitForPendingUpload('p-imageFile');
-
-      const payload = {
-        category: $('#p-category').value,
-        date: $('#p-date').value || new Date().toISOString().slice(0, 10),
-        title,
-        content,
-        image: $('#p-imageFile').dataset.uploadedUrl || '',
-        attachments: pendingAttachments,
-        pinned: $('#p-pinned').checked
-      };
-
-      if (editingPostId) {
-        await api(`/api/admin/posts/${editingPostId}`, { method: 'PUT', body: JSON.stringify(payload) });
-      } else {
-        await api('/api/admin/posts', { method: 'POST', body: JSON.stringify(payload) });
-      }
-
-      resetPostForm();
-      loadPostList();
-    });
-  }
-
-  // ---------------- 오늘의 큐티 관리 ----------------
-  let currentQtList = [];
-  let editingQtId = null;
-
-  async function loadQtList() {
-    const list = await api('/api/admin/qt');
-    renderQtList(list);
-  }
-
-  function renderQtList(list) {
-    currentQtList = list;
-    const container = $('#qt-list');
-    if (!list || list.length === 0) {
-      container.innerHTML = `<p class="hint">등록된 큐티가 없습니다.</p>`;
-      return;
-    }
-    container.innerHTML = list
-      .map(
-        (q) => `
-        <div class="post-row${q.id === editingQtId ? ' editing' : ''}" data-id="${q.id}">
-          <span class="badge">큐티</span>
-          <div>
-            <div class="title">${escapeHtml(q.title || '')}</div>
-            <div class="meta">${escapeHtml(q.verseRef || '')} · 아멘 ${q.amen || 0}명 참여</div>
-          </div>
-          <span class="date">${escapeAttr(q.date)}</span>
-          <button type="button" class="icon-btn edit-qt">수정</button>
-          <button type="button" class="icon-btn remove-qt">삭제</button>
-        </div>`
-      )
-      .join('');
-
-    $$('#qt-list .remove-qt').forEach((btn) =>
-      btn.addEventListener('click', async (e) => {
-        if (!confirm('이 큐티를 삭제하시겠습니까?')) return;
-        const id = e.target.closest('.post-row').dataset.id;
-        await api(`/api/admin/qt/${id}`, { method: 'DELETE' });
-        if (id === editingQtId) resetQtForm();
-        loadQtList();
-      })
-    );
-
-    $$('#qt-list .edit-qt').forEach((btn) =>
-      btn.addEventListener('click', (e) => {
-        const id = e.target.closest('.post-row').dataset.id;
-        const item = currentQtList.find((q) => q.id === id);
-        if (item) loadQtIntoForm(item);
-      })
-    );
-  }
-
-  function resetQtForm() {
-    editingQtId = null;
-    $('#qt-form-title').textContent = '새 큐티 작성';
-    $('#add-qt-btn').textContent = '큐티 등록';
-    $('#cancel-qt-edit-btn').hidden = true;
-    $('#qt-date').value = new Date().toISOString().slice(0, 10);
-    $('#qt-pastor').value = localStorage.getItem('qtLastPastor') || '';
-    $('#qt-title').value = '';
-    const subtitleResetInput = $('#qt-subtitle');
-    if (subtitleResetInput) subtitleResetInput.value = '';
-    $('#qt-verseRef').value = '';
-    $('#qt-verseText').value = '';
-    $('#qt-body').value = '';
-    $('#qt-paste').value = '';
-    $('#qt-parse-status').textContent = '';
-  }
-
-  function loadQtIntoForm(item) {
-    editingQtId = item.id;
-    $('#qt-form-title').textContent = '큐티 수정';
-    $('#add-qt-btn').textContent = '수정 저장';
-    $('#cancel-qt-edit-btn').hidden = false;
-    $('#qt-date').value = item.date || '';
-    $('#qt-pastor').value = item.pastor || '';
-    $('#qt-title').value = item.title || '';
-    const subtitleLoadInput = $('#qt-subtitle');
-    if (subtitleLoadInput) subtitleLoadInput.value = item.subtitle || '';
-    $('#qt-verseRef').value = item.verseRef || '';
-    $('#qt-verseText').value = item.verseText || '';
-    $('#qt-body').value = item.body || '';
-    $('#qt-paste').value = '';
-    $('#qt-parse-status').textContent = '';
-    $('#panel-qt').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-
-  // ---------------- 찬양 ----------------
-  let currentPraiseList = [];
-  let editingPraiseId = null;
-  let praiseCategories = [];
-
-  // ---------------- 찬양 컨셉(카테고리) ----------------
-  async function loadPraiseCategories() {
-    praiseCategories = await api('/api/admin/praise-categories');
-    renderPraiseCategoryChecks();
-    renderPraiseCategoryManageList();
-  }
-
-  function renderPraiseCategoryChecks(selectedIds = []) {
-    const wrap = $('#praise-category-checks');
-    if (!wrap) return;
-    if (praiseCategories.length === 0) {
-      wrap.innerHTML = `<p class="hint" style="margin:0;">아직 컨셉이 없습니다. 아래 "찬양 컨셉 관리"에서 먼저 만들어주세요.</p>`;
-      return;
-    }
-    wrap.innerHTML = praiseCategories
-      .map(
-        (c) => `
-        <label>
-          <input type="checkbox" class="praise-category-check" value="${c.id}" ${selectedIds.includes(c.id) ? 'checked' : ''} />
-          ${escapeHtml(c.name)}
-        </label>`
-      )
-      .join('');
-  }
-
-  function getCheckedCategoryIds() {
-    return $$('.praise-category-check').filter((cb) => cb.checked).map((cb) => cb.value);
-  }
-
-  function renderPraiseCategoryManageList() {
-    const wrap = $('#praise-category-list');
-    if (!wrap) return;
-    if (praiseCategories.length === 0) {
-      wrap.innerHTML = `<p class="hint" style="margin:0;">아직 만들어진 컨셉이 없습니다.</p>`;
-      return;
-    }
-    wrap.innerHTML = praiseCategories
-      .map(
-        (c) => `
-        <span class="badge" style="display:inline-flex; align-items:center; gap:6px;">
-          ${escapeHtml(c.name)}
-          <button type="button" class="praise-category-edit" data-id="${c.id}" data-name="${escapeHtml(c.name)}" style="background:none; border:none; color:inherit; cursor:pointer; font-size:0.9em;" aria-label="수정">✎</button>
-          <button type="button" class="praise-category-delete" data-id="${c.id}" style="background:none; border:none; color:inherit; cursor:pointer; font-size:0.9em;">×</button>
-        </span>`
-      )
-      .join('');
-    $$('.praise-category-edit', wrap).forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        const newName = prompt('컨셉 이름 수정', btn.dataset.name);
-        if (!newName || !newName.trim() || newName.trim() === btn.dataset.name) return;
-        try {
-          await api(`/api/admin/praise-categories/${btn.dataset.id}`, {
-            method: 'PUT',
-            body: JSON.stringify({ name: newName.trim() })
-          });
-          await loadPraiseCategories();
-        } catch (err) {
-          alert(err.message);
-        }
-      });
-    });
-    $$('.praise-category-delete', wrap).forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        if (!confirm('이 컨셉을 삭제할까요? (이 컨셉이 붙어있던 찬양에서도 태그가 빠집니다)')) return;
-        try {
-          await api(`/api/admin/praise-categories/${btn.dataset.id}`, { method: 'DELETE' });
-          await loadPraiseCategories();
-        } catch (err) {
-          alert(err.message);
-        }
-      });
-    });
-  }
-
-  function setupPraiseCategoryManagement() {
-    const addBtn = $('#praise-category-add-btn');
-    if (!addBtn) return;
-    addBtn.addEventListener('click', async () => {
-      const input = $('#praise-category-new-input');
-      const name = input.value.trim();
-      if (!name) return alert('컨셉 이름을 입력해주세요.');
-      try {
-        await api('/api/admin/praise-categories', { method: 'POST', body: JSON.stringify({ name }) });
-        input.value = '';
-        await loadPraiseCategories();
-      } catch (err) {
-        alert(err.message);
-      }
-    });
-  }
-
-  async function loadPraiseList() {
-    const list = await api('/api/admin/praises');
-    renderPraiseList(list);
-  }
-
-  function renderPraiseList(list) {
-    currentPraiseList = list;
-    const container = $('#praise-list');
-    if (!list || list.length === 0) {
-      container.innerHTML = `<p class="hint">등록된 찬양이 없습니다.</p>`;
-      return;
-    }
-    container.innerHTML = list
-      .map(
-        (p) => `
-        <div class="post-row${p.id === editingPraiseId ? ' editing' : ''}" data-id="${p.id}">
-          <span class="badge">찬양</span>
-          <div>
-            <div class="title">${escapeHtml(p.title || '')}</div>
-            <div class="meta">${escapeHtml(p.singer || '')}</div>
-          </div>
-          <button type="button" class="icon-btn edit-praise">수정</button>
-          <button type="button" class="icon-btn remove-praise">삭제</button>
-        </div>`
-      )
-      .join('');
-
-    $$('#praise-list .remove-praise').forEach((btn) =>
-      btn.addEventListener('click', async (e) => {
-        if (!confirm('이 찬양을 삭제하시겠습니까?')) return;
-        const id = e.target.closest('.post-row').dataset.id;
-        await api(`/api/admin/praises/${id}`, { method: 'DELETE' });
-        if (id === editingPraiseId) resetPraiseForm();
-        loadPraiseList();
-      })
-    );
-
-    $$('#praise-list .edit-praise').forEach((btn) =>
-      btn.addEventListener('click', (e) => {
-        const id = e.target.closest('.post-row').dataset.id;
-        const item = currentPraiseList.find((p) => p.id === id);
-        if (item) loadPraiseIntoForm(item);
-      })
-    );
-  }
-
-  function resetPraiseForm() {
-    editingPraiseId = null;
-    $('#praise-form-title').textContent = '새 찬양 등록';
-    $('#add-praise-btn').textContent = '찬양 등록';
-    $('#cancel-praise-edit-btn').hidden = true;
-    $('#praise-title').value = '';
-    $('#praise-singer').value = '';
-    $('#praise-youtubeUrl').value = '';
-    renderPraiseCategoryChecks([]);
-  }
-
-  function loadPraiseIntoForm(item) {
-    editingPraiseId = item.id;
-    $('#praise-form-title').textContent = '찬양 수정';
-    $('#add-praise-btn').textContent = '수정 저장';
-    $('#cancel-praise-edit-btn').hidden = false;
-    $('#praise-title').value = item.title || '';
-    $('#praise-singer').value = item.singer || '';
-    $('#praise-youtubeUrl').value = item.youtubeId ? `https://www.youtube.com/watch?v=${item.youtubeId}` : '';
-    renderPraiseCategoryChecks(item.categoryIds || []);
-    $('#panel-praise').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-
-  function setupPraiseEditor() {
-    $('#cancel-praise-edit-btn').addEventListener('click', () => {
-      resetPraiseForm();
-      loadPraiseList();
-    });
-
-    $('#add-praise-btn').addEventListener('click', async () => {
-      const title = $('#praise-title').value.trim();
-      const youtubeUrl = $('#praise-youtubeUrl').value.trim();
-      if (!title) return alert('제목을 입력해주세요.');
-      if (!youtubeUrl) return alert('유튜브 주소를 입력해주세요.');
-
-      const payload = {
-        title,
-        singer: $('#praise-singer').value.trim(),
-        youtubeUrl,
-        categoryIds: getCheckedCategoryIds()
-      };
-
-      const statusEl = $('#praise-save-status');
-      try {
-        if (editingPraiseId) {
-          await api(`/api/admin/praises/${editingPraiseId}`, { method: 'PUT', body: JSON.stringify(payload) });
-        } else {
-          await api('/api/admin/praises', { method: 'POST', body: JSON.stringify(payload) });
-        }
-        statusEl.textContent = '저장 완료 ✓';
-        setTimeout(() => (statusEl.textContent = ''), 3000);
-        resetPraiseForm();
-        loadPraiseList();
-      } catch (err) {
-        alert(err.message);
-      }
-    });
-  }
-
-  function setupQtEditor() {
-    $('#cancel-qt-edit-btn').addEventListener('click', () => {
-      resetQtForm();
-      loadQtList();
-    });
-
-    $('#add-qt-btn').addEventListener('click', async () => {
-      const title = $('#qt-title').value.trim();
-      if (!title) return alert('제목을 입력해주세요.');
-
-      const payload = {
-        date: $('#qt-date').value || new Date().toISOString().slice(0, 10),
-        pastor: $('#qt-pastor').value.trim(),
-        title,
-        subtitle: ($('#qt-subtitle') && $('#qt-subtitle').value.trim()) || '',
-        verseRef: $('#qt-verseRef').value.trim(),
-        verseText: $('#qt-verseText').value.trim(),
-        body: $('#qt-body').value.trim()
-      };
-
-      const statusEl = $('#qt-save-status');
-      try {
-        let savedItem;
-        if (editingQtId) {
-          savedItem = await api(`/api/admin/qt/${editingQtId}`, { method: 'PUT', body: JSON.stringify(payload) });
-        } else {
-          savedItem = await api('/api/admin/qt', { method: 'POST', body: JSON.stringify(payload) });
-        }
-        await maybeScheduleLinkedPush({
-          checkboxId: 'qt-schedule-push-check',
-          timeInputId: 'qt-schedule-push-time',
-          linkedType: 'qt',
-          linkedId: savedItem.id,
-          title: `오늘의 큐티: ${title}`,
-          url: `/qt/${savedItem.id}`
-        });
-        localStorage.setItem('qtLastPastor', payload.pastor);
-        statusEl.textContent = '저장 완료 ✓';
-        setTimeout(() => (statusEl.textContent = ''), 3000);
-        resetQtForm();
-        loadQtList();
-      } catch (err) {
-        alert(err.message);
-      }
-    });
-  }
-
-  // 카톡 붙여넣기 자동 채우기: [대괄호] 제목 줄의 위치를 기준으로 구조를 파악합니다.
-  // (예전엔 "몇 번째 줄인지"로 고정해서 끼워 맞췄는데, "장절 표기" 줄이 있을 때/없을 때
-  // 형식이 달라지면서 그 뒤 내용이 한 칸씩 밀려 제목을 잘못 잡는 문제가 있었습니다.
-  // 이제는 대괄호 2개의 실제 위치를 찾아서, 그 사이·이후 내용을 각각 구절/본문으로 나눕니다.)
-  function normalizeQtVerseRef(raw) {
-    const match = raw.match(/^([^\d\n]+?)\s*(\d+)\s*[:：]\s*(\d+)(?:\s*[-~]\s*(\d+))?\s*$/);
-    if (!match) return raw;
-    const [, book, chapter, v1, v2] = match;
-    const verses = v2 ? `${v1}~${v2}` : v1;
-    return `${book.trim()} ${chapter}장 ${verses}절`;
-  }
-
-  function parseQtPaste(raw) {
-    const normalized = String(raw || '').replace(/\r\n?/g, '\n').trim();
-    if (!normalized) return null;
-
-    const lines = normalized.split('\n');
-    // 줄 맨 앞에 콜론(:)이나 공백이 붙어서 복사되는 경우가 있어서, 그런 것도 대괄호 줄로 인식하게 합니다.
-    const isBracketLine = (line) => /^[\s:：]*[\[【].*[\]】]\s*$/.test(line.trim());
-    const bracketIndices = [];
-    lines.forEach((line, i) => {
-      if (isBracketLine(line)) bracketIndices.push(i);
-    });
-
-    // 대괄호 제목이 2개는 있어야 인식할 수 있습니다 (성경 구절용 하나, 묵상 글용 하나).
-    if (bracketIndices.length < 2) return null;
-
-    const firstBracketIdx = bracketIndices[0];
-    const secondBracketIdx = bracketIndices[1];
-
-    // 제목: 첫 번째 대괄호(성경 구절 바로 위에 있는 것)를 씁니다.
-    const bracketMatch = lines[firstBracketIdx].trim().match(/^[\s:：]*[\[【]([\s\S]*?)[\]】]\s*$/);
-    const title = bracketMatch ? bracketMatch[1].trim() : lines[firstBracketIdx].trim();
-
-    // 부제목: 두 번째 대괄호(묵상 글 바로 위에 있는 것). 메인 화면 카드 이미지에서만 쓰고,
-    // 본문(body)에는 아래에서 이 줄 자체를 그대로 남겨둡니다.
-    const subtitleMatch = lines[secondBracketIdx].trim().match(/^[\s:：]*[\[【]([\s\S]*?)[\]】]\s*$/);
-    const subtitle = subtitleMatch ? subtitleMatch[1].trim() : lines[secondBracketIdx].trim();
-
-    // 첫 대괄호와 두 번째 대괄호 사이 = 성경 구절 영역.
-    const verseLines = lines
-      .slice(firstBracketIdx + 1, secondBracketIdx)
-      .map((l) => l.trim())
-      .filter((l) => l.length > 0);
-
-    // 그 안에 "책이름 3:16" 같은 정식 장절 표기 줄이 있으면 구절 참조로 쓰고, 없으면 비워둡니다
-    // (절 번호만 붙어있는 본문은 오탐되지 않도록, 반드시 문자로 시작해야 매칭됩니다).
-    let verseRef = '';
-    let verseTextLines = verseLines;
-    const refIdx = verseLines.findIndex((l) => /^[^\d\n][^\d\n]*?\s*\d+\s*[:：]\s*\d+/.test(l));
-    if (refIdx !== -1) {
-      verseRef = normalizeQtVerseRef(verseLines[refIdx]);
-      verseTextLines = verseLines.filter((_, i) => i !== refIdx);
-    }
-    const verseText = verseTextLines.join('\n');
-
-    // 두 번째 대괄호(부제목 줄) 포함 그 이후 전체 = 본문(묵상·기도문). 대괄호 소제목 줄도
-    // 그대로 살려서 본문 안에 남겨둡니다. 문단 사이에 빈 줄을 넣어 읽기 좋게 정리합니다.
-    const bodyLines = lines
-      .slice(secondBracketIdx)
-      .map((l) => l.trim())
-      .filter((l) => l.length > 0);
-    const body = bodyLines.join('\n\n');
-
-    return { title, subtitle, verseRef, verseText, body };
-  }
-
-  function setupQtPasteParser() {
-    const btn = $('#qt-parse-btn');
-    if (!btn) return;
-    btn.addEventListener('click', () => {
-      const statusEl = $('#qt-parse-status');
-      const parsed = parseQtPaste($('#qt-paste').value);
-      if (!parsed) {
-        statusEl.textContent = '형식을 인식하지 못했습니다. 직접 입력해주세요.';
-        return;
-      }
-      $('#qt-title').value = parsed.title;
-      const subtitleInput = $('#qt-subtitle');
-      if (subtitleInput) subtitleInput.value = parsed.subtitle || '';
-      $('#qt-verseRef').value = parsed.verseRef;
-      $('#qt-verseText').value = parsed.verseText;
-      $('#qt-body').value = parsed.body;
-      statusEl.textContent = '자동으로 채웠습니다. 내용을 확인한 후 저장해주세요.';
-    });
-  }
-
-  // ---------------- 선교사역 (지도 핀) ----------------
-  let currentMissionList = [];
-  let editingMissionId = null;
-
-  function populateCountrySelect() {
-    const select = $('#m-countryCode');
-    if (!select) return; // 예전 선교지 폼(지금은 선교사 카드 방식으로 교체됨)이 없는 화면이면 건너뜀
-    select.innerHTML = window.COUNTRY_LIST
-      .map((c) => `<option value="${c.code}">${window.isoToFlag(c.code)} ${escapeHtml(c.name)}</option>`)
-      .join('');
-  }
-
-  async function loadMissionList() {
-    if (!$('#mission-list')) return; // 예전 선교지 목록 화면이 없으면 건너뜀
-    currentMissionList = await api('/api/admin/missions');
-    renderMissionList(currentMissionList);
-  }
-
-  function renderMissionList(list) {
-    const container = $('#mission-list');
-    if (!container) return;
-    if (!list || list.length === 0) {
-      container.innerHTML = `<p class="hint">등록된 선교지가 없습니다.</p>`;
-      return;
-    }
-    container.innerHTML = list
-      .map(
-        (m) => `
-        <div class="post-row${m.id === editingMissionId ? ' editing' : ''}" data-id="${m.id}">
-          <span class="badge">${window.isoToFlag(m.countryCode)} ${escapeHtml(m.country || '')}</span>
-          <div>
-            <div class="title">${escapeHtml(m.name || '')}</div>
-            <div class="meta">${escapeHtml(m.tag || m.country || '')}</div>
-          </div>
-          <button type="button" class="icon-btn edit-mission">수정</button>
-          <button type="button" class="icon-btn remove-mission">삭제</button>
-        </div>`
-      )
-      .join('');
-
-    $$('#mission-list .remove-mission').forEach((btn) =>
-      btn.addEventListener('click', async (e) => {
-        if (!confirm('이 선교지 정보를 삭제하시겠습니까?')) return;
-        const id = e.target.closest('.post-row').dataset.id;
-        await api(`/api/admin/missions/${id}`, { method: 'DELETE' });
-        if (id === editingMissionId) resetMissionForm();
-        loadMissionList();
-      })
-    );
-    $$('#mission-list .edit-mission').forEach((btn) =>
-      btn.addEventListener('click', (e) => {
-        const id = e.target.closest('.post-row').dataset.id;
-        const item = currentMissionList.find((m) => m.id === id);
-        if (item) loadMissionIntoForm(item);
-      })
-    );
-  }
-
-  function resetMissionForm() {
-    if (!$('#mission-form-title')) return; // 예전 선교지 폼이 없는 화면이면 건너뜀
-    editingMissionId = null;
-    $('#mission-form-title').textContent = '선교지 추가';
-    $('#add-mission-btn').textContent = '선교지 등록';
-    $('#cancel-mission-edit-btn').hidden = true;
-    $('#m-countryCode').value = 'KR';
-    $('#m-tag').value = '';
-    $('#m-name').value = '';
-    $('#m-desc').value = '';
-    $('#m-imageFile').value = '';
-    $('#m-imageFile').dataset.uploadedUrl = '';
-    $('#m-imagePreview').src = '';
-  }
-
-  function loadMissionIntoForm(item) {
-    editingMissionId = item.id;
-    $('#mission-form-title').textContent = '선교지 수정';
-    $('#add-mission-btn').textContent = '수정 저장';
-    $('#cancel-mission-edit-btn').hidden = false;
-    $('#m-countryCode').value = item.countryCode || 'KR';
-    $('#m-tag').value = item.tag || '';
-    $('#m-name').value = item.name || '';
-    $('#m-desc').value = item.desc || '';
-    $('#m-imageFile').dataset.uploadedUrl = item.image || '';
-    $('#m-imagePreview').src = item.image || ''; // 사진이 없는 항목이면 이전 항목의 미리보기가 남아있지 않도록 확실히 비웁니다
-    $('#panel-missions').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-
-  function setupMissionEditor() {
-    if (!$('#add-mission-btn')) return; // 예전 선교지 폼(지금은 선교사 카드 방식)이 없는 화면이면 건너뜀
-    populateCountrySelect();
-
-    $('#cancel-mission-edit-btn').addEventListener('click', () => {
-      resetMissionForm();
-      loadMissionList();
-    });
-
-    $('#add-mission-btn').addEventListener('click', async () => {
-      const name = $('#m-name').value.trim();
-      if (!name) return alert('선교사님 성함을 입력해주세요.');
-      await waitForPendingUpload('m-imageFile');
-      const countryCode = $('#m-countryCode').value;
-      const country = window.findCountryByCode(countryCode);
-
-      const payload = {
-        countryCode,
-        country: country ? country.name : '',
-        lat: country ? country.lat : 0,
-        lon: country ? country.lon : 0,
-        name,
-        tag: $('#m-tag').value.trim(),
-        desc: $('#m-desc').value.trim(),
-        image: $('#m-imageFile').dataset.uploadedUrl || ''
-      };
-
-      const statusEl = $('#mission-save-status');
-      try {
-        if (editingMissionId) {
-          await api(`/api/admin/missions/${editingMissionId}`, { method: 'PUT', body: JSON.stringify(payload) });
-        } else {
-          await api('/api/admin/missions', { method: 'POST', body: JSON.stringify(payload) });
-        }
-        statusEl.textContent = '저장 완료 ✓';
-        setTimeout(() => (statusEl.textContent = ''), 3000);
-        resetMissionForm();
-        loadMissionList();
-      } catch (err) {
-        alert(err.message);
-      }
-    });
-  }
-
-  // ---------------- 동역자의 섬김 ----------------
-  let currentPartnerList = [];
-  let editingPartnerId = null;
-
-  async function loadPartnerList() {
-    currentPartnerList = await api('/api/admin/partners');
-    renderPartnerList(currentPartnerList);
-  }
-
-  function renderPartnerList(list) {
-    const container = $('#partner-list');
-    if (!list || list.length === 0) {
-      container.innerHTML = `<p class="hint">등록된 동역자가 없습니다.</p>`;
-      return;
-    }
-    container.innerHTML = list
-      .map((p) => {
-        const days = p.startDate ? Math.floor((Date.now() - new Date(p.startDate).getTime()) / 86400000) + 1 : null;
-        return `
-        <div class="post-row${p.id === editingPartnerId ? ' editing' : ''}" data-id="${p.id}">
-          <span class="badge">${days !== null ? 'D+' + days : '-'}</span>
-          <div>
-            <div class="title">${escapeHtml(p.name || '')}</div>
-            <div class="meta">${escapeHtml(p.note || '')}</div>
-          </div>
-          <button type="button" class="icon-btn edit-partner">수정</button>
-          <button type="button" class="icon-btn remove-partner">삭제</button>
-        </div>`;
-      })
-      .join('');
-
-    $$('#partner-list .remove-partner').forEach((btn) =>
-      btn.addEventListener('click', async (e) => {
-        if (!confirm('이 동역자 정보를 삭제하시겠습니까?')) return;
-        const id = e.target.closest('.post-row').dataset.id;
-        await api(`/api/admin/partners/${id}`, { method: 'DELETE' });
-        if (id === editingPartnerId) resetPartnerForm();
-        loadPartnerList();
-      })
-    );
-    $$('#partner-list .edit-partner').forEach((btn) =>
-      btn.addEventListener('click', (e) => {
-        const id = e.target.closest('.post-row').dataset.id;
-        const item = currentPartnerList.find((p) => p.id === id);
-        if (item) loadPartnerIntoForm(item);
-      })
-    );
-  }
-
-  function resetPartnerForm() {
-    editingPartnerId = null;
-    $('#partner-form-title').textContent = '동역자 추가';
-    $('#add-partner-btn').textContent = '동역자 등록';
-    $('#cancel-partner-edit-btn').hidden = true;
-    $('#pt-name').value = '';
-    $('#pt-startDate').value = '';
-    $('#pt-note').value = '';
-    $('#pt-imageFile').value = '';
-    $('#pt-imageFile').dataset.uploadedUrl = '';
-    $('#pt-imagePreview').src = '';
-  }
-
-  function loadPartnerIntoForm(item) {
-    editingPartnerId = item.id;
-    $('#partner-form-title').textContent = '동역자 수정';
-    $('#add-partner-btn').textContent = '수정 저장';
-    $('#cancel-partner-edit-btn').hidden = false;
-    $('#pt-name').value = item.name || '';
-    $('#pt-startDate').value = item.startDate || '';
-    $('#pt-note').value = item.note || '';
-    $('#pt-imageFile').dataset.uploadedUrl = item.image || '';
-    $('#pt-imagePreview').src = item.image || ''; // 사진이 없는 항목이면 이전 항목의 미리보기가 남아있지 않도록 확실히 비웁니다
-    $('#panel-missions').scrollIntoView({ behavior: 'smooth', block: 'start' });
-  }
-
-  function setupPartnerEditor() {
-    $('#cancel-partner-edit-btn').addEventListener('click', () => {
-      resetPartnerForm();
-      loadPartnerList();
-    });
-
-    $('#add-partner-btn').addEventListener('click', async () => {
-      const name = $('#pt-name').value.trim();
-      if (!name) return alert('이름 또는 기관명을 입력해주세요.');
-      await waitForPendingUpload('pt-imageFile');
-
-      const payload = {
-        name,
-        startDate: $('#pt-startDate').value || '',
-        note: $('#pt-note').value.trim(),
-        image: $('#pt-imageFile').dataset.uploadedUrl || ''
-      };
-
-      const statusEl = $('#partner-save-status');
-      try {
-        if (editingPartnerId) {
-          await api(`/api/admin/partners/${editingPartnerId}`, { method: 'PUT', body: JSON.stringify(payload) });
-        } else {
-          await api('/api/admin/partners', { method: 'POST', body: JSON.stringify(payload) });
-        }
-        statusEl.textContent = '저장 완료 ✓';
-        setTimeout(() => (statusEl.textContent = ''), 3000);
-        resetPartnerForm();
-        loadPartnerList();
-      } catch (err) {
-        alert(err.message);
-      }
-    });
-  }
-
-  // ---------------- 큐티 배경 디자인 ----------------
-  function toggleQtBgFields() {
-    const type = $('#qt-bg-type').value;
-    $('#qt-bg-preset-field').hidden = type !== 'preset';
-    $('#qt-bg-photo-field').hidden = type !== 'photo';
-  }
-
-  function setupQtBackgroundEditor() {
-    $('#qt-bg-type').addEventListener('change', toggleQtBgFields);
-
-    $('#save-qt-bg-btn').addEventListener('click', async () => {
-      await waitForPendingUpload('qt-bg-photoFile');
-      const payload = {
-        type: $('#qt-bg-type').value,
-        preset: $('#qt-bg-preset').value,
-        image: $('#qt-bg-photoFile').dataset.uploadedUrl || $('#qt-bg-photoPreview').getAttribute('src') || ''
-      };
-      const statusEl = $('#qt-bg-save-status');
-      try {
-        await api('/api/admin/qt-background', { method: 'PUT', body: JSON.stringify(payload) });
-        statusEl.textContent = '저장 완료 ✓';
-        setTimeout(() => (statusEl.textContent = ''), 3000);
-      } catch (err) {
-        alert(err.message);
-      }
-    });
-  }
-
-  // ---------------- 큐티 카드 배경 사진 보관함 ----------------
-  let qtBgPoolList = [];
-
-  function renderQtBgPoolList() {
-    const wrap = $('#qt-bg-pool-list');
-    if (!wrap) return;
-    wrap.innerHTML = qtBgPoolList
-      .map(
-        (url, i) => `
-        <div class="qt-bg-pool-item" style="position:relative; display:inline-block; margin:0 8px 8px 0;">
-          <img src="${url}" style="width:90px; height:90px; object-fit:cover; border-radius:8px; border:1px solid var(--line, #ddd);" />
-          <button type="button" class="qt-bg-pool-remove" data-i="${i}" style="position:absolute; top:-6px; right:-6px; width:22px; height:22px; border-radius:50%; border:none; background:#c0392b; color:#fff; cursor:pointer; line-height:1;">✕</button>
-        </div>`
-      )
-      .join('');
-    $$('.qt-bg-pool-remove', wrap).forEach((btn) => {
-      btn.addEventListener('click', () => {
-        qtBgPoolList.splice(Number(btn.dataset.i), 1);
-        renderQtBgPoolList();
-      });
-    });
-    const countEl = $('#qt-bg-pool-count');
-    if (countEl) countEl.textContent = qtBgPoolList.length ? `현재 ${qtBgPoolList.length}장 등록됨` : '아직 등록된 사진이 없습니다.';
-  }
-
-  function setupQtBgPoolEditor() {
-    const fileInput = $('#qt-bg-pool-file');
-    const addBtn = $('#qt-bg-pool-add-btn');
-    const saveBtn = $('#qt-bg-pool-save-btn');
-    const statusEl = $('#qt-bg-pool-status');
-    if (!fileInput || !addBtn) return;
-
-    addBtn.addEventListener('click', async () => {
-      const files = Array.from(fileInput.files || []);
-      if (!files.length) return;
-      addBtn.disabled = true;
-      addBtn.textContent = '업로드 중...';
-      try {
-        for (const file of files) {
-          const url = await uploadImage(file);
-          qtBgPoolList.push(url);
-        }
-        renderQtBgPoolList();
-        fileInput.value = '';
-      } catch (err) {
-        alert(err.message);
-      } finally {
-        addBtn.disabled = false;
-        addBtn.textContent = '보관함에 추가';
-      }
-    });
-
-    if (saveBtn) {
-      saveBtn.addEventListener('click', async () => {
-        try {
-          await api('/api/admin/qt-bg-pool', { method: 'PUT', body: JSON.stringify({ pool: qtBgPoolList }) });
-          if (statusEl) {
-            statusEl.textContent = '저장 완료 ✓';
-            setTimeout(() => (statusEl.textContent = ''), 3000);
-          }
-        } catch (err) {
-          alert(err.message);
-        }
-      });
+      pipeline = pipeline.jpeg({ quality: 78, mozjpeg: true });
     }
 
-    // 페이지 로드시 site 정보에서 기존 보관함을 불러옵니다.
-    api('/api/site')
-      .then((site) => {
-        qtBgPoolList = Array.isArray(site.qtBgPool) ? [...site.qtBgPool] : [];
-        renderQtBgPoolList();
-      })
-      .catch(() => {});
+    return await pipeline.toBuffer();
+  } catch (err) {
+    // 압축 중 문제가 생겨도 업로드 자체가 실패하면 안 되므로, 이럴 땐 원본 그대로 저장합니다.
+    console.error('이미지 압축 중 오류(원본으로 저장합니다):', err.message);
+    return file.buffer;
   }
+}
 
-  // ---------------- 통계 ----------------
-  function sumStatsByDay(byDay, days) {
-    const today = new Date();
-    let total = 0;
-    for (let i = 0; i < days; i++) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      const key = d.toISOString().slice(0, 10);
-      const dayData = byDay[key] || {};
-      total += Object.values(dayData).reduce((a, b) => a + b, 0);
-    }
-    return total;
-  }
-
-  function aggregateByLabel(byDay, days) {
-    const today = new Date();
-    const totals = {};
-    for (let i = 0; i < days; i++) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      const key = d.toISOString().slice(0, 10);
-      const dayData = byDay[key] || {};
-      Object.entries(dayData).forEach(([label, count]) => {
-        totals[label] = (totals[label] || 0) + count;
-      });
-    }
-    return Object.entries(totals).sort((a, b) => b[1] - a[1]);
-  }
-
-  const CLICK_LABELS = {
-    sermon_card: '설교 영상',
-    board_card: '소식·활동 게시글',
-    qt_card: '오늘의 큐티 카드',
-    qt_archive_row: '지난 큐티 목록',
-    amen_button: "'아멘' 누르기",
-    share_button: '큐티 공유'
-  };
-
-  function renderBarList(container, entries, labelMap = {}) {
-    if (entries.length === 0) {
-      container.innerHTML = `<p class="hint">아직 데이터가 없습니다.</p>`;
-      return;
-    }
-    const max = entries[0][1] || 1;
-    container.innerHTML = entries
-      .slice(0, 10)
-      .map(([key, count]) => {
-        const label = labelMap[key] || key;
-        const pct = Math.max(6, Math.round((count / max) * 100));
-        return `
-        <div class="stats-bar-row">
-          <span class="stats-bar-label">${escapeHtml(label)}</span>
-          <div class="stats-bar-track"><div class="stats-bar-fill" style="width:${pct}%"></div></div>
-          <span class="stats-bar-count">${count}</span>
-        </div>`;
-      })
-      .join('');
-  }
-
-  // itemClicks[day][itemType][itemId] = { count, title } 구조를 최근 N일 합산해서
-  // [{ itemId, title, count }] 형태로 많이 눌린 순으로 정렬해 돌려줍니다.
-  function aggregateItemClicks(itemClicksByDay, itemType, days) {
-    const today = new Date();
-    const totals = {};
-    for (let i = 0; i < days; i++) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      const key = d.toISOString().slice(0, 10);
-      const dayData = (itemClicksByDay[key] && itemClicksByDay[key][itemType]) || {};
-      Object.entries(dayData).forEach(([itemId, info]) => {
-        if (!totals[itemId]) totals[itemId] = { itemId, title: info.title, count: 0 };
-        totals[itemId].count += info.count;
-        if (info.title) totals[itemId].title = info.title;
-      });
-    }
-    return Object.values(totals).sort((a, b) => b.count - a.count);
-  }
-
-  // timeSpent[day][path] = { totalSeconds, sessions } 구조를 최근 N일 합산해서
-  // 페이지별 '평균 체류시간'을 계산합니다.
-  function aggregateTimeSpent(timeSpentByDay, days) {
-    const today = new Date();
-    const totals = {};
-    for (let i = 0; i < days; i++) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      const key = d.toISOString().slice(0, 10);
-      const dayData = timeSpentByDay[key] || {};
-      Object.entries(dayData).forEach(([path, info]) => {
-        if (!totals[path]) totals[path] = { totalSeconds: 0, sessions: 0 };
-        totals[path].totalSeconds += info.totalSeconds;
-        totals[path].sessions += info.sessions;
-      });
-    }
-    return Object.entries(totals)
-      .map(([path, info]) => ({
-        path,
-        avgSeconds: info.sessions > 0 ? Math.round(info.totalSeconds / info.sessions) : 0,
-        sessions: info.sessions
-      }))
-      .sort((a, b) => b.sessions - a.sessions);
-  }
-
-  function formatSeconds(sec) {
-    if (sec < 60) return `${sec}초`;
-    const m = Math.floor(sec / 60);
-    const s = sec % 60;
-    return s > 0 ? `${m}분 ${s}초` : `${m}분`;
-  }
-
-  function renderItemRankList(container, entries, emptyMessage) {
-    if (!entries || entries.length === 0) {
-      container.innerHTML = `<p class="hint">${emptyMessage}</p>`;
-      return;
-    }
-    const max = entries[0].count || 1;
-    container.innerHTML = entries
-      .slice(0, 10)
-      .map(
-        (e) => `
-        <div class="stats-bar-row">
-          <span class="stats-bar-label" title="${escapeHtml(e.title || e.itemId)}">${escapeHtml(e.title || e.itemId)}</span>
-          <div class="stats-bar-track"><div class="stats-bar-fill" style="width:${Math.max(6, Math.round((e.count / max) * 100))}%"></div></div>
-          <span class="stats-bar-count">${e.count}</span>
-        </div>`
-      )
-      .join('');
-  }
-
-
-  // deviceStats[day][device] = { pageviews, timeSpentSeconds, timeSpentSessions } 를
-  // 최근 N일 합산해서 PC/모바일 비율과 평균 체류시간을 계산합니다.
-  function aggregateDeviceStats(deviceStatsByDay, days) {
-    const today = new Date();
-    const totals = { desktop: { pageviews: 0, timeSpentSeconds: 0, timeSpentSessions: 0 }, mobile: { pageviews: 0, timeSpentSeconds: 0, timeSpentSessions: 0 } };
-    for (let i = 0; i < days; i++) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      const key = d.toISOString().slice(0, 10);
-      const dayData = deviceStatsByDay[key];
-      if (!dayData) continue;
-      ['desktop', 'mobile'].forEach((dev) => {
-        if (!dayData[dev]) return;
-        totals[dev].pageviews += dayData[dev].pageviews || 0;
-        totals[dev].timeSpentSeconds += dayData[dev].timeSpentSeconds || 0;
-        totals[dev].timeSpentSessions += dayData[dev].timeSpentSessions || 0;
-      });
-    }
-    return totals;
-  }
-
-  async function loadStats() {
-    const [stats, qtList, praiseCategoryList] = await Promise.all([
-      api('/api/admin/stats'),
-      api('/api/admin/qt'),
-      api('/api/admin/praise-categories')
-    ]);
-    const qtTitleById = {};
-    qtList.forEach((q) => (qtTitleById['/qt/' + q.id] = q.title));
-    const pageLabelMap = { '/': '홈페이지', ...qtTitleById };
-
-    const today = sumStatsByDay(stats.pageviews, 1);
-    const last7 = sumStatsByDay(stats.pageviews, 7);
-    const last30 = sumStatsByDay(stats.pageviews, 30);
-
-    $('#stats-summary-cards').innerHTML = `
-      <div class="stat-card"><div class="num">${today}</div><div class="label">오늘</div></div>
-      <div class="stat-card"><div class="num">${last7}</div><div class="label">최근 7일</div></div>
-      <div class="stat-card"><div class="num">${last30}</div><div class="label">최근 30일</div></div>`;
-
-    // ---- 기기별(PC/모바일) 방문 현황 ----
-    const deviceTotals = aggregateDeviceStats(stats.deviceStats || {}, 7);
-    const totalDeviceViews = deviceTotals.desktop.pageviews + deviceTotals.mobile.pageviews;
-    const mobilePct = totalDeviceViews > 0 ? Math.round((deviceTotals.mobile.pageviews / totalDeviceViews) * 100) : 0;
-    const desktopAvgSec = deviceTotals.desktop.timeSpentSessions > 0
-      ? Math.round(deviceTotals.desktop.timeSpentSeconds / deviceTotals.desktop.timeSpentSessions)
-      : 0;
-    const mobileAvgSec = deviceTotals.mobile.timeSpentSessions > 0
-      ? Math.round(deviceTotals.mobile.timeSpentSeconds / deviceTotals.mobile.timeSpentSessions)
-      : 0;
-    $('#stats-device-cards').innerHTML = `
-      <div class="stat-card"><div class="num">${deviceTotals.desktop.pageviews}</div><div class="label">PC 방문 (평균 ${formatSeconds(desktopAvgSec)})</div></div>
-      <div class="stat-card"><div class="num">${deviceTotals.mobile.pageviews}</div><div class="label">모바일 방문 (평균 ${formatSeconds(mobileAvgSec)})</div></div>
-      <div class="stat-card"><div class="num">${mobilePct}%</div><div class="label">모바일 비율</div></div>`;
-
-    renderBarList($('#stats-click-list'), aggregateByLabel(stats.clicks, 7), CLICK_LABELS);
-    renderBarList($('#stats-page-list'), aggregateByLabel(stats.pageviews, 7), pageLabelMap);
-
-    // ---- 항목별(콘텐츠 하나하나) 인기 순위 ----
-    const itemClicks = stats.itemClicks || {};
-    renderItemRankList($('#stats-sermon-list'), aggregateItemClicks(itemClicks, 'sermon', 30), '아직 데이터가 없습니다.');
-    renderItemRankList($('#stats-praise-list'), aggregateItemClicks(itemClicks, 'praise', 30), '아직 데이터가 없습니다.');
-    renderItemRankList($('#stats-qt-list'), aggregateItemClicks(itemClicks, 'qt', 30), '아직 데이터가 없습니다.');
-    renderItemRankList($('#stats-board-list'), aggregateItemClicks(itemClicks, 'board', 30), '아직 데이터가 없습니다.');
-
-    // 컨셉(카테고리) 필터는 이름표를 붙여서 보여줌
-    const categoryNameById = {};
-    (praiseCategoryList || []).forEach((c) => (categoryNameById[c.id] = c.name));
-    const categoryClicks = aggregateItemClicks(itemClicks, 'praise_category', 30).map((e) => ({
-      ...e,
-      title: categoryNameById[e.itemId] || e.title || e.itemId
-    }));
-    renderItemRankList($('#stats-praise-category-list'), categoryClicks, '아직 데이터가 없습니다.');
-
-    // ---- 페이지별 평균 체류시간 ----
-    const timeSpentEl = $('#stats-timespent-list');
-    if (timeSpentEl) {
-      const timeSpent = aggregateTimeSpent(stats.timeSpent || {}, 7).map((e) => ({
-        itemId: e.path,
-        title: `${pageLabelMap[e.path] || e.path} (평균 ${formatSeconds(e.avgSeconds)})`,
-        count: e.sessions
-      }));
-      renderItemRankList(timeSpentEl, timeSpent, '아직 데이터가 없습니다.');
-    }
-  }
-
-  // ---------------- 기부금 영수증 신청 관리 ----------------
-  function formatReceiptDate(iso) {
-    const d = new Date(iso);
-    if (isNaN(d)) return '';
-    return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`;
-  }
-
-  async function loadReceiptRequests() {
-    const list = await api('/api/admin/receipt-requests');
-    renderReceiptList(list);
-  }
-
-  function renderReceiptList(list) {
-    const container = $('#receipt-list');
-    if (!list || list.length === 0) {
-      container.innerHTML = `<p class="hint">접수된 신청이 없습니다.</p>`;
-      return;
-    }
-    container.innerHTML = list
-      .map(
-        (r) => `
-        <div class="post-row" data-id="${r.id}">
-          <span class="badge">신청</span>
-          <div>
-            <div class="title">${escapeHtml(r.name)} · ${escapeHtml(r.phone)}${r.email ? ' · ' + escapeHtml(r.email) : ''}</div>
-            <div class="meta">${escapeHtml(r.note || '')}</div>
-          </div>
-          <span class="date">${formatReceiptDate(r.createdAt)}</span>
-          <button type="button" class="icon-btn remove-receipt">처리완료(삭제)</button>
-        </div>`
-      )
-      .join('');
-
-    $$('#receipt-list .remove-receipt').forEach((btn) =>
-      btn.addEventListener('click', async (e) => {
-        if (!confirm('처리 완료 처리하고 목록에서 삭제하시겠습니까?')) return;
-        const id = e.target.closest('.post-row').dataset.id;
-        await api(`/api/admin/receipt-requests/${id}`, { method: 'DELETE' });
-        loadReceiptRequests();
-      })
-    );
-  }
-
-  // ---------------- 설교 영상 (유튜브) ----------------
-  let sermonCategories = [];
-  let sermonCategoryTags = {};
-
-  async function loadSermonPreview() {
-    const data = await api('/api/admin/sermons');
-    renderSermonPreview(data);
-  }
-
-  async function loadSermonCategories() {
-    [sermonCategories, sermonCategoryTags] = await Promise.all([
-      api('/api/admin/sermon-categories'),
-      api('/api/admin/sermon-category-tags')
-    ]);
-    renderSermonCategoryManageList();
-  }
-
-  function renderSermonCategoryManageList() {
-    const wrap = $('#sermon-category-list');
-    if (!wrap) return;
-    if (sermonCategories.length === 0) {
-      wrap.innerHTML = `<p class="hint" style="margin:0;">아직 만들어진 테마가 없습니다.</p>`;
-      return;
-    }
-    wrap.innerHTML = sermonCategories
-      .map(
-        (c) => `
-        <span class="badge" style="display:inline-flex; align-items:center; gap:6px;">
-          ${escapeHtml(c.name)}
-          <button type="button" class="sermon-category-edit" data-id="${c.id}" data-name="${escapeHtml(c.name)}" style="background:none; border:none; color:inherit; cursor:pointer; font-size:0.9em;" aria-label="수정">✎</button>
-          <button type="button" class="sermon-category-delete" data-id="${c.id}" style="background:none; border:none; color:inherit; cursor:pointer; font-size:0.9em;">×</button>
-        </span>`
-      )
-      .join('');
-    $$('.sermon-category-edit', wrap).forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        const newName = prompt('테마 이름 수정', btn.dataset.name);
-        if (!newName || !newName.trim() || newName.trim() === btn.dataset.name) return;
-        try {
-          await api(`/api/admin/sermon-categories/${btn.dataset.id}`, {
-            method: 'PUT',
-            body: JSON.stringify({ name: newName.trim() })
-          });
-          await loadSermonCategories();
-          renderSermonPreview(lastSermonPreviewData);
-        } catch (err) {
-          alert(err.message);
-        }
-      });
-    });
-    $$('.sermon-category-delete', wrap).forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        if (!confirm('이 테마를 삭제할까요? (이 테마가 붙어있던 영상에서도 태그가 빠집니다)')) return;
-        try {
-          await api(`/api/admin/sermon-categories/${btn.dataset.id}`, { method: 'DELETE' });
-          await loadSermonCategories();
-          renderSermonPreview(lastSermonPreviewData);
-        } catch (err) {
-          alert(err.message);
-        }
-      });
-    });
-  }
-
-  function setupSermonCategoryManagement() {
-    const addBtn = $('#sermon-category-add-btn');
-    if (!addBtn) return;
-    addBtn.addEventListener('click', async () => {
-      const input = $('#sermon-category-new-input');
-      const name = input.value.trim();
-      if (!name) return alert('테마 이름을 입력해주세요.');
-      try {
-        await api('/api/admin/sermon-categories', { method: 'POST', body: JSON.stringify({ name }) });
-        input.value = '';
-        await loadSermonCategories();
-      } catch (err) {
-        alert(err.message);
-      }
-    });
-  }
-
-  let lastSermonPreviewData = null;
-
-  function renderSermonPreview(data) {
-    lastSermonPreviewData = data;
-    $('#sermon-last-updated').textContent = data.lastUpdated
-      ? `마지막 업데이트: ${new Date(data.lastUpdated).toLocaleString('ko-KR')}`
-      : '아직 업데이트된 적이 없습니다.';
-
-    const container = $('#sermon-preview-list');
-    if (!data.videos || data.videos.length === 0) {
-      container.innerHTML = `<p class="hint">캐시된 영상이 없습니다. 새로고침을 눌러주세요.</p>`;
-      return;
-    }
-    container.innerHTML = data.videos
-      .map((v) => {
-        const currentTags = sermonCategoryTags[v.videoId] || [];
-        const checksHtml = sermonCategories
-          .map(
-            (c) => `
-            <label style="font-size:0.78rem; display:flex; align-items:center; gap:4px;">
-              <input type="checkbox" class="sermon-tag-check" value="${c.id}" ${currentTags.includes(c.id) ? 'checked' : ''} />
-              ${escapeHtml(c.name)}
-            </label>`
-          )
-          .join('');
-        return `
-        <div class="sermon-preview-item">
-          <img src="${v.thumbnail}" alt="${escapeAttr(v.title)}" />
-          <div class="t">${escapeHtml(v.title)}</div>
-          ${sermonCategories.length > 0 ? `
-          <div class="sermon-tag-group" data-video-id="${escapeAttr(v.videoId)}" style="display:flex; flex-wrap:wrap; gap:8px; margin:8px 8px 10px; padding-top:8px; border-top:1px dashed var(--line);">
-            ${checksHtml}
-            <button type="button" class="btn-secondary sermon-tag-save-btn" data-video-id="${escapeAttr(v.videoId)}" style="font-size:0.78rem; padding:4px 10px;">테마 저장</button>
-          </div>` : ''}
-        </div>`;
-      })
-      .join('');
-    bindSermonTagSaveButtons();
-  }
-
-  function bindSermonTagSaveButtons() {
-    $$('.sermon-tag-save-btn').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        const videoId = btn.dataset.videoId;
-        const group = $(`.sermon-tag-group[data-video-id="${videoId}"]`);
-        const categoryIds = $$('.sermon-tag-check', group).filter((cb) => cb.checked).map((cb) => cb.value);
-        const original = btn.textContent;
-        btn.textContent = '저장 중...';
-        try {
-          await api(`/api/admin/sermon-category-tags/${encodeURIComponent(videoId)}`, {
-            method: 'PUT',
-            body: JSON.stringify({ categoryIds })
-          });
-          sermonCategoryTags[videoId] = categoryIds;
-          btn.textContent = '저장됨 ✓';
-          setTimeout(() => (btn.textContent = original), 1500);
-        } catch (err) {
-          alert(err.message);
-          btn.textContent = original;
-        }
-      });
-    });
-  }
-
-  // ---------------- (예전 큐레이션 2슬롯 시스템은 설교 테마 태그 방식으로 대체되어 제거됨) ----------------
-
-  // ---------------- 사용할 사진 직접 고르기 ----------------
-  async function setupSermonPhotoOverride() {
-    const select = $('#sermon-photo-override-select');
-    if (!select) return;
+// 업로드된 파일 하나를 저장하고(Supabase Storage 또는 로컬 디스크) 접근 가능한 URL을 돌려줍니다.
+async function storeFile(file) {
+  const buffer = await compressImageIfNeeded(file);
+  // JPEG로 형식이 바뀐 경우를 대비해, 압축 후 실제 내용을 보고 확장자를 다시 정합니다.
+  const isCompressibleImage = /^image\/(jpeg|png|webp)/.test(file.mimetype);
+  let ext = path.extname(file.originalname);
+  if (isCompressibleImage && sharp && buffer !== file.buffer) {
+    // compressImageIfNeeded가 PNG→JPEG로 바꿨을 수 있으니, 원래 확장자 대신
+    // 실제로 압축된 파일 형식에 맞는 확장자를 사용합니다.
     try {
-      const [files, site] = await Promise.all([
-        api('/api/admin/sermon-photo-files'),
-        Promise.resolve(currentSite || (await api('/api/admin/site')))
-      ]);
-      if (!files || files.length === 0) {
-        const opt = document.createElement('option');
-        opt.disabled = true;
-        opt.textContent = '(utils/assets/sermon-card-photos 폴더에서 사진을 찾지 못했습니다)';
-        select.appendChild(opt);
-      } else {
-        files.forEach((f) => {
-          const opt = document.createElement('option');
-          opt.value = f;
-          opt.textContent = f;
-          select.appendChild(opt);
-        });
-      }
-      select.value = (site && site.sermonPhotoOverride) || '';
-    } catch (err) {
-      const opt = document.createElement('option');
-      opt.disabled = true;
-      opt.textContent = '목록을 불러오지 못했습니다: ' + err.message;
-      select.appendChild(opt);
-    }
-
-    $('#sermon-photo-override-save-btn').addEventListener('click', async () => {
-      const statusEl = $('#sermon-photo-override-status');
-      statusEl.textContent = '저장 중...';
-      try {
-        await api('/api/admin/site', {
-          method: 'PUT',
-          body: JSON.stringify({ sermonPhotoOverride: select.value })
-        });
-        if (currentSite) currentSite.sermonPhotoOverride = select.value;
-        statusEl.textContent = '저장 완료 ✓ (아래 "다시 만들기" 버튼도 눌러주세요)';
-        setTimeout(() => (statusEl.textContent = ''), 4000);
-      } catch (err) {
-        statusEl.textContent = '저장 실패: ' + err.message;
-      }
-    });
-  }
-
-  function setupSermonRefresh() {
-    $('#refresh-sermons-btn').addEventListener('click', async () => {
-      const statusEl = $('#sermon-refresh-status');
-      const channelId = $('#yt-channelId').value.trim();
-      statusEl.textContent = '새로고침 중...';
-      try {
-        const data = await api('/api/admin/sermons/refresh', {
-          method: 'POST',
-          body: JSON.stringify(channelId ? { channelId } : {})
-        });
-        renderSermonPreview(data);
-        statusEl.textContent = `완료 ✓ (영상 ${data.videos.length}개 갱신)`;
-        setTimeout(() => (statusEl.textContent = ''), 4000);
-      } catch (err) {
-        statusEl.textContent = '';
-        alert(err.message);
-      }
-    });
-
-    $('#clear-sermon-posters-btn').addEventListener('click', async () => {
-      if (!confirm('저장된 설교 카드 이미지를 전부 지우고 다시 만들까요?')) return;
-      const statusEl = $('#sermon-posters-clear-status');
-      statusEl.textContent = '처리 중...';
-      try {
-        await api('/api/admin/sermon-posters', { method: 'DELETE' });
-        statusEl.textContent = '완료 ✓ (홈페이지를 새로고침하면 다시 만들어집니다)';
-        setTimeout(() => (statusEl.textContent = ''), 5000);
-      } catch (err) {
-        statusEl.textContent = '';
-        alert(err.message);
-      }
-    });
-  }
-
-  // ---------------- 계정 관리 ----------------
-  function setupAccountPanel() {
-    setupMyPasswordForm();
-    if (currentSession && currentSession.role === 'main') {
-      $('#account-add-card').hidden = false;
-      $('#account-list-card').hidden = false;
-      setupAddAccountForm();
-      loadAccountList();
+      const meta = await sharp(buffer).metadata();
+      if (meta.format === 'jpeg') ext = '.jpg';
+      else if (meta.format === 'png') ext = '.png';
+      else if (meta.format === 'webp') ext = '.webp';
+    } catch {
+      // 확인 실패해도 원래 확장자로 진행 (치명적이지 않음)
     }
   }
+  const filename = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}${ext}`;
+  return saveUploadedFile(buffer, filename, file.mimetype, uploadsDir);
+}
 
-  function setupMyPasswordForm() {
-    $('#save-password-btn').addEventListener('click', async () => {
-      const currentPassword = $('#pw-current').value;
-      const newPassword = $('#pw-new').value;
-      const confirmPassword = $('#pw-confirm').value;
-      if (newPassword.length < 6) return alert('새 비밀번호는 6자 이상이어야 합니다.');
-      if (newPassword !== confirmPassword) return alert('새 비밀번호가 서로 일치하지 않습니다.');
-
-      const statusEl = $('#password-save-status');
-      try {
-        await api('/api/admin/my-password', {
-          method: 'PUT',
-          body: JSON.stringify({ currentPassword, newPassword })
-        });
-        $('#pw-current').value = '';
-        $('#pw-new').value = '';
-        $('#pw-confirm').value = '';
-        statusEl.textContent = '변경 완료 ✓';
-        setTimeout(() => (statusEl.textContent = ''), 3000);
-      } catch (err) {
-        alert(err.message);
-      }
-    });
+// 한글 파일명이 깨지는 문제 보정 (multer가 원본 파일명을 latin1로 읽어들이는 이슈)
+function fixKoreanFilename(name = '') {
+  try {
+    return Buffer.from(name, 'latin1').toString('utf8');
+  } catch {
+    return name;
   }
+}
 
-  function setupAddAccountForm() {
-    $('#add-account-btn').addEventListener('click', async () => {
-      const username = $('#acc-username').value.trim();
-      const password = $('#acc-password').value;
-      if (!username || password.length < 6) {
-        return alert('아이디와 6자 이상의 비밀번호를 입력해주세요.');
-      }
-      const permissions = {
-        site: $('#acc-perm-site').checked,
-        menu: $('#acc-perm-menu').checked,
-        posts: $('#acc-perm-posts').checked,
-        sermons: $('#acc-perm-sermons').checked,
-        qt: $('#acc-perm-qt').checked,
-        missions: $('#acc-perm-missions').checked,
-        stats: $('#acc-perm-stats').checked,
-        receipts: $('#acc-perm-receipts').checked
+// ---------- 로그인 / 로그아웃 ----------
+// ---------- 관리자 계정 마이그레이션 (최초 1회, 기존 .env 계정 → 메인 관리자로 이전) ----------
+async function ensureMainAdmin() {
+  const admins = (await readData('admins')) || [];
+  if (admins.length > 0) return admins;
+
+  const username = process.env.ADMIN_USERNAME;
+  const passwordHash = process.env.ADMIN_PASSWORD_HASH;
+  if (!username || !passwordHash) return admins;
+
+  const mainAdmin = {
+    id: makeId('admin'),
+    username,
+    passwordHash,
+    role: 'main',
+    permissions: { site: true, menu: true, posts: true, sermons: true, qt: true, missions: true, stats: true, receipts: true, accounts: true },
+    createdAt: new Date().toISOString()
+  };
+  const updated = [mainAdmin];
+  await writeData('admins', updated);
+  return updated;
+}
+
+// ---------- 로그인 / 로그아웃 ----------
+router.post('/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    const admins = await ensureMainAdmin();
+    const admin = admins.find((a) => a.username === username);
+    const validPass = admin ? bcrypt.compareSync(password || '', admin.passwordHash) : false;
+
+    if (!admin || !validPass) {
+      return res.status(401).json({ error: '아이디 또는 비밀번호가 올바르지 않습니다.' });
+    }
+
+    req.session.isAdmin = true;
+    req.session.adminId = admin.id;
+    req.session.adminUsername = admin.username;
+    req.session.adminRole = admin.role;
+    req.session.adminPermissions = admin.permissions;
+    res.json({ ok: true, role: admin.role, permissions: admin.permissions, username: admin.username });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/logout', (req, res) => {
+  req.session.destroy(() => res.json({ ok: true }));
+});
+
+router.get('/session', (req, res) => {
+  if (!req.session || !req.session.isAdmin) return res.json({ isAdmin: false });
+  res.json({
+    isAdmin: true,
+    username: req.session.adminUsername,
+    role: req.session.adminRole,
+    permissions: req.session.adminPermissions
+  });
+});
+
+// 아래 모든 라우트는 로그인 필요
+router.use(requireAuth);
+
+// ---------- 내 비밀번호 변경 (모든 관리자 공통) ----------
+router.put('/my-password', async (req, res) => {
+  try {
+    const { currentPassword, newPassword } = req.body;
+    if (!newPassword || newPassword.length < 6) {
+      return res.status(400).json({ error: '새 비밀번호는 6자 이상이어야 합니다.' });
+    }
+    const admins = (await readData('admins')) || [];
+    const idx = admins.findIndex((a) => a.id === req.session.adminId);
+    if (idx === -1) return res.status(404).json({ error: '계정을 찾을 수 없습니다.' });
+
+    const ok = bcrypt.compareSync(currentPassword || '', admins[idx].passwordHash);
+    if (!ok) return res.status(401).json({ error: '현재 비밀번호가 올바르지 않습니다.' });
+
+    admins[idx].passwordHash = bcrypt.hashSync(newPassword, 10);
+    await writeData('admins', admins);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- 관리자 계정 관리 (메인 관리자 전용) ----------
+router.get('/accounts', requireMainAdmin, async (req, res) => {
+  try {
+    const admins = (await readData('admins')) || [];
+    // 비밀번호 해시는 노출하지 않음
+    res.json(admins.map(({ passwordHash, ...rest }) => rest));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/accounts', requireMainAdmin, async (req, res) => {
+  try {
+    const { username, password, permissions } = req.body;
+    if (!username || !password || password.length < 6) {
+      return res.status(400).json({ error: '아이디와 6자 이상의 비밀번호를 입력해주세요.' });
+    }
+    const admins = (await readData('admins')) || [];
+    if (admins.some((a) => a.username === username)) {
+      return res.status(409).json({ error: '이미 사용 중인 아이디입니다.' });
+    }
+    const newAdmin = {
+      id: makeId('admin'),
+      username,
+      passwordHash: bcrypt.hashSync(password, 10),
+      role: 'sub',
+      permissions: {
+        site: !!permissions?.site,
+        menu: !!permissions?.menu,
+        posts: !!permissions?.posts,
+        sermons: !!permissions?.sermons,
+        qt: !!permissions?.qt,
+        missions: !!permissions?.missions,
+        stats: !!permissions?.stats,
+        receipts: !!permissions?.receipts,
+        accounts: false // 부관리자는 계정관리 권한을 가질 수 없음
+      },
+      createdAt: new Date().toISOString()
+    };
+    admins.push(newAdmin);
+    await writeData('admins', admins);
+    const { passwordHash, ...safe } = newAdmin;
+    res.json(safe);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/accounts/:id', requireMainAdmin, async (req, res) => {
+  try {
+    const admins = (await readData('admins')) || [];
+    const idx = admins.findIndex((a) => a.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: '계정을 찾을 수 없습니다.' });
+    if (admins[idx].role === 'main') {
+      return res.status(403).json({ error: '메인 관리자 권한은 여기서 수정할 수 없습니다.' });
+    }
+
+    if (req.body.permissions) {
+      admins[idx].permissions = {
+        ...admins[idx].permissions,
+        site: !!req.body.permissions.site,
+        menu: !!req.body.permissions.menu,
+        posts: !!req.body.permissions.posts,
+        sermons: !!req.body.permissions.sermons,
+        qt: !!req.body.permissions.qt,
+        missions: !!req.body.permissions.missions,
+        stats: !!req.body.permissions.stats,
+        receipts: !!req.body.permissions.receipts
       };
-      const statusEl = $('#account-add-status');
-      try {
-        await api('/api/admin/accounts', {
-          method: 'POST',
-          body: JSON.stringify({ username, password, permissions })
-        });
-        $('#acc-username').value = '';
-        $('#acc-password').value = '';
-        ['site', 'menu', 'posts', 'sermons', 'qt', 'missions', 'stats', 'receipts'].forEach((p) => ($('#acc-perm-' + p).checked = false));
-        statusEl.textContent = '추가 완료 ✓';
-        setTimeout(() => (statusEl.textContent = ''), 3000);
-        loadAccountList();
-      } catch (err) {
-        alert(err.message);
+    }
+    if (req.body.newPassword) {
+      if (req.body.newPassword.length < 6) {
+        return res.status(400).json({ error: '비밀번호는 6자 이상이어야 합니다.' });
       }
+      admins[idx].passwordHash = bcrypt.hashSync(req.body.newPassword, 10);
+    }
+    await writeData('admins', admins);
+    const { passwordHash, ...safe } = admins[idx];
+    res.json(safe);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/accounts/:id', requireMainAdmin, async (req, res) => {
+  try {
+    const admins = (await readData('admins')) || [];
+    const target = admins.find((a) => a.id === req.params.id);
+    if (!target) return res.status(404).json({ error: '계정을 찾을 수 없습니다.' });
+    if (target.role === 'main') return res.status(403).json({ error: '메인 관리자는 삭제할 수 없습니다.' });
+
+    const filtered = admins.filter((a) => a.id !== req.params.id);
+    await writeData('admins', filtered);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// multer가 파일 처리 중 에러(용량 초과 등)를 내면 기본적으로 HTML 에러 페이지로
+// 응답이 나가버려서, 프론트엔드에서 "JSON이 아니다"라는 에러로 보였습니다. 여기서 미리
+// 잡아서 항상 JSON으로 응답하게 만듭니다.
+function handleUploadError(multerMiddleware) {
+  return (req, res, next) => {
+    multerMiddleware(req, res, (err) => {
+      if (!err) return next();
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({ error: '파일 용량이 너무 큽니다. 더 작은 용량의 파일로 다시 시도해주세요.' });
+      }
+      return res.status(400).json({ error: err.message || '파일 업로드 중 오류가 발생했습니다.' });
     });
+  };
+}
+
+// ---------- 이미지 업로드 ----------
+router.post('/upload', handleUploadError(upload.single('image')), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: '업로드된 파일이 없습니다.' });
+  try {
+    const url = await storeFile(req.file);
+    res.json({ url });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
+});
 
-  async function loadAccountList() {
-    const accounts = await api('/api/admin/accounts');
-    renderAccountList(accounts);
-  }
-
-  function renderAccountList(accounts) {
-    const container = $('#account-list');
-    container.innerHTML = accounts
-      .map((a) => {
-        const isMain = a.role === 'main';
-        const perms = a.permissions || {};
-        const permRow = ['site', 'menu', 'posts', 'sermons', 'qt', 'missions', 'stats', 'receipts']
-          .map(
-            (p) => `
-            <label>
-              <input type="checkbox" class="perm-${p}" ${perms[p] ? 'checked' : ''} ${isMain ? 'disabled' : ''} />
-              ${{ site: '기본 정보', menu: '메뉴 관리', posts: '소식·활동 게시판', sermons: '설교 영상', qt: '오늘의 큐티', missions: '선교사역', stats: '통계', receipts: '영수증 신청' }[p]}
-            </label>`
-          )
-          .join('');
-
-        return `
-        <div class="account-row" data-id="${a.id}">
-          <div class="account-row-top">
-            <span class="badge${isMain ? ' main' : ''}">${isMain ? '메인 관리자' : '부관리자'}</span>
-            <span class="account-username">${escapeHtml(a.username)}</span>
-            ${!isMain ? `<button type="button" class="icon-btn remove-account">계정 삭제</button>` : ''}
-          </div>
-          <div class="permission-checks">${permRow}</div>
-          ${
-            !isMain
-              ? `<div class="account-pw-row">
-                  <input type="password" class="acc-new-pw" placeholder="새 비밀번호 (변경할 때만 입력, 6자 이상)" />
-                  <button type="button" class="btn-secondary save-account-btn">저장</button>
-                </div>`
-              : ''
-          }
-        </div>`;
-      })
-      .join('');
-
-    $$('#account-list .save-account-btn').forEach((btn) =>
-      btn.addEventListener('click', async (e) => {
-        const row = e.target.closest('.account-row');
-        const id = row.dataset.id;
-        const permissions = {
-          site: row.querySelector('.perm-site').checked,
-          menu: row.querySelector('.perm-menu').checked,
-          posts: row.querySelector('.perm-posts').checked,
-          sermons: row.querySelector('.perm-sermons').checked,
-          qt: row.querySelector('.perm-qt').checked,
-          missions: row.querySelector('.perm-missions').checked,
-          stats: row.querySelector('.perm-stats').checked,
-          receipts: row.querySelector('.perm-receipts').checked
-        };
-        const newPassword = row.querySelector('.acc-new-pw').value;
-        if (newPassword && newPassword.length < 6) {
-          return alert('새 비밀번호는 6자 이상이어야 합니다.');
-        }
-        const payload = { permissions };
-        if (newPassword) payload.newPassword = newPassword;
-        try {
-          await api(`/api/admin/accounts/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
-          flashSaved(btn);
-          row.querySelector('.acc-new-pw').value = '';
-        } catch (err) {
-          alert(err.message);
-        }
-      })
+// 게시글 첨부파일 업로드 (여러 개, 문서/이미지 등 모든 형식 허용)
+router.post('/upload-attachment', handleUploadError(attachmentUpload.array('files', 5)), async (req, res) => {
+  if (!req.files || req.files.length === 0) return res.status(400).json({ error: '업로드된 파일이 없습니다.' });
+  try {
+    const files = await Promise.all(
+      req.files.map(async (f) => ({
+        name: fixKoreanFilename(f.originalname),
+        url: await storeFile(f)
+      }))
     );
-
-    $$('#account-list .remove-account').forEach((btn) =>
-      btn.addEventListener('click', async (e) => {
-        const row = e.target.closest('.account-row');
-        const id = row.dataset.id;
-        const username = row.querySelector('.account-username').textContent;
-        if (!confirm(`'${username}' 계정을 삭제하시겠습니까?`)) return;
-        await api(`/api/admin/accounts/${id}`, { method: 'DELETE' });
-        loadAccountList();
-      })
-    );
+    res.json({ files });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
   }
+});
 
-  // ---------------- 시작 ----------------
-  checkSession();
-})();
+// ---------- 사이트 기본 정보 수정 ----------
+router.get('/site', async (req, res) => {
+  try {
+    res.json(await readData('site'));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/site', requirePermission('site'), async (req, res) => {
+  try {
+    // 카카오맵 관련 값은 화면에 그대로 꽂혀 들어가는 값이라, 정확히 카카오 지도 도메인의
+    // https 주소인지 확인해서 혹시 모를 악성 스크립트 삽입을 막습니다.
+    // 형식이 이상하면 그냥 빈 값으로 저장합니다.
+    if (req.body.contact) {
+      const c = req.body.contact;
+      if (c.kakaoMapImageUrl && !/^https:\/\/staticmap\.kakao\.com\//.test(c.kakaoMapImageUrl)) {
+        c.kakaoMapImageUrl = '';
+      }
+      if (c.kakaoMapLinkUrl && !/^https:\/\/map\.kakao\.com\//.test(c.kakaoMapLinkUrl)) {
+        c.kakaoMapLinkUrl = '';
+      }
+    }
+    const current = (await readData('site')) || {};
+    const updated = { ...current, ...req.body };
+    await writeData('site', updated);
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- 메뉴 관리 ----------
+router.get('/menu', async (req, res) => {
+  try {
+    res.json((await readData('menu')) || []);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/menu', requirePermission('menu'), async (req, res) => {
+  try {
+    const menu = (await readData('menu')) || [];
+    const item = { id: makeId('m'), label: req.body.label, link: req.body.link, order: req.body.order ?? menu.length + 1 };
+    menu.push(item);
+    await writeData('menu', menu);
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/menu/:id', requirePermission('menu'), async (req, res) => {
+  try {
+    const menu = (await readData('menu')) || [];
+    const idx = menu.findIndex((m) => m.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: '메뉴를 찾을 수 없습니다.' });
+    menu[idx] = { ...menu[idx], ...req.body };
+    await writeData('menu', menu);
+    res.json(menu[idx]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/menu/:id', requirePermission('menu'), async (req, res) => {
+  try {
+    const menu = (await readData('menu')) || [];
+    const filtered = menu.filter((m) => m.id !== req.params.id);
+    await writeData('menu', filtered);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/menu-reorder', requirePermission('menu'), async (req, res) => {
+  try {
+    // req.body.order = [id1, id2, id3, ...] 순서
+    const menu = (await readData('menu')) || [];
+    const order = req.body.order || [];
+    const updated = menu.map((m) => {
+      const pos = order.indexOf(m.id);
+      return pos === -1 ? m : { ...m, order: pos + 1 };
+    });
+    await writeData('menu', updated);
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- 게시판 (소식·활동) 관리 ----------
+router.get('/posts', async (req, res) => {
+  try {
+    res.json((await readData('posts')) || []);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/posts', requirePermission('posts'), async (req, res) => {
+  try {
+    const posts = (await readData('posts')) || [];
+    const post = {
+      id: makeId('post'),
+      category: req.body.category || '소식',
+      title: req.body.title || '',
+      content: req.body.content || '',
+      image: req.body.image || '',
+      attachments: Array.isArray(req.body.attachments) ? req.body.attachments : [],
+      date: req.body.date || new Date().toISOString().slice(0, 10),
+      pinned: !!req.body.pinned
+    };
+    posts.unshift(post);
+    await writeData('posts', posts);
+    res.json(post);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/posts/:id', requirePermission('posts'), async (req, res) => {
+  try {
+    const posts = (await readData('posts')) || [];
+    const idx = posts.findIndex((p) => p.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: '게시글을 찾을 수 없습니다.' });
+    posts[idx] = { ...posts[idx], ...req.body };
+    await writeData('posts', posts);
+    res.json(posts[idx]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/posts/:id', requirePermission('posts'), async (req, res) => {
+  try {
+    const posts = (await readData('posts')) || [];
+    const filtered = posts.filter((p) => p.id !== req.params.id);
+    await writeData('posts', filtered);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- 설교 영상(유튜브) 관리 ----------
+router.get('/sermons', async (req, res) => {
+  try {
+    res.json(await getCachedSermons());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 관리자가 수동으로 즉시 새로고침 (자동 스케줄과 별개로 즉시 반영하고 싶을 때 사용)
+router.post('/sermons/refresh', requirePermission('sermons'), async (req, res) => {
+  try {
+    const channelId = req.body.channelId || process.env.YOUTUBE_CHANNEL_ID;
+    const data = await updateSermonsCache(channelId);
+    res.json(data);
+    // 관리자가 새로고침한 시점에 카드 이미지까지 미리 만들어두면, 방문자는 항상 이미
+    // 완성된 이미지만 받아가게 됩니다. (응답은 먼저 보내고 뒤에서 이어서 처리)
+    if (data && Array.isArray(data.videos)) {
+      pregenerateMissingSermonPosters(data.videos, uploadsDir);
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 설교 카드(목사님 사진+제목 자동합성 이미지) 캐시를 비웁니다.
+// 디자인을 바꿨거나, 예전에 문제가 있던 채로 저장된 카드를 강제로 다시 만들고 싶을 때 사용합니다.
+router.get('/sermon-photo-files', requirePermission('sermons'), async (req, res) => {
+  try {
+    res.json(listBuiltinPhotoFilenames());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/sermon-posters', requirePermission('sermons'), async (req, res) => {
+  try {
+    await writeData('sermonPosters', {});
+    res.json({ ok: true });
+    // 캐시를 비운 뒤 바로 다시 만들어둬서, 다음 방문자가 빈 상태를 보지 않게 합니다.
+    const data = await getCachedSermons();
+    if (data && Array.isArray(data.videos)) {
+      pregenerateMissingSermonPosters(data.videos, uploadsDir);
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- 오늘의 큐티 관리 ----------
+router.get('/qt', async (req, res) => {
+  try {
+    const qt = (await readData('qt')) || [];
+    res.json([...qt].sort((a, b) => new Date(b.date) - new Date(a.date)));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/qt', requirePermission('qt'), async (req, res) => {
+  try {
+    const qt = (await readData('qt')) || [];
+    const site = (await readData('site')) || {};
+    const pool = Array.isArray(site.qtBgPool) ? site.qtBgPool.filter(Boolean) : [];
+    // 보관함 사진을 순서대로 하나씩 배정합니다. "지금까지 등록된 큐티 개수"가 아니라
+    // 별도로 저장해둔 커서(qtBgPoolCursor)를 매번 하나씩 늘려가며 사용합니다 — 이렇게 해야
+    // 중간에 지난 글을 삭제해도 순번이 되감기지 않고, 이미 쓴 사진이 다시 겹쳐 쓰이지 않습니다.
+    let bgImage = '';
+    if (pool.length) {
+      const cursor = Number.isInteger(site.qtBgPoolCursor) ? site.qtBgPoolCursor : 0;
+      bgImage = pool[cursor % pool.length];
+      site.qtBgPoolCursor = cursor + 1;
+      await writeData('site', site);
+    }
+    const item = {
+      id: makeId('qt'),
+      date: req.body.date || new Date().toISOString().slice(0, 10),
+      title: req.body.title || '',
+      subtitle: req.body.subtitle || '',
+      verseRef: req.body.verseRef || '',
+      verseText: req.body.verseText || '',
+      body: req.body.body || '',
+      pastor: req.body.pastor || '',
+      bgImage,
+      amen: 0,
+      createdAt: new Date().toISOString()
+    };
+    qt.unshift(item);
+    await writeData('qt', qt);
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/qt/:id', requirePermission('qt'), async (req, res) => {
+  try {
+    const qt = (await readData('qt')) || [];
+    const idx = qt.findIndex((q) => q.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: '큐티를 찾을 수 없습니다.' });
+    const { amen, id, createdAt, ...editable } = req.body; // 반응 수·id·생성일은 여기서 직접 수정 불가
+    qt[idx] = { ...qt[idx], ...editable };
+    await writeData('qt', qt);
+    res.json(qt[idx]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/qt/:id', requirePermission('qt'), async (req, res) => {
+  try {
+    const qt = (await readData('qt')) || [];
+    const filtered = qt.filter((q) => q.id !== req.params.id);
+    await writeData('qt', filtered);
+    await cancelScheduledPushesFor('qt', req.params.id);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 큐티 섹션 배경 디자인 (site 데이터의 qtBackground 필드에 저장)
+router.put('/qt-background', requirePermission('qt'), async (req, res) => {
+  try {
+    const site = (await readData('site')) || {};
+    site.qtBackground = {
+      type: req.body.type === 'photo' ? 'photo' : 'preset',
+      preset: req.body.preset || 'navy',
+      image: req.body.image || ''
+    };
+    await writeData('site', site);
+    res.json(site.qtBackground);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 큐티 카드 배경 사진 보관함 — 새 큐티를 등록할 때마다 이 목록에서 순서대로 하나씩
+// 배정됩니다 (POST /qt 참고). 목록 자체를 통째로 교체하는 방식입니다.
+router.put('/qt-bg-pool', requirePermission('qt'), async (req, res) => {
+  try {
+    const site = (await readData('site')) || {};
+    site.qtBgPool = Array.isArray(req.body.pool) ? req.body.pool.filter((u) => typeof u === 'string' && u) : [];
+    await writeData('site', site);
+    res.json({ pool: site.qtBgPool });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 유튜브 URL이나 영상ID를 그대로 받아서 11자리 영상ID만 뽑아냅니다.
+function extractYoutubeId(input = '') {
+  const s = String(input).trim();
+  if (/^[a-zA-Z0-9_-]{11}$/.test(s)) return s; // 이미 순수 영상ID인 경우
+  const patterns = [
+    /youtu\.be\/([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/watch\?v=([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/,
+    /youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/
+  ];
+  for (const p of patterns) {
+    const m = s.match(p);
+    if (m) return m[1];
+  }
+  return '';
+}
+
+// ---------- 찬양 관리 ----------
+router.get('/praises', async (req, res) => {
+  try {
+    const praises = (await readData('praises')) || [];
+    res.json([...praises].sort((a, b) => (a.order ?? 0) - (b.order ?? 0)));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/praises', async (req, res) => {
+  try {
+    const youtubeId = extractYoutubeId(req.body.youtubeUrl || req.body.youtubeId || '');
+    if (!youtubeId) {
+      return res.status(400).json({ error: '유튜브 주소(또는 영상ID)를 다시 확인해주세요.' });
+    }
+    const praises = (await readData('praises')) || [];
+    const item = {
+      id: makeId('praise'),
+      title: req.body.title || '',
+      singer: req.body.singer || '',
+      youtubeId,
+      categoryIds: Array.isArray(req.body.categoryIds) ? req.body.categoryIds : [],
+      order: praises.length,
+      createdAt: new Date().toISOString()
+    };
+    praises.push(item);
+    await writeData('praises', praises);
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/praises/:id', async (req, res) => {
+  try {
+    const praises = (await readData('praises')) || [];
+    const idx = praises.findIndex((p) => p.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: '찬양을 찾을 수 없습니다.' });
+
+    const editable = { title: req.body.title, singer: req.body.singer };
+    if (Array.isArray(req.body.categoryIds)) editable.categoryIds = req.body.categoryIds;
+    if (req.body.youtubeUrl || req.body.youtubeId) {
+      const youtubeId = extractYoutubeId(req.body.youtubeUrl || req.body.youtubeId);
+      if (!youtubeId) return res.status(400).json({ error: '유튜브 주소(또는 영상ID)를 다시 확인해주세요.' });
+      editable.youtubeId = youtubeId;
+    }
+    praises[idx] = { ...praises[idx], ...editable };
+    await writeData('praises', praises);
+    res.json(praises[idx]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/praises/:id', async (req, res) => {
+  try {
+    const praises = (await readData('praises')) || [];
+    const filtered = praises.filter((p) => p.id !== req.params.id);
+    await writeData('praises', filtered);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/praises-reorder', async (req, res) => {
+  try {
+    const praises = (await readData('praises')) || [];
+    const order = req.body.order || [];
+    const updated = praises.map((p) => {
+      const pos = order.indexOf(p.id);
+      return pos === -1 ? p : { ...p, order: pos };
+    });
+    await writeData('praises', updated);
+    res.json(updated);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- 찬양 컨셉(카테고리) ----------
+const DEFAULT_PRAISE_CATEGORIES = ['경배와 찬양', 'CCM', '잔잔한 묵상곡', '경쾌한 찬양', '어린이·다음세대', '절기 특별찬양'];
+
+async function ensurePraiseCategoriesSeeded() {
+  const categories = await readData('praiseCategories');
+  if (categories && categories.length > 0) return categories;
+  const seeded = DEFAULT_PRAISE_CATEGORIES.map((name) => ({ id: makeId('pcat'), name }));
+  await writeData('praiseCategories', seeded);
+  return seeded;
+}
+
+router.get('/praise-categories', async (req, res) => {
+  try {
+    res.json(await ensurePraiseCategoriesSeeded());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/praise-categories', async (req, res) => {
+  try {
+    const name = (req.body.name || '').trim();
+    if (!name) return res.status(400).json({ error: '컨셉 이름을 입력해주세요.' });
+    const categories = await ensurePraiseCategoriesSeeded();
+    if (categories.some((c) => c.name === name)) {
+      return res.status(409).json({ error: '이미 같은 이름의 컨셉이 있습니다.' });
+    }
+    const item = { id: makeId('pcat'), name };
+    categories.push(item);
+    await writeData('praiseCategories', categories);
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/praise-categories/:id', async (req, res) => {
+  try {
+    const name = (req.body.name || '').trim();
+    if (!name) return res.status(400).json({ error: '컨셉 이름을 입력해주세요.' });
+    const categories = (await readData('praiseCategories')) || [];
+    const idx = categories.findIndex((c) => c.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: '컨셉을 찾을 수 없습니다.' });
+    if (categories.some((c) => c.id !== req.params.id && c.name === name)) {
+      return res.status(409).json({ error: '이미 같은 이름의 컨셉이 있습니다.' });
+    }
+    categories[idx] = { ...categories[idx], name };
+    await writeData('praiseCategories', categories);
+    res.json(categories[idx]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/praise-categories/:id', async (req, res) => {
+  try {
+    const categories = (await readData('praiseCategories')) || [];
+    const filtered = categories.filter((c) => c.id !== req.params.id);
+    await writeData('praiseCategories', filtered);
+    // 삭제된 컨셉은 곡들에 붙어있던 태그에서도 같이 지워줍니다.
+    const praises = (await readData('praises')) || [];
+    const updated = praises.map((p) => ({
+      ...p,
+      categoryIds: (p.categoryIds || []).filter((id) => id !== req.params.id)
+    }));
+    await writeData('praises', updated);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- 설교 테마(카테고리) ----------
+// 설교 영상은 유튜브에서 자동으로 동기화되므로, 어떤 영상이 어떤 테마인지는
+// videoId를 기준으로 별도 저장해둡니다 (재동기화되어도 videoId는 바뀌지 않아 유지됩니다).
+const DEFAULT_SERMON_CATEGORIES = ['주일설교', '수요예배', '특별집회', '성경강해 시리즈'];
+
+async function ensureSermonCategoriesSeeded() {
+  const categories = await readData('sermonCategories');
+  if (categories && categories.length > 0) return categories;
+  const seeded = DEFAULT_SERMON_CATEGORIES.map((name) => ({ id: makeId('scat'), name }));
+  await writeData('sermonCategories', seeded);
+  return seeded;
+}
+
+router.get('/sermon-categories', async (req, res) => {
+  try {
+    res.json(await ensureSermonCategoriesSeeded());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/sermon-categories', async (req, res) => {
+  try {
+    const name = (req.body.name || '').trim();
+    if (!name) return res.status(400).json({ error: '테마 이름을 입력해주세요.' });
+    const categories = await ensureSermonCategoriesSeeded();
+    if (categories.some((c) => c.name === name)) {
+      return res.status(409).json({ error: '이미 같은 이름의 테마가 있습니다.' });
+    }
+    const item = { id: makeId('scat'), name };
+    categories.push(item);
+    await writeData('sermonCategories', categories);
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/sermon-categories/:id', async (req, res) => {
+  try {
+    const name = (req.body.name || '').trim();
+    if (!name) return res.status(400).json({ error: '테마 이름을 입력해주세요.' });
+    const categories = (await readData('sermonCategories')) || [];
+    const idx = categories.findIndex((c) => c.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: '테마를 찾을 수 없습니다.' });
+    if (categories.some((c) => c.id !== req.params.id && c.name === name)) {
+      return res.status(409).json({ error: '이미 같은 이름의 테마가 있습니다.' });
+    }
+    categories[idx] = { ...categories[idx], name };
+    await writeData('sermonCategories', categories);
+    res.json(categories[idx]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/sermon-categories/:id', async (req, res) => {
+  try {
+    const categories = (await readData('sermonCategories')) || [];
+    const filtered = categories.filter((c) => c.id !== req.params.id);
+    await writeData('sermonCategories', filtered);
+    // 삭제된 테마는 영상에 붙어있던 태그에서도 같이 지워줍니다.
+    const tags = (await readData('sermonCategoryTags')) || {};
+    Object.keys(tags).forEach((videoId) => {
+      tags[videoId] = (tags[videoId] || []).filter((id) => id !== req.params.id);
+    });
+    await writeData('sermonCategoryTags', tags);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 영상 하나에 테마를 여러 개 붙여서 저장 (videoId 기준)
+router.put('/sermon-category-tags/:videoId', async (req, res) => {
+  try {
+    const categoryIds = Array.isArray(req.body.categoryIds) ? req.body.categoryIds : [];
+    const tags = (await readData('sermonCategoryTags')) || {};
+    tags[req.params.videoId] = categoryIds;
+    await writeData('sermonCategoryTags', tags);
+    res.json({ videoId: req.params.videoId, categoryIds });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/sermon-category-tags', async (req, res) => {
+  try {
+    res.json((await readData('sermonCategoryTags')) || {});
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+router.get('/missions', async (req, res) => {
+  try {
+    res.json((await readData('missions')) || []);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/missions', requirePermission('missions'), async (req, res) => {
+  try {
+    const missions = (await readData('missions')) || [];
+    const item = {
+      id: makeId('mission'),
+      order: missions.length,
+      countryCode: req.body.countryCode || '',
+      country: req.body.country || '',
+      lat: Number(req.body.lat) || 0,
+      lon: Number(req.body.lon) || 0,
+      name: req.body.name || '',
+      tag: req.body.tag || '',
+      desc: req.body.desc || '',
+      image: req.body.image || '',
+      createdAt: new Date().toISOString()
+    };
+    missions.push(item);
+    await writeData('missions', missions);
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/missions/:id', requirePermission('missions'), async (req, res) => {
+  try {
+    const missions = (await readData('missions')) || [];
+    const idx = missions.findIndex((m) => m.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: '선교지 정보를 찾을 수 없습니다.' });
+    const { id, createdAt, ...editable } = req.body;
+    missions[idx] = { ...missions[idx], ...editable };
+    await writeData('missions', missions);
+    res.json(missions[idx]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/missions/:id', requirePermission('missions'), async (req, res) => {
+  try {
+    const missions = (await readData('missions')) || [];
+    const filtered = missions.filter((m) => m.id !== req.params.id);
+    await writeData('missions', filtered);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- 동역자의 섬김 ----------
+router.get('/partners', async (req, res) => {
+  try {
+    res.json((await readData('partners')) || []);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/partners', requirePermission('missions'), async (req, res) => {
+  try {
+    const partners = (await readData('partners')) || [];
+    const item = {
+      id: makeId('partner'),
+      order: partners.length,
+      name: req.body.name || '',
+      image: req.body.image || '',
+      startDate: req.body.startDate || '',
+      note: req.body.note || '',
+      createdAt: new Date().toISOString()
+    };
+    partners.push(item);
+    await writeData('partners', partners);
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/partners/:id', requirePermission('missions'), async (req, res) => {
+  try {
+    const partners = (await readData('partners')) || [];
+    const idx = partners.findIndex((p) => p.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: '동역자 정보를 찾을 수 없습니다.' });
+    const { id, createdAt, ...editable } = req.body;
+    partners[idx] = { ...partners[idx], ...editable };
+    await writeData('partners', partners);
+    res.json(partners[idx]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/partners/:id', requirePermission('missions'), async (req, res) => {
+  try {
+    const partners = (await readData('partners')) || [];
+    const filtered = partners.filter((p) => p.id !== req.params.id);
+    await writeData('partners', filtered);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- 통계 ----------
+router.get('/stats', requirePermission('stats'), async (req, res) => {
+  try {
+    res.json((await readData('stats')) || { pageviews: {}, clicks: {} });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- 기부금 영수증 신청 관리 ----------
+router.get('/receipt-requests', requirePermission('receipts'), async (req, res) => {
+  try {
+    res.json((await readData('receiptRequests')) || []);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/receipt-requests/:id', requirePermission('receipts'), async (req, res) => {
+  try {
+    const requests = (await readData('receiptRequests')) || [];
+    const filtered = requests.filter((r) => r.id !== req.params.id);
+    await writeData('receiptRequests', filtered);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- 말씀 퀴즈 관리 ----------
+// ---------- 푸시 알림 발송 ----------
+router.post('/push/send', requirePermission('site'), async (req, res) => {
+  try {
+    const { title, body, url, image } = req.body;
+    if (!title || !title.trim()) return res.status(400).json({ error: '알림 제목을 입력해주세요.' });
+    const safeImage = isSafeMediaUrl(image) ? image.trim() : '';
+    const result = await sendToAll({ title: title.trim(), body: (body || '').trim(), url: url || '/', image: safeImage || undefined });
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- 자주 쓰는 알림 문구 저장 ----------
+router.get('/push/templates', requirePermission('site'), async (req, res) => {
+  try {
+    res.json((await readData('pushTemplates')) || []);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/push/templates', requirePermission('site'), async (req, res) => {
+  try {
+    const { name, title, body, url, image } = req.body;
+    if (!name || !name.trim()) return res.status(400).json({ error: '문구 이름을 입력해주세요.' });
+    if (!title || !title.trim()) return res.status(400).json({ error: '알림 제목을 입력해주세요.' });
+    const templates = (await readData('pushTemplates')) || [];
+    const item = {
+      id: makeId('pushtpl'),
+      name: name.trim(),
+      title: title.trim(),
+      body: (body || '').trim(),
+      url: (url || '').trim(),
+      image: isSafeMediaUrl(image) ? image.trim() : ''
+    };
+    templates.push(item);
+    await writeData('pushTemplates', templates);
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/push/templates/:id', requirePermission('site'), async (req, res) => {
+  try {
+    const templates = (await readData('pushTemplates')) || [];
+    const filtered = templates.filter((t) => t.id !== req.params.id);
+    await writeData('pushTemplates', filtered);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- 예약 알림 ----------
+// linkedType/linkedId: 큐티·말씀 퀴즈 등록 시 "이 글이 삭제되면 예약도 같이 취소"하기 위해 연결해둡니다.
+router.get('/push/scheduled', requirePermission('site'), async (req, res) => {
+  try {
+    const scheduled = (await readData('scheduledPushes')) || [];
+    const sorted = [...scheduled].sort((a, b) => new Date(b.sendAt) - new Date(a.sendAt));
+    res.json(sorted.slice(0, 100)); // 화면이 끝없이 길어지지 않도록 최근 100건만 보여줌
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/push/scheduled', requirePermission('site'), async (req, res) => {
+  try {
+    const { title, body, url, image, sendAt, linkedType, linkedId } = req.body;
+    if (!title || !title.trim()) return res.status(400).json({ error: '알림 제목을 입력해주세요.' });
+    if (!sendAt) return res.status(400).json({ error: '발송 시각을 선택해주세요.' });
+    const scheduled = (await readData('scheduledPushes')) || [];
+    const item = {
+      id: makeId('pushsch'),
+      title: title.trim(),
+      body: (body || '').trim(),
+      url: (url || '/').trim(),
+      image: isSafeMediaUrl(image) ? image.trim() : '',
+      sendAt,
+      linkedType: linkedType || null,
+      linkedId: linkedId || null,
+      status: 'pending',
+      createdAt: new Date().toISOString()
+    };
+    scheduled.push(item);
+    await writeData('scheduledPushes', scheduled);
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/push/scheduled/:id', requirePermission('site'), async (req, res) => {
+  try {
+    const scheduled = (await readData('scheduledPushes')) || [];
+    const filtered = scheduled.filter((s) => s.id !== req.params.id);
+    await writeData('scheduledPushes', filtered);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 큐티·말씀 퀴즈 글이 삭제되면, 아직 안 보낸 연결된 예약 알림도 같이 취소합니다.
+async function cancelScheduledPushesFor(linkedType, linkedId) {
+  const scheduled = (await readData('scheduledPushes')) || [];
+  const filtered = scheduled.filter(
+    (s) => !(s.linkedType === linkedType && s.linkedId === linkedId && s.status === 'pending')
+  );
+  if (filtered.length !== scheduled.length) {
+    await writeData('scheduledPushes', filtered);
+  }
+}
+
+router.get('/quiz', async (req, res) => {
+  try {
+    const quizzes = (await readData('quizzes')) || [];
+    res.json([...quizzes].reverse());
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// verses: [{ verseLabel: '3', rawText: '그러므로 여호와의 (말씀)에 내가...' }, ...]
+// rawText 안의 (단어)가 빈칸이 됩니다. 관리자 페이지에서 붙여넣기 텍스트를 미리 이 구조로 잘라서 보냅니다.
+router.post('/quiz', requirePermission('qt'), async (req, res) => {
+  try {
+    const { reference, weekLabel, verses } = req.body;
+    if (!reference || !Array.isArray(verses) || verses.length === 0) {
+      return res.status(400).json({ error: '본문 출처와 절 내용을 입력해주세요.' });
+    }
+
+    const parsedVerses = verses.map((v, i) => {
+      const blanks = [];
+      let blankIndex = 0;
+      const rawText = v.rawText || '';
+      const markedText = rawText.replace(/\(([^)]+)\)/g, (match, word) => {
+        blankIndex += 1;
+        const id = `b${blankIndex}`;
+        blanks.push({ id, answer: word.trim() });
+        return `{{${id}}}`;
+      });
+      const fullText = rawText.replace(/[()]/g, '');
+      return {
+        id: `v${i + 1}`,
+        reference: v.reference || reference,
+        verseLabel: v.verseLabel || '',
+        markedText,
+        fullText,
+        blanks
+      };
+    });
+
+    if (parsedVerses.every((v) => v.blanks.length === 0)) {
+      return res.status(400).json({ error: '빈칸으로 만들 단어를 괄호로 표시해주세요. 예: (말씀)' });
+    }
+
+    const quizzes = (await readData('quizzes')) || [];
+    const quiz = {
+      id: makeId('quiz'),
+      reference,
+      weekLabel: weekLabel || new Date().toISOString().slice(0, 10),
+      verses: parsedVerses,
+      createdAt: new Date().toISOString()
+    };
+    quizzes.push(quiz);
+    await writeData('quizzes', quizzes);
+    res.json(quiz);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/quiz/:id', requirePermission('qt'), async (req, res) => {
+  try {
+    const { reference, weekLabel, verses } = req.body;
+    if (!reference || !Array.isArray(verses) || verses.length === 0) {
+      return res.status(400).json({ error: '본문 출처와 절 내용을 입력해주세요.' });
+    }
+
+    const parsedVerses = verses.map((v, i) => {
+      const blanks = [];
+      let blankIndex = 0;
+      const rawText = v.rawText || '';
+      const markedText = rawText.replace(/\(([^)]+)\)/g, (match, word) => {
+        blankIndex += 1;
+        const id = `b${blankIndex}`;
+        blanks.push({ id, answer: word.trim() });
+        return `{{${id}}}`;
+      });
+      const fullText = rawText.replace(/[()]/g, '');
+      return {
+        id: `v${i + 1}`,
+        reference: v.reference || reference,
+        verseLabel: v.verseLabel || '',
+        markedText,
+        fullText,
+        blanks
+      };
+    });
+
+    if (parsedVerses.every((v) => v.blanks.length === 0)) {
+      return res.status(400).json({ error: '빈칸으로 만들 단어를 괄호로 표시해주세요. 예: (말씀)' });
+    }
+
+    const quizzes = (await readData('quizzes')) || [];
+    const idx = quizzes.findIndex((q) => q.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: '퀴즈를 찾을 수 없습니다.' });
+
+    quizzes[idx] = {
+      ...quizzes[idx],
+      reference,
+      weekLabel: weekLabel || quizzes[idx].weekLabel,
+      verses: parsedVerses
+    };
+    await writeData('quizzes', quizzes);
+    res.json(quizzes[idx]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/quiz/:id/submissions', requirePermission('qt'), async (req, res) => {
+  try {
+    const submissions = (await readData('quizSubmissions')) || [];
+    const list = submissions
+      .filter((s) => s.quizId === req.params.id)
+      .sort((a, b) => b.score - a.score || b.firstTryCount - a.firstTryCount);
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/quiz/:id', requirePermission('qt'), async (req, res) => {
+  try {
+    const quizzes = (await readData('quizzes')) || [];
+    const filtered = quizzes.filter((q) => q.id !== req.params.id);
+    await writeData('quizzes', filtered);
+    await cancelScheduledPushesFor('quiz', req.params.id);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.get('/quiz/:id/leaderboard', async (req, res) => {
+  try {
+    const submissions = (await readData('quizSubmissions')) || [];
+    const list = submissions
+      .filter((s) => s.quizId === req.params.id)
+      .sort((a, b) => b.score - a.score || b.firstTryCount - a.firstTryCount);
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- 기도 요청 / 온라인 문의 관리 (공용) ----------
+// 로그인한 관리자는 비밀글 여부와 관계없이 전체 내용을 확인할 수 있습니다
+// (다른 방문자에게는 비밀글 내용이 노출되지 않으며, 목회자가 확인하는 용도입니다).
+function createSecretBoardAdminRouter(key) {
+  const board = express.Router();
+
+  board.get('/', async (req, res) => {
+    try {
+      const items = (await readData(key)) || [];
+      const sorted = [...items]
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .map(({ passwordHash, ...rest }) => rest);
+      res.json(sorted);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  board.delete('/:id', async (req, res) => {
+    try {
+      const items = (await readData(key)) || [];
+      const filtered = items.filter((p) => p.id !== req.params.id);
+      await writeData(key, filtered);
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  // 답글 저장 (목회자/관리자가 작성) - 작성자는 본인 비밀번호로 다시 열어보면 답글을 볼 수 있음
+  board.put('/:id/reply', async (req, res) => {
+    try {
+      const items = (await readData(key)) || [];
+      const idx = items.findIndex((p) => p.id === req.params.id);
+      if (idx === -1) return res.status(404).json({ error: '글을 찾을 수 없습니다.' });
+      items[idx].reply = (req.body.reply || '').trim();
+      items[idx].repliedAt = items[idx].reply ? new Date().toISOString() : null;
+      await writeData(key, items);
+      const { passwordHash, ...safe } = items[idx];
+      res.json(safe);
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  });
+
+  return board;
+}
+
+router.use('/prayers', createSecretBoardAdminRouter('prayers'));
+router.use('/inquiries', createSecretBoardAdminRouter('inquiries'));
+
+module.exports = router;
