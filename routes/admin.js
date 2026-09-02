@@ -312,8 +312,23 @@ router.delete('/accounts/:id', requireMainAdmin, async (req, res) => {
   }
 });
 
+// multer가 파일 처리 중 에러(용량 초과 등)를 내면 기본적으로 HTML 에러 페이지로
+// 응답이 나가버려서, 프론트엔드에서 "JSON이 아니다"라는 에러로 보였습니다. 여기서 미리
+// 잡아서 항상 JSON으로 응답하게 만듭니다.
+function handleUploadError(multerMiddleware) {
+  return (req, res, next) => {
+    multerMiddleware(req, res, (err) => {
+      if (!err) return next();
+      if (err.code === 'LIMIT_FILE_SIZE') {
+        return res.status(413).json({ error: '파일 용량이 너무 큽니다. 더 작은 용량의 파일로 다시 시도해주세요.' });
+      }
+      return res.status(400).json({ error: err.message || '파일 업로드 중 오류가 발생했습니다.' });
+    });
+  };
+}
+
 // ---------- 이미지 업로드 ----------
-router.post('/upload', upload.single('image'), async (req, res) => {
+router.post('/upload', handleUploadError(upload.single('image')), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: '업로드된 파일이 없습니다.' });
   try {
     const url = await storeFile(req.file);
@@ -324,7 +339,7 @@ router.post('/upload', upload.single('image'), async (req, res) => {
 });
 
 // 게시글 첨부파일 업로드 (여러 개, 문서/이미지 등 모든 형식 허용)
-router.post('/upload-attachment', attachmentUpload.array('files', 5), async (req, res) => {
+router.post('/upload-attachment', handleUploadError(attachmentUpload.array('files', 5)), async (req, res) => {
   if (!req.files || req.files.length === 0) return res.status(400).json({ error: '업로드된 파일이 없습니다.' });
   try {
     const files = await Promise.all(
