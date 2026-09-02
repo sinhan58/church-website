@@ -103,7 +103,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 .praise-theme-cell:active,
 .board-card:active,
 .qt-card:active,
-.qt-archive-row:active,
+.qt-archive-card:active,
 .attachment-item:active,
 .quiz-teaser-card:active,
 .kakao-map-preview:active,
@@ -1915,7 +1915,6 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   display: flex;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(180deg, var(--navy-deep) 0%, var(--navy-soft) 100%);
 }
 .qt-stage svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
 
@@ -1934,7 +1933,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 
 @media (min-width: 861px) {
   .qt-carousel--coverflow {
-    height: 620px;
+    height: 733px;
     cursor: grab;
   }
   .qt-carousel--coverflow.dragging { cursor: grabbing; }
@@ -2066,7 +2065,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 }
 .qt-card-photo {
   position: relative;
-  min-height: 320px;
+  min-height: 433px;
   margin: 14px 20px 0;
   border-radius: 14px;
   overflow: hidden;
@@ -2140,48 +2139,65 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   padding: 6px 10px;
 }
 .qt-archive-toggle:hover { color: var(--navy-deep); }
+
+.qt-quiz-main { position: relative; }
+
 .qt-archive-wrap {
-  position: relative;
-  max-width: 600px;
-  margin: 12px auto 0;
+  display: none;
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  background: var(--ivory);
+  border-radius: 20px;
+  padding: 24px;
+  overflow-y: auto;
+  box-shadow: 0 10px 30px rgba(13,21,38,0.18);
+}
+.qt-archive-wrap.open { display: block; }
+
+.qt-archive-grid {
   display: grid;
-  grid-template-rows: 0fr;
-  transition: grid-template-rows 0.4s ease;
-}
-.qt-archive-wrap.open { grid-template-rows: 1fr; }
-.qt-archive-inner { overflow: hidden; min-height: 0; }
-.qt-archive-list-row { position: relative; }
-.qt-archive-list-row .qt-archive-list { max-width: 520px; margin: 0 auto; }
-.qt-archive-nav.carousel-nav { width: 20px; height: 52px; opacity: 0; pointer-events: none; }
-.qt-archive-wrap.open .qt-archive-nav.carousel-nav { opacity: 0.45; pointer-events: auto; }
-.qt-archive-nav.carousel-nav--prev { left: 0; }
-.qt-archive-nav.carousel-nav--next { right: 0; }
-@media (max-width: 640px) {
-  .qt-archive-wrap { max-width: 520px; }
-}
-.qt-archive-list {
-  display: block;
-}
-.qt-archive-row {
-  display: flex;
-  align-items: center;
+  grid-template-columns: repeat(3, 1fr);
+  grid-auto-rows: 1fr;
   gap: 14px;
-  padding: 12px 4px;
-  border-bottom: 1px solid var(--line);
-  font-size: 0.9rem;
-  transition: filter 0.15s ease;
+  height: 100%;
 }
-.qt-archive-row .date { color: var(--muted); width: 88px; flex-shrink: 0; }
-.qt-archive-row .title { flex: 1; color: var(--ink); }
-.qt-archive-pagination {
+@media (max-width: 860px) {
+  .qt-archive-grid { grid-template-columns: repeat(2, 1fr); }
+}
+
+.qt-archive-card {
+  position: relative;
   display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 6px;
-  flex-wrap: wrap;
-  margin-top: 18px;
+  align-items: flex-end;
+  border-radius: 12px;
+  overflow: hidden;
+  min-height: 150px;
+  padding: 14px;
+  background: var(--qt-archive-bg, linear-gradient(160deg, var(--navy-deep), var(--navy-soft))) center/cover no-repeat;
+  transition: transform 0.2s ease;
 }
-.qt-archive-pagination .board-page-btn { min-width: 32px; height: 32px; font-size: 0.84rem; }
+.qt-archive-card:hover { transform: translateY(-3px); }
+.qt-archive-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(13,21,38,0.1), rgba(13,21,38,0.65));
+}
+.qt-archive-card-content { position: relative; z-index: 1; }
+.qt-archive-card-date { font-size: 0.68rem; color: #fff; opacity: 0.85; margin: 0 0 4px; }
+.qt-archive-card-title {
+  font-size: 0.86rem;
+  font-weight: 700;
+  color: #fff;
+  margin: 0;
+  word-break: keep-all;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.35);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 
 /* ---------------- 오늘의 큐티 (상세 페이지) ---------------- */
 .qt-detail-section { padding: 64px 0 96px; }
