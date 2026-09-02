@@ -1934,7 +1934,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 
 @media (min-width: 861px) {
   .qt-carousel--coverflow {
-    height: 500px;
+    height: 620px;
     cursor: grab;
   }
   .qt-carousel--coverflow.dragging { cursor: grabbing; }
@@ -2065,7 +2065,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 }
 .qt-card-photo {
   position: relative;
-  min-height: 200px;
+  min-height: 320px;
   margin: 14px 20px 0;
   border-radius: 14px;
   overflow: hidden;
@@ -2090,6 +2090,11 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   margin: 0 0 8px;
   text-shadow: 0 2px 8px rgba(0,0,0,0.4);
 }
+.qt-title-chevron {
+  color: var(--gold-soft);
+  font-weight: 400;
+  margin: 0 4px;
+}
 .qt-card-subtitle {
   position: relative;
   z-index: 1;
@@ -2100,6 +2105,17 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   opacity: 0.92;
   margin: 0;
   word-break: keep-all;
+  text-shadow: 0 2px 6px rgba(0,0,0,0.35);
+}
+.qt-card-photo-verseref {
+  position: relative;
+  z-index: 1;
+  color: var(--gold-soft);
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  margin: 14px 0 0;
   text-shadow: 0 2px 6px rgba(0,0,0,0.35);
 }
 .qt-card-verse-box {
