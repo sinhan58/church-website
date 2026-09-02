@@ -2013,11 +2013,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   display: flex;
   flex-direction: column;
   justify-content: center;
-  background-color: var(--navy-deep);
-  background-image: var(--qt-photo-bg, linear-gradient(160deg, var(--navy-deep), var(--navy-soft)));
-  background-position: center;
-  background-size: contain;
-  background-repeat: no-repeat;
+  background: var(--qt-photo-bg, linear-gradient(160deg, var(--navy-deep), var(--navy-soft))) center/cover no-repeat;
 }
 .qt-card-photo::before {
   content: '';
@@ -2118,45 +2114,27 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   margin-top: 44px;
-  grid-auto-rows: 1fr;
   gap: 14px;
 }
 @media (max-width: 860px) {
   .qt-archive-grid { grid-template-columns: repeat(2, 1fr); }
 }
 
-.qt-archive-card {
-  position: relative;
-  display: flex;
-  align-items: flex-end;
-  border-radius: 12px;
-  overflow: hidden;
-  min-height: 150px;
-  padding: 14px;
-  background: var(--qt-archive-bg, linear-gradient(160deg, var(--navy-deep), var(--navy-soft))) center/cover no-repeat;
-  transition: transform 0.2s ease;
-}
-.qt-archive-card:hover { transform: translateY(-3px); }
-.qt-archive-card::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(180deg, rgba(13,21,38,0.1), rgba(13,21,38,0.65));
-}
-.qt-archive-card-content { position: relative; z-index: 1; }
-.qt-archive-card-date { font-size: 0.68rem; color: #fff; opacity: 0.85; margin: 0 0 4px; }
-.qt-archive-card-title {
-  font-size: 0.86rem;
-  font-weight: 700;
-  color: #fff;
+/* 지난 큐티 그리드 카드 — 오늘의 카드와 완전히 같은 구조를 그대로 쓰되, 크기만 축소합니다.
+   (자식 요소들이 rem 단위라 부모 font-size로는 안 줄어들어서, 요소별로 직접 지정합니다) */
+.qt-card--archive-mini {
+  width: 100%;
   margin: 0;
-  word-break: keep-all;
-  text-shadow: 0 2px 6px rgba(0,0,0,0.35);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
+.qt-card--archive-mini .qt-card-photo { min-height: 160px; margin: 10px 14px 0; padding: 14px 12px; }
+.qt-card--archive-mini .qt-card-badges { padding: 12px 14px 0; }
+.qt-card--archive-mini .qt-badge,
+.qt-card--archive-mini .qt-amen-badge { font-size: 0.6rem; padding: 3px 9px; }
+.qt-card--archive-mini .qt-card-title { font-size: 0.95rem; margin: 0 0 6px; }
+.qt-card--archive-mini .qt-card-subtitle { font-size: 0.68rem; }
+.qt-card--archive-mini .qt-card-photo-verseref { font-size: 0.62rem; margin-top: 10px; }
+.qt-card--archive-mini .qt-card-read-prompt { font-size: 0.7rem; margin: 10px 14px 0; }
+.qt-card--archive-mini .qt-card-foot { font-size: 0.62rem; margin: 10px 14px 0; padding: 8px 0 14px; }
 
 /* ---------------- 오늘의 큐티 (상세 페이지) ---------------- */
 .qt-detail-section { padding: 64px 0 96px; }
