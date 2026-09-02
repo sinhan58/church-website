@@ -393,16 +393,19 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   margin-bottom: 10px;
   white-space: pre-line;
   word-break: keep-all;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.7), 0 2px 14px rgba(0,0,0,0.5), 0 0 30px rgba(0,0,0,0.3);
 }
 .verse-card .verse-ref {
   color: var(--gold-soft);
   font-size: 0.9rem;
   letter-spacing: 0.08em;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.7), 0 2px 10px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.3);
 }
 .hero-subtitle {
   color: #d7d9e4;
   font-size: 1.05rem;
   margin-bottom: 36px;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.7), 0 2px 12px rgba(0,0,0,0.5), 0 0 24px rgba(0,0,0,0.3);
 }
 .hero-cta { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
 
