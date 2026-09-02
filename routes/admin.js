@@ -565,11 +565,16 @@ router.post('/qt', requirePermission('qt'), async (req, res) => {
     const qt = (await readData('qt')) || [];
     const site = (await readData('site')) || {};
     const pool = Array.isArray(site.qtBgPool) ? site.qtBgPool.filter(Boolean) : [];
-    // 보관함 사진을 순서대로 하나씩 배정합니다. 지금까지 등록된 큐티 개수를 기준으로
-    // 다음 순번을 정하기 때문에, 매일 새 글을 등록할 때마다 자연스럽게 다음 사진으로 넘어가고
-    // 끝까지 가면 처음으로 돌아갑니다. 한 번 배정된 사진은 그 글에 그대로 고정되고,
-    // 나중에 보관함 사진을 바꾸거나 순서를 바꿔도 이미 등록된 글의 사진은 바뀌지 않습니다.
-    const bgImage = pool.length ? pool[qt.length % pool.length] : '';
+    // 보관함 사진을 순서대로 하나씩 배정합니다. "지금까지 등록된 큐티 개수"가 아니라
+    // 별도로 저장해둔 커서(qtBgPoolCursor)를 매번 하나씩 늘려가며 사용합니다 — 이렇게 해야
+    // 중간에 지난 글을 삭제해도 순번이 되감기지 않고, 이미 쓴 사진이 다시 겹쳐 쓰이지 않습니다.
+    let bgImage = '';
+    if (pool.length) {
+      const cursor = Number.isInteger(site.qtBgPoolCursor) ? site.qtBgPoolCursor : 0;
+      bgImage = pool[cursor % pool.length];
+      site.qtBgPoolCursor = cursor + 1;
+      await writeData('site', site);
+    }
     const item = {
       id: makeId('qt'),
       date: req.body.date || new Date().toISOString().slice(0, 10),
