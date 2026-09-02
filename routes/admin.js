@@ -363,28 +363,7 @@ router.put('/site', requirePermission('site'), async (req, res) => {
       }
     }
     const current = (await readData('site')) || {};
-    const incoming = { ...req.body };
-
-    // serviceTimes는 화면이 여러 개(기본 정보 저장 / 예배 시간별 세부 설정)에서 나눠서
-    // 저장하다 보니, 배열을 통째로 덮어쓰면 한쪽 화면이 모르는 필드(굵게/글자크기/설명 등)가
-    // 사라져버립니다. 그래서 항목을 id로 매칭해 필드 단위로 합쳐서 저장합니다.
-    if (Array.isArray(incoming.serviceTimes)) {
-      const currentList = Array.isArray(current.serviceTimes) ? current.serviceTimes : [];
-      incoming.serviceTimes = incoming.serviceTimes.map((item) => {
-        const existing = currentList.find((s) => s.id === item.id);
-        return existing ? { ...existing, ...item } : item;
-      });
-    }
-
-    // missions도 마찬가지입니다 — '기본 정보' 화면은 title(섹션 제목)만, 선교사 카드
-    // 화면은 cards만 각각 따로 저장하다 보니, 통째로 덮어쓰면 한쪽이 사라져버립니다.
-    // 그래서 필드 단위로 합쳐서 저장합니다.
-    if (incoming.missions && typeof incoming.missions === 'object') {
-      const currentMissions = (current.missions && typeof current.missions === 'object') ? current.missions : {};
-      incoming.missions = { ...currentMissions, ...incoming.missions };
-    }
-
-    const updated = { ...current, ...incoming };
+    const updated = { ...current, ...req.body };
     await writeData('site', updated);
     res.json(updated);
   } catch (err) {
@@ -510,17 +489,7 @@ router.delete('/posts/:id', requirePermission('posts'), async (req, res) => {
 // ---------- 설교 영상(유튜브) 관리 ----------
 router.get('/sermons', async (req, res) => {
   try {
-    const data = await getCachedSermons();
-    let archive = [];
-    try {
-      archive = (await readData('sermonsArchive')) || [];
-    } catch (archiveErr) {
-      archive = []; // 보관함을 못 읽어도 최신 목록은 정상적으로 내려줘야 함
-    }
-    const existingIds = new Set((data.videos || []).map((v) => v.videoId));
-    const archiveOnly = archive.filter((v) => !existingIds.has(v.videoId));
-    // 보관함 영상은 최신 목록 뒤에 붙여서, 관리자가 테마 태그를 해제할 수 있도록 목록에 나오게 합니다.
-    res.json({ ...data, videos: [...(data.videos || []), ...archiveOnly] });
+    res.json(await getCachedSermons());
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -579,14 +548,23 @@ router.get('/qt', async (req, res) => {
 router.post('/qt', requirePermission('qt'), async (req, res) => {
   try {
     const qt = (await readData('qt')) || [];
+    const site = (await readData('site')) || {};
+    const pool = Array.isArray(site.qtBgPool) ? site.qtBgPool.filter(Boolean) : [];
+    // 보관함 사진을 순서대로 하나씩 배정합니다. 지금까지 등록된 큐티 개수를 기준으로
+    // 다음 순번을 정하기 때문에, 매일 새 글을 등록할 때마다 자연스럽게 다음 사진으로 넘어가고
+    // 끝까지 가면 처음으로 돌아갑니다. 한 번 배정된 사진은 그 글에 그대로 고정되고,
+    // 나중에 보관함 사진을 바꾸거나 순서를 바꿔도 이미 등록된 글의 사진은 바뀌지 않습니다.
+    const bgImage = pool.length ? pool[qt.length % pool.length] : '';
     const item = {
       id: makeId('qt'),
       date: req.body.date || new Date().toISOString().slice(0, 10),
       title: req.body.title || '',
+      subtitle: req.body.subtitle || '',
       verseRef: req.body.verseRef || '',
       verseText: req.body.verseText || '',
       body: req.body.body || '',
       pastor: req.body.pastor || '',
+      bgImage,
       amen: 0,
       createdAt: new Date().toISOString()
     };
@@ -635,6 +613,19 @@ router.put('/qt-background', requirePermission('qt'), async (req, res) => {
     };
     await writeData('site', site);
     res.json(site.qtBackground);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 큐티 카드 배경 사진 보관함 — 새 큐티를 등록할 때마다 이 목록에서 순서대로 하나씩
+// 배정됩니다 (POST /qt 참고). 목록 자체를 통째로 교체하는 방식입니다.
+router.put('/qt-bg-pool', requirePermission('qt'), async (req, res) => {
+  try {
+    const site = (await readData('site')) || {};
+    site.qtBgPool = Array.isArray(req.body.pool) ? req.body.pool.filter((u) => typeof u === 'string' && u) : [];
+    await writeData('site', site);
+    res.json({ pool: site.qtBgPool });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
