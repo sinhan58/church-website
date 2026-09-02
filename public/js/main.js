@@ -1928,7 +1928,6 @@
     const navPrev = $('#qt-nav-prev');
     const navNext = $('#qt-nav-next');
     const toggleWrap = $('.qt-archive-toggle-wrap');
-    const archiveList = $('#qt-archive-list');
 
     if (!list || list.length === 0) {
       trackEl.innerHTML = `<p class="qt-empty">아직 등록된 큐티가 없습니다.</p>`;
@@ -2010,82 +2009,39 @@
       toggleWrap.style.display = 'none';
       return;
     }
+    toggleWrap.style.display = '';
 
-    // 지난 큐티는 한 번에 다 펼치지 않고 4개씩 페이지를 넘겨가며 봅니다.
-    const QT_ARCHIVE_PAGE_SIZE = 4;
-    let archivePage = 1;
-    const totalArchivePages = Math.ceil(rest.length / QT_ARCHIVE_PAGE_SIZE);
     const archiveWrap = $('#qt-archive-wrap');
-    const pager = $('#qt-archive-pagination');
-    const archivePrevBtn = $('#qt-archive-prev');
-    const archiveNextBtn = $('#qt-archive-next');
+    const archiveGrid = $('#qt-archive-grid');
 
-    function renderArchiveRows() {
-      const start = (archivePage - 1) * QT_ARCHIVE_PAGE_SIZE;
-      const pageItems = rest.slice(start, start + QT_ARCHIVE_PAGE_SIZE);
-      archiveList.innerHTML = pageItems
+    function renderArchiveGrid() {
+      const isDesktopNow = window.matchMedia('(min-width: 861px)').matches;
+      const maxCount = isDesktopNow ? 6 : 4;
+      const items = rest.slice(0, maxCount);
+      archiveGrid.innerHTML = items
         .map(
           (q) => `
-          <a class="qt-archive-row" href="/qt/${q.id}?from=home" data-id="${q.id}" data-title="${escapeHtml(q.title || '')}">
-            <span class="date">${formatQtDate(q.date)}</span>
-            <span class="title">${escapeHtml(q.title || '')}</span>
+          <a class="qt-archive-card" href="/qt/${q.id}?from=home" data-id="${q.id}" data-title="${escapeHtml(q.title || '')}"${q.bgImage ? ` style="--qt-archive-bg: url('${escapeHtml(q.bgImage)}')"` : ''}>
+            <div class="qt-archive-card-content">
+              <p class="qt-archive-card-date">${formatQtDate(q.date)}</p>
+              <h4 class="qt-archive-card-title">${escapeHtml(q.title || '')}</h4>
+            </div>
           </a>`
         )
         .join('');
 
-      $$('.qt-archive-row', archiveList).forEach((row) => {
-        row.addEventListener('click', () =>
-          track('click', { label: 'qt_archive_row', itemType: 'qt', itemId: row.dataset.id, itemTitle: row.dataset.title })
+      $$('.qt-archive-card', archiveGrid).forEach((card) => {
+        card.addEventListener('click', () =>
+          track('click', { label: 'qt_archive_grid', itemType: 'qt', itemId: card.dataset.id, itemTitle: card.dataset.title })
         );
       });
-
-      archivePrevBtn.disabled = archivePage === 1;
-      archiveNextBtn.disabled = archivePage === totalArchivePages;
-    }
-
-    function renderArchivePagination() {
-      if (totalArchivePages <= 1) {
-        pager.innerHTML = '';
-        return;
-      }
-      const buttons = [];
-      for (let i = 1; i <= totalArchivePages; i++) {
-        buttons.push(
-          `<button class="board-page-btn${i === archivePage ? ' active' : ''}" data-page="${i}">${i}</button>`
-        );
-      }
-      pager.innerHTML = buttons.join('');
-
-      $$('.board-page-btn', pager).forEach((btn) => {
-        btn.addEventListener('click', () => goToArchivePage(Number(btn.dataset.page)));
-      });
-    }
-
-    function goToArchivePage(page) {
-      if (!page || page === archivePage || page < 1 || page > totalArchivePages) return;
-      archivePage = page;
-      renderArchiveRows();
-      renderArchivePagination();
-    }
-
-    archivePrevBtn.addEventListener('click', () => goToArchivePage(archivePage - 1));
-    archiveNextBtn.addEventListener('click', () => goToArchivePage(archivePage + 1));
-
-    if (totalArchivePages <= 1) {
-      archivePrevBtn.style.display = 'none';
-      archiveNextBtn.style.display = 'none';
     }
 
     $('#qt-archive-toggle').addEventListener('click', () => {
       const isOpen = archiveWrap.classList.toggle('open');
       $('#qt-archive-toggle').textContent = isOpen ? '지난 큐티 접기 ▴' : '지난 큐티 보기 ▾';
-      // 열 때마다 1페이지부터 보여줍니다. (렌더링은 열릴 때만 합니다 —
-      // 버튼을 누르기 전부터 페이지 번호가 미리 보이면 안 되기 때문입니다)
-      if (isOpen) {
-        archivePage = 1;
-        renderArchiveRows();
-        renderArchivePagination();
-      }
+      // 열 때마다 새로 그립니다 (모바일/PC 화면 폭이 그 사이 바뀌었을 수도 있어서).
+      if (isOpen) renderArchiveGrid();
     });
   }
 
