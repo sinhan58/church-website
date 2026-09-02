@@ -1817,6 +1817,15 @@
     return { level: 5, icon: '🎉', label: '전교인 큐티 참여 완료' };
   }
 
+  // "사사기 21:16-18" 같은 구절 표기를 "사사기 21장 16-18절"처럼 안내 문구용으로 바꿔줍니다.
+  function formatVerseRefForRead(verseRef) {
+    if (!verseRef) return '';
+    const m = verseRef.trim().match(/^(.+?)\s*(\d+)\s*[:：]\s*(.+)$/);
+    if (!m) return verseRef.trim();
+    const [, book, chapter, verse] = m;
+    return `${book.trim()} ${chapter}장 ${verse.trim()}절`;
+  }
+
   function formatQtDate(dateStr = '') {
     const d = new Date(dateStr);
     if (isNaN(d)) return dateStr;
@@ -1942,6 +1951,7 @@
       </a>`;
 
     const todayTier = getQtAmenTier(latest.amen);
+    const readPrompt = formatVerseRefForRead(latest.verseRef);
     const todayCardHtml = `
       <a class="qt-card qt-card--today" href="/qt/${latest.id}?from=home" data-id="${latest.id}" data-title="${escapeHtml(latest.title || '')}">
         <div class="qt-card-badges">
@@ -1953,14 +1963,7 @@
           ${latest.subtitle ? `<p class="qt-card-subtitle">${escapeHtml(latest.subtitle)}</p>` : ''}
           ${latest.verseRef ? `<p class="qt-card-photo-verseref">${escapeHtml(latest.verseRef)}</p>` : ''}
         </div>
-        ${
-          latest.verseText || latest.verseRef
-            ? `<div class="qt-card-verse-box">
-                ${latest.verseText ? `<p class="qt-card-verse-text">${escapeHtml(latest.verseText)}</p>` : ''}
-                ${latest.verseRef ? `<p class="qt-card-ref">${escapeHtml(latest.verseRef)}</p>` : ''}
-              </div>`
-            : ''
-        }
+        ${readPrompt ? `<p class="qt-card-read-prompt">${escapeHtml(readPrompt)} 말씀을 읽어 보세요</p>` : ''}
         <div class="qt-card-foot">
           <span>${escapeHtml(latest.pastor || '')}${latest.pastor ? ' · ' : ''}${formatQtDate(latest.date)}</span>
           <span>전체 보기 →</span>
