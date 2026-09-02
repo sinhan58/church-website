@@ -34,7 +34,7 @@
       return;
     }
     badgeEl.className = `qt-amen-badge qt-amen-badge--lv${tier.level}`;
-    badgeEl.textContent = `${tier.icon} ${tier.label}`;
+    badgeEl.innerHTML = `<span class="qt-amen-badge-heart">♥</span> ${tier.label}`;
     badgeEl.style.display = '';
   }
 
