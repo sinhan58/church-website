@@ -1918,7 +1918,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 }
 .qt-stage svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
 
-/* 캐러셀 트랙(PC: 오늘 카드 가운데, 지난 카드는 뒤로 겹쳐서 살짝 보임 / 모바일: 오늘 카드 1개만 렌더링됨) */
+/* 캐러셀 트랙 (오늘 카드 1개만 항상 렌더링) */
 .qt-carousel {
   position: relative;
   z-index: 1;
@@ -1928,66 +1928,6 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   display: flex;
   align-items: stretch;
   justify-content: center;
-}
-.qt-card--archive { display: none; } /* PC 커버플로우에서만 아래 미디어쿼리로 다시 노출됨 */
-
-@media (min-width: 861px) {
-  .qt-carousel--coverflow {
-    height: 733px;
-    cursor: grab;
-  }
-  .qt-carousel--coverflow.dragging { cursor: grabbing; }
-  .qt-carousel--coverflow .qt-carousel-track {
-    position: relative;
-    width: 100%;
-    height: 100%;
-  }
-  .qt-carousel--coverflow .qt-card {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    flex: none;
-    width: 340px;
-    margin: 0;
-    transition: transform 0.5s cubic-bezier(0.22, 0.68, 0, 1.01), opacity 0.4s ease;
-    will-change: transform, opacity;
-  }
-  .qt-carousel--coverflow .qt-card--today { width: min(420px, 92vw); }
-  .qt-carousel--coverflow .qt-card:hover { transform-origin: center; }
-  .qt-carousel--coverflow .qt-card--archive {
-    display: block;
-    cursor: pointer;
-  }
-  .qt-carousel--coverflow .qt-card--today { cursor: pointer; }
-
-  .qt-carousel-nav {
-    position: absolute;
-    top: 50%;
-    transform: translateY(-50%);
-    z-index: 50;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    border: none;
-    background: rgba(13, 21, 38, 0.45);
-    color: var(--ivory);
-    font-size: 1.3rem;
-    line-height: 1;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: background 0.2s ease, opacity 0.2s ease;
-  }
-  .qt-carousel-nav:hover { background: rgba(13, 21, 38, 0.7); }
-  .qt-carousel-nav:disabled { opacity: 0.3; cursor: default; }
-  .qt-carousel-nav:disabled:hover { background: rgba(13, 21, 38, 0.45); }
-  .qt-carousel-nav--prev { left: 16px; }
-  .qt-carousel-nav--next { right: 16px; }
-  .qt-stage--single .qt-carousel-nav { display: none; }
-}
-@media (max-width: 860px) {
-  .qt-carousel-nav { display: none; }
 }
 
 .qt-card {
@@ -2154,13 +2094,28 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   box-shadow: 0 10px 30px rgba(13,21,38,0.18);
 }
 .qt-archive-wrap.open { display: block; }
+.qt-archive-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: none;
+  background: var(--ivory-dim);
+  color: var(--navy-deep);
+  font-size: 1rem;
+  cursor: pointer;
+  z-index: 2;
+}
+.qt-archive-close:hover { background: var(--gold-soft); }
 
 .qt-archive-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
+  margin-top: 44px;
   grid-auto-rows: 1fr;
   gap: 14px;
-  height: 100%;
 }
 @media (max-width: 860px) {
   .qt-archive-grid { grid-template-columns: repeat(2, 1fr); }
