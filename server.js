@@ -164,7 +164,7 @@ app.use('/api', apiRoutes);
 app.use('/api/admin', adminRoutes);
 
 // 관리자 화면 진입점 (SPA 형태로 로그인/대시보드를 admin.js에서 분기)
-app.get('/admin', (req, res) => {
+app.get(['/admin', '/admin/'], (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin', 'index.html'));
 });
 
