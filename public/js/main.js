@@ -1792,14 +1792,16 @@
   function applyQtBackground(bg) {
     const stage = $('#qt-stage');
     const decor = $('#qt-decor');
-    stage.classList.remove('qt-stage--navy', 'qt-stage--gold', 'qt-stage--dawn');
+    const presetGradients = {
+      navy: 'linear-gradient(180deg, #0d1526 0%, #1c2b4a 100%)',
+      gold: 'linear-gradient(160deg, #7a5c12 0%, #0d1526 70%)',
+      dawn: 'linear-gradient(160deg, #4a3a63 0%, #b06a4f 55%, #e0a86a 100%)'
+    };
     if (bg.type === 'photo' && bg.image) {
-      stage.style.background =
-        `linear-gradient(180deg, rgba(13,21,38,0.55), rgba(13,21,38,0.75)), url('${bg.image}') center/cover no-repeat`;
+      stage.style.setProperty('--qt-photo-bg', `url('${bg.image}')`);
       decor.style.display = 'none';
     } else {
-      stage.style.background = '';
-      stage.classList.add(`qt-stage--${bg.preset || 'navy'}`);
+      stage.style.setProperty('--qt-photo-bg', presetGradients[bg.preset || 'navy']);
       decor.style.display = '';
     }
   }
@@ -1942,10 +1944,22 @@
     const todayTier = getQtAmenTier(latest.amen);
     const todayCardHtml = `
       <a class="qt-card qt-card--today" href="/qt/${latest.id}?from=home" data-id="${latest.id}" data-title="${escapeHtml(latest.title || '')}">
-        <span class="qt-badge">오늘의 큐티</span>
-        ${todayTier ? `<span class="qt-amen-badge qt-amen-badge--lv${todayTier.level}"><span class="qt-amen-badge-heart">♥</span> ${todayTier.label}</span>` : ''}
-        <h3 class="qt-card-title">${escapeHtml(latest.title || '')}</h3>
-        ${latest.verseRef ? `<p class="qt-card-ref">${escapeHtml(latest.verseRef)}</p>` : ''}
+        <div class="qt-card-badges">
+          <span class="qt-badge">오늘의 큐티</span>
+          ${todayTier ? `<span class="qt-amen-badge qt-amen-badge--lv${todayTier.level}"><span class="qt-amen-badge-heart">♥</span> ${todayTier.label}</span>` : ''}
+        </div>
+        <div class="qt-card-photo">
+          <h3 class="qt-card-title">${escapeHtml(latest.title || '')}</h3>
+          ${latest.subtitle ? `<p class="qt-card-subtitle">${escapeHtml(latest.subtitle)}</p>` : ''}
+        </div>
+        ${
+          latest.verseText || latest.verseRef
+            ? `<div class="qt-card-verse-box">
+                ${latest.verseText ? `<p class="qt-card-verse-text">${escapeHtml(latest.verseText)}</p>` : ''}
+                ${latest.verseRef ? `<p class="qt-card-ref">${escapeHtml(latest.verseRef)}</p>` : ''}
+              </div>`
+            : ''
+        }
         <div class="qt-card-foot">
           <span>${escapeHtml(latest.pastor || '')}${latest.pastor ? ' · ' : ''}${formatQtDate(latest.date)}</span>
           <span>전체 보기 →</span>
