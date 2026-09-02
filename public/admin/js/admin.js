@@ -22,7 +22,20 @@
     const form = new FormData();
     form.append('image', file);
     const res = await fetch('/api/admin/upload', { method: 'POST', body: form });
-    const data = await res.json();
+    let data;
+    try {
+      data = await res.json();
+    } catch (parseErr) {
+      // 서버가 JSON이 아닌 응답(HTML 에러 페이지 등)을 준 경우 — 보통 로그인 만료,
+      // 파일 용량 초과, 서버 오류일 때 발생합니다.
+      if (res.status === 401 || res.status === 403) {
+        throw new Error('로그인이 만료되었습니다. 새로고침 후 다시 로그인해주세요.');
+      }
+      if (res.status === 413) {
+        throw new Error('사진 파일이 너무 큽니다. 더 작은 용량의 사진으로 다시 시도해주세요.');
+      }
+      throw new Error(`이미지 업로드 실패 (서버 응답 ${res.status}). 파일 용량을 줄이거나 다시 로그인 후 시도해주세요.`);
+    }
     if (!res.ok) throw new Error(data.error || '이미지 업로드 실패');
     return data.url;
   }
