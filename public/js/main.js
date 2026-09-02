@@ -1949,8 +1949,9 @@
           ${todayTier ? `<span class="qt-amen-badge qt-amen-badge--lv${todayTier.level}"><span class="qt-amen-badge-heart">♥</span> ${todayTier.label}</span>` : ''}
         </div>
         <div class="qt-card-photo"${latest.bgImage ? ` style="--qt-photo-bg: url('${escapeHtml(latest.bgImage)}')"` : ''}>
-          <h3 class="qt-card-title">${escapeHtml(latest.title || '')}</h3>
+          <h3 class="qt-card-title"><span class="qt-title-chevron">「</span>${escapeHtml(latest.title || '')}<span class="qt-title-chevron">」</span></h3>
           ${latest.subtitle ? `<p class="qt-card-subtitle">${escapeHtml(latest.subtitle)}</p>` : ''}
+          ${latest.verseRef ? `<p class="qt-card-photo-verseref">${escapeHtml(latest.verseRef)}</p>` : ''}
         </div>
         ${
           latest.verseText || latest.verseRef
