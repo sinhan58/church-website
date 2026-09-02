@@ -33,7 +33,7 @@ function getQtAmenTier(amen) {
 function renderQtAmenBadgeHtml(amen) {
   const tier = getQtAmenTier(amen);
   if (!tier) return '<span class="qt-amen-badge" id="qt-amen-badge" style="display:none;"></span>';
-  return `<span class="qt-amen-badge qt-amen-badge--lv${tier.level}" id="qt-amen-badge">${tier.icon} ${tier.label}</span>`;
+  return `<span class="qt-amen-badge qt-amen-badge--lv${tier.level}" id="qt-amen-badge"><span class="qt-amen-badge-heart">♥</span> ${tier.label}</span>`;
 }
 
 // 큐티 상세 페이지 전체 HTML을 문자열로 만들어 돌려줍니다.
