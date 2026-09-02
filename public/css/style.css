@@ -2083,7 +2083,6 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 }
 .qt-archive-toggle:hover { color: var(--navy-deep); }
 
-.qt-quiz-main { position: relative; }
 
 .qt-archive-wrap {
   display: none;
@@ -2481,6 +2480,7 @@ body.has-mini-player .ministry-duty-fab { bottom: calc(84px + 60px); }
 
 /* ---------------- 오늘의 큐티 + 말씀 퀴즈 (3:1 배치) ---------------- */
 .qt-quiz-layout {
+  position: relative;
   display: grid;
   grid-template-columns: 3fr 1fr;
   gap: 28px;
