@@ -1,2654 +1,2873 @@
 (function () {
   const $ = (sel) => document.querySelector(sel);
-  const $$ = (sel, root = document) => Array.from((root || document).querySelectorAll(sel));
+  const $$ = (sel, ctx) => Array.from((ctx || document).querySelectorAll(sel));
 
-  async function getJSON(url) {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`요청 실패: ${url}`);
-    return res.json();
-  }
+  let currentSession = null; // { username, role, permissions }
 
-  function escapeHtml(str = '') {
-    return str
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
-  }
-
-  // 관리자 페이지 리치 텍스트 에디터(Quill)에서 저장된 HTML을 안전하게 렌더링하기 위한
-  // 화이트리스트 방식 정제 함수. 허용된 태그/속성만 남기고 나머지(script, on* 이벤트,
-  // 위험한 style 속성 등)는 전부 제거합니다.
-  const RICH_TEXT_ALLOWED_TAGS = new Set([
-    'P', 'BR', 'B', 'STRONG', 'I', 'EM', 'U', 'S', 'SPAN', 'UL', 'OL', 'LI'
-  ]);
-  const RICH_TEXT_ALLOWED_STYLES = new Set(['text-align', 'font-size']);
-
-  function sanitizeRichText(html = '') {
-    const container = document.createElement('div');
-    container.innerHTML = html;
-
-    function clean(node) {
-      Array.from(node.childNodes).forEach((child) => {
-        if (child.nodeType === 3) return; // 텍스트 노드는 그대로 둠
-        if (child.nodeType !== 1) {
-          node.removeChild(child);
-          return;
-        }
-        if (!RICH_TEXT_ALLOWED_TAGS.has(child.tagName)) {
-          // 허용 안 된 태그(script, img, iframe 등)는 태그만 제거하고 내부 텍스트만 남김
-          const text = document.createTextNode(child.textContent);
-          node.replaceChild(text, child);
-          return;
-        }
-        Array.from(child.attributes).forEach((attr) => {
-          if (attr.name === 'style') {
-            Array.from(child.style).forEach((prop) => {
-              if (!RICH_TEXT_ALLOWED_STYLES.has(prop)) child.style.removeProperty(prop);
-            });
-          } else {
-            child.removeAttribute(attr.name);
-          }
-        });
-        clean(child);
-      });
+  async function api(url, options = {}) {
+    const res = await fetch(url, {
+      headers: { 'Content-Type': 'application/json' },
+      ...options
+    });
+    if (res.status === 401) {
+      showLogin();
+      throw new Error('로그인이 필요합니다.');
     }
-    clean(container);
-    return container.innerHTML;
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error || '요청 처리 중 오류가 발생했습니다.');
+    return data;
   }
 
-  // ---------------- 스크롤 등장 애니메이션 ----------------
-  // 화면에 들어오면 나타나고, 화면 밖으로 나가면 사라졌다가, 다시 스크롤해서
-  // 들어오면 또 나타나도록 반복합니다 (한 번 보고 나면 계속 그대로 두지 않음).
-  // 단, 찬양 카드(.praise-card)와 게시판 카드(.board-card)는 화면 경계를 넘나들 때마다
-  // 애니메이션이 재생되면서 스크롤 중 흔들리거나(찬양) 마지막 카드가 스르륵 사라지는
-  // 것처럼 보이는 문제(게시판)가 있어, 한 번 나타난 뒤에는 고정합니다.
-  const REVEAL_ONCE_CLASSES = ['praise-card', 'board-card', 'board-list', 'service-card'];
-  const revealObserver =
-    'IntersectionObserver' in window
-      ? new IntersectionObserver(
-          (entries) => {
-            entries.forEach((entry) => {
-              const isRevealOnce = REVEAL_ONCE_CLASSES.some((cls) => entry.target.classList.contains(cls));
-              if (isRevealOnce) {
-                if (entry.isIntersecting) {
-                  entry.target.classList.add('is-visible');
-                  revealObserver.unobserve(entry.target);
-                }
-                return;
-              }
-              entry.target.classList.toggle('is-visible', entry.isIntersecting);
-            });
-          },
-          { threshold: 0.12, rootMargin: '0px 0px -40px 0px' }
-        )
-      : null;
+  async function uploadImage(file) {
+    const form = new FormData();
+    form.append('image', file);
+    const res = await fetch('/api/admin/upload', { method: 'POST', body: form });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '이미지 업로드 실패');
+    return data.url;
+  }
 
-  function observeReveals(root = document) {
-    const targets = root.querySelectorAll ? root.querySelectorAll('.reveal:not(.reveal-bound)') : [];
-    targets.forEach((el) => {
-      el.classList.add('reveal-bound');
-      if (revealObserver) {
-        revealObserver.observe(el);
+  async function uploadAttachments(files) {
+    const form = new FormData();
+    Array.from(files).forEach((f) => form.append('files', f));
+    const res = await fetch('/api/admin/upload-attachment', { method: 'POST', body: form });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '첨부파일 업로드 실패');
+    return data.files; // [{name, url}]
+  }
+
+  // ---------------- 화면 전환 ----------------
+  function showLogin() {
+    $('#login-screen').hidden = false;
+    $('#dashboard').hidden = true;
+  }
+  function showDashboard() {
+    $('#login-screen').hidden = true;
+    $('#dashboard').hidden = false;
+    initDashboard();
+  }
+
+  // ---------------- 로그인 ----------------
+  $('#login-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const form = e.target;
+    const username = form.username.value;
+    const password = form.password.value;
+    const errorEl = $('#login-error');
+    errorEl.textContent = '';
+    try {
+      const result = await api('/api/admin/login', { method: 'POST', body: JSON.stringify({ username, password }) });
+      currentSession = { username: result.username, role: result.role, permissions: result.permissions };
+      showDashboard();
+    } catch (err) {
+      errorEl.textContent = err.message;
+    }
+  });
+
+  $('#logout-btn').addEventListener('click', async () => {
+    await api('/api/admin/logout', { method: 'POST' });
+    showLogin();
+  });
+
+  async function checkSession() {
+    try {
+      const session = await api('/api/admin/session');
+      if (session.isAdmin) {
+        currentSession = { username: session.username, role: session.role, permissions: session.permissions };
+        showDashboard();
       } else {
-        el.classList.add('is-visible');
+        showLogin();
       }
-    });
-  }
-
-  function renderMap(contact) {
-    const box = $('#map-box');
-    if (!box) return;
-
-    const validImage = contact.kakaoMapImageUrl && /^https:\/\/staticmap\.kakao\.com\//.test(contact.kakaoMapImageUrl)
-      ? contact.kakaoMapImageUrl
-      : '';
-    const validLink = contact.kakaoMapLinkUrl && /^https:\/\/map\.kakao\.com\//.test(contact.kakaoMapLinkUrl)
-      ? contact.kakaoMapLinkUrl
-      : '';
-
-    if (validImage && validLink) {
-      box.innerHTML = `
-        <a class="kakao-map-preview" href="${validLink}" target="_blank" rel="noopener">
-          <img src="${validImage}" alt="교회 위치 지도" loading="lazy" />
-          <svg class="kakao-map-pin" viewBox="0 0 32 44" aria-hidden="true">
-            <path d="M16 0C7.163 0 0 7.163 0 16c0 11 16 28 16 28s16-17 16-28C32 7.163 24.837 0 16 0z" fill="#0d1526"/>
-            <circle cx="16" cy="16" r="6.5" fill="#c9a227"/>
-          </svg>
-          <span class="kakao-map-cta">카카오맵에서 크게 보기 →</span>
-        </a>`;
-      return;
-    }
-
-    if (contact.mapEmbedUrl) {
-      box.innerHTML = `<iframe src="${contact.mapEmbedUrl}" loading="lazy" allowfullscreen></iframe>`;
+    } catch {
+      showLogin();
     }
   }
 
-  function getDeviceType() {
-    return window.matchMedia('(max-width: 860px)').matches ? 'mobile' : 'desktop';
-  }
+  // ---------------- 사이드바 탭 전환 ----------------
+  let dashboardInitialized = false;
+  function setupNav() {
+    const sidebarNav = $('#sidebar-nav');
+    const toggleBtn = $('#sidebar-toggle-btn');
+    const toggleCurrentLabel = $('#sidebar-toggle-current');
 
-  function track(type, data = {}) {
-    const payload = JSON.stringify({ type, device: getDeviceType(), ...data });
-    if (navigator.sendBeacon) {
-      navigator.sendBeacon('/api/track', new Blob([payload], { type: 'application/json' }));
-    } else {
-      fetch('/api/track', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: payload,
-        keepalive: true
-      }).catch(() => {});
-    }
-  }
-  track('pageview', { path: location.pathname });
-
-  // ---------------- 페이지 체류시간 기록 ----------------
-  // 방문자가 이 페이지를 얼마나 오래 보고 있었는지 기록합니다. 탭을 다른 화면으로
-  // 전환하거나(visibilitychange) 페이지를 완전히 떠날 때(pagehide) 그때까지의
-  // 경과 시간을 서버로 보냅니다. 1초 이상이면 전부 기록합니다.
-  (function setupTimeSpentTracking() {
-    let startTime = Date.now();
-    let sent = false;
-
-    function sendElapsed() {
-      if (sent) return;
-      const seconds = Math.round((Date.now() - startTime) / 1000);
-      if (seconds >= 1) {
-        track('timespent', { path: location.pathname, seconds });
-        sent = true;
-      }
-    }
-
-    document.addEventListener('visibilitychange', () => {
-      if (document.visibilityState === 'hidden') {
-        sendElapsed();
-      } else if (document.visibilityState === 'visible') {
-        // 다시 돌아오면 새로운 체류 구간으로 다시 잼
-        startTime = Date.now();
-        sent = false;
-      }
-    });
-    window.addEventListener('pagehide', sendElapsed);
-  })();
-
-  // ---------------- 모달 열림 중 배경 스크롤 막기 ----------------
-  // 게시글 상세 보기 위에 사진 확대 창이 겹쳐 뜨는 것처럼 모달이 동시에 여러 개
-  // 열릴 수 있어서, 단순 on/off 대신 몇 개가 열려있는지 세어서 마지막 하나가
-  // 닫힐 때만 배경 스크롤을 다시 풀어줍니다.
-  let openModalCount = 0;
-  function lockScroll() {
-    openModalCount++;
-    document.body.classList.add('modal-open');
-  }
-  function unlockScroll() {
-    openModalCount = Math.max(0, openModalCount - 1);
-    if (openModalCount === 0) {
-      document.body.classList.remove('modal-open');
-    }
-  }
-
-  // ---------------- 헤더 스크롤 효과 ----------------
-  const header = $('#site-header');
-  let headerTicking = false;
-
-  function updateHeaderState() {
-    const isScrolled = header.classList.contains('scrolled');
-    if (!isScrolled && window.scrollY > 60) {
-      header.classList.add('scrolled');
-    } else if (isScrolled && window.scrollY < 30) {
-      header.classList.remove('scrolled');
-    }
-    headerTicking = false;
-  }
-
-  window.addEventListener('scroll', () => {
-    if (!headerTicking) {
-      headerTicking = true;
-      requestAnimationFrame(updateHeaderState);
-    }
-  }, { passive: true });
-  updateHeaderState();
-
-  // ---------------- 관리자 페이지 숨겨진 입구 ----------------
-  // 방문자 눈에 띄지 않도록 "관리자" 링크는 없앴습니다. 대신 헤더의 교회 이름(로고)을
-  // 3초 안에 5번 연속 클릭/탭하면 관리자 로그인 화면으로 이동합니다. (클릭 기반이라
-  // 휴대폰 터치·PC 마우스 클릭 둘 다 똑같이 작동합니다)
-  const brandLink = $('#brand-name');
-  if (brandLink) {
-    let brandTapCount = 0;
-    let brandTapTimer = null;
-    brandLink.addEventListener('click', (e) => {
-      brandTapCount += 1;
-      clearTimeout(brandTapTimer);
-      brandTapTimer = setTimeout(() => {
-        brandTapCount = 0;
-      }, 3000);
-      if (brandTapCount >= 5) {
-        e.preventDefault(); // 홈 화면 스크롤 이동 대신 관리자 페이지로 이동
-        brandTapCount = 0;
-        window.location.href = '/admin';
-      }
-    });
-  }
-
-  // ---------------- 모바일 메뉴 ----------------
-  const hamburger = $('#hamburger');
-  const navMobile = $('#nav-mobile');
-  hamburger.addEventListener('click', () => {
-    hamburger.classList.toggle('active');
-    navMobile.classList.toggle('open');
-  });
-  navMobile.addEventListener('click', (e) => {
-    if (e.target.tagName === 'A') {
-      hamburger.classList.remove('active');
-      navMobile.classList.remove('open');
-    }
-  });
-
-  // ---------------- 사이트 기본 정보 ----------------
-  // 대문(히어로) 배경 사진 슬라이드쇼: 사진을 여러 장 등록하면 몇 초마다 자연스럽게
-  // 다음 사진으로 넘어갑니다. 두 개의 레이어(a/b)를 번갈아 써서, 다음 사진이 완전히
-  // 준비된 뒤에 부드럽게 겹쳐 나타나도록(크로스페이드) 합니다. 사진이 1장이면 그냥
-  // 고정된 사진으로 보이고(자동 전환 없음), 여러 장이면 6초 간격으로 넘어갑니다.
-  //
-  // 대문 영역이 화면에 실제로 보일 때만 타이머가 돌아가고, 스크롤해서 안 보이는
-  // 동안에는 멈춥니다. (안 보이는 동안에도 계속 돌아가면 불필요하게 화면을 계속
-  // 갱신하게 되어, 일부 기기에서 시스템의 화면 밝기 자동 조절 처리와 겹쳐 화면
-  // 전체가 깜빡이는 현상이 있었습니다)
-  let heroSlideTimer = null;
-  let heroSlideActiveLayer = 'a';
-  let heroSlideList = [];
-  let heroSlideIndex = 0;
-  let heroVisibilityObserver = null;
-
-  function preloadImage(url) {
-    return new Promise((resolve) => {
-      const img = new Image();
-      img.onload = () => resolve();
-      img.onerror = () => resolve(); // 사진 하나가 깨져도 슬라이드쇼 전체가 멈추지 않도록
-      img.src = url;
-    });
-  }
-
-  async function tickHeroSlide() {
-    if (heroSlideList.length <= 1) return;
-    const layerA = $('#hero-bg-photo-a');
-    const layerB = $('#hero-bg-photo-b');
-    const nextIndex = (heroSlideIndex + 1) % heroSlideList.length;
-    await preloadImage(heroSlideList[nextIndex]);
-    const showing = heroSlideActiveLayer === 'a' ? layerA : layerB;
-    const hidden = heroSlideActiveLayer === 'a' ? layerB : layerA;
-    hidden.style.backgroundImage = `url('${heroSlideList[nextIndex]}')`;
-    hidden.classList.add('is-visible');
-    showing.classList.remove('is-visible');
-    heroSlideActiveLayer = heroSlideActiveLayer === 'a' ? 'b' : 'a';
-    heroSlideIndex = nextIndex;
-  }
-
-  function resumeHeroSlideshow() {
-    if (heroSlideTimer || heroSlideList.length <= 1) return;
-    heroSlideTimer = setInterval(tickHeroSlide, 6000);
-  }
-
-  function pauseHeroSlideshow() {
-    if (heroSlideTimer) {
-      clearInterval(heroSlideTimer);
-      heroSlideTimer = null;
-    }
-  }
-
-  async function startHeroSlideshow(images) {
-    heroSlideList = (images || []).filter(Boolean);
-    if (heroSlideList.length === 0) return;
-
-    const layerA = $('#hero-bg-photo-a');
-    const layerB = $('#hero-bg-photo-b');
-    pauseHeroSlideshow();
-
-    await preloadImage(heroSlideList[0]);
-    layerA.style.backgroundImage = `url('${heroSlideList[0]}')`;
-    layerA.classList.add('is-visible');
-    layerB.classList.remove('is-visible');
-    heroSlideActiveLayer = 'a';
-    heroSlideIndex = 0;
-
-    if (heroSlideList.length <= 1) return; // 사진이 1장뿐이면 자동 전환 없이 고정
-
-    const heroEl = $('#home');
-    if ('IntersectionObserver' in window && heroEl) {
-      if (!heroVisibilityObserver) {
-        heroVisibilityObserver = new IntersectionObserver(
-          (entries) => {
-            entries.forEach((entry) => {
-              if (entry.isIntersecting) resumeHeroSlideshow();
-              else pauseHeroSlideshow();
-            });
-          },
-          { threshold: 0.01 }
-        );
-      }
-      heroVisibilityObserver.observe(heroEl);
-    } else {
-      resumeHeroSlideshow(); // 구형 브라우저는 화면 감지가 안 되니 그냥 계속 돌립니다
-    }
-  }
-
-  let serviceAutoScrollStop = null;
-  async function loadSite() {
-    const site = await getJSON('/api/site');
-
-    if (site.design) {
-      window.ensureGoogleFont && window.ensureGoogleFont(site.design.headingFont);
-      window.ensureGoogleFont && window.ensureGoogleFont(site.design.bodyFont);
-      const headingFamily = window.getFontFamily(site.design.headingFont, "'Noto Serif KR', serif");
-      const bodyFamily = window.getFontFamily(site.design.bodyFont, "'Pretendard', 'Noto Sans KR', sans-serif");
-      document.documentElement.style.setProperty('--font-heading', headingFamily);
-      document.documentElement.style.setProperty('--font-body', bodyFamily);
-    }
-
-    document.title = site.churchName || '물댄동산교회';
-    $('#brand-name').textContent = site.churchName || '물댄동산교회';
-    $('#footer-brand').textContent = site.churchName || '물댄동산교회';
-    $('#footer-brand-2').textContent = site.churchName || '물댄동산교회';
-    if (site.sermonsIntro) {
-      $('#sermons-intro').textContent = site.sermonsIntro;
-    }
-    $('#footer-year').textContent = new Date().getFullYear();
-
-    if (site.hero) {
-      $('#hero-verse').textContent = site.hero.verse || '';
-      $('#hero-verse-ref').textContent = site.hero.verseRef || '';
-      $('#hero-subtitle').innerHTML = escapeHtml(site.hero.subtitle || '').replace(/\n/g, '<br>');
-      if (Array.isArray(site.hero.backgroundImages) && site.hero.backgroundImages.length) {
-        startHeroSlideshow(site.hero.backgroundImages);
-      } else if (site.hero.backgroundImage) {
-        // 예전 방식(사진 1장)으로 저장된 경우를 위한 호환 처리
-        startHeroSlideshow([site.hero.backgroundImage]);
-      }
-    }
-
-    if (site.about) {
-      $('#about-greeting').textContent = site.about.greeting || site.about.title || '교회 소개';
-      $('#about-body-text').innerHTML = sanitizeRichText(site.about.body || '');
-      $('#about-history').textContent = site.about.history || '';
-      $('#pastor-name').textContent = site.about.pastorName || '';
-      $('#pastor-message').textContent = site.about.pastorMessage || '';
-      if (site.about.image) $('#about-image').src = site.about.image;
-    }
-
-    if (site.missions) {
-      $('#missions-title').textContent = site.missions.title || '선교와 섬김';
-      $('#missions-verse').textContent = '"온 천하에 다니며 만민에게 복음을 전파하라" (마가복음 16:15)';
-      $('#missions-subtitle').textContent = site.missions.subtitle || '';
-      $('#partners-title').textContent = '동역해주시는 분들';
-    }
-
-    if (site.qtBackground) {
-      applyQtBackground(site.qtBackground);
-    }
-
-    const serviceGrid = $('#service-grid');
-    const serviceTimesList = site.serviceTimes || [];
-    serviceGrid.innerHTML = serviceTimesList
-      .map(
-        (s, i) => `
-        <div class="service-card reveal reveal-delay-${(i % 6) + 1}">
-          <div class="service-card-shape"></div>
-          <div class="service-card-content${s.bold ? ' is-bold' : ''} service-card-content--${s.fontSize || 'md'}">
-            <div class="name">${escapeHtml(s.name)}</div>
-            <div class="time">${escapeHtml(s.time)}</div>
-            ${s.description ? `<div class="desc">${escapeHtml(s.description)}</div>` : ''}
-          </div>
-        </div>`
-      )
-      .join('');
-    observeReveals(serviceGrid);
-    applyServiceBackground(site.service);
-    applyMinistryDuty(site.ministryDuty);
-    sitePraiseConfig = site.praise;
-    applyPraiseBackground(sitePraiseConfig);
-    applySermonBackground(site.sermon);
-    applyMissionsBackground(site.missionsBg);
-    const setActiveServiceDot = setupServiceDots(serviceGrid, serviceTimesList.length);
-
-    const isServiceMobile = window.matchMedia('(max-width: 900px)').matches;
-    if (isServiceMobile) {
-      // 모바일은 가로로 스와이프/자동 이동하는 구조라, 아래에서 위로 올라오는 페이드인 효과가
-      // 같이 있으면 두 움직임이 겹쳐 어색해집니다. 모바일에서는 반응형 효과를 뺍니다.
-      $$('.service-card', serviceGrid).forEach((card) => {
-        card.classList.remove('reveal', 'reveal-delay-1', 'reveal-delay-2', 'reveal-delay-3', 'reveal-delay-4', 'reveal-delay-5', 'reveal-delay-6');
+    // 모바일: 메뉴 접기/펴기 버튼
+    if (toggleBtn && sidebarNav) {
+      toggleBtn.addEventListener('click', () => {
+        sidebarNav.classList.toggle('open');
       });
     }
 
-    if (serviceAutoScrollStop) {
-      serviceAutoScrollStop();
-      serviceAutoScrollStop = null;
-    }
-    if (isServiceMobile && serviceTimesList.length > 1) {
-      const buildCardHTML = (s) => `
-        <div class="service-card">
-          <div class="service-card-shape"></div>
-          <div class="service-card-content${s.bold ? ' is-bold' : ''} service-card-content--${s.fontSize || 'md'}">
-            <div class="name">${escapeHtml(s.name)}</div>
-            <div class="time">${escapeHtml(s.time)}</div>
-            ${s.description ? `<div class="desc">${escapeHtml(s.description)}</div>` : ''}
-          </div>
-        </div>`;
-      const sLast = serviceTimesList[serviceTimesList.length - 1];
-      const lastCloneWrap = document.createElement('div');
-      lastCloneWrap.innerHTML = buildCardHTML(sLast);
-      serviceGrid.insertBefore(lastCloneWrap.firstElementChild, serviceGrid.firstChild);
+    $$('.nav-item').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        $$('.nav-item').forEach((b) => b.classList.remove('active'));
+        $$('.panel').forEach((p) => p.classList.remove('active'));
+        btn.classList.add('active');
+        $('#' + btn.dataset.panel).classList.add('active');
 
-      const s0 = serviceTimesList[0];
-      const firstCloneWrap = document.createElement('div');
-      firstCloneWrap.innerHTML = buildCardHTML(s0);
-      serviceGrid.appendChild(firstCloneWrap.firstElementChild);
-
-      serviceAutoScrollStop = setupInfiniteAutoScroll(serviceGrid, serviceTimesList.length, 3000, setActiveServiceDot);
-    }
-
-    if (site.contact) {
-      $('#contact-address').textContent = site.contact.address || '';
-      if (site.contact.addressNote) {
-        $('#contact-address-note').textContent = site.contact.addressNote;
-        $('#contact-address-note').style.display = '';
-      }
-      $('#contact-phone').textContent = site.contact.phone || '';
-      renderMap(site.contact);
-    }
-
-    if (site.offering && site.offering.bank && site.offering.account) {
-      $('#offering-bank').textContent = site.offering.bank;
-      $('#offering-account').textContent = site.offering.account;
-      if (site.offering.holder) {
-        $('#offering-holder').textContent = site.offering.holder;
-      } else {
-        $('.offering-holder-line').style.display = 'none';
-      }
-      $('#offering-note').textContent = site.offering.note || '';
-      $('#offering').style.display = '';
-      $('#offering-prayer-grid').classList.remove('offering-prayer-grid--single');
-    } else {
-      $('#offering-prayer-grid').classList.add('offering-prayer-grid--single');
-    }
-
-    const footerSns = $('#footer-sns');
-    const icons = {
-      youtube: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M21.6 7.2c-.2-1-1-1.7-1.9-1.9C18 5 12 5 12 5s-6 0-7.7.3c-1 .2-1.7 1-1.9 1.9C2 8.9 2 12 2 12s0 3.1.3 4.8c.2 1 1 1.7 1.9 1.9C6 19 12 19 12 19s6 0 7.7-.3c1-.2 1.7-1 1.9-1.9.3-1.7.3-4.8.3-4.8s0-3.1-.3-4.8ZM10 15.3V8.7L15.8 12 10 15.3Z"/></svg>',
-      instagram: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.2" cy="6.8" r="1" fill="currentColor" stroke="none"/></svg>',
-      facebook: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M14 9h3V5.6c-.5-.1-1.6-.2-2.8-.2-2.8 0-4.7 1.7-4.7 4.9V13H6.8v3.8H9.5V22h3.7v-5.2h2.9l.5-3.8h-3.4V10.6c0-1.1.3-1.6 1.8-1.6Z"/></svg>',
-      // 정확한 밴드 로고 모양 대신, 확실하게 깨지지 않는 단순한 글자 배지로 표시합니다.
-      band: '<span style="font-weight:800;font-size:0.72rem;letter-spacing:-0.02em;">BAND</span>'
-    };
-
-    // 주소 맨 앞에 https:// 가 빠져있으면 자동으로 붙여줍니다. (빠진 채로 저장되면
-    // 브라우저가 외부 주소가 아니라 "우리 사이트 안의 경로"로 착각해서, 눌러도 그냥
-    // 우리 홈페이지로 다시 돌아와버리는 문제가 있었습니다)
-    function normalizeExternalUrl(url = '') {
-      const trimmed = url.trim();
-      if (!trimmed) return '';
-      return /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
-    }
-
-    const links = [];
-    if (site.sns) {
-      if (site.sns.youtube) links.push(`<a href="${normalizeExternalUrl(site.sns.youtube)}" target="_blank" rel="noopener" aria-label="유튜브">${icons.youtube}</a>`);
-      if (site.sns.instagram) links.push(`<a href="${normalizeExternalUrl(site.sns.instagram)}" target="_blank" rel="noopener" aria-label="인스타그램">${icons.instagram}</a>`);
-      if (site.sns.facebook) links.push(`<a href="${normalizeExternalUrl(site.sns.facebook)}" target="_blank" rel="noopener" aria-label="페이스북">${icons.facebook}</a>`);
-      if (site.sns.band) links.push(`<a href="${normalizeExternalUrl(site.sns.band)}" target="_blank" rel="noopener" aria-label="네이버 밴드">${icons.band}</a>`);
-    }
-    footerSns.innerHTML = links.join('');
-
-    // 오른쪽 하단에 떠있는 밴드 바로가기 버튼 (밴드 주소를 등록해두신 경우에만 보임)
-    const bandFab = $('#band-fab');
-    if (bandFab) {
-      if (site.sns && site.sns.band) {
-        bandFab.href = normalizeExternalUrl(site.sns.band);
-        bandFab.style.display = 'flex';
-      } else {
-        bandFab.style.display = 'none';
-      }
-    }
-  }
-
-  // ---------------- 메뉴 ----------------
-  async function loadMenu() {
-    const menu = await getJSON('/api/menu');
-    const html = menu.map((m) => `<a href="${escapeHtml(m.link)}">${escapeHtml(m.label)}</a>`).join('');
-    $('#nav-desktop').innerHTML = html;
-    $('#nav-mobile').innerHTML = html;
-  }
-
-  // ---------------- 설교 영상 ----------------
-  function formatDate(iso) {
-    if (!iso) return '';
-    const d = new Date(iso);
-    if (isNaN(d)) return '';
-    return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
-  }
-
-  function sizeVideoModal(ratioW, ratioH) {
-    const inner = $('#video-modal-inner');
-    const maxW = Math.min(window.innerWidth * 0.92, 1100);
-    const maxH = window.innerHeight * 0.85;
-    let w = maxW;
-    let h = (w * ratioH) / ratioW;
-    if (h > maxH) {
-      h = maxH;
-      w = (h * ratioW) / ratioH;
-    }
-    inner.style.width = `${w}px`;
-    inner.style.height = `${h}px`;
-  }
-
-  function openVideoModal(videoId) {
-    const modal = $('#video-modal');
-    const inner = $('#video-modal-inner');
-    inner.classList.remove('video-modal-inner--portrait');
-    sizeVideoModal(16, 9);
-    $('#video-modal-frame').innerHTML =
-      `<iframe src="https://www.youtube.com/embed/${videoId}?autoplay=1" title="설교 영상" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
-    modal.classList.add('open');
-    lockScroll();
-
-    fetch(`https://www.youtube.com/oembed?url=https://www.youtube.com/watch?v=${videoId}&format=json`)
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data && data.width && data.height && data.height > data.width) {
-          sizeVideoModal(data.width, data.height);
-          inner.classList.add('video-modal-inner--portrait');
-        }
-      })
-      .catch(() => {});
-  }
-  function closeVideoModal() {
-    $('#video-modal').classList.remove('open');
-    $('#video-modal-frame').innerHTML = '';
-    unlockScroll();
-  }
-  $('#video-modal-close').addEventListener('click', closeVideoModal);
-  $('#video-modal').addEventListener('click', (e) => {
-    if (e.target.id === 'video-modal') closeVideoModal();
-  });
-
-  // ---------------- 찬양 미니 플레이어 (유튜브 IFrame Player API) ----------------
-  let ytApiLoadingPromise = null;
-  let ytPlayer = null;
-  let miniPlaylist = [];
-  let miniIndex = -1;
-
-  function loadYouTubeIframeAPI() {
-    if (ytApiLoadingPromise) return ytApiLoadingPromise;
-    ytApiLoadingPromise = new Promise((resolve) => {
-      if (window.YT && window.YT.Player) {
-        resolve();
-        return;
-      }
-      const prevCallback = window.onYouTubeIframeAPIReady;
-      window.onYouTubeIframeAPIReady = () => {
-        if (typeof prevCallback === 'function') prevCallback();
-        resolve();
-      };
-      const tag = document.createElement('script');
-      tag.src = 'https://www.youtube.com/iframe_api';
-      document.head.appendChild(tag);
-    });
-    return ytApiLoadingPromise;
-  }
-
-  function setMiniPlayerPlayingIcon(isPlaying) {
-    const playIcon = $('#mini-player-play-icon');
-    const pauseIcon = $('#mini-player-pause-icon');
-    if (!playIcon || !pauseIcon) return;
-    playIcon.style.display = isPlaying ? 'none' : '';
-    pauseIcon.style.display = isPlaying ? '' : 'none';
-  }
-
-  function updateMiniPlayerUI() {
-    const item = miniPlaylist[miniIndex];
-    const titleEl = $('#mini-player-title');
-    if (item && titleEl) titleEl.textContent = item.title || '';
-  }
-
-  async function playInMiniPlayer(list, index) {
-    const bar = $('#mini-player');
-    if (!bar) return;
-    miniPlaylist = list;
-    miniIndex = index;
-    const item = miniPlaylist[miniIndex];
-    if (!item) return;
-
-    bar.style.display = 'flex';
-    document.body.classList.add('has-mini-player');
-    updateMiniPlayerUI();
-
-    track('click', {
-      label: 'praise_mini_player',
-      itemType: 'praise',
-      itemId: item.youtubeId,
-      itemTitle: item.title || ''
-    });
-
-    await loadYouTubeIframeAPI();
-
-    if (!ytPlayer) {
-      ytPlayer = new YT.Player('mini-player-yt-mount', {
-        videoId: item.youtubeId,
-        playerVars: { autoplay: 1, playsinline: 1, rel: 0 },
-        events: {
-          onReady: () => setMiniPlayerPlayingIcon(true),
-          onStateChange: (e) => {
-            if (e.data === YT.PlayerState.PLAYING) setMiniPlayerPlayingIcon(true);
-            if (e.data === YT.PlayerState.PAUSED) setMiniPlayerPlayingIcon(false);
-            if (e.data === YT.PlayerState.ENDED) playNextInMiniPlayer();
-          }
-        }
-      });
-    } else {
-      ytPlayer.loadVideoById(item.youtubeId);
-    }
-  }
-
-  function playNextInMiniPlayer() {
-    if (miniIndex < miniPlaylist.length - 1) {
-      playInMiniPlayer(miniPlaylist, miniIndex + 1);
-    } else if (ytPlayer && ytPlayer.stopVideo) {
-      // 재생목록의 마지막 곡까지 끝나면 정지 (처음으로 되돌아가 자동 반복하지 않음)
-      ytPlayer.stopVideo();
-      setMiniPlayerPlayingIcon(false);
-    }
-  }
-  function playPrevInMiniPlayer() {
-    if (miniIndex > 0) playInMiniPlayer(miniPlaylist, miniIndex - 1);
-  }
-  function toggleMiniPlayerPlayPause() {
-    if (!ytPlayer || !window.YT) return;
-    const state = ytPlayer.getPlayerState();
-    if (state === YT.PlayerState.PLAYING) {
-      ytPlayer.pauseVideo();
-    } else {
-      ytPlayer.playVideo();
-    }
-  }
-  function closeMiniPlayer() {
-    if (ytPlayer && ytPlayer.stopVideo) ytPlayer.stopVideo();
-    const bar = $('#mini-player');
-    const icon = $('#mini-player-expand-icon');
-    if (bar) {
-      bar.style.display = 'none';
-      bar.classList.remove('is-expanded');
-    }
-    if (icon) icon.style.transform = '';
-    document.body.classList.remove('has-mini-player');
-  }
-  function toggleMiniPlayerExpand() {
-    const bar = $('#mini-player');
-    const icon = $('#mini-player-expand-icon');
-    if (!bar) return;
-    const isExpanded = bar.classList.toggle('is-expanded');
-    if (icon) icon.style.transform = isExpanded ? 'rotate(180deg)' : '';
-  }
-
-  if ($('#mini-player-prev')) $('#mini-player-prev').addEventListener('click', playPrevInMiniPlayer);
-  if ($('#mini-player-next')) $('#mini-player-next').addEventListener('click', playNextInMiniPlayer);
-  if ($('#mini-player-playpause')) $('#mini-player-playpause').addEventListener('click', toggleMiniPlayerPlayPause);
-  if ($('#mini-player-close')) $('#mini-player-close').addEventListener('click', closeMiniPlayer);
-  if ($('#mini-player-video')) {
-    $('#mini-player-video').addEventListener('click', toggleMiniPlayerExpand);
-  }
-  if ($('#mini-player-expand')) $('#mini-player-expand').addEventListener('click', toggleMiniPlayerExpand);
-
-  // ---------------- 섬김 안내 모달 열기/닫기 ----------------
-  if ($('#ministry-duty-fab')) {
-    $('#ministry-duty-fab').addEventListener('click', () => {
-      $('#ministry-duty-modal').classList.add('open');
-    });
-  }
-  if ($('#ministry-duty-modal-close')) {
-    $('#ministry-duty-modal-close').addEventListener('click', () => {
-      $('#ministry-duty-modal').classList.remove('open');
-    });
-  }
-  if ($('#ministry-duty-modal')) {
-    $('#ministry-duty-modal').addEventListener('click', (e) => {
-      if (e.target.id === 'ministry-duty-modal') $('#ministry-duty-modal').classList.remove('open');
-    });
-  }
-
-  // ---------------- 첨부파일(주보 등) 미리보기 ----------------
-  function isPreviewable(name = '', url = '') {
-    const ext = (name.split('.').pop() || url.split('.').pop() || '').toLowerCase();
-    return ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext);
-  }
-
-  function openFileModal(url, name) {
-    const ext = (name.split('.').pop() || url.split('.').pop() || '').toLowerCase();
-    const frame = $('#file-modal-frame');
-    if (['png', 'jpg', 'jpeg', 'gif', 'webp'].includes(ext)) {
-      frame.innerHTML = `<img src="${url}" alt="${escapeHtml(name)}" />`;
-    } else {
-      frame.innerHTML = `<iframe src="${url}" title="${escapeHtml(name)}"></iframe>`;
-    }
-    $('#file-modal-name').textContent = name;
-    $('#file-modal-download').href = url;
-    $('#file-modal').classList.add('open');
-    lockScroll();
-  }
-  function closeFileModal() {
-    $('#file-modal').classList.remove('open');
-    $('#file-modal-frame').innerHTML = '';
-    unlockScroll();
-  }
-  $('#file-modal-close')?.addEventListener('click', closeFileModal);
-  $('#file-modal')?.addEventListener('click', (e) => {
-    if (e.target.id === 'file-modal') closeFileModal();
-  });
-
-  // ---------------- 사진 확대 보기 ----------------
-  function openImageLightbox(url, alt) {
-    $('#image-lightbox-img').src = url;
-    $('#image-lightbox-img').alt = alt || '';
-    $('#image-lightbox').classList.add('open');
-    lockScroll();
-  }
-  function closeImageLightbox() {
-    $('#image-lightbox').classList.remove('open');
-    $('#image-lightbox-img').src = '';
-    unlockScroll();
-  }
-  $('#image-lightbox-close')?.addEventListener('click', closeImageLightbox);
-  $('#image-lightbox')?.addEventListener('click', (e) => {
-    if (e.target.id === 'image-lightbox') closeImageLightbox();
-  });
-
-  const CARD_ACCENT_PALETTE = [
-    '13, 21, 38',
-    '15, 42, 45',
-    '58, 18, 32',
-    '20, 38, 26',
-    '36, 26, 53',
-    '42, 32, 21'
-  ];
-  function accentForId(id = '') {
-    let hash = 0;
-    for (let i = 0; i < id.length; i++) hash = (hash * 31 + id.charCodeAt(i)) >>> 0;
-    return CARD_ACCENT_PALETTE[hash % CARD_ACCENT_PALETTE.length];
-  }
-
-  let allSermonVideos = [];
-  let sermonCategoryList = [];
-  let sermonCategoryTags = {};
-  let activeSermonCategory = null; // null이면 '전체'
-  let sermonChannelId = null;
-
-  let sermonSiteInfo = { churchName: '', pastorName: '' };
-
-  async function loadSermons() {
-    const [data, categories, tags, site] = await Promise.all([
-      getJSON('/api/sermons'),
-      getJSON('/api/sermon-categories'),
-      getJSON('/api/sermon-category-tags'),
-      getJSON('/api/site')
-    ]);
-    const updated = $('#sermon-updated');
-
-    updated.textContent = data.lastUpdated
-      ? `마지막 업데이트: ${formatDate(data.lastUpdated)}`
-      : '';
-
-    allSermonVideos = data.videos || [];
-    sermonCategoryList = categories || [];
-    sermonCategoryTags = tags || {};
-    sermonChannelId = data.channelId || null;
-    sermonSiteInfo = {
-      churchName: (site && site.churchName) || '',
-      pastorName: (site && site.about && site.about.pastorName) || ''
-    };
-
-    const moreRow = $('#sermon-more-row');
-    if (moreRow) {
-      if (sermonChannelId) {
-        moreRow.href = `https://www.youtube.com/channel/${encodeURIComponent(sermonChannelId)}/videos`;
-        moreRow.style.display = 'flex';
-      } else {
-        moreRow.style.display = 'none';
-      }
-    }
-
-    if (allSermonVideos.length === 0) {
-      $('#sermon-hero-card').innerHTML = '';
-      $('#sermon-list').innerHTML = `<div class="sermon-empty">아직 등록된 설교 영상이 없습니다. 관리자 페이지에서 유튜브 채널을 연결해주세요.</div>`;
-      return;
-    }
-
-    renderSermonCategoryChips();
-    renderSermonHero();
-    renderSermonList();
-    requestAnimationFrame(syncSermonHeroHeight);
-  }
-
-  function renderSermonCategoryChips() {
-    const wrap = $('#sermon-category-chips');
-    if (!wrap) return;
-    const knownVideoIds = new Set(allSermonVideos.map((v) => v.videoId));
-    const usedIds = new Set();
-    Object.entries(sermonCategoryTags).forEach(([videoId, ids]) => {
-      if (!knownVideoIds.has(videoId)) return; // 실제 영상 데이터가 없는(완전히 사라진) 태그는 무시
-      (ids || []).forEach((id) => usedIds.add(id));
-    });
-    const usable = sermonCategoryList.filter((c) => usedIds.has(c.id));
-
-    if (usable.length === 0) {
-      wrap.style.display = 'none';
-      return;
-    }
-    wrap.style.display = '';
-    const options = [{ id: null, name: '전체' }, ...usable];
-    wrap.innerHTML = options
-      .map(
-        (c) => `<button type="button" class="praise-chip${activeSermonCategory === c.id ? ' active' : ''}" data-id="${c.id || ''}">${escapeHtml(c.name)}</button>`
-      )
-      .join('');
-    $$('.praise-chip', wrap).forEach((chip) => {
-      chip.addEventListener('click', () => {
-        activeSermonCategory = chip.dataset.id || null;
-        if (activeSermonCategory) {
-          track('click', {
-            label: 'sermon_category_filter',
-            itemType: 'sermon_category',
-            itemId: activeSermonCategory,
-            itemTitle: chip.textContent
-          });
-        }
-        $$('.praise-chip', wrap).forEach((c) => c.classList.toggle('active', c === chip));
-        renderSermonHero();
-        renderSermonList();
-        requestAnimationFrame(syncSermonHeroHeight);
+        // 모바일에서 메뉴를 고르면 자동으로 접어서, 바로 그 화면 내용이 보이게 합니다.
+        if (toggleCurrentLabel) toggleCurrentLabel.textContent = btn.textContent;
+        if (sidebarNav) sidebarNav.classList.remove('open');
       });
     });
   }
 
-  // 히어로 자리: 필터가 없으면 전체 중 최신 1개, 필터가 있으면 그 테마 중 최신 1개.
-  function currentHeroVideo() {
-    const pool = activeSermonCategory
-      ? allSermonVideos.filter((v) => (sermonCategoryTags[v.videoId] || []).includes(activeSermonCategory))
-      : allSermonVideos;
-    return pool[0] || null;
-  }
+  let postEditor = null;
 
-  function renderSermonHero() {
-    const card = $('#sermon-hero-card');
-    const hero = currentHeroVideo();
-    if (!hero) {
-      card.innerHTML = `<div class="sermon-empty" style="height:100%; display:flex; align-items:center; justify-content:center;">이 테마의 설교가 아직 없어요.</div>`;
-      return;
-    }
-    const posterUrl = `/api/sermon-poster/${encodeURIComponent(hero.videoId)}?title=${encodeURIComponent(hero.title || '')}`;
-    card.innerHTML = `
-      <img src="${posterUrl}" alt="${escapeHtml(hero.title || '')}" onerror="this.onerror=null;this.src='${escapeHtml(hero.thumbnail)}';" />
-      <div class="sermon-hero-label">주일 예배 설교</div>
-      <span class="sermon-hero-play" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.5 7.5v9l8-4.5-8-4.5z"/></svg>
-      </span>
-      <div class="sermon-hero-band">MULDAEN DONGSAN CHURCH</div>`;
-    card.dataset.videoId = hero.videoId;
-    card.onclick = () => {
-      track('click', {
-        label: 'sermon_hero',
-        itemType: 'sermon',
-        itemId: hero.videoId,
-        itemTitle: hero.title || ''
-      });
-      openVideoModal(hero.videoId);
-    };
-  }
+  // ---------------- 기도 요청 / 온라인 문의 (관리자 확인) ----------------
+  // key: 'prayers' 또는 'inquiries'. inquiries만 답글 입력창 + 답변완료 배지를 보여줍니다.
+  function setupSecretBoardAdminPanel(key, { listElId, refreshBtnId, withReply, showSecretBadge }) {
+    const listEl = $('#' + listElId);
+    const refreshBtn = $('#' + refreshBtnId);
+    if (!listEl || !refreshBtn) return;
 
-  // 메인 설교(사진) 카드 높이를 지난 설교 목록 카드의 실제 렌더링 높이에 정확히 맞춥니다.
-  // (PC에서만: 모바일은 세로로 쌓이는 구조라 서로 높이를 맞출 필요가 없음)
-  function syncSermonHeroHeight() {
-    const heroCard = $('#sermon-hero-card');
-    const listWrap = $('.sermon-list-wrap');
-    if (!heroCard || !listWrap) return;
-    if (window.matchMedia('(max-width: 900px)').matches) {
-      heroCard.style.height = ''; // 모바일에서는 CSS(aspect-ratio)에 맡김
-      return;
-    }
-    const listHeight = listWrap.getBoundingClientRect().height;
-    if (listHeight > 0) heroCard.style.height = `${listHeight}px`;
-  }
-  let sermonHeroHeightSyncTimer = null;
-  window.addEventListener('resize', () => {
-    clearTimeout(sermonHeroHeightSyncTimer);
-    sermonHeroHeightSyncTimer = setTimeout(syncSermonHeroHeight, 150);
-  });
-
-  function renderSermonList() {
-    const listEl = $('#sermon-list');
-
-    const heroId = currentHeroVideo() ? currentHeroVideo().videoId : null;
-    let pool = activeSermonCategory
-      ? allSermonVideos.filter((v) => (sermonCategoryTags[v.videoId] || []).includes(activeSermonCategory))
-      : allSermonVideos.slice();
-
-    // 히어로로 이미 쓰인 영상은 목록에서 중복으로 안 보이게 뺍니다.
-    pool = pool.filter((v) => v.videoId !== heroId);
-
-    if (!activeSermonCategory) {
-      // '전체'일 때: 테마가 하나라도 붙은 영상을 위로, 그다음 나머지 최신순.
-      const tagged = pool.filter((v) => (sermonCategoryTags[v.videoId] || []).length > 0);
-      const untagged = pool.filter((v) => (sermonCategoryTags[v.videoId] || []).length === 0);
-      pool = [...tagged, ...untagged];
+    function statusBadgeHTML(item) {
+      if (!withReply) return '';
+      const answered = !!(item.reply && item.reply.trim());
+      const bg = answered ? '#2f6d3a' : '#b3413a';
+      const label = answered ? '답변완료' : '미답변';
+      return `<span class="status-badge" data-id="${item.id}" style="margin-left:8px; padding:2px 10px; border-radius:999px; font-size:0.76rem; font-weight:700; background:${bg}; color:#fff;">${label}</span>`;
     }
 
-    if (pool.length === 0) {
-      listEl.innerHTML = `<p class="sermon-empty">더 보여드릴 지난 설교가 없어요.</p>`;
-      return;
-    }
-
-    const isMobile = window.matchMedia('(max-width: 900px)').matches;
-    const displayList = pool.slice(0, isMobile ? 3 : 4);
-    const categoryNameById = {};
-    sermonCategoryList.forEach((c) => (categoryNameById[c.id] = c.name));
-
-    listEl.innerHTML = displayList
-      .map((v) => {
-        const { verseRef, title } = parseSermonTitleClient(v.title || '');
-        const tagIds = sermonCategoryTags[v.videoId] || [];
-        const badgesHtml = tagIds
-          .map((id) => (categoryNameById[id] ? `<span class="theme-badge">${escapeHtml(categoryNameById[id])}</span>` : ''))
-          .join('');
-        return `
-        <a href="#" class="sermon-list-row" data-video-id="${escapeHtml(v.videoId)}" data-title="${escapeHtml(v.title || '')}">
-          ${badgesHtml ? `<span class="badges">${badgesHtml}</span>` : ''}
-          <p class="title"><span class="bullet">•</span><span class="text">${escapeHtml(title || v.title || '')}</span></p>
-          ${verseRef ? `<p class="verse">${escapeHtml(verseRef)}</p>` : ''}
-        </a>`;
-      })
-      .join('');
-
-    $$('.sermon-list-row', listEl).forEach((row) => {
-      row.addEventListener('click', (e) => {
-        e.preventDefault();
-        track('click', {
-          label: 'sermon_list_row',
-          itemType: 'sermon',
-          itemId: row.dataset.videoId,
-          itemTitle: row.dataset.title
-        });
-        openVideoModal(row.dataset.videoId);
-      });
-    });
-  }
-
-  // 서버의 parseSermonTitle과 동일한 규칙으로, 목록 표시용 제목/구절을 클라이언트에서도 뽑아냅니다.
-  function parseSermonTitleClient(raw = '') {
-    let t = raw.replace(/주일예배/g, '');
-    t = t.replace(/\b\d{8}\b/g, '').trim().replace(/^[-_·\s]+|[-_·\s]+$/g, '');
-    t = t.replace(/\s{2,}/g, ' '); // 단어를 지우면서 남는 이중 띄어쓰기 정리
-    const m = t.match(/^([가-힣]+\s?\d+장\s?\d+(?:[~\-]\d+)?절(?:,\s?\d+(?:[~\-]\d+)?절)*)\s*(.*)$/);
-    if (m) return { verseRef: m[1].trim(), title: m[2].trim() || t };
-    return { verseRef: '', title: t };
-  }
-
-  // ---------------- 가로 캐러셀 공용 이전/다음 버튼 ----------------
-  // 화면에 보이는 만큼(한 페이지)씩 옆으로 넘겨줍니다. 스크롤 끝에 도달하면
-  // 해당 방향 버튼을 흐리게(비활성) 처리합니다.
-  function setupCarouselNav(track, prevId, nextId) {
-    const prevBtn = $('#' + prevId);
-    const nextBtn = $('#' + nextId);
-    if (!track || !prevBtn || !nextBtn) return;
-
-    function updateNavState() {
-      const maxScroll = track.scrollWidth - track.clientWidth;
-      prevBtn.disabled = track.scrollLeft <= 4;
-      nextBtn.disabled = track.scrollLeft >= maxScroll - 4;
-    }
-
-    prevBtn.onclick = () => track.scrollBy({ left: -track.clientWidth, behavior: 'smooth' });
-    nextBtn.onclick = () => track.scrollBy({ left: track.clientWidth, behavior: 'smooth' });
-
-    let scrollTimer = null;
-    track.addEventListener('scroll', () => {
-      clearTimeout(scrollTimer);
-      scrollTimer = setTimeout(updateNavState, 80);
-    });
-    window.addEventListener('resize', updateNavState);
-    updateNavState();
-  }
-
-  // ---------------- 찬양 ----------------
-  let allPraises = [];
-  let sitePraiseConfig = null;
-  let praiseCategoryList = [];
-  let activePraiseCategory = null; // null이면 '전체'
-
-  function renderPraiseCards(list) {
-    const grid = $('#praise-grid');
-    if (list.length === 0) {
-      grid.innerHTML = `<p class="board-empty" style="padding:20px;">이 컨셉의 찬양이 아직 없어요.</p>`;
-      return;
-    }
-    const isMobile = window.matchMedia('(max-width: 900px)').matches;
-    const displayList = isMobile ? list.slice(0, 45) : list;
-    grid.innerHTML = displayList
-      .map(
-        (p, i) => `
-        <div class="praise-card reveal reveal-delay-${(i % 6) + 1}" data-video-id="${escapeHtml(p.youtubeId)}" data-title="${escapeHtml(p.title || '')}" style="--accent-rgb: ${accentForId(p.youtubeId)};">
-          <div class="praise-thumb">
-            <img src="https://i.ytimg.com/vi/${escapeHtml(p.youtubeId)}/mqdefault.jpg" alt="${escapeHtml(p.title)}" loading="lazy" />
-            <button type="button" class="praise-play" aria-label="재생">
-              <svg viewBox="0 0 24 24"><path d="M9.5 7.5v9l8-4.5-8-4.5z"/></svg>
-            </button>
-            <div class="praise-overlay-text">
-              <p class="title">${escapeHtml(p.title)}</p>
-              ${p.singer ? `<p class="singer">${escapeHtml(p.singer)}</p>` : ''}
+    function cardHTML(item) {
+      const dateStr = escapeHtml(item.date || '');
+      const nameStr = escapeHtml(item.name || '익명');
+      const contentStr = escapeHtml(item.content || '').replace(/\n/g, '<br>');
+      const secretBadge = showSecretBadge && item.secret ? '<span class="badge" style="margin-left:8px;">🔒 비밀글</span>' : '';
+      const replyBlock = withReply
+        ? `
+          <div style="margin-top:10px; padding-top:10px; border-top:1px dashed #ddd;">
+            <textarea class="reply-input" data-id="${item.id}" rows="2" placeholder="답글을 입력하세요 (작성자가 본인 비밀번호로 다시 열어보면 보여요)" style="width:100%; box-sizing:border-box; padding:8px; border:1px solid #ddd; border-radius:6px; font-family:inherit; font-size:0.85rem;">${escapeHtml(item.reply || '')}</textarea>
+            <button type="button" class="btn-secondary reply-save-btn" data-id="${item.id}" style="margin-top:6px;">답글 저장</button>
+            <span class="reply-status" data-id="${item.id}" style="margin-left:8px; font-size:0.82rem; color:#8f6b17;"></span>
+          </div>`
+        : '';
+      return `
+        <div class="post-row" data-id="${item.id}" style="display:block; padding:14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+            <div>
+              <strong>${nameStr}</strong>
+              <span class="hint" style="margin-left:8px;">${dateStr}</span>
+              ${secretBadge}${statusBadgeHTML(item)}
+            </div>
+            <div style="display:flex; gap:6px;">
+              <button type="button" class="btn-secondary board-toggle-btn" data-id="${item.id}">내용보기</button>
+              <button type="button" class="btn-secondary board-delete-btn" data-id="${item.id}">삭제</button>
             </div>
           </div>
-          <p class="praise-tile-title">${escapeHtml(p.title || '')}</p>
+          <div class="board-detail" data-id="${item.id}" style="display:none; margin-top:10px;">
+            <p style="margin:0; white-space:pre-wrap; word-break:keep-all;">${contentStr}</p>
+            ${replyBlock}
+          </div>
+        </div>`;
+    }
+
+    async function load() {
+      listEl.innerHTML = `<p class="hint">불러오는 중...</p>`;
+      try {
+        const list = await api(`/api/admin/${key}`);
+        if (!list || list.length === 0) {
+          listEl.innerHTML = `<p class="hint">등록된 글이 없습니다.</p>`;
+          return;
+        }
+        listEl.innerHTML = list.map(cardHTML).join('');
+        bindRowActions();
+      } catch (err) {
+        listEl.innerHTML = `<p class="hint">불러오지 못했습니다: ${escapeHtml(err.message)}</p>`;
+      }
+    }
+
+    function bindRowActions() {
+      $$('.board-toggle-btn', listEl).forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const id = btn.dataset.id;
+          const detail = listEl.querySelector(`.board-detail[data-id="${id}"]`);
+          const isOpen = detail.style.display !== 'none';
+          detail.style.display = isOpen ? 'none' : 'block';
+          btn.textContent = isOpen ? '내용보기' : '접기';
+        });
+      });
+
+      $$('.board-delete-btn', listEl).forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          if (!confirm('이 글을 삭제하시겠습니까?')) return;
+          try {
+            await api(`/api/admin/${key}/${btn.dataset.id}`, { method: 'DELETE' });
+            load();
+          } catch (err) {
+            alert(err.message);
+          }
+        });
+      });
+
+      if (withReply) {
+        $$('.reply-save-btn', listEl).forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            const id = btn.dataset.id;
+            const textarea = listEl.querySelector(`.reply-input[data-id="${id}"]`);
+            const statusEl = listEl.querySelector(`.reply-status[data-id="${id}"]`);
+            const replyText = textarea.value.trim();
+            statusEl.textContent = '저장 중...';
+            try {
+              await api(`/api/admin/${key}/${id}/reply`, {
+                method: 'PUT',
+                body: JSON.stringify({ reply: replyText })
+              });
+              statusEl.textContent = '저장 완료 ✓';
+              setTimeout(() => (statusEl.textContent = ''), 2500);
+              // 목록을 통째로 다시 불러오지 않고, 방금 저장한 행의 배지만 바로 바꿔줍니다.
+              // (전체 새로고침을 하면 펼쳐둔 내용이 다시 접혀버려서 불편하기 때문)
+              const badgeEl = listEl.querySelector(`.status-badge[data-id="${id}"]`);
+              if (badgeEl) {
+                const answered = !!replyText;
+                badgeEl.textContent = answered ? '답변완료' : '미답변';
+                badgeEl.style.background = answered ? '#2f6d3a' : '#b3413a';
+              }
+            } catch (err) {
+              statusEl.textContent = '저장 실패: ' + err.message;
+            }
+          });
+        });
+      }
+    }
+
+    refreshBtn.addEventListener('click', load);
+    load();
+  }
+
+  function setupPrayersAdminPanel() {
+    setupSecretBoardAdminPanel('prayers', {
+      listElId: 'prayers-admin-list',
+      refreshBtnId: 'prayers-refresh-btn',
+      withReply: false,
+      showSecretBadge: true // 기도 요청은 비밀글 여부를 직접 선택하므로 표시가 의미 있음
+    });
+  }
+
+  function setupInquiriesAdminPanel() {
+    setupSecretBoardAdminPanel('inquiries', {
+      listElId: 'inquiries-admin-list',
+      refreshBtnId: 'inquiries-refresh-btn',
+      withReply: true,
+      showSecretBadge: false // 온라인 문의는 항상 비밀글이라 표시가 불필요함
+    });
+  }
+
+  // ---------------- 말씀 퀴즈 관리 ----------------
+  // 서버(routes/admin.js)와 같은 규칙으로 괄호 안 단어를 빈칸으로 파싱합니다.
+  // 괄호가 없는 줄 = 새 성경 출처(참조) 시작, 괄호가 있는 줄 = 그 출처의 문제 내용.
+  // 참조 줄 없이 바로 내용부터 시작하면, 폼에 입력해둔 '본문 출처' 값을 기본으로 사용합니다.
+  function parseQuizPaste(raw, defaultReference) {
+    const lines = raw.split('\n').map((l) => l.trim()).filter(Boolean);
+    const verses = [];
+    let currentRef = null;
+
+    lines.forEach((line) => {
+      const hasBlank = /\(([^)]*)\)/.test(line);
+      if (!hasBlank) {
+        currentRef = line;
+        return;
+      }
+      const reference = currentRef || defaultReference || '';
+      const m = line.match(/^(\d+)\s+(.*)$/);
+      if (m) {
+        verses.push({ reference, verseLabel: m[1], rawText: m[2] });
+      } else {
+        verses.push({ reference, verseLabel: '', rawText: line });
+      }
+    });
+
+    return verses;
+  }
+
+  function renderQuizPreviewVerse(v) {
+    const withBlanks = (v.rawText || '').replace(/\(([^)]+)\)/g, () => '____');
+    const label = [v.reference, v.verseLabel].filter(Boolean).join(' ');
+    return `<p style="margin:0 0 10px; line-height:1.8;"><strong>${escapeHtml(label)}</strong> ${escapeHtml(withBlanks)}</p>`;
+  }
+
+  function setupQuizAdminPanel() {
+    const refInput = $('#quiz-reference-input');
+    const weekInput = $('#quiz-week-input');
+    const pasteInput = $('#quiz-paste-input');
+    const previewBtn = $('#quiz-preview-btn');
+    const previewBox = $('#quiz-preview-box');
+    const registerBtn = $('#quiz-register-btn');
+    const cancelEditBtn = $('#quiz-cancel-edit-btn');
+    const formTitleEl = $('#quiz-form-title');
+    const statusEl = $('#quiz-save-status');
+    const listEl = $('#quiz-admin-list');
+    const refreshBtn = $('#quiz-list-refresh-btn');
+
+    if (!refInput) return; // 권한이 없어 패널 자체가 없는 부관리자는 조용히 건너뜀
+
+    let editingQuizId = null; // null이면 '새로 등록', 값이 있으면 '그 퀴즈 수정 중'
+
+    // 서버에 저장된 markedText({{b1}} 등)+blanks(정답)를 다시 "(정답)" 형태의
+    // 원본 붙여넣기 텍스트로 되돌립니다. '수정하기'를 눌렀을 때 폼에 그대로 채워 넣기 위함입니다.
+    function reconstructRawText(v) {
+      let text = v.markedText;
+      v.blanks.forEach((b) => {
+        text = text.replace(`{{${b.id}}}`, `(${b.answer})`);
+      });
+      return text;
+    }
+
+    function resetForm() {
+      editingQuizId = null;
+      refInput.value = '';
+      weekInput.value = '';
+      pasteInput.value = '';
+      previewBox.style.display = 'none';
+      registerBtn.textContent = '이번 주 퀴즈로 등록';
+      if (formTitleEl) formTitleEl.textContent = '새 퀴즈 등록';
+      if (cancelEditBtn) cancelEditBtn.hidden = true;
+    }
+
+    function loadQuizIntoForm(q) {
+      editingQuizId = q.id;
+      refInput.value = q.reference || '';
+      weekInput.value = q.weekLabel || '';
+
+      const lines = [];
+      let lastRef = null;
+      q.verses.forEach((v) => {
+        if (v.reference && v.reference !== lastRef) {
+          lines.push(v.reference);
+          lastRef = v.reference;
+        }
+        const prefix = v.verseLabel ? `${v.verseLabel} ` : '';
+        lines.push(`${prefix}${reconstructRawText(v)}`);
+      });
+      pasteInput.value = lines.join('\n');
+
+      previewBox.style.display = 'none';
+      registerBtn.textContent = '수정 내용 저장';
+      if (formTitleEl) formTitleEl.textContent = '퀴즈 수정 중';
+      if (cancelEditBtn) cancelEditBtn.hidden = false;
+      refInput.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function doPreview() {
+      const verses = parseQuizPaste(pasteInput.value, refInput.value.trim());
+      if (verses.length === 0) {
+        previewBox.style.display = 'block';
+        previewBox.innerHTML = `<p class="hint">붙여넣은 내용에서 절을 찾지 못했어요. "3 그러므로..." 처럼 절 번호로 시작하는지 확인해주세요.</p>`;
+        return;
+      }
+      const totalBlanks = verses.reduce((sum, v) => {
+        const matches = v.rawText.match(/\(([^)]+)\)/g) || [];
+        return sum + matches.length;
+      }, 0);
+      previewBox.style.display = 'block';
+      previewBox.innerHTML = `
+        <p class="hint" style="margin-bottom:10px;">${verses.length}개 절 · 빈칸 ${totalBlanks}개로 인식됐어요.</p>
+        ${verses.map(renderQuizPreviewVerse).join('')}`;
+    }
+
+    previewBtn.addEventListener('click', doPreview);
+
+    if (cancelEditBtn) {
+      cancelEditBtn.addEventListener('click', resetForm);
+    }
+
+    registerBtn.addEventListener('click', async () => {
+      const reference = refInput.value.trim();
+      const verses = parseQuizPaste(pasteInput.value, refInput.value.trim());
+      if (!reference) return alert('본문 출처를 입력해주세요.');
+      if (verses.length === 0) return alert('본문 내용을 붙여넣어주세요.');
+
+      const isEditing = !!editingQuizId;
+      statusEl.textContent = isEditing ? '수정 저장 중...' : '등록 중...';
+      try {
+        let savedQuiz;
+        if (isEditing) {
+          savedQuiz = await api(`/api/admin/quiz/${editingQuizId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ reference, weekLabel: weekInput.value.trim(), verses })
+          });
+        } else {
+          savedQuiz = await api('/api/admin/quiz', {
+            method: 'POST',
+            body: JSON.stringify({ reference, weekLabel: weekInput.value.trim(), verses })
+          });
+        }
+        await maybeScheduleLinkedPush({
+          checkboxId: 'quiz-schedule-push-check',
+          timeInputId: 'quiz-schedule-push-time',
+          linkedType: 'quiz',
+          linkedId: savedQuiz.id,
+          title: `이번 주 말씀 퀴즈: ${reference}`,
+          url: '/quiz.html'
+        });
+        statusEl.textContent = isEditing ? '수정 완료 ✓' : '등록 완료 ✓';
+        setTimeout(() => (statusEl.textContent = ''), 2500);
+        resetForm();
+        loadQuizList();
+      } catch (err) {
+        statusEl.textContent = (isEditing ? '수정 실패: ' : '등록 실패: ') + err.message;
+      }
+    });
+
+    function quizRowHTML(q) {
+      const blankCount = q.verses.reduce((sum, v) => sum + v.blanks.length, 0);
+      return `
+        <div class="post-row" data-id="${q.id}" style="display:block; padding:14px;">
+          <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; flex-wrap:wrap;">
+            <div>
+              <strong>${escapeHtml(q.reference)}</strong>
+              <span class="hint" style="margin-left:8px;">${escapeHtml(q.weekLabel || '')}</span>
+              <span class="hint" style="margin-left:8px;">${q.verses.length}절 · 빈칸 ${blankCount}개</span>
+            </div>
+            <div style="display:flex; gap:6px;">
+              <button type="button" class="btn-secondary quiz-edit-btn" data-id="${q.id}">수정</button>
+              <button type="button" class="btn-secondary quiz-delete-btn" data-id="${q.id}">삭제</button>
+            </div>
+          </div>
+        </div>`;
+    }
+
+    async function loadQuizList() {
+      listEl.innerHTML = `<p class="hint">불러오는 중...</p>`;
+      try {
+        const list = await api('/api/admin/quiz');
+        populateQuizStatsSelect(list);
+        if (!list || list.length === 0) {
+          listEl.innerHTML = `<p class="hint">등록된 퀴즈가 없습니다.</p>`;
+          return;
+        }
+        listEl.innerHTML = list.map(quizRowHTML).join('');
+        $$('.quiz-edit-btn', listEl).forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const quiz = list.find((q) => q.id === btn.dataset.id);
+            if (quiz) loadQuizIntoForm(quiz);
+          });
+        });
+        $$('.quiz-delete-btn', listEl).forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            if (!confirm('이 퀴즈를 삭제하시겠습니까? (참여 기록은 남아있어요)')) return;
+            try {
+              await api(`/api/admin/quiz/${btn.dataset.id}`, { method: 'DELETE' });
+              if (editingQuizId === btn.dataset.id) resetForm();
+              loadQuizList();
+            } catch (err) {
+              alert(err.message);
+            }
+          });
+        });
+      } catch (err) {
+        listEl.innerHTML = `<p class="hint">불러오지 못했습니다: ${escapeHtml(err.message)}</p>`;
+      }
+    }
+
+    refreshBtn.addEventListener('click', loadQuizList);
+    loadQuizList();
+    setupQuizStats();
+  }
+
+  // ---------------- 말씀 퀴즈: 참여 통계 ----------------
+  function quizBadgeFor(percent) {
+    if (percent >= 90) return { label: '말씀 박사 🏆' };
+    if (percent >= 70) return { label: '은혜의 지식 📖' };
+    if (percent >= 50) return { label: '성실한 도전자 🌱' };
+    return { label: '다음 주 다시 도전 💪' };
+  }
+
+  function populateQuizStatsSelect(list) {
+    const select = $('#quiz-stats-select');
+    if (!select) return;
+    const prevValue = select.value;
+    if (!list || list.length === 0) {
+      select.innerHTML = `<option value="">등록된 퀴즈가 없습니다</option>`;
+      return;
+    }
+    select.innerHTML = list
+      .map((q) => `<option value="${q.id}">${escapeHtml(q.reference)}${q.weekLabel ? ' · ' + escapeHtml(q.weekLabel) : ''}</option>`)
+      .join('');
+    // 이전에 보고 있던 퀴즈가 목록에 여전히 있으면 선택 유지, 없으면 가장 최근(맨 위) 퀴즈로
+    if (prevValue && list.some((q) => q.id === prevValue)) {
+      select.value = prevValue;
+    }
+    loadQuizStats(select.value);
+  }
+
+  async function loadQuizStats(quizId) {
+    const summaryEl = $('#quiz-stats-summary');
+    const listEl = $('#quiz-stats-list');
+    if (!summaryEl || !listEl) return;
+    if (!quizId) {
+      summaryEl.innerHTML = '';
+      listEl.innerHTML = '';
+      return;
+    }
+    summaryEl.innerHTML = `<p class="hint">불러오는 중...</p>`;
+    listEl.innerHTML = '';
+    try {
+      const subs = await api(`/api/admin/quiz/${quizId}/submissions`);
+      if (!subs || subs.length === 0) {
+        summaryEl.innerHTML = `<p class="hint">아직 참여자가 없어요.</p>`;
+        return;
+      }
+
+      const count = subs.length;
+      const avg = Math.round(subs.reduce((sum, s) => sum + s.score, 0) / count);
+      const highest = Math.max(...subs.map((s) => s.score));
+
+      const badgeCounts = {};
+      subs.forEach((s) => {
+        const label = quizBadgeFor(s.score).label;
+        badgeCounts[label] = (badgeCounts[label] || 0) + 1;
+      });
+
+      summaryEl.innerHTML = `
+        <div class="stats-cards" style="margin-top:12px;">
+          <div class="stat-card"><div class="num">${count}</div><div class="label">참여자 수</div></div>
+          <div class="stat-card"><div class="num">${avg}점</div><div class="label">평균 점수</div></div>
+          <div class="stat-card"><div class="num">${highest}점</div><div class="label">최고 점수</div></div>
+        </div>
+        <div class="stats-bar-list" style="margin-top:16px;">
+          ${Object.entries(badgeCounts)
+            .map(
+              ([label, n]) => `
+              <div class="stats-bar-row">
+                <div class="stats-bar-label">${label}</div>
+                <div class="stats-bar-track"><div class="stats-bar-fill" style="width:${Math.round((n / count) * 100)}%;"></div></div>
+                <div class="stats-bar-count">${n}명</div>
+              </div>`
+            )
+            .join('')}
+        </div>`;
+
+      listEl.innerHTML = `
+        <h3 style="font-size:0.95rem; margin:20px 0 10px;">참여자 상세 목록</h3>
+        <div class="post-list">
+          ${subs
+            .map(
+              (s) => `
+              <div class="post-row" style="display:flex; padding:12px 14px;">
+                <div style="flex:1;">
+                  <strong>${escapeHtml(s.name)}</strong>
+                  <span class="hint" style="margin-left:8px;">${new Date(s.submittedAt).toLocaleString('ko-KR')}</span>
+                </div>
+                <div class="hint">${s.correctCount}/${s.totalBlanks}칸 · 한번에 ${s.firstTryCount}개</div>
+                <div style="font-weight:700; color:var(--navy-deep); margin-left:14px;">${s.score}점</div>
+              </div>`
+            )
+            .join('')}
+        </div>`;
+    } catch (err) {
+      summaryEl.innerHTML = `<p class="hint">불러오지 못했습니다: ${escapeHtml(err.message)}</p>`;
+    }
+  }
+
+  function setupQuizStats() {
+    const select = $('#quiz-stats-select');
+    if (!select) return;
+    select.addEventListener('change', () => loadQuizStats(select.value));
+  }
+
+  function setupPushPanel() {
+    const sendBtn = $('#push-send-btn');
+    if (!sendBtn) return; // 권한 없는 부관리자는 조용히 건너뜀
+    const statusEl = $('#push-send-status');
+    const titleInput = $('#push-title-input');
+    const bodyInput = $('#push-body-input');
+    const urlInput = $('#push-url-input');
+
+    sendBtn.addEventListener('click', async () => {
+      const title = titleInput.value.trim();
+      const body = bodyInput.value.trim();
+      const url = urlInput.value.trim();
+      if (!title) return alert('알림 제목을 입력해주세요.');
+      if (!confirm('구독한 모든 방문자에게 알림을 보냅니다. 계속할까요?')) return;
+
+      statusEl.textContent = '발송 중...';
+      try {
+        const result = await api('/api/admin/push/send', {
+          method: 'POST',
+          body: JSON.stringify({ title, body, url })
+        });
+        statusEl.textContent = `발송 완료 ✓ (성공 ${result.sent}건 / 실패 ${result.failed}건)`;
+        titleInput.value = '';
+        bodyInput.value = '';
+        urlInput.value = '';
+      } catch (err) {
+        statusEl.textContent = '발송 실패: ' + err.message;
+      }
+    });
+
+    // ---------------- 자주 쓰는 문구 ----------------
+    async function loadTemplates() {
+      const wrap = $('#push-template-chips');
+      try {
+        const list = await api('/api/admin/push/templates');
+        if (!list || list.length === 0) {
+          wrap.innerHTML = `<p class="hint" style="margin:0;">아직 저장된 문구가 없어요. 아래에 입력하고 "이 문구 저장"을 눌러보세요.</p>`;
+          return;
+        }
+        wrap.innerHTML = list
+          .map(
+            (t) => `
+            <span class="badge push-template-chip" data-id="${t.id}" style="cursor:pointer; display:inline-flex; align-items:center; gap:6px;">
+              ${escapeHtml(t.name)}
+              <button type="button" class="push-template-delete" data-id="${t.id}" style="background:none; border:none; color:inherit; cursor:pointer; font-size:0.9em;">×</button>
+            </span>`
+          )
+          .join('');
+
+        $$('.push-template-chip', wrap).forEach((chip) => {
+          chip.addEventListener('click', (e) => {
+            if (e.target.classList.contains('push-template-delete')) return;
+            const t = list.find((x) => x.id === chip.dataset.id);
+            if (!t) return;
+            titleInput.value = t.title;
+            bodyInput.value = t.body || '';
+            urlInput.value = t.url || '';
+          });
+        });
+        $$('.push-template-delete', wrap).forEach((btn) => {
+          btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            if (!confirm('이 문구를 삭제할까요?')) return;
+            try {
+              await api(`/api/admin/push/templates/${btn.dataset.id}`, { method: 'DELETE' });
+              loadTemplates();
+            } catch (err) {
+              alert(err.message);
+            }
+          });
+        });
+      } catch (err) {
+        wrap.innerHTML = `<p class="hint">불러오지 못했습니다.</p>`;
+      }
+    }
+
+    $('#push-save-template-btn').addEventListener('click', async () => {
+      const title = titleInput.value.trim();
+      if (!title) return alert('먼저 알림 제목을 입력해주세요.');
+      const name = prompt('이 문구를 어떤 이름으로 저장할까요? (예: 새 설교 알림)');
+      if (!name || !name.trim()) return;
+      try {
+        await api('/api/admin/push/templates', {
+          method: 'POST',
+          body: JSON.stringify({
+            name: name.trim(),
+            title,
+            body: bodyInput.value.trim(),
+            url: urlInput.value.trim()
+          })
+        });
+        loadTemplates();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+
+    loadTemplates();
+
+    // ---------------- 예약된 알림 ----------------
+    async function loadScheduled() {
+      const listEl = $('#push-scheduled-list');
+      listEl.innerHTML = `<p class="hint">불러오는 중...</p>`;
+      try {
+        const list = await api('/api/admin/push/scheduled');
+        if (!list || list.length === 0) {
+          listEl.innerHTML = `<p class="hint">예약된 알림이 없습니다.</p>`;
+          return;
+        }
+        const statusLabel = { pending: '⏳ 대기중', sent: '✅ 발송완료', failed: '❌ 발송실패' };
+        listEl.innerHTML = list
+          .map((s) => {
+            const time = new Date(s.sendAt).toLocaleString('ko-KR');
+            const cancelBtn =
+              s.status === 'pending'
+                ? `<button type="button" class="btn-secondary push-schedule-cancel-btn" data-id="${s.id}">취소</button>`
+                : '';
+            return `
+              <div class="post-row" style="display:flex; justify-content:space-between; align-items:center; padding:12px 14px;">
+                <div>
+                  <strong>${escapeHtml(s.title)}</strong>
+                  <span class="hint" style="margin-left:8px;">${time}</span>
+                  <span class="hint" style="margin-left:8px;">${statusLabel[s.status] || s.status}</span>
+                </div>
+                ${cancelBtn}
+              </div>`;
+          })
+          .join('');
+        $$('.push-schedule-cancel-btn', listEl).forEach((btn) => {
+          btn.addEventListener('click', async () => {
+            if (!confirm('이 예약 알림을 취소할까요?')) return;
+            try {
+              await api(`/api/admin/push/scheduled/${btn.dataset.id}`, { method: 'DELETE' });
+              loadScheduled();
+            } catch (err) {
+              alert(err.message);
+            }
+          });
+        });
+      } catch (err) {
+        listEl.innerHTML = `<p class="hint">불러오지 못했습니다: ${escapeHtml(err.message)}</p>`;
+      }
+    }
+
+    $('#push-scheduled-refresh-btn').addEventListener('click', loadScheduled);
+    loadScheduled();
+  }
+
+  // 큐티·말씀 퀴즈 등록 폼의 "알림 예약하기" 체크박스 공통 처리.
+  // 체크하면 시간 선택칸을 보여주고 기본값을 1시간 뒤로 채워둡니다.
+  function setupSchedulePushToggle(checkboxId, fieldId, timeInputId) {
+    const checkbox = $('#' + checkboxId);
+    const field = $('#' + fieldId);
+    const timeInput = $('#' + timeInputId);
+    if (!checkbox) return;
+    checkbox.addEventListener('change', () => {
+      field.style.display = checkbox.checked ? '' : 'none';
+      if (checkbox.checked && !timeInput.value) {
+        const d = new Date(Date.now() + 60 * 60 * 1000); // 기본값: 1시간 뒤
+        d.setSeconds(0, 0);
+        const tzOffset = d.getTimezoneOffset() * 60000;
+        timeInput.value = new Date(d - tzOffset).toISOString().slice(0, 16);
+      }
+    });
+  }
+
+  // 큐티/퀴즈 등록 성공 후, 체크되어 있으면 예약 알림을 같이 만듭니다.
+  async function maybeScheduleLinkedPush({ checkboxId, timeInputId, linkedType, linkedId, title, url }) {
+    const checkbox = $('#' + checkboxId);
+    if (!checkbox || !checkbox.checked) return;
+    const timeInput = $('#' + timeInputId);
+    if (!timeInput.value) return;
+    try {
+      await api('/api/admin/push/scheduled', {
+        method: 'POST',
+        body: JSON.stringify({
+          title,
+          body: '',
+          url: url || '/',
+          sendAt: new Date(timeInput.value).toISOString(),
+          linkedType,
+          linkedId
+        })
+      });
+    } catch (err) {
+      alert('알림 예약에 실패했습니다: ' + err.message);
+    }
+    checkbox.checked = false;
+    timeInput.value = '';
+    $('#' + checkboxId.replace('-check', '-time-field')).style.display = 'none';
+  }
+
+  function initDashboard() {
+    if (dashboardInitialized) return;
+    dashboardInitialized = true;
+    postEditor = new Quill('#p-content-editor', {
+      theme: 'snow',
+      modules: { toolbar: '#p-content-toolbar' },
+      placeholder: '내용을 입력하세요. Enter로 줄바꿈, 위 도구모음으로 글자 크기·굵기·색상을 바꿀 수 있습니다.'
+    });
+    setupNav();
+    const initialActiveNav = $('.nav-item.active');
+    const toggleCurrentLabelInit = $('#sidebar-toggle-current');
+    if (initialActiveNav && toggleCurrentLabelInit) {
+      toggleCurrentLabelInit.textContent = initialActiveNav.textContent;
+    }
+    filterNavByPermission();
+    setupFontPickers();
+    loadSiteIntoForm();
+    loadMenuList();
+    loadPostList();
+    loadSermonCategories().then(() => loadSermonPreview());
+    setupImageUploadFields();
+    setupSermonPhotoUpload();
+    setupHeroImageUpload();
+    setupSiteSave();
+    setupServiceTimeEditor();
+    setupMenuEditor();
+    setupPostEditor();
+    setupSermonRefresh();
+    setupSermonPhotoOverride();
+    setupSermonCategoryManagement();
+    setupAccountPanel();
+    setupQtEditor();
+    setupQtPasteParser();
+    loadQtList();
+    setupQtBackgroundEditor();
+    setupQtBgPoolEditor();
+    setupPraiseEditor();
+    loadPraiseCategories();
+    setupPraiseCategoryManagement();
+    loadPraiseList();
+    setupMissionEditor();
+    loadMissionList();
+    setupPartnerEditor();
+    loadPartnerList();
+    loadStats().catch(() => {}); // 통계 권한이 없는 부관리자는 조용히 건너뜀
+    loadReceiptRequests().catch(() => {}); // 영수증 신청 권한이 없는 부관리자는 조용히 건너뜀
+    setupPrayersAdminPanel();
+    setupInquiriesAdminPanel();
+    setupQuizAdminPanel();
+    setupPushPanel();
+    setupSchedulePushToggle('qt-schedule-push-check', 'qt-schedule-push-time-field', 'qt-schedule-push-time');
+    setupSchedulePushToggle('quiz-schedule-push-check', 'quiz-schedule-push-time-field', 'quiz-schedule-push-time');
+    $('#p-date').value = new Date().toISOString().slice(0, 10);
+    $('#qt-date').value = new Date().toISOString().slice(0, 10);
+    $('#qt-pastor').value = localStorage.getItem('qtLastPastor') || '';
+  }
+
+  // ---------------- 권한별 메뉴 표시 ----------------
+  function filterNavByPermission() {
+    const isMain = currentSession && currentSession.role === 'main';
+    $$('.nav-item[data-permission]').forEach((btn) => {
+      const perm = btn.dataset.permission;
+      const allowed = isMain || (currentSession.permissions && currentSession.permissions[perm]);
+      btn.hidden = !allowed;
+    });
+    const activeBtn = $('.nav-item.active');
+    if (activeBtn && activeBtn.hidden) {
+      const firstVisible = $$('.nav-item').find((b) => !b.hidden);
+      if (firstVisible) firstVisible.click();
+    }
+  }
+
+  // ---------------- 이미지 업로드 필드 공통 처리 ----------------
+  function setupImageUploadFields() {
+    bindImageField('s-aboutImageFile', 's-aboutImagePreview');
+    bindImageField('p-imageFile', 'p-imagePreview');
+    bindImageField('qt-bg-photoFile', 'qt-bg-photoPreview');
+    bindImageField('m-imageFile', 'm-imagePreview');
+    bindImageField('pt-imageFile', 'pt-imagePreview');
+  }
+  function bindImageField(inputId, previewId) {
+    const input = $('#' + inputId);
+    if (!input) return; // 이 화면에 없는 필드면 조용히 건너뜀 (초기화 스크립트 전체가 멈추지 않도록)
+    input.addEventListener('change', () => {
+      const file = input.files[0];
+      if (!file) return;
+      input.disabled = true; // 업로드 도중 같은 칸에서 또 파일을 고르지 못하게 잠급니다
+      const uploadPromise = uploadImage(file)
+        .then((url) => {
+          input.dataset.uploadedUrl = url;
+          $('#' + previewId).src = url;
+        })
+        .catch((err) => {
+          alert(err.message);
+        })
+        .finally(() => {
+          input.disabled = false;
+        });
+      input._uploadPromise = uploadPromise; // 저장 버튼이 이 업로드가 끝날 때까지 기다릴 수 있도록 보관
+    });
+  }
+
+  // 저장 버튼을 눌렀을 때, 방금 고른 사진의 업로드가 아직 끝나지 않았다면 끝날 때까지
+  // 기다려줍니다. (업로드가 끝나기 전에 저장을 눌러서 사진 없이 저장되는 문제 방지)
+  async function waitForPendingUpload(inputId) {
+    const input = $('#' + inputId);
+    if (input && input._uploadPromise) {
+      await input._uploadPromise;
+    }
+  }
+
+  // ---------------- 설교 카드용 목사님 사진 목록 ----------------
+  let sermonCardPhotos = [];
+
+  function renderSermonPhotoList() {
+    const wrap = $('#s-sermonPhotoList');
+    if (sermonCardPhotos.length === 0) {
+      wrap.innerHTML = '<p class="hint" style="margin:0;">기본 사진 3장만 사용됩니다. 추가로 올리시면 여기에 표시됩니다.</p>';
+      return;
+    }
+    wrap.innerHTML = sermonCardPhotos
+      .map(
+        (url, i) => `
+        <div style="position:relative;" data-idx="${i}">
+          <img src="${url}" style="width:72px;height:72px;object-fit:cover;border-radius:6px;border:1px solid #ddd;" />
+          <button type="button" class="remove-sermon-photo" data-idx="${i}"
+            style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:#c0392b;color:#fff;border:none;font-size:12px;cursor:pointer;">×</button>
         </div>`
       )
       .join('');
-    observeReveals(grid);
-
-    $$('.praise-card', grid).forEach((card, i) => {
-      card.addEventListener('click', () => {
-        playInMiniPlayer(
-          displayList.map((p) => ({ youtubeId: p.youtubeId, title: p.title || '' })),
-          i
-        );
+    $$('.remove-sermon-photo', wrap).forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const idx = Number(btn.dataset.idx);
+        sermonCardPhotos.splice(idx, 1);
+        renderSermonPhotoList();
       });
     });
-
-    setupCarouselNav(grid, 'praise-nav-prev', 'praise-nav-next');
-    setupScrollProgressBar(grid, 'praise-scroll-track', 'praise-scroll-thumb');
-    setupPraiseDots(grid, displayList.length);
   }
 
-  // 가로 스크롤이 얼마나 남았는지, 얇은 막대로 보여줍니다 (세로 스크롤바처럼 은은하게).
-  function setupScrollProgressBar(scrollEl, trackId, thumbId) {
-    const track = $('#' + trackId);
-    const thumb = $('#' + thumbId);
-    if (!track || !thumb) return;
-
-    function update() {
-      const scrollable = scrollEl.scrollWidth - scrollEl.clientWidth;
-      if (scrollable <= 0) {
-        track.style.display = 'none';
-        return;
-      }
-      track.style.display = '';
-      const trackWidth = track.clientWidth;
-      const thumbRatio = Math.min(1, scrollEl.clientWidth / scrollEl.scrollWidth);
-      const thumbWidth = Math.max(24, trackWidth * thumbRatio);
-      const maxThumbTravel = trackWidth - thumbWidth;
-      const progress = scrollEl.scrollLeft / scrollable;
-      thumb.style.width = thumbWidth + 'px';
-      thumb.style.transform = `translateX(${progress * maxThumbTravel}px)`;
-    }
-
-    // 같은 요소에 스크롤 리스너가 중복으로 쌓이지 않도록, 매번 새로 붙이기 전에 이전 걸 떼어냅니다.
-    if (scrollEl._scrollProgressHandler) {
-      scrollEl.removeEventListener('scroll', scrollEl._scrollProgressHandler);
-    }
-    scrollEl._scrollProgressHandler = update;
-    scrollEl.addEventListener('scroll', update, { passive: true });
-    window.addEventListener('resize', update);
-
-    requestAnimationFrame(update);
+  // 히어로 사진·설교 카드 사진처럼 "여러 장 추가" 방식은 배열에 바로 담기 때문에,
+  // 저장 버튼이 눌릴 때 이 배열들에 대한 업로드가 아직 진행 중이면 끝날 때까지 기다립니다.
+  let sitePendingUploads = [];
+  async function waitForSiteUploads() {
+    await Promise.all(sitePendingUploads);
+    sitePendingUploads = [];
   }
 
-  // 페이지 세로 스크롤에 영향을 주지 않도록, 다이얼 안에서만 가로로 이동시킵니다.
-  function centerCellInDial(dial, cell, smooth) {
-    if (!dial || !cell) return;
-    const targetLeft = cell.offsetLeft - dial.clientWidth / 2 + cell.offsetWidth / 2;
-    if (smooth && dial.scrollTo) {
-      dial.scrollTo({ left: targetLeft, behavior: 'smooth' });
-    } else {
-      dial.scrollLeft = targetLeft;
-    }
+  function setupSermonPhotoUpload() {
+    $('#s-sermonPhotoFile').addEventListener('change', () => {
+      const input = $('#s-sermonPhotoFile');
+      const file = input.files[0];
+      if (!file) return;
+      const p = uploadImage(file)
+        .then((url) => {
+          sermonCardPhotos.push(url);
+          renderSermonPhotoList();
+          input.value = '';
+        })
+        .catch((err) => alert(err.message));
+      sitePendingUploads.push(p);
+    });
   }
 
-  function renderPraiseCategoryChips() {
-    const wrap = $('#praise-category-chips');
-    const dialWrap = $('#praise-theme-dial-wrap');
-    const dial = $('#praise-theme-dial');
-    if (!wrap) return;
-    // 곡이 하나라도 있는 컨셉만 필터로 보여줍니다 (텅 빈 필터 방지)
-    const usedCategoryIds = new Set();
-    allPraises.forEach((p) => (p.categoryIds || []).forEach((id) => usedCategoryIds.add(id)));
-    const usable = praiseCategoryList.filter((c) => usedCategoryIds.has(c.id));
+  // ---------------- 대문(히어로) 배경 사진 목록 ----------------
+  let heroBackgroundImages = [];
 
-    if (usable.length === 0) {
-      wrap.style.display = 'none';
-      if (dialWrap) dialWrap.style.display = 'none';
+  function renderHeroImageList() {
+    const wrap = $('#s-heroImageList');
+    if (heroBackgroundImages.length === 0) {
+      wrap.innerHTML = '';
       return;
     }
-    wrap.style.display = '';
-    const options = [{ id: null, name: '모든 찬양' }, ...usable];
-
-    // PC: 옆으로 넘기는 칩 목록
-    wrap.innerHTML = options
+    wrap.innerHTML = heroBackgroundImages
       .map(
-        (c) => `<button type="button" class="praise-chip${activePraiseCategory === c.id ? ' active' : ''}" data-id="${c.id || ''}">${escapeHtml(c.name)}</button>`
+        (url, i) => `
+        <div style="position:relative;" data-idx="${i}">
+          <img src="${url}" style="width:96px;height:64px;object-fit:cover;border-radius:6px;border:1px solid #ddd;" />
+          <button type="button" class="remove-hero-photo" data-idx="${i}"
+            style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:#c0392b;color:#fff;border:none;font-size:12px;cursor:pointer;">×</button>
+        </div>`
       )
       .join('');
-    $$('.praise-chip', wrap).forEach((chip) => {
-      chip.addEventListener('click', () => applyPraiseCategoryFilter(chip.dataset.id || null, chip.textContent));
+    $$('.remove-hero-photo', wrap).forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const idx = Number(btn.dataset.idx);
+        heroBackgroundImages.splice(idx, 1);
+        renderHeroImageList();
+      });
     });
+  }
 
-    // 모바일: 아이폰 피커처럼, 돌리다가 가운데에 딱 맞는 순간 자동으로 선택됩니다.
-    if (dial) {
-      dialWrap.style.display = '';
-      dial.innerHTML = options
-        .map(
-          (c, i) => `<span class="praise-theme-cell${activePraiseCategory === c.id ? ' is-active' : ''}" data-id="${c.id || ''}" data-index="${i}">${escapeHtml(c.name)}</span>`
-        )
-        .join('');
-      setupPraiseThemeDial(dial, options);
+  function setupHeroImageUpload() {
+    $('#s-heroImageFile').addEventListener('change', () => {
+      const input = $('#s-heroImageFile');
+      const file = input.files[0];
+      if (!file) return;
+      const p = uploadImage(file)
+        .then((url) => {
+          heroBackgroundImages.push(url);
+          renderHeroImageList();
+          input.value = '';
+        })
+        .catch((err) => alert(err.message));
+      sitePendingUploads.push(p);
+    });
+  }
+
+  // ---------------- 기본 정보 (사이트) ----------------
+  let currentSite = null;
+
+  function populateFontSelect(selectEl) {
+    selectEl.innerHTML = window.FONT_CATALOG
+      .map((f) => `<option value="${f.id}">${escapeHtml(f.label)}</option>`)
+      .join('');
+  }
+
+  function updateFontPreview(selectId, previewId) {
+    const id = $('#' + selectId).value;
+    const family = window.getFontFamily(id, 'inherit');
+    $('#' + previewId).style.fontFamily = family;
+  }
+
+  function setupFontPickers() {
+    populateFontSelect($('#s-headingFont'));
+    populateFontSelect($('#s-bodyFont'));
+    $('#s-headingFont').addEventListener('change', () => updateFontPreview('s-headingFont', 's-headingFont-preview'));
+    $('#s-bodyFont').addEventListener('change', () => updateFontPreview('s-bodyFont', 's-bodyFont-preview'));
+  }
+
+  async function loadSiteIntoForm() {
+    currentSite = await api('/api/admin/site');
+    const s = currentSite;
+    $('#s-churchName').value = s.churchName || '';
+
+    $('#s-headingFont').value = s.design?.headingFont || 'noto-serif-kr';
+    $('#s-bodyFont').value = s.design?.bodyFont || 'pretendard';
+    updateFontPreview('s-headingFont', 's-headingFont-preview');
+    updateFontPreview('s-bodyFont', 's-bodyFont-preview');
+    $('#s-heroVerse').value = s.hero?.verse || '';
+    $('#s-heroVerseRef').value = s.hero?.verseRef || '';
+    $('#s-heroSubtitle').value = s.hero?.subtitle || '';
+    heroBackgroundImages = Array.isArray(s.hero?.backgroundImages) && s.hero.backgroundImages.length
+      ? s.hero.backgroundImages.slice()
+      : (s.hero?.backgroundImage ? [s.hero.backgroundImage] : []);
+    renderHeroImageList();
+
+    $('#s-sermonsIntro').value = s.sermonsIntro || '';
+    sermonCardPhotos = Array.isArray(s.sermonCardPhotos) ? [...s.sermonCardPhotos] : [];
+    renderSermonPhotoList();
+    $('#s-aboutGreeting').value = s.about?.greeting || '';
+    $('#s-aboutBody').value = s.about?.body || '';
+    $('#s-aboutHistory').value = s.about?.history || '';
+    $('#s-pastorName').value = s.about?.pastorName || '';
+    $('#s-pastorMessage').value = s.about?.pastorMessage || '';
+    if (s.about?.image) $('#s-aboutImagePreview').src = s.about.image;
+
+    $('#s-address').value = s.contact?.address || '';
+    $('#s-addressNote').value = s.contact?.addressNote || '';
+    $('#s-phone').value = s.contact?.phone || '';
+    $('#s-email').value = s.contact?.email || '';
+    $('#s-mapUrl').value = s.contact?.mapEmbedUrl || '';
+    $('#s-kakaoMapCode').value = '';
+    updateKakaoMapStatus(s.contact?.kakaoMapImageUrl, s.contact?.kakaoMapLinkUrl);
+
+    $('#s-offeringBank').value = s.offering?.bank || '';
+    $('#s-offeringAccount').value = s.offering?.account || '';
+    $('#s-offeringHolder').value = s.offering?.holder || '';
+    $('#s-offeringNote').value = s.offering?.note || '';
+
+    $('#s-snsYoutube').value = s.sns?.youtube || '';
+    $('#s-snsInstagram').value = s.sns?.instagram || '';
+    $('#s-snsFacebook').value = s.sns?.facebook || '';
+    $('#s-snsBand').value = s.sns?.band || '';
+
+    $('#s-missionsTitle').value = s.missions?.title || '';
+    $('#s-missionsSubtitle').value = s.missions?.subtitle || '';
+
+    renderServiceTimes(s.serviceTimes || []);
+
+    const qtBg = s.qtBackground || { type: 'preset', preset: 'navy' };
+    $('#qt-bg-type').value = qtBg.type || 'preset';
+    $('#qt-bg-preset').value = qtBg.preset || 'navy';
+    if (qtBg.image) $('#qt-bg-photoPreview').src = qtBg.image;
+    toggleQtBgFields();
+  }
+
+  function renderServiceTimes(list) {
+    const container = $('#service-list');
+    container.innerHTML = list
+      .map(
+        (svc, idx) => `
+        <div class="list-row" data-id="${svc.id}">
+          <input type="text" class="svc-name" value="${escapeAttr(svc.name)}" placeholder="예배 이름" />
+          <textarea class="svc-time" rows="1" placeholder="시간 (Enter로 줄바꿈 가능)">${escapeHtml(svc.time || '')}</textarea>
+          <button type="button" class="icon-btn remove-svc">삭제</button>
+        </div>`
+      )
+      .join('');
+
+    $$('.remove-svc').forEach((btn) => {
+      btn.addEventListener('click', (e) => {
+        e.target.closest('.list-row').remove();
+      });
+    });
+  }
+
+  $('#add-service-btn').addEventListener('click', () => {
+    const container = $('#service-list');
+    const row = document.createElement('div');
+    row.className = 'list-row';
+    row.dataset.id = 'svc_' + Date.now();
+    row.innerHTML = `
+      <input type="text" class="svc-name" placeholder="예배 이름" />
+      <textarea class="svc-time" rows="1" placeholder="시간 (Enter로 줄바꿈 가능)"></textarea>
+      <button type="button" class="icon-btn remove-svc">삭제</button>`;
+    container.appendChild(row);
+    row.querySelector('.remove-svc').addEventListener('click', () => row.remove());
+  });
+
+  function escapeAttr(str = '') {
+    return String(str).replace(/"/g, '&quot;');
+  }
+
+  function setupServiceTimeEditor() {
+    // 추가/삭제는 위에서 이벤트 바인딩됨. 저장 시점에 값 취합.
+  }
+
+  // ---------------- 카카오맵 (지도 미리보기 이미지 + 링크) ----------------
+  // 카카오맵 '공유 > HTML 태그 복사'로 나오는 코드에서 지도 미리보기 이미지 주소와,
+  // 클릭했을 때 이동할 카카오맵 링크만 안전하게 뽑아서 저장합니다.
+  // (관리자가 붙여넣은 코드를 그대로 저장/실행하지 않는 것이 보안상 더 안전합니다.)
+  function parseKakaoMapCode(raw) {
+    if (!raw || !raw.trim()) return null;
+    const imgMatch = raw.match(/<img[^>]*\ssrc="(https:\/\/staticmap\.kakao\.com\/[^"]+)"/);
+    const linkMatch = raw.match(/href="(https:\/\/map\.kakao\.com\/[^"]+)"/);
+    if (!imgMatch || !linkMatch) return { error: true };
+
+    return {
+      imageUrl: imgMatch[1],
+      linkUrl: linkMatch[1]
+    };
+  }
+
+  function updateKakaoMapStatus(imageUrl, linkUrl) {
+    const el = $('#kakao-map-status');
+    if (!el) return;
+    if (imageUrl && linkUrl) {
+      el.textContent = '✅ 카카오맵이 연결되어 있습니다. (새 코드를 붙여넣지 않으면 지금 설정이 유지됩니다)';
+      el.style.color = '#2f8f4e';
+    } else {
+      el.textContent = '카카오맵 미설정 — 아래 코드를 붙여넣으면 적용됩니다. (설정 전까지는 위 구글맵 URL이 사용됩니다)';
+      el.style.color = '';
     }
   }
 
-  // 스크롤이 멈출 때마다(빙글빙글 도는 도중이 아니라 딱 멈춘 순간), 화면 정가운데에
-  // 가장 가까운 테마를 찾아서 자동으로 선택합니다. 탭이 따로 필요 없습니다.
-  function setupPraiseThemeDial(dial, options) {
-    let settleTimer = null;
+  function collectServiceTimes() {
+    return $$('#service-list .list-row').map((row) => ({
+      id: row.dataset.id,
+      name: row.querySelector('.svc-name').value.trim(),
+      time: row.querySelector('.svc-time').value.trim()
+    })).filter((s) => s.name && s.time);
+  }
 
-    function findCenteredCell() {
-      const dialRect = dial.getBoundingClientRect();
-      const centerX = dialRect.left + dialRect.width / 2;
-      let closest = null;
-      let closestDist = Infinity;
-      $$('.praise-theme-cell', dial).forEach((cell) => {
-        const r = cell.getBoundingClientRect();
-        const cellCenter = r.left + r.width / 2;
-        const dist = Math.abs(cellCenter - centerX);
-        if (dist < closestDist) {
-          closestDist = dist;
-          closest = cell;
+  function setupSiteSave() {
+    $('#save-site-btn').addEventListener('click', async () => {
+      const statusEl = $('#site-save-status');
+      statusEl.textContent = '저장 중...';
+      await waitForPendingUpload('s-aboutImageFile');
+      await waitForSiteUploads();
+      const aboutImg = $('#s-aboutImageFile').dataset.uploadedUrl || currentSite.about?.image || '';
+
+      // 카카오맵 코드를 새로 붙여넣었으면 파싱해서 사용, 안 붙여넣었으면 기존 값을 그대로 유지
+      const kakaoRaw = $('#s-kakaoMapCode').value;
+      const parsedKakao = parseKakaoMapCode(kakaoRaw);
+      if (parsedKakao && parsedKakao.error) {
+        statusEl.textContent = '카카오맵 코드를 다시 확인해주세요 (지도 이미지 주소를 찾을 수 없습니다).';
+        statusEl.style.color = '#b3413a';
+        return;
+      }
+      const kakaoMapImageUrl = parsedKakao ? parsedKakao.imageUrl : currentSite.contact?.kakaoMapImageUrl || '';
+      const kakaoMapLinkUrl = parsedKakao ? parsedKakao.linkUrl : currentSite.contact?.kakaoMapLinkUrl || '';
+
+      const payload = {
+        churchName: $('#s-churchName').value.trim(),
+        sermonsIntro: $('#s-sermonsIntro').value.trim(),
+        sermonCardPhotos: sermonCardPhotos,
+        design: {
+          headingFont: $('#s-headingFont').value,
+          bodyFont: $('#s-bodyFont').value
+        },
+        hero: {
+          verse: $('#s-heroVerse').value.trim(),
+          verseRef: $('#s-heroVerseRef').value.trim(),
+          subtitle: $('#s-heroSubtitle').value.trim(),
+          backgroundImages: heroBackgroundImages,
+          backgroundImage: heroBackgroundImages[0] || '' // 예전 방식과의 호환을 위해 첫 사진도 같이 저장
+        },
+        about: {
+          greeting: $('#s-aboutGreeting').value.trim(),
+          body: $('#s-aboutBody').value.trim(),
+          history: $('#s-aboutHistory').value.trim(),
+          pastorName: $('#s-pastorName').value.trim(),
+          pastorMessage: $('#s-pastorMessage').value.trim(),
+          image: aboutImg
+        },
+        serviceTimes: collectServiceTimes(),
+        contact: {
+          address: $('#s-address').value.trim(),
+          addressNote: $('#s-addressNote').value.trim(),
+          phone: $('#s-phone').value.trim(),
+          email: $('#s-email').value.trim(),
+          mapEmbedUrl: $('#s-mapUrl').value.trim(),
+          kakaoMapImageUrl,
+          kakaoMapLinkUrl
+        },
+        offering: {
+          bank: $('#s-offeringBank').value.trim(),
+          account: $('#s-offeringAccount').value.trim(),
+          holder: $('#s-offeringHolder').value.trim(),
+          note: $('#s-offeringNote').value.trim()
+        },
+        sns: {
+          youtube: $('#s-snsYoutube').value.trim(),
+          instagram: $('#s-snsInstagram').value.trim(),
+          facebook: $('#s-snsFacebook').value.trim(),
+          band: $('#s-snsBand').value.trim()
+        },
+        missions: {
+          title: $('#s-missionsTitle').value.trim(),
+          subtitle: $('#s-missionsSubtitle').value.trim()
         }
-      });
-      return closest;
-    }
+      };
 
-    function highlightOnly(cell) {
-      $$('.praise-theme-cell', dial).forEach((c) => c.classList.toggle('is-active', c === cell));
-    }
-
-    function onSettle() {
-      const cell = findCenteredCell();
-      if (!cell) return;
-      highlightOnly(cell);
-      const id = cell.dataset.id || null;
-      if (id !== activePraiseCategory) {
-        const opt = options[Number(cell.dataset.index)];
-        applyPraiseCategoryFilterFromDial(id, opt ? opt.name : '모든 찬양');
+      try {
+        currentSite = await api('/api/admin/site', { method: 'PUT', body: JSON.stringify(payload) });
+        statusEl.textContent = '저장되었습니다 ✓';
+        $('#s-kakaoMapCode').value = '';
+        updateKakaoMapStatus(currentSite.contact?.kakaoMapImageUrl, currentSite.contact?.kakaoMapLinkUrl);
+        setTimeout(() => (statusEl.textContent = ''), 3000);
+      } catch (err) {
+        statusEl.textContent = '';
+        alert(err.message);
       }
-    }
-
-    // 스크롤 도중엔 하이라이트만 실시간으로 옮겨주고(뭐가 가운데 올지 미리 보여줌),
-    // 실제 필터 적용은 스크롤이 완전히 멈췄을 때 한 번만 합니다.
-    dial.addEventListener('scroll', () => {
-      const cell = findCenteredCell();
-      if (cell) highlightOnly(cell);
-      clearTimeout(settleTimer);
-      settleTimer = setTimeout(onSettle, 120);
-    });
-
-    // 처음 진입 시, 현재 선택된 테마(또는 '전체')를 가운데로 맞춰둡니다.
-    // (scrollIntoView는 페이지 전체를 세로로도 끌어당기는 부작용이 있어 쓰지 않고,
-    // 다이얼 안에서만 scrollLeft를 직접 계산해서 옮깁니다)
-    requestAnimationFrame(() => {
-      const target = $(`.praise-theme-cell[data-id="${activePraiseCategory || ''}"]`, dial);
-      centerCellInDial(dial, target, false);
     });
   }
 
-  // 다이얼에서 선택되면(탭 없이) 칩·필터를 함께 동기화합니다.
-  function applyPraiseCategoryFilterFromDial(categoryId, categoryName) {
-    activePraiseCategory = categoryId;
-    if (activePraiseCategory) {
-      track('click', {
-        label: 'praise_category_filter',
-        itemType: 'praise_category',
-        itemId: activePraiseCategory,
-        itemTitle: categoryName
-      });
-    }
-    $$('.praise-chip').forEach((c) => c.classList.toggle('active', (c.dataset.id || null) === categoryId));
-    const filtered = activePraiseCategory
-      ? allPraises.filter((p) => (p.categoryIds || []).includes(activePraiseCategory))
-      : allPraises;
-    renderPraiseCards(filtered);
+  // ---------------- 메뉴 관리 ----------------
+  async function loadMenuList() {
+    const menu = await api('/api/admin/menu');
+    renderMenuList(menu.sort((a, b) => a.order - b.order));
   }
 
-  function applyPraiseCategoryFilter(categoryId, categoryName) {
-    activePraiseCategory = categoryId;
-    if (activePraiseCategory) {
-      track('click', {
-        label: 'praise_category_filter',
-        itemType: 'praise_category',
-        itemId: activePraiseCategory,
-        itemTitle: categoryName
-      });
-    }
-    $$('.praise-chip').forEach((c) => c.classList.toggle('active', (c.dataset.id || null) === categoryId));
-    const dial = $('#praise-theme-dial');
-    if (dial) {
-      const target = $(`.praise-theme-cell[data-id="${categoryId || ''}"]`, dial);
-      if (target) {
-        $$('.praise-theme-cell', dial).forEach((c) => c.classList.toggle('is-active', c === target));
-        centerCellInDial(dial, target, true);
-      }
-    }
-    const filtered = activePraiseCategory
-      ? allPraises.filter((p) => (p.categoryIds || []).includes(activePraiseCategory))
-      : allPraises;
-    renderPraiseCards(filtered);
+  function renderMenuList(menu) {
+    const container = $('#menu-list');
+    container.innerHTML = menu
+      .map(
+        (m) => `
+        <div class="list-row" data-id="${m.id}">
+          <input type="text" class="menu-label" value="${escapeAttr(m.label)}" />
+          <input type="text" class="menu-link" value="${escapeAttr(m.link)}" />
+          <button type="button" class="icon-btn move up" title="위로">↑</button>
+          <button type="button" class="icon-btn move down" title="아래로">↓</button>
+          <button type="button" class="icon-btn save-menu" title="저장">저장</button>
+          <button type="button" class="icon-btn remove-menu" title="삭제">삭제</button>
+        </div>`
+      )
+      .join('');
+
+    $$('#menu-list .save-menu').forEach((btn) =>
+      btn.addEventListener('click', async (e) => {
+        const row = e.target.closest('.list-row');
+        const id = row.dataset.id;
+        await api(`/api/admin/menu/${id}`, {
+          method: 'PUT',
+          body: JSON.stringify({
+            label: row.querySelector('.menu-label').value.trim(),
+            link: row.querySelector('.menu-link').value.trim()
+          })
+        });
+        flashSaved(btn);
+      })
+    );
+
+    $$('#menu-list .remove-menu').forEach((btn) =>
+      btn.addEventListener('click', async (e) => {
+        if (!confirm('이 메뉴를 삭제하시겠습니까?')) return;
+        const row = e.target.closest('.list-row');
+        await api(`/api/admin/menu/${row.dataset.id}`, { method: 'DELETE' });
+        loadMenuList();
+      })
+    );
+
+    $$('#menu-list .move.up').forEach((btn) =>
+      btn.addEventListener('click', (e) => {
+        const row = e.target.closest('.list-row');
+        const prev = row.previousElementSibling;
+        if (prev) container.insertBefore(row, prev);
+        saveMenuOrder(container);
+      })
+    );
+    $$('#menu-list .move.down').forEach((btn) =>
+      btn.addEventListener('click', (e) => {
+        const row = e.target.closest('.list-row');
+        const next = row.nextElementSibling;
+        if (next) container.insertBefore(next, row);
+        saveMenuOrder(container);
+      })
+    );
   }
 
-  async function loadPraises() {
-    const [praises, categories] = await Promise.all([
-      getJSON('/api/praises'),
-      getJSON('/api/praise-categories')
-    ]);
-    allPraises = praises || [];
-    praiseCategoryList = categories || [];
-    const section = $('#praise');
-    if (allPraises.length === 0) {
-      section.style.display = 'none';
-      return;
-    }
-    section.style.display = '';
-    renderPraiseCategoryChips();
-    renderPraiseCards(allPraises);
-    applyPraiseBackground(sitePraiseConfig);
+  async function saveMenuOrder(container) {
+    const order = $$('.list-row', container).map((row) => row.dataset.id);
+    await api('/api/admin/menu-reorder', { method: 'PUT', body: JSON.stringify({ order }) });
   }
 
-  // ---------------- 게시판 (소식·활동) ----------------
-  let allPosts = [];
-
-  function renderContent(content = '') {
-    if (/<[a-z][\s\S]*>/i.test(content)) return content;
-    return escapeHtml(content).replace(/\n/g, '<br>');
+  function flashSaved(btn) {
+    const original = btn.textContent;
+    btn.textContent = '완료✓';
+    setTimeout(() => (btn.textContent = original), 1500);
   }
 
-  function plainPreview(content = '', maxLen = 90) {
+  function setupMenuEditor() {
+    $('#add-menu-btn').addEventListener('click', async () => {
+      const label = $('#new-menu-label').value.trim();
+      const link = $('#new-menu-link').value.trim();
+      if (!label || !link) return alert('메뉴 이름과 연결 위치를 모두 입력해주세요.');
+      await api('/api/admin/menu', { method: 'POST', body: JSON.stringify({ label, link }) });
+      $('#new-menu-label').value = '';
+      $('#new-menu-link').value = '';
+      loadMenuList();
+    });
+  }
+
+  // ---------------- 게시판 관리 ----------------
+  async function loadPostList() {
+    const posts = await api('/api/admin/posts');
+    renderPostList(posts);
+  }
+
+  let currentPosts = [];
+
+  function plainTextFromHtml(html = '') {
     const div = document.createElement('div');
-    div.innerHTML = content;
-    const text = (div.textContent || '').replace(/\s+/g, ' ').trim();
-    return text.length > maxLen ? text.slice(0, maxLen) + '…' : text;
+    div.innerHTML = html;
+    return (div.textContent || '').replace(/\s+/g, ' ').trim();
   }
-
-  function attachmentIcon() {
-    return `<svg class="icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21.44 11.05l-9.19 9.19a6 6 0 01-8.49-8.49l9.19-9.19a4 4 0 015.66 5.66l-9.2 9.19a2 2 0 01-2.83-2.83l8.49-8.48"/></svg>`;
-  }
-
-  function isImageAttachment(a) {
-    return /\.(jpe?g|png|gif|webp|bmp|svg)$/i.test(a.url || a.name || '');
-  }
-
-  function thumbnailFor(post) {
-    if (post.image) return post.image;
-    const firstImg = (post.attachments || []).find(isImageAttachment);
-    return firstImg ? firstImg.url : '';
-  }
-
-  const BOARD_MOBILE_LIMITS = { 소식: 3, 활동: 3, 주보: 1 };
-  const BOARD_PAGE_SIZE = 9;
-  const isBoardMobile = () => window.matchMedia('(max-width: 900px)').matches;
-
-  let boardCategory = '전체';
-  let boardPage = 1;
 
   const CATEGORY_LABELS = { 활동: '친교' };
   const categoryLabel = (cat) => CATEGORY_LABELS[cat] || cat;
 
-  function boardCardHTML(p, i = 0) {
-    const thumb = thumbnailFor(p);
-    return `
-      <div class="board-card reveal reveal-delay-${(i % 6) + 1}" data-id="${p.id}" data-title="${escapeHtml(p.title || '')}">
-        <div class="board-thumb">
-          ${thumb ? `<img src="${thumb}" alt="${escapeHtml(p.title)}" loading="lazy" />` : `<div class="board-thumb-empty">${escapeHtml((p.category || '')[0] || '소')}</div>`}
-        </div>
-        <div class="board-info">
-          <div class="board-top">
-            <span class="badge">${escapeHtml(categoryLabel(p.category))}</span>
-            <span class="date">${escapeHtml(p.date)}</span>
+  function renderPostList(posts) {
+    currentPosts = posts;
+    const container = $('#post-list');
+    if (posts.length === 0) {
+      container.innerHTML = `<p class="hint">등록된 게시글이 없습니다.</p>`;
+      return;
+    }
+    container.innerHTML = posts
+      .map((p) => {
+        const preview = plainTextFromHtml(p.content);
+        return `
+        <div class="post-row${p.id === editingPostId ? ' editing' : ''}" data-id="${p.id}">
+          <span class="badge">${escapeAttr(categoryLabel(p.category))}</span>
+          <div>
+            <div class="title">${p.pinned ? '📌 ' : ''}${escapeHtml(p.title)}</div>
+            <div class="meta">${escapeHtml(preview.slice(0, 60))}${preview.length > 60 ? '…' : ''}</div>
           </div>
-          <h4>${p.pinned ? '<span class="pin">📌</span>' : ''}${escapeHtml(p.title)}</h4>
-          <p>${escapeHtml(plainPreview(p.content))}</p>
-        </div>
-      </div>`;
-  }
+          <span class="date">${escapeAttr(p.date)}</span>
+          <button type="button" class="icon-btn edit-post">수정</button>
+          <button type="button" class="icon-btn remove-post">삭제</button>
+        </div>`;
+      })
+      .join('');
 
-  function pickWithCategoryLimits(posts, limits) {
-    const counts = {};
-    const result = [];
-    posts.forEach((p) => {
-      const limit = limits[p.category];
-      if (limit === undefined) return;
-      counts[p.category] = counts[p.category] || 0;
-      if (counts[p.category] < limit) {
-        result.push(p);
-        counts[p.category]++;
-      }
-    });
-    return result;
-  }
-
-  function renderBoardPagination(totalItems) {
-    const pager = $('#board-pagination');
-    const totalPages = Math.ceil(totalItems / BOARD_PAGE_SIZE);
-
-    if (isBoardMobile() || totalPages <= 1) {
-      pager.innerHTML = '';
-      return;
-    }
-
-    const buttons = [];
-    buttons.push(
-      `<button class="board-page-btn board-page-nav" data-page="${boardPage - 1}" ${boardPage === 1 ? 'disabled' : ''} aria-label="이전 페이지">‹</button>`
+    $$('#post-list .remove-post').forEach((btn) =>
+      btn.addEventListener('click', async (e) => {
+        if (!confirm('이 게시글을 삭제하시겠습니까?')) return;
+        const id = e.target.closest('.post-row').dataset.id;
+        await api(`/api/admin/posts/${id}`, { method: 'DELETE' });
+        if (id === editingPostId) resetPostForm();
+        loadPostList();
+      })
     );
-    for (let i = 1; i <= totalPages; i++) {
-      buttons.push(
-        `<button class="board-page-btn${i === boardPage ? ' active' : ''}" data-page="${i}">${i}</button>`
-      );
-    }
-    buttons.push(
-      `<button class="board-page-btn board-page-nav" data-page="${boardPage + 1}" ${boardPage === totalPages ? 'disabled' : ''} aria-label="다음 페이지">›</button>`
+
+    $$('#post-list .edit-post').forEach((btn) =>
+      btn.addEventListener('click', (e) => {
+        const id = e.target.closest('.post-row').dataset.id;
+        const post = currentPosts.find((p) => p.id === id);
+        if (post) loadPostIntoForm(post);
+      })
     );
-    pager.innerHTML = buttons.join('');
-
-    $$('.board-page-btn', pager).forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const page = Number(btn.dataset.page);
-        if (!page || page === boardPage) return;
-        boardPage = page;
-        renderBoard();
-        $('#board').scrollIntoView({ block: 'start', behavior: 'smooth' });
-      });
-    });
   }
 
-  function renderBoard() {
-    const list = $('#board-list');
-    const category = boardCategory;
-    const byCategory = category === '전체' ? allPosts : allPosts.filter((p) => p.category === category);
-
-    let pageItems;
-    let totalForPagination;
-
-    if (isBoardMobile()) {
-      if (category === '전체') {
-        pageItems = pickWithCategoryLimits(allPosts, BOARD_MOBILE_LIMITS);
-      } else {
-        const limit = BOARD_MOBILE_LIMITS[category];
-        pageItems = limit !== undefined ? byCategory.slice(0, limit) : byCategory;
-      }
-      totalForPagination = 0;
-    } else {
-      const totalPages = Math.max(1, Math.ceil(byCategory.length / BOARD_PAGE_SIZE));
-      if (boardPage > totalPages) boardPage = totalPages;
-      const start = (boardPage - 1) * BOARD_PAGE_SIZE;
-      pageItems = byCategory.slice(start, start + BOARD_PAGE_SIZE);
-      totalForPagination = byCategory.length;
-    }
-
-    if (pageItems.length === 0) {
-      list.innerHTML = `<div class="board-empty">등록된 게시글이 없습니다.</div>`;
-    } else {
-      list.innerHTML = pageItems.map((p, i) => boardCardHTML(p, i)).join('');
-    }
-
-    renderBoardPagination(totalForPagination);
-    observeReveals(list);
-
-    $$('.board-card').forEach((item) => {
-      item.addEventListener('click', () => {
-        track('click', {
-          label: 'board_card',
-          itemType: 'board',
-          itemId: item.dataset.id,
-          itemTitle: item.dataset.title
-        });
-        openPostModal(item.dataset.id);
-      });
-    });
+  function escapeHtml(str = '') {
+    return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
-  function openPostModal(id) {
-    const post = allPosts.find((p) => p.id === id);
-    if (!post) return;
+  let editingPostId = null;
+  let pendingAttachments = []; // [{name, url}]
 
-    $('#post-modal-badge').textContent = categoryLabel(post.category) || '';
-    $('#post-modal-date').textContent = post.date || '';
-    $('#post-modal-title').textContent = post.title || '';
-    $('#post-modal-content').innerHTML = renderContent(post.content);
-
-    // 본문 안에 있는 이미지들도 클릭하면 확대해서 볼 수 있게 합니다.
-    $$('#post-modal-content img').forEach((img) => {
-      img.addEventListener('click', () => openImageLightbox(img.src, ''));
-    });
-
-    const imgEl = $('#post-modal-image');
-    if (post.image) {
-      imgEl.src = post.image;
-      imgEl.alt = post.title || '';
-      imgEl.onclick = () => openImageLightbox(post.image, post.title || '');
-    } else {
-      imgEl.removeAttribute('src');
-      imgEl.onclick = null;
-    }
-
-    const attachBox = $('#post-modal-attachments');
-    const attachments = Array.isArray(post.attachments) ? post.attachments : [];
-    const imageAttachments = attachments.filter(isImageAttachment);
-    const fileAttachments = attachments.filter((a) => !isImageAttachment(a));
-
-    const imagesHtml = imageAttachments
+  function renderAttachmentEditList() {
+    const box = $('#p-attachmentList');
+    box.innerHTML = pendingAttachments
       .map(
-        (a) => `<img class="attachment-image" src="${a.url}" alt="${escapeHtml(a.name || '첨부 이미지')}" loading="lazy" />`
+        (a, idx) => `
+        <div class="attachment-edit-item" data-idx="${idx}">
+          <span>${escapeHtml(a.name)}</span>
+          <button type="button" class="remove-attachment">삭제</button>
+        </div>`
       )
       .join('');
 
-    const filesHtml = fileAttachments
-      .map(
-        (a) =>
-          `<a class="attachment-item" href="${a.url}" data-name="${escapeHtml(a.name || '첨부파일')}" ${
-            isPreviewable(a.name || '', a.url) ? 'data-preview="1"' : 'target="_blank" rel="noopener"'
-          }>${attachmentIcon()}<span>${escapeHtml(a.name || '첨부파일')}</span></a>`
-      )
-      .join('');
-
-    attachBox.innerHTML = imagesHtml + filesHtml;
-    $$('#post-modal-attachments .attachment-image').forEach((img) => {
-      img.addEventListener('click', () => openImageLightbox(img.src, img.alt || ''));
-    });
-    $$('#post-modal-attachments [data-preview="1"]').forEach((el) => {
-      el.addEventListener('click', (e) => {
-        e.preventDefault();
-        openFileModal(el.getAttribute('href'), el.dataset.name);
-      });
-    });
-
-    $('#post-modal').classList.add('open');
-    lockScroll();
+    $$('#p-attachmentList .remove-attachment').forEach((btn) =>
+      btn.addEventListener('click', (e) => {
+        const idx = Number(e.target.closest('.attachment-edit-item').dataset.idx);
+        pendingAttachments.splice(idx, 1);
+        renderAttachmentEditList();
+      })
+    );
   }
 
-  function closePostModal() {
-    $('#post-modal').classList.remove('open');
-    unlockScroll();
-  }
-  $('#post-modal-close').addEventListener('click', closePostModal);
-  $('#post-modal').addEventListener('click', (e) => {
-    if (e.target.id === 'post-modal') closePostModal();
-  });
-
-  async function loadBoard() {
-    allPosts = await getJSON('/api/posts');
-    boardCategory = '전체';
-    boardPage = 1;
-    renderBoard();
-
-    $$('.board-tab').forEach((tab) => {
-      tab.addEventListener('click', () => {
-        $$('.board-tab').forEach((t) => t.classList.remove('active'));
-        tab.classList.add('active');
-        boardCategory = tab.dataset.cat;
-        boardPage = 1;
-        renderBoard();
-      });
-    });
-
-    window.matchMedia('(max-width: 900px)').addEventListener('change', () => {
-      boardPage = 1;
-      renderBoard();
-    });
+  function resetPostForm() {
+    editingPostId = null;
+    pendingAttachments = [];
+    $('#post-form-title').textContent = '새 글 작성';
+    $('#add-post-btn').textContent = '게시글 등록';
+    $('#cancel-edit-btn').hidden = true;
+    $('#p-title').value = '';
+    postEditor.setContents([]);
+    $('#p-pinned').checked = false;
+    $('#p-imageFile').value = '';
+    $('#p-imageFile').dataset.uploadedUrl = '';
+    $('#p-imagePreview').src = '';
+    $('#p-attachmentFiles').value = '';
+    renderAttachmentEditList();
+    $('#p-date').value = new Date().toISOString().slice(0, 10);
+    $('#p-category').value = '소식';
   }
 
-  // ---------------- 예배 안내 배경 사진 ----------------
-  // object-fit:cover 상태(줌 100%)에서 이미 화면을 꽉 채우고 있기 때문에, 그 상태에서
-  // 초점 좌표를 기준으로 transform: scale()만 키워주면 어떤 배율에서도 빈 공간 없이
-  // 항상 그 지점을 중심으로 확대됩니다.
-  function applySectionBackground(sectionSelector, imgSelector, overlaySelector, cfg) {
-    const section = $(sectionSelector);
-    const img = $(imgSelector);
-    const overlay = $(overlaySelector);
-    if (!section || !img || !overlay) return;
-    if (cfg && cfg.backgroundImage) {
-      const focalX = cfg.focalX != null ? cfg.focalX : 50;
-      const focalY = cfg.focalY != null ? cfg.focalY : 50;
-      const zoom = cfg.zoom || 100;
-      img.src = cfg.backgroundImage;
-      img.style.objectPosition = `${focalX}% ${focalY}%`;
-      img.style.transformOrigin = `${focalX}% ${focalY}%`;
-      img.style.transform = `scale(${zoom / 100})`;
-      img.classList.add('is-visible');
-      overlay.classList.add('is-visible');
-      section.classList.add('has-bg-photo');
-    } else {
-      img.removeAttribute('src');
-      img.classList.remove('is-visible');
-      overlay.classList.remove('is-visible');
-      section.classList.remove('has-bg-photo');
-    }
-  }
-  function applyServiceBackground(svc) {
-    applySectionBackground('#service', '#service-bg-img', '.service-bg-overlay', svc);
-  }
-  function applyPraiseBackground(cfg) {
-    applySectionBackground('#praise', '#praise-bg-img', '.praise-bg-overlay', cfg);
-  }
-  function applySermonBackground(cfg) {
-    applySectionBackground('#sermons', '#sermon-bg-img', '.sermon-bg-overlay', cfg);
-  }
-  function applyMissionsBackground(cfg) {
-    applySectionBackground('#missions', '#missions-bg-img', '.missions-bg-overlay', cfg);
+  function loadPostIntoForm(post) {
+    editingPostId = post.id;
+    pendingAttachments = Array.isArray(post.attachments) ? [...post.attachments] : [];
+    $('#post-form-title').textContent = '게시글 수정';
+    $('#add-post-btn').textContent = '수정 저장';
+    $('#cancel-edit-btn').hidden = false;
+    $('#p-category').value = post.category || '소식';
+    $('#p-date').value = post.date || '';
+    $('#p-title').value = post.title || '';
+    postEditor.root.innerHTML = post.content || '';
+    $('#p-pinned').checked = !!post.pinned;
+    $('#p-imageFile').value = '';
+    $('#p-imageFile').dataset.uploadedUrl = post.image || '';
+    $('#p-imagePreview').src = post.image || '';
+    renderAttachmentEditList();
+    $('#panel-board').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
 
-  // ---------------- 섬김 안내 (예배 위원 / 식사 봉사) ----------------
-  function applyMinistryDuty(duty) {
-    const fab = $('#ministry-duty-fab');
-    const worshipEl = $('#ministry-duty-worship');
-    const mealEl = $('#ministry-duty-meal');
-    if (!fab) return;
-    const worship = (duty && duty.worship) || '';
-    const meal = (duty && duty.meal) || '';
-    if (!worship && !meal) {
-      fab.style.display = 'none';
-      return;
-    }
-    const titleEl = $('#ministry-duty-title');
-    const worshipLabelEl = $('#ministry-duty-worship-label');
-    const mealLabelEl = $('#ministry-duty-meal-label');
-    if (titleEl) titleEl.textContent = (duty && duty.title) || '이번 주 섬김 안내';
-    if (worshipLabelEl) worshipLabelEl.textContent = (duty && duty.worshipLabel) || '예배 위원';
-    if (mealLabelEl) mealLabelEl.textContent = (duty && duty.mealLabel) || '주일 식사 봉사 당번';
-    if (worshipEl) worshipEl.textContent = worship || '등록된 내용이 없습니다.';
-    if (mealEl) mealEl.textContent = meal || '등록된 내용이 없습니다.';
-    fab.style.display = ''; // 인라인 display:none 해제 → CSS(모바일 전용 flex)가 적용됨
-  }
-
-  // 모바일에서 카드를 스와이프할 때, 화면 중앙에 가장 가까운 카드에 맞춰 점을 켜줍니다
-  // 가로 스와이프 캐러셀이 마지막 카드에서 처음으로 돌아갈 때, 역방향으로 튕기지 않고
-  // 같은 방향으로 계속 넘어가는 것처럼 보이게 합니다. (첫 카드를 맨 뒤에 하나 복제해두고,
-  // 그 복제본까지 도착하면 애니메이션 없이 진짜 첫 카드 위치로 순간 이동합니다.)
-  // row 안에는 [마지막 카드 복제본, 실제 카드 1~N, 첫 카드 복제본] 순서로 들어있어야 합니다.
-  // (호출하는 쪽에서 이렇게 구성해줍니다.) 그래야 자동 넘김과 손가락 스와이프 둘 다
-  // 양쪽 방향으로 끝없이 순환하는 것처럼 보입니다.
-  function setupInfiniteAutoScroll(row, itemCount, intervalMs, onPosChange) {
-    if (!row || itemCount <= 1) return () => {};
-    let pos = 1; // 1..itemCount = 실제 카드, 0 = 마지막 복제본, itemCount+1 = 첫 복제본
-    let tickTimer = null;
-    let settleTimer = null;
-    let waitingForSettle = false;
-    let destroyed = false;
-    let animating = false; // 제 코드가 만든 애니메이션이 지금 진행 중인지
-
-    function notifyPos() {
-      if (onPosChange) onPosChange(pos - 1); // 0-based 실제 카드 인덱스로 알려줌
-    }
-
-    function finishAnimating() {
-      // scrollLeft를 직접 바꾼 직후엔 브라우저가 'scroll' 이벤트를 살짝 늦게(비동기로) 보내는데,
-      // 그 이벤트가 뒤늦게 도착했을 때도 여전히 "내가 한 것"으로 인식되도록 짧은 유예를 둡니다.
-      setTimeout(() => {
-        animating = false;
-      }, 60);
-    }
-
-    function easeInOutQuad(t) {
-      return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2;
-    }
-
-    let animGen = 0; // 애니메이션 세대 번호 — 새 애니메이션이 시작되면 이전 애니메이션은 스스로 멈춥니다.
-    function animateScrollTo(targetLeft, duration, done) {
-      const myGen = ++animGen;
-      const startLeft = row.scrollLeft;
-      const distance = targetLeft - startLeft;
-      const startTime = performance.now();
-      function step(now) {
-        if (destroyed || myGen !== animGen) return; // 더 최신 애니메이션에 밀렸으면 즉시 멈춤
-        const elapsed = now - startTime;
-        const t = Math.min(1, elapsed / duration);
-        row.scrollLeft = startLeft + distance * easeInOutQuad(t);
-        if (t < 1) {
-          requestAnimationFrame(step);
-        } else if (done) {
-          done();
-        }
+  function setupPostEditor() {
+    $('#p-attachmentFiles').addEventListener('change', async () => {
+      const files = $('#p-attachmentFiles').files;
+      if (!files || files.length === 0) return;
+      try {
+        const uploaded = await uploadAttachments(files);
+        pendingAttachments = pendingAttachments.concat(uploaded);
+        renderAttachmentEditList();
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        $('#p-attachmentFiles').value = '';
       }
-      requestAnimationFrame(step);
-    }
+    });
 
-    // 복제본 자리에 도착했으면, 애니메이션 없이 즉시 진짜 카드 자리로 순간 이동합니다.
-    // (복제본과 내용이 똑같아서 티가 안 남)
-    function correctIfOnClone() {
-      const pageWidth = row.clientWidth || 1;
-      if (pos === itemCount + 1) {
-        row.scrollLeft = 1 * pageWidth;
-        pos = 1;
-        notifyPos();
-      } else if (pos === 0) {
-        row.scrollLeft = itemCount * pageWidth;
-        pos = itemCount;
-        notifyPos();
-      }
-    }
+    $('#cancel-edit-btn').addEventListener('click', () => {
+      resetPostForm();
+      loadPostList();
+    });
 
-    function scheduleNext() {
-      if (tickTimer) clearTimeout(tickTimer);
-      if (!destroyed) tickTimer = setTimeout(goNext, intervalMs);
-    }
+    $('#add-post-btn').addEventListener('click', async () => {
+      const title = $('#p-title').value.trim();
+      const content = postEditor.root.innerHTML;
+      const isEmpty = postEditor.getText().trim().length === 0;
+      if (!title || isEmpty) return alert('제목과 내용을 입력해주세요.');
+      await waitForPendingUpload('p-imageFile');
 
-    function goNext() {
-      if (destroyed || animating) return;
-      animating = true;
-      const pageWidth = row.clientWidth || 1;
-      pos += 1;
-      // 마지막→첫번째(또는 그 반대)로 넘어가는 슬라이드라면, 애니메이션이 끝난 뒤가 아니라
-      // "지금 이 슬라이드가 시작되는 순간"부터 점을 미리 업데이트합니다. 그래야 슬라이드가
-      // 진행되는 0.5초 내내 점이 카드와 같이 움직이는 것처럼 느껴지고, 슬라이드가 다 끝난
-      // 뒤에야 점이 뒤늦게 딸깍 바뀌는 "분리된 느낌"이 없어집니다.
-      if (pos === itemCount + 1) {
-        if (onPosChange) onPosChange(0);
-      } else if (pos === 0) {
-        if (onPosChange) onPosChange(itemCount - 1);
+      const payload = {
+        category: $('#p-category').value,
+        date: $('#p-date').value || new Date().toISOString().slice(0, 10),
+        title,
+        content,
+        image: $('#p-imageFile').dataset.uploadedUrl || '',
+        attachments: pendingAttachments,
+        pinned: $('#p-pinned').checked
+      };
+
+      if (editingPostId) {
+        await api(`/api/admin/posts/${editingPostId}`, { method: 'PUT', body: JSON.stringify(payload) });
       } else {
-        notifyPos();
+        await api('/api/admin/posts', { method: 'POST', body: JSON.stringify(payload) });
       }
-      row.style.scrollSnapType = 'none'; // 이 애니메이션이 진행되는 짧은 순간만 스냅과 충돌하지 않도록 잠시 꺼둠
-      animateScrollTo(pos * pageWidth, 500, () => {
-        if (destroyed) return;
-        correctIfOnClone(); // animating이 아직 true인 상태에서 처리 — 이 안에서 생기는 scrollLeft 변화도 "내가 한 것"으로 인식되게
-        finishAnimating();
-        row.style.scrollSnapType = ''; // 다 움직였으니 바로 복구
-        scheduleNext();
-      });
-    }
 
-    // 터치/포인터 제스처를 직접 해석하려 하지 않고, "실제 스크롤 위치가 지금 움직이고
-    // 있는가"만 그대로 관찰합니다. 스크롤이 멈추면(150ms 동안 추가 변화 없음) 그 시점의
-    // 실제 위치를 기준으로 다시 맞추고 다음 자동 넘김을 예약합니다. 이 방식은 손가락으로
-    // 얼마나 빠르게 여러 번 연속으로 넘기든, 세로로 스크롤하든(이 요소 자체의 가로 스크롤
-    // 위치는 안 바뀌므로 애초에 이 리스너가 반응하지 않음) 항상 실제 상태와 어긋나지 않습니다.
-    row.addEventListener(
-      'scroll',
-      () => {
-        if (animating) return; // 제 코드가 만든 스크롤이면 무시 (goNext 쪽에서 알아서 처리)
-        if (tickTimer) {
-          clearTimeout(tickTimer);
-          tickTimer = null;
-        }
-        if (waitingForSettle) return; // 이미 "정착 감지"를 걸어둔 상태면 중복으로 또 걸지 않음
-        waitingForSettle = true;
-        const onSettle = () => {
-          waitingForSettle = false;
-          settleTimer = null;
-          if (destroyed) return;
-          const pageWidth = row.clientWidth || 1;
-          pos = Math.round(row.scrollLeft / pageWidth);
-          animating = true; // correctIfOnClone()이 만드는 scrollLeft 변화도 "내가 한 것"으로 인식되게
-          correctIfOnClone();
-          finishAnimating();
-          notifyPos();
-          scheduleNext();
-        };
-        if ('onscrollend' in window) {
-          // scrollend는 "지금 이 스와이프"가 실제로 멈추는 시점에 정확히 한 번 울립니다.
-          // 연속으로 빠르게 여러 번 스와이프해도, 스와이프 하나하나가 끝날 때마다 바로
-          // 보정되어서 다음 스와이프가 항상 정상적으로 이어집니다.
-          row.addEventListener('scrollend', onSettle, { once: true });
-        } else {
-          settleTimer = setTimeout(onSettle, 150);
-        }
-      },
-      { passive: true }
-    );
-
-    // 폰트 로딩 등으로 레이아웃이 아직 다 안 잡힌 상태에서 카드 폭을 재면 계산이 어긋날 수
-    // 있어서, 레이아웃이 확실히 자리잡은 다음(폰트 로딩 완료 + 한 프레임 더) 시작합니다.
-    function begin() {
-      // 시작 위치를 진짜 첫 카드(1번)로 맞춰둡니다 (0번은 복제본이라서요).
-      row.scrollLeft = row.clientWidth || 0;
-      scheduleNext();
-    }
-    const fontsReady = document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve();
-    fontsReady.then(() => {
-      if (destroyed) return;
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          if (!destroyed) begin();
-        });
-      });
+      resetPostForm();
+      loadPostList();
     });
-
-    return function destroy() {
-      destroyed = true;
-      if (tickTimer) clearTimeout(tickTimer);
-      if (settleTimer) clearTimeout(settleTimer);
-    };
   }
 
+  // ---------------- 오늘의 큐티 관리 ----------------
+  let currentQtList = [];
+  let editingQtId = null;
 
-  function setupServiceDots(grid, count) {
-    const dotsWrap = $('#service-dots');
-    if (!dotsWrap) return null;
-    if (!count) {
-      dotsWrap.innerHTML = '';
-      return null;
-    }
-    dotsWrap.innerHTML = Array.from({ length: count })
-      .map((_, i) => `<span class="dot${i === 0 ? ' is-active' : ''}"></span>`)
-      .join('');
-    const dots = $$('.dot', dotsWrap);
-    const cards = $$('.service-card', grid);
-    if (!cards.length) return null;
-
-    function setActiveByIndex(idx) {
-      const clamped = Math.max(0, Math.min(dots.length - 1, idx));
-      dots.forEach((dot, i) => dot.classList.toggle('is-active', i === clamped));
-    }
-
-    return setActiveByIndex;
+  async function loadQtList() {
+    const list = await api('/api/admin/qt');
+    renderQtList(list);
   }
 
-  // 찬양 캐러셀: 9개씩 한 페이지로 넘어갈 때, 페이지 단위로 점을 켜줍니다 (모바일 전용)
-  function setupPraiseDots(grid, count) {
-    const dotsWrap = $('#praise-dots');
-    if (!dotsWrap) return;
-    const totalPages = Math.ceil(count / 9);
-    if (!count || totalPages <= 1) {
-      dotsWrap.innerHTML = '';
-      return;
-    }
-    dotsWrap.innerHTML = Array.from({ length: totalPages })
-      .map((_, i) => `<span class="dot${i === 0 ? ' is-active' : ''}"></span>`)
-      .join('');
-    const dots = $$('.dot', dotsWrap);
-
-    let ticking = false;
-    function updateActiveDot() {
-      ticking = false;
-      const pageWidth = grid.clientWidth || 1;
-      const pageIndex = Math.round(grid.scrollLeft / pageWidth);
-      const clamped = Math.max(0, Math.min(totalPages - 1, pageIndex));
-      dots.forEach((dot, i) => dot.classList.toggle('is-active', i === clamped));
-    }
-    grid.addEventListener(
-      'scroll',
-      () => {
-        if (!ticking) {
-          ticking = true;
-          requestAnimationFrame(updateActiveDot);
-        }
-      },
-      { passive: true }
-    );
-  }
-
-  // ---------------- 오늘의 큐티 ----------------
-  function applyQtBackground(bg) {
-    const stage = $('#qt-stage');
-    const decor = $('#qt-decor');
-    const presetGradients = {
-      navy: 'linear-gradient(180deg, #0d1526 0%, #1c2b4a 100%)',
-      gold: 'linear-gradient(160deg, #7a5c12 0%, #0d1526 70%)',
-      dawn: 'linear-gradient(160deg, #4a3a63 0%, #b06a4f 55%, #e0a86a 100%)'
-    };
-    if (bg.type === 'photo' && bg.image) {
-      stage.style.setProperty('--qt-photo-bg', `url('${bg.image}')`);
-      decor.style.display = 'none';
-    } else {
-      stage.style.setProperty('--qt-photo-bg', presetGradients[bg.preset || 'navy']);
-      decor.style.display = '';
-    }
-  }
-
-  // 아멘 개수에 따라 뱃지 단계를 정합니다. (숫자는 절대 노출하지 않고, 문구/아이콘만 바뀝니다)
-  function getQtAmenTier(amen) {
-    const n = amen || 0;
-    if (n <= 0) return null;
-    if (n === 1) return { level: 1, icon: '🙏', label: '첫 아멘이 도착했어요' };
-    if (n <= 5) return { level: 2, icon: '💛', label: '은혜를 나누고 있어요' };
-    if (n <= 9) return { level: 3, icon: '✨', label: '은혜가 번지고 있어요' };
-    if (n <= 14) return { level: 4, icon: '🔥', label: '뜨거운 은혜의 시간' };
-    return { level: 5, icon: '🎉', label: '전교인 큐티 참여 완료' };
-  }
-
-  function formatQtDate(dateStr = '') {
-    const d = new Date(dateStr);
-    if (isNaN(d)) return dateStr;
-    return `${d.getMonth() + 1}월 ${d.getDate()}일`;
-  }
-
-  function createCoverflow(carousel, cardEls, initialIndex, { onChange } = {}) {
-    const CARD_WIDTH = 340;
-    const STEP = Math.round(CARD_WIDTH * 0.64);
-    let activeIndex = initialIndex;
-
-    function layout() {
-      cardEls.forEach((card, i) => {
-        const delta = i - activeIndex;
-        const abs = Math.abs(delta);
-        const scale = delta === 0 ? 1 : abs === 1 ? 0.88 : 0.8;
-        const opacity = delta === 0 ? 1 : abs === 1 ? 0.6 : abs === 2 ? 0.22 : 0;
-        card.style.transform = `translate(-50%, -50%) translateX(${delta * STEP}px) scale(${scale})`;
-        card.style.opacity = String(opacity);
-        card.style.zIndex = String(100 - abs);
-        card.style.pointerEvents = abs > 2 ? 'none' : '';
-      });
-      if (typeof onChange === 'function') onChange(activeIndex);
-    }
-
-    function goTo(i) {
-      const next = Math.max(0, Math.min(cardEls.length - 1, i));
-      if (next === activeIndex) return;
-      activeIndex = next;
-      layout();
-    }
-
-    cardEls.forEach((card, i) => {
-      card.addEventListener('click', (e) => {
-        if (i !== activeIndex) {
-          e.preventDefault();
-          goTo(i);
-        }
-      });
-    });
-
-    let isDown = false;
-    let dragged = false;
-    let startX = 0;
-
-    carousel.addEventListener('pointerdown', (e) => {
-      isDown = true;
-      dragged = false;
-      startX = e.clientX;
-      carousel.classList.add('dragging');
-    });
-    carousel.addEventListener('pointermove', (e) => {
-      if (!isDown) return;
-      if (!dragged && Math.abs(e.clientX - startX) > 15) {
-        dragged = true;
-        carousel.setPointerCapture(e.pointerId);
-      }
-    });
-    const finishDrag = (e) => {
-      if (carousel.hasPointerCapture && carousel.hasPointerCapture(e.pointerId)) {
-        carousel.releasePointerCapture(e.pointerId);
-      }
-      if (!isDown) return;
-      isDown = false;
-      carousel.classList.remove('dragging');
-      if (!dragged) return;
-      const dx = e.clientX - startX;
-      if (dx < -40) goTo(activeIndex + 1);
-      else if (dx > 40) goTo(activeIndex - 1);
-    };
-    carousel.addEventListener('pointerup', finishDrag);
-    carousel.addEventListener('pointercancel', finishDrag);
-    carousel.addEventListener(
-      'click',
-      (e) => {
-        if (dragged) {
-          e.preventDefault();
-          e.stopPropagation();
-        }
-      },
-      true
-    );
-
-    layout();
-    return {
-      goTo,
-      next: () => goTo(activeIndex + 1),
-      prev: () => goTo(activeIndex - 1),
-      get activeIndex() {
-        return activeIndex;
-      }
-    };
-  }
-
-  async function loadQT() {
-    const list = await getJSON('/api/qt');
-    const stage = $('#qt-stage');
-    const carousel = $('#qt-carousel');
-    const trackEl = $('#qt-carousel-track');
-    const navPrev = $('#qt-nav-prev');
-    const navNext = $('#qt-nav-next');
-    const toggleWrap = $('.qt-archive-toggle-wrap');
-    const archiveList = $('#qt-archive-list');
-
+  function renderQtList(list) {
+    currentQtList = list;
+    const container = $('#qt-list');
     if (!list || list.length === 0) {
-      trackEl.innerHTML = `<p class="qt-empty">아직 등록된 큐티가 없습니다.</p>`;
-      navPrev.style.display = 'none';
-      navNext.style.display = 'none';
-      toggleWrap.style.display = 'none';
+      container.innerHTML = `<p class="hint">등록된 큐티가 없습니다.</p>`;
       return;
     }
-
-    const [latest, ...rest] = list;
-    const isDesktop = window.matchMedia('(min-width: 861px)').matches;
-
-    const carouselPast = isDesktop ? rest.slice(0, 5).reverse() : [];
-
-    const archiveCardHtml = (q) => `
-      <a class="qt-card qt-card--archive" href="/qt/${q.id}?from=home" data-id="${q.id}" data-title="${escapeHtml(q.title || '')}">
-        <span class="qt-badge qt-badge--archive">${formatQtDate(q.date)}</span>
-        <h3 class="qt-card-title">${escapeHtml(q.title || '')}</h3>
-        ${q.verseRef ? `<p class="qt-card-ref">${escapeHtml(q.verseRef)}</p>` : ''}
-      </a>`;
-
-    const todayTier = getQtAmenTier(latest.amen);
-    const todayCardHtml = `
-      <a class="qt-card qt-card--today" href="/qt/${latest.id}?from=home" data-id="${latest.id}" data-title="${escapeHtml(latest.title || '')}">
-        <div class="qt-card-badges">
-          <span class="qt-badge">오늘의 큐티</span>
-          ${todayTier ? `<span class="qt-amen-badge qt-amen-badge--lv${todayTier.level}"><span class="qt-amen-badge-heart">♥</span> ${todayTier.label}</span>` : ''}
-        </div>
-        <div class="qt-card-photo"${latest.bgImage ? ` style="--qt-photo-bg: url('${escapeHtml(latest.bgImage)}')"` : ''}>
-          <h3 class="qt-card-title">${escapeHtml(latest.title || '')}</h3>
-          ${latest.subtitle ? `<p class="qt-card-subtitle">${escapeHtml(latest.subtitle)}</p>` : ''}
-        </div>
-        ${
-          latest.verseText || latest.verseRef
-            ? `<div class="qt-card-verse-box">
-                ${latest.verseText ? `<p class="qt-card-verse-text">${escapeHtml(latest.verseText)}</p>` : ''}
-                ${latest.verseRef ? `<p class="qt-card-ref">${escapeHtml(latest.verseRef)}</p>` : ''}
-              </div>`
-            : ''
-        }
-        <div class="qt-card-foot">
-          <span>${escapeHtml(latest.pastor || '')}${latest.pastor ? ' · ' : ''}${formatQtDate(latest.date)}</span>
-          <span>전체 보기 →</span>
-        </div>
-      </a>`;
-
-    trackEl.innerHTML = carouselPast.map(archiveCardHtml).join('') + todayCardHtml;
-
-    $$('#qt-carousel-track .qt-card--today').forEach((c) =>
-      c.addEventListener('click', () =>
-        track('click', { label: 'qt_card', itemType: 'qt', itemId: c.dataset.id, itemTitle: c.dataset.title })
+    container.innerHTML = list
+      .map(
+        (q) => `
+        <div class="post-row${q.id === editingQtId ? ' editing' : ''}" data-id="${q.id}">
+          <span class="badge">큐티</span>
+          <div>
+            <div class="title">${escapeHtml(q.title || '')}</div>
+            <div class="meta">${escapeHtml(q.verseRef || '')} · 아멘 ${q.amen || 0}명 참여</div>
+          </div>
+          <span class="date">${escapeAttr(q.date)}</span>
+          <button type="button" class="icon-btn edit-qt">수정</button>
+          <button type="button" class="icon-btn remove-qt">삭제</button>
+        </div>`
       )
-    );
-    $$('#qt-carousel-track .qt-card--archive').forEach((c) =>
-      c.addEventListener('click', () =>
-        track('click', { label: 'qt_carousel_archive', itemType: 'qt', itemId: c.dataset.id, itemTitle: c.dataset.title })
-      )
+      .join('');
+
+    $$('#qt-list .remove-qt').forEach((btn) =>
+      btn.addEventListener('click', async (e) => {
+        if (!confirm('이 큐티를 삭제하시겠습니까?')) return;
+        const id = e.target.closest('.post-row').dataset.id;
+        await api(`/api/admin/qt/${id}`, { method: 'DELETE' });
+        if (id === editingQtId) resetQtForm();
+        loadQtList();
+      })
     );
 
-    const todayIndex = carouselPast.length;
+    $$('#qt-list .edit-qt').forEach((btn) =>
+      btn.addEventListener('click', (e) => {
+        const id = e.target.closest('.post-row').dataset.id;
+        const item = currentQtList.find((q) => q.id === id);
+        if (item) loadQtIntoForm(item);
+      })
+    );
+  }
 
-    if (carouselPast.length === 0 || !isDesktop) {
-      stage.classList.add('qt-stage--single');
-      navPrev.style.display = 'none';
-      navNext.style.display = 'none';
-    } else {
-      stage.classList.remove('qt-stage--single');
-      navPrev.style.display = '';
-      navNext.style.display = '';
-      carousel.classList.add('qt-carousel--coverflow');
+  function resetQtForm() {
+    editingQtId = null;
+    $('#qt-form-title').textContent = '새 큐티 작성';
+    $('#add-qt-btn').textContent = '큐티 등록';
+    $('#cancel-qt-edit-btn').hidden = true;
+    $('#qt-date').value = new Date().toISOString().slice(0, 10);
+    $('#qt-pastor').value = localStorage.getItem('qtLastPastor') || '';
+    $('#qt-title').value = '';
+    const subtitleResetInput = $('#qt-subtitle');
+    if (subtitleResetInput) subtitleResetInput.value = '';
+    $('#qt-verseRef').value = '';
+    $('#qt-verseText').value = '';
+    $('#qt-body').value = '';
+    $('#qt-paste').value = '';
+    $('#qt-parse-status').textContent = '';
+  }
 
-      const cardEls = $$('#qt-carousel-track .qt-card');
-      const coverflow = createCoverflow(carousel, cardEls, todayIndex, {
-        onChange: (activeIndex) => {
-          navPrev.disabled = activeIndex === 0;
-          navNext.disabled = activeIndex === cardEls.length - 1;
-        }
-      });
-      navPrev.addEventListener('click', () => coverflow.prev());
-      navNext.addEventListener('click', () => coverflow.next());
-    }
+  function loadQtIntoForm(item) {
+    editingQtId = item.id;
+    $('#qt-form-title').textContent = '큐티 수정';
+    $('#add-qt-btn').textContent = '수정 저장';
+    $('#cancel-qt-edit-btn').hidden = false;
+    $('#qt-date').value = item.date || '';
+    $('#qt-pastor').value = item.pastor || '';
+    $('#qt-title').value = item.title || '';
+    const subtitleLoadInput = $('#qt-subtitle');
+    if (subtitleLoadInput) subtitleLoadInput.value = item.subtitle || '';
+    $('#qt-verseRef').value = item.verseRef || '';
+    $('#qt-verseText').value = item.verseText || '';
+    $('#qt-body').value = item.body || '';
+    $('#qt-paste').value = '';
+    $('#qt-parse-status').textContent = '';
+    $('#panel-qt').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
 
-    if (rest.length === 0) {
-      toggleWrap.style.display = 'none';
+  // ---------------- 찬양 ----------------
+  let currentPraiseList = [];
+  let editingPraiseId = null;
+  let praiseCategories = [];
+
+  // ---------------- 찬양 컨셉(카테고리) ----------------
+  async function loadPraiseCategories() {
+    praiseCategories = await api('/api/admin/praise-categories');
+    renderPraiseCategoryChecks();
+    renderPraiseCategoryManageList();
+  }
+
+  function renderPraiseCategoryChecks(selectedIds = []) {
+    const wrap = $('#praise-category-checks');
+    if (!wrap) return;
+    if (praiseCategories.length === 0) {
+      wrap.innerHTML = `<p class="hint" style="margin:0;">아직 컨셉이 없습니다. 아래 "찬양 컨셉 관리"에서 먼저 만들어주세요.</p>`;
       return;
     }
+    wrap.innerHTML = praiseCategories
+      .map(
+        (c) => `
+        <label>
+          <input type="checkbox" class="praise-category-check" value="${c.id}" ${selectedIds.includes(c.id) ? 'checked' : ''} />
+          ${escapeHtml(c.name)}
+        </label>`
+      )
+      .join('');
+  }
 
-    // 지난 큐티는 한 번에 다 펼치지 않고 4개씩 페이지를 넘겨가며 봅니다.
-    const QT_ARCHIVE_PAGE_SIZE = 4;
-    let archivePage = 1;
-    const totalArchivePages = Math.ceil(rest.length / QT_ARCHIVE_PAGE_SIZE);
-    const archiveWrap = $('#qt-archive-wrap');
-    const pager = $('#qt-archive-pagination');
-    const archivePrevBtn = $('#qt-archive-prev');
-    const archiveNextBtn = $('#qt-archive-next');
+  function getCheckedCategoryIds() {
+    return $$('.praise-category-check').filter((cb) => cb.checked).map((cb) => cb.value);
+  }
 
-    function renderArchiveRows() {
-      const start = (archivePage - 1) * QT_ARCHIVE_PAGE_SIZE;
-      const pageItems = rest.slice(start, start + QT_ARCHIVE_PAGE_SIZE);
-      archiveList.innerHTML = pageItems
-        .map(
-          (q) => `
-          <a class="qt-archive-row" href="/qt/${q.id}?from=home" data-id="${q.id}" data-title="${escapeHtml(q.title || '')}">
-            <span class="date">${formatQtDate(q.date)}</span>
-            <span class="title">${escapeHtml(q.title || '')}</span>
-          </a>`
-        )
-        .join('');
-
-      $$('.qt-archive-row', archiveList).forEach((row) => {
-        row.addEventListener('click', () =>
-          track('click', { label: 'qt_archive_row', itemType: 'qt', itemId: row.dataset.id, itemTitle: row.dataset.title })
-        );
-      });
-
-      archivePrevBtn.disabled = archivePage === 1;
-      archiveNextBtn.disabled = archivePage === totalArchivePages;
+  function renderPraiseCategoryManageList() {
+    const wrap = $('#praise-category-list');
+    if (!wrap) return;
+    if (praiseCategories.length === 0) {
+      wrap.innerHTML = `<p class="hint" style="margin:0;">아직 만들어진 컨셉이 없습니다.</p>`;
+      return;
     }
+    wrap.innerHTML = praiseCategories
+      .map(
+        (c) => `
+        <span class="badge" style="display:inline-flex; align-items:center; gap:6px;">
+          ${escapeHtml(c.name)}
+          <button type="button" class="praise-category-edit" data-id="${c.id}" data-name="${escapeHtml(c.name)}" style="background:none; border:none; color:inherit; cursor:pointer; font-size:0.9em;" aria-label="수정">✎</button>
+          <button type="button" class="praise-category-delete" data-id="${c.id}" style="background:none; border:none; color:inherit; cursor:pointer; font-size:0.9em;">×</button>
+        </span>`
+      )
+      .join('');
+    $$('.praise-category-edit', wrap).forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const newName = prompt('컨셉 이름 수정', btn.dataset.name);
+        if (!newName || !newName.trim() || newName.trim() === btn.dataset.name) return;
+        try {
+          await api(`/api/admin/praise-categories/${btn.dataset.id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ name: newName.trim() })
+          });
+          await loadPraiseCategories();
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+    });
+    $$('.praise-category-delete', wrap).forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('이 컨셉을 삭제할까요? (이 컨셉이 붙어있던 찬양에서도 태그가 빠집니다)')) return;
+        try {
+          await api(`/api/admin/praise-categories/${btn.dataset.id}`, { method: 'DELETE' });
+          await loadPraiseCategories();
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+    });
+  }
 
-    function renderArchivePagination() {
-      if (totalArchivePages <= 1) {
-        pager.innerHTML = '';
+  function setupPraiseCategoryManagement() {
+    const addBtn = $('#praise-category-add-btn');
+    if (!addBtn) return;
+    addBtn.addEventListener('click', async () => {
+      const input = $('#praise-category-new-input');
+      const name = input.value.trim();
+      if (!name) return alert('컨셉 이름을 입력해주세요.');
+      try {
+        await api('/api/admin/praise-categories', { method: 'POST', body: JSON.stringify({ name }) });
+        input.value = '';
+        await loadPraiseCategories();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  }
+
+  async function loadPraiseList() {
+    const list = await api('/api/admin/praises');
+    renderPraiseList(list);
+  }
+
+  function renderPraiseList(list) {
+    currentPraiseList = list;
+    const container = $('#praise-list');
+    if (!list || list.length === 0) {
+      container.innerHTML = `<p class="hint">등록된 찬양이 없습니다.</p>`;
+      return;
+    }
+    container.innerHTML = list
+      .map(
+        (p) => `
+        <div class="post-row${p.id === editingPraiseId ? ' editing' : ''}" data-id="${p.id}">
+          <span class="badge">찬양</span>
+          <div>
+            <div class="title">${escapeHtml(p.title || '')}</div>
+            <div class="meta">${escapeHtml(p.singer || '')}</div>
+          </div>
+          <button type="button" class="icon-btn edit-praise">수정</button>
+          <button type="button" class="icon-btn remove-praise">삭제</button>
+        </div>`
+      )
+      .join('');
+
+    $$('#praise-list .remove-praise').forEach((btn) =>
+      btn.addEventListener('click', async (e) => {
+        if (!confirm('이 찬양을 삭제하시겠습니까?')) return;
+        const id = e.target.closest('.post-row').dataset.id;
+        await api(`/api/admin/praises/${id}`, { method: 'DELETE' });
+        if (id === editingPraiseId) resetPraiseForm();
+        loadPraiseList();
+      })
+    );
+
+    $$('#praise-list .edit-praise').forEach((btn) =>
+      btn.addEventListener('click', (e) => {
+        const id = e.target.closest('.post-row').dataset.id;
+        const item = currentPraiseList.find((p) => p.id === id);
+        if (item) loadPraiseIntoForm(item);
+      })
+    );
+  }
+
+  function resetPraiseForm() {
+    editingPraiseId = null;
+    $('#praise-form-title').textContent = '새 찬양 등록';
+    $('#add-praise-btn').textContent = '찬양 등록';
+    $('#cancel-praise-edit-btn').hidden = true;
+    $('#praise-title').value = '';
+    $('#praise-singer').value = '';
+    $('#praise-youtubeUrl').value = '';
+    renderPraiseCategoryChecks([]);
+  }
+
+  function loadPraiseIntoForm(item) {
+    editingPraiseId = item.id;
+    $('#praise-form-title').textContent = '찬양 수정';
+    $('#add-praise-btn').textContent = '수정 저장';
+    $('#cancel-praise-edit-btn').hidden = false;
+    $('#praise-title').value = item.title || '';
+    $('#praise-singer').value = item.singer || '';
+    $('#praise-youtubeUrl').value = item.youtubeId ? `https://www.youtube.com/watch?v=${item.youtubeId}` : '';
+    renderPraiseCategoryChecks(item.categoryIds || []);
+    $('#panel-praise').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function setupPraiseEditor() {
+    $('#cancel-praise-edit-btn').addEventListener('click', () => {
+      resetPraiseForm();
+      loadPraiseList();
+    });
+
+    $('#add-praise-btn').addEventListener('click', async () => {
+      const title = $('#praise-title').value.trim();
+      const youtubeUrl = $('#praise-youtubeUrl').value.trim();
+      if (!title) return alert('제목을 입력해주세요.');
+      if (!youtubeUrl) return alert('유튜브 주소를 입력해주세요.');
+
+      const payload = {
+        title,
+        singer: $('#praise-singer').value.trim(),
+        youtubeUrl,
+        categoryIds: getCheckedCategoryIds()
+      };
+
+      const statusEl = $('#praise-save-status');
+      try {
+        if (editingPraiseId) {
+          await api(`/api/admin/praises/${editingPraiseId}`, { method: 'PUT', body: JSON.stringify(payload) });
+        } else {
+          await api('/api/admin/praises', { method: 'POST', body: JSON.stringify(payload) });
+        }
+        statusEl.textContent = '저장 완료 ✓';
+        setTimeout(() => (statusEl.textContent = ''), 3000);
+        resetPraiseForm();
+        loadPraiseList();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  }
+
+  function setupQtEditor() {
+    $('#cancel-qt-edit-btn').addEventListener('click', () => {
+      resetQtForm();
+      loadQtList();
+    });
+
+    $('#add-qt-btn').addEventListener('click', async () => {
+      const title = $('#qt-title').value.trim();
+      if (!title) return alert('제목을 입력해주세요.');
+
+      const payload = {
+        date: $('#qt-date').value || new Date().toISOString().slice(0, 10),
+        pastor: $('#qt-pastor').value.trim(),
+        title,
+        subtitle: ($('#qt-subtitle') && $('#qt-subtitle').value.trim()) || '',
+        verseRef: $('#qt-verseRef').value.trim(),
+        verseText: $('#qt-verseText').value.trim(),
+        body: $('#qt-body').value.trim()
+      };
+
+      const statusEl = $('#qt-save-status');
+      try {
+        let savedItem;
+        if (editingQtId) {
+          savedItem = await api(`/api/admin/qt/${editingQtId}`, { method: 'PUT', body: JSON.stringify(payload) });
+        } else {
+          savedItem = await api('/api/admin/qt', { method: 'POST', body: JSON.stringify(payload) });
+        }
+        await maybeScheduleLinkedPush({
+          checkboxId: 'qt-schedule-push-check',
+          timeInputId: 'qt-schedule-push-time',
+          linkedType: 'qt',
+          linkedId: savedItem.id,
+          title: `오늘의 큐티: ${title}`,
+          url: `/qt/${savedItem.id}`
+        });
+        localStorage.setItem('qtLastPastor', payload.pastor);
+        statusEl.textContent = '저장 완료 ✓';
+        setTimeout(() => (statusEl.textContent = ''), 3000);
+        resetQtForm();
+        loadQtList();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  }
+
+  // 카톡 붙여넣기 자동 채우기: [대괄호] 제목 줄의 위치를 기준으로 구조를 파악합니다.
+  // (예전엔 "몇 번째 줄인지"로 고정해서 끼워 맞췄는데, "장절 표기" 줄이 있을 때/없을 때
+  // 형식이 달라지면서 그 뒤 내용이 한 칸씩 밀려 제목을 잘못 잡는 문제가 있었습니다.
+  // 이제는 대괄호 2개의 실제 위치를 찾아서, 그 사이·이후 내용을 각각 구절/본문으로 나눕니다.)
+  function normalizeQtVerseRef(raw) {
+    const match = raw.match(/^([^\d\n]+?)\s*(\d+)\s*[:：]\s*(\d+)(?:\s*[-~]\s*(\d+))?\s*$/);
+    if (!match) return raw;
+    const [, book, chapter, v1, v2] = match;
+    const verses = v2 ? `${v1}~${v2}` : v1;
+    return `${book.trim()} ${chapter}장 ${verses}절`;
+  }
+
+  function parseQtPaste(raw) {
+    const normalized = String(raw || '').replace(/\r\n?/g, '\n').trim();
+    if (!normalized) return null;
+
+    const lines = normalized.split('\n');
+    // 줄 맨 앞에 콜론(:)이나 공백이 붙어서 복사되는 경우가 있어서, 그런 것도 대괄호 줄로 인식하게 합니다.
+    const isBracketLine = (line) => /^[\s:：]*[\[【].*[\]】]\s*$/.test(line.trim());
+    const bracketIndices = [];
+    lines.forEach((line, i) => {
+      if (isBracketLine(line)) bracketIndices.push(i);
+    });
+
+    // 대괄호 제목이 2개는 있어야 인식할 수 있습니다 (성경 구절용 하나, 묵상 글용 하나).
+    if (bracketIndices.length < 2) return null;
+
+    const firstBracketIdx = bracketIndices[0];
+    const secondBracketIdx = bracketIndices[1];
+
+    // 제목: 첫 번째 대괄호(성경 구절 바로 위에 있는 것)를 씁니다.
+    const bracketMatch = lines[firstBracketIdx].trim().match(/^[\s:：]*[\[【]([\s\S]*?)[\]】]\s*$/);
+    const title = bracketMatch ? bracketMatch[1].trim() : lines[firstBracketIdx].trim();
+
+    // 부제목: 두 번째 대괄호(묵상 글 바로 위에 있는 것). 메인 화면 카드 이미지에서만 쓰고,
+    // 본문(body)에는 아래에서 이 줄 자체를 그대로 남겨둡니다.
+    const subtitleMatch = lines[secondBracketIdx].trim().match(/^[\s:：]*[\[【]([\s\S]*?)[\]】]\s*$/);
+    const subtitle = subtitleMatch ? subtitleMatch[1].trim() : lines[secondBracketIdx].trim();
+
+    // 첫 대괄호와 두 번째 대괄호 사이 = 성경 구절 영역.
+    const verseLines = lines
+      .slice(firstBracketIdx + 1, secondBracketIdx)
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+
+    // 그 안에 "책이름 3:16" 같은 정식 장절 표기 줄이 있으면 구절 참조로 쓰고, 없으면 비워둡니다
+    // (절 번호만 붙어있는 본문은 오탐되지 않도록, 반드시 문자로 시작해야 매칭됩니다).
+    let verseRef = '';
+    let verseTextLines = verseLines;
+    const refIdx = verseLines.findIndex((l) => /^[^\d\n][^\d\n]*?\s*\d+\s*[:：]\s*\d+/.test(l));
+    if (refIdx !== -1) {
+      verseRef = normalizeQtVerseRef(verseLines[refIdx]);
+      verseTextLines = verseLines.filter((_, i) => i !== refIdx);
+    }
+    const verseText = verseTextLines.join('\n');
+
+    // 두 번째 대괄호(부제목 줄) 포함 그 이후 전체 = 본문(묵상·기도문). 대괄호 소제목 줄도
+    // 그대로 살려서 본문 안에 남겨둡니다. 문단 사이에 빈 줄을 넣어 읽기 좋게 정리합니다.
+    const bodyLines = lines
+      .slice(secondBracketIdx)
+      .map((l) => l.trim())
+      .filter((l) => l.length > 0);
+    const body = bodyLines.join('\n\n');
+
+    return { title, subtitle, verseRef, verseText, body };
+  }
+
+  function setupQtPasteParser() {
+    const btn = $('#qt-parse-btn');
+    if (!btn) return;
+    btn.addEventListener('click', () => {
+      const statusEl = $('#qt-parse-status');
+      const parsed = parseQtPaste($('#qt-paste').value);
+      if (!parsed) {
+        statusEl.textContent = '형식을 인식하지 못했습니다. 직접 입력해주세요.';
         return;
       }
-      const buttons = [];
-      for (let i = 1; i <= totalArchivePages; i++) {
-        buttons.push(
-          `<button class="board-page-btn${i === archivePage ? ' active' : ''}" data-page="${i}">${i}</button>`
-        );
-      }
-      pager.innerHTML = buttons.join('');
-
-      $$('.board-page-btn', pager).forEach((btn) => {
-        btn.addEventListener('click', () => goToArchivePage(Number(btn.dataset.page)));
-      });
-    }
-
-    function goToArchivePage(page) {
-      if (!page || page === archivePage || page < 1 || page > totalArchivePages) return;
-      archivePage = page;
-      renderArchiveRows();
-      renderArchivePagination();
-    }
-
-    archivePrevBtn.addEventListener('click', () => goToArchivePage(archivePage - 1));
-    archiveNextBtn.addEventListener('click', () => goToArchivePage(archivePage + 1));
-
-    if (totalArchivePages <= 1) {
-      archivePrevBtn.style.display = 'none';
-      archiveNextBtn.style.display = 'none';
-    }
-
-    $('#qt-archive-toggle').addEventListener('click', () => {
-      const isOpen = archiveWrap.classList.toggle('open');
-      $('#qt-archive-toggle').textContent = isOpen ? '지난 큐티 접기 ▴' : '지난 큐티 보기 ▾';
-      // 열 때마다 1페이지부터 보여줍니다. (렌더링은 열릴 때만 합니다 —
-      // 버튼을 누르기 전부터 페이지 번호가 미리 보이면 안 되기 때문입니다)
-      if (isOpen) {
-        archivePage = 1;
-        renderArchiveRows();
-        renderArchivePagination();
-      }
+      $('#qt-title').value = parsed.title;
+      const subtitleInput = $('#qt-subtitle');
+      if (subtitleInput) subtitleInput.value = parsed.subtitle || '';
+      $('#qt-verseRef').value = parsed.verseRef;
+      $('#qt-verseText').value = parsed.verseText;
+      $('#qt-body').value = parsed.body;
+      statusEl.textContent = '자동으로 채웠습니다. 내용을 확인한 후 저장해주세요.';
     });
   }
 
-  // ---------------- 선교사역 (세계지도 + 동역자의 섬김) ----------------
-  function daysSince(dateStr) {
-    if (!dateStr) return null;
-    const start = new Date(dateStr);
-    if (isNaN(start.getTime())) return null;
-    return Math.floor((Date.now() - start.getTime()) / 86400000) + 1;
+  // ---------------- 선교사역 (지도 핀) ----------------
+  let currentMissionList = [];
+  let editingMissionId = null;
+
+  function populateCountrySelect() {
+    const select = $('#m-countryCode');
+    if (!select) return; // 예전 선교지 폼(지금은 선교사 카드 방식으로 교체됨)이 없는 화면이면 건너뜀
+    select.innerHTML = window.COUNTRY_LIST
+      .map((c) => `<option value="${c.code}">${window.isoToFlag(c.code)} ${escapeHtml(c.name)}</option>`)
+      .join('');
   }
 
-  function missionGroupCardHTML(group) {
-    const first = group[0];
-    const flag = window.isoToFlag ? window.isoToFlag(first.countryCode) : '';
-    const items = group
+  async function loadMissionList() {
+    if (!$('#mission-list')) return; // 예전 선교지 목록 화면이 없으면 건너뜀
+    currentMissionList = await api('/api/admin/missions');
+    renderMissionList(currentMissionList);
+  }
+
+  function renderMissionList(list) {
+    const container = $('#mission-list');
+    if (!container) return;
+    if (!list || list.length === 0) {
+      container.innerHTML = `<p class="hint">등록된 선교지가 없습니다.</p>`;
+      return;
+    }
+    container.innerHTML = list
       .map(
         (m) => `
-        <div class="mission-pin-card-body">
-          ${m.image ? `<img src="${m.image}" alt="${escapeHtml(m.name || '')}" />` : `<div class="mission-pin-card-avatar"></div>`}
+        <div class="post-row${m.id === editingMissionId ? ' editing' : ''}" data-id="${m.id}">
+          <span class="badge">${window.isoToFlag(m.countryCode)} ${escapeHtml(m.country || '')}</span>
           <div>
-            <p class="name">${escapeHtml(m.name || '')}${m.tag ? ` <span class="tag">${escapeHtml(m.tag)}</span>` : ''}</p>
-            <p class="desc">${escapeHtml(m.desc || '').replace(/\n/g, '<br>')}</p>
+            <div class="title">${escapeHtml(m.name || '')}</div>
+            <div class="meta">${escapeHtml(m.tag || m.country || '')}</div>
           </div>
-        </div>`
-      )
-      .join('<hr class="mission-pin-card-divider" />');
-
-    return `
-      <div class="mission-pin-card">
-        <div class="mission-pin-card-head">
-          <span class="flag">${flag}</span>
-          <span class="country">${escapeHtml(first.country || '')}</span>
-        </div>
-        ${items}
-      </div>`;
-  }
-
-  function renderMissionsMobileList(missions) {
-    const wrap = $('#missions-mobile-list');
-    if (!missions.length) {
-      wrap.innerHTML = '';
-      return;
-    }
-    wrap.innerHTML = missions
-      .map(
-        (m) => `
-        <div class="mission-mobile-card">
-          <span class="mission-mobile-badge">${window.isoToFlag ? window.isoToFlag(m.countryCode) : ''} ${escapeHtml(m.tag || m.country || '')}</span>
-          <div class="mission-pin-card-body">
-            ${m.image ? `<img src="${m.image}" alt="${escapeHtml(m.name || '')}" />` : `<div class="mission-pin-card-avatar"></div>`}
-            <div>
-              <p class="name">${escapeHtml(m.name || '')}</p>
-              <p class="desc">${escapeHtml(m.desc || '').replace(/\n/g, '<br>')}</p>
-            </div>
-          </div>
+          <button type="button" class="icon-btn edit-mission">수정</button>
+          <button type="button" class="icon-btn remove-mission">삭제</button>
         </div>`
       )
       .join('');
-  }
 
-  function renderMissionsMap(missions) {
-    const mapEl = $('#missions-map');
-    mapEl.innerHTML = '';
-    if (!missions.length || typeof d3 === 'undefined' || typeof topojson === 'undefined') return;
-
-    const width = 620;
-    const height = 460;
-    const svg = d3
-      .select(mapEl)
-      .append('svg')
-      .attr('viewBox', `0 0 ${width} ${height}`)
-      .attr('width', '100%')
-      .style('display', 'block');
-
-    d3.json('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
-      .then((world) => {
-        const countries = topojson.feature(world, world.objects.countries);
-        const pointFeatures = {
-          type: 'FeatureCollection',
-          features: [
-            { type: 'Feature', geometry: { type: 'Point', coordinates: [127.8, 36.5] } },
-            ...missions.map((m) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [m.lon, m.lat] } }))
-          ]
-        };
-        const projection = d3.geoMercator().fitExtent(
-          [
-            [50, 40],
-            [width - 50, height - 40]
-          ],
-          pointFeatures
-        );
-        const path = d3.geoPath(projection);
-
-        svg
-          .append('g')
-          .selectAll('path')
-          .data(countries.features)
-          .join('path')
-          .attr('d', path)
-          .attr('fill', 'var(--line)')
-          .attr('stroke', 'var(--ivory-dim)')
-          .attr('stroke-width', 0.6);
-
-        const pinGroup = svg.append('g');
-
-        const positioned = missions.map((m) => {
-          const [x, y] = projection([m.lon, m.lat]);
-          return { m, x, y };
-        });
-        const collisionGroups = {};
-        const groupOrder = [];
-        positioned.forEach((p) => {
-          const key = `${Math.round(p.x / 8)}_${Math.round(p.y / 8)}`;
-          if (!collisionGroups[key]) {
-            collisionGroups[key] = [];
-            groupOrder.push(key);
-          }
-          collisionGroups[key].push(p);
-        });
-
-        groupOrder.forEach((key) => {
-          const group = collisionGroups[key];
-          const x = group.reduce((sum, p) => sum + p.x, 0) / group.length;
-          const y = group.reduce((sum, p) => sum + p.y, 0) / group.length;
-          const missionsInGroup = group.map((p) => p.m);
-
-          pinGroup
-            .append('circle')
-            .attr('cx', x)
-            .attr('cy', y)
-            .attr('r', 7)
-            .attr('fill', 'var(--gold)')
-            .attr('stroke', 'var(--ivory)')
-            .attr('stroke-width', 1.5)
-            .append('title')
-            .text(missionsInGroup.map((m) => `${m.country || ''}${m.name ? ' - ' + m.name : ''}`).join(', '));
-
-          if (missionsInGroup.length > 1) {
-            pinGroup
-              .append('text')
-              .attr('x', x)
-              .attr('y', y)
-              .attr('text-anchor', 'middle')
-              .attr('dominant-baseline', 'central')
-              .attr('font-size', '9px')
-              .attr('font-weight', '700')
-              .attr('fill', 'var(--navy-deep)')
-              .style('pointer-events', 'none')
-              .text(missionsInGroup.length);
-          }
-
-          const flipX = x > width * 0.62;
-          const div = document.createElement('div');
-          div.className = 'mission-pin-card-wrap' + (flipX ? ' flip' : '');
-          div.style.left = (x / width) * 100 + '%';
-          div.style.top = (y / height) * 100 + '%';
-          div.innerHTML = missionGroupCardHTML(missionsInGroup);
-          mapEl.appendChild(div);
-        });
+    $$('#mission-list .remove-mission').forEach((btn) =>
+      btn.addEventListener('click', async (e) => {
+        if (!confirm('이 선교지 정보를 삭제하시겠습니까?')) return;
+        const id = e.target.closest('.post-row').dataset.id;
+        await api(`/api/admin/missions/${id}`, { method: 'DELETE' });
+        if (id === editingMissionId) resetMissionForm();
+        loadMissionList();
       })
-      .catch((err) => console.error('세계지도를 불러오지 못했습니다:', err));
+    );
+    $$('#mission-list .edit-mission').forEach((btn) =>
+      btn.addEventListener('click', (e) => {
+        const id = e.target.closest('.post-row').dataset.id;
+        const item = currentMissionList.find((m) => m.id === id);
+        if (item) loadMissionIntoForm(item);
+      })
+    );
   }
 
-  function renderPartners(partners) {
-    const listEl = $('#partners-list');
-    const pageEl = $('#partners-page');
-    const prevBtn = $('#partners-prev');
-    const nextBtn = $('#partners-next');
-    const perPage = 5;
-    const totalPages = Math.max(1, Math.ceil(partners.length / perPage));
-    let page = 0;
-
-    function draw() {
-      const slice = partners.slice(page * perPage, page * perPage + perPage);
-      listEl.innerHTML = slice
-        .map((p) => {
-          const days = daysSince(p.startDate);
-          return `
-          <div class="partner-row">
-            ${p.image ? `<img src="${p.image}" alt="${escapeHtml(p.name || '')}" />` : `<div class="partner-avatar"></div>`}
-            <div class="partner-info">
-              <p class="name">${escapeHtml(p.name || '')}</p>
-              ${p.note ? `<p class="note">${escapeHtml(p.note)}</p>` : ''}
-            </div>
-            ${days !== null ? `<span class="partner-day">D+${days}</span>` : ''}
-          </div>`;
-        })
-        .join('');
-      pageEl.textContent = totalPages > 1 ? `${page + 1} / ${totalPages}` : '';
-      prevBtn.disabled = totalPages <= 1;
-      nextBtn.disabled = totalPages <= 1;
-    }
-
-    prevBtn.onclick = () => {
-      page = (page - 1 + totalPages) % totalPages;
-      draw();
-    };
-    nextBtn.onclick = () => {
-      page = (page + 1) % totalPages;
-      draw();
-    };
-    draw();
+  function resetMissionForm() {
+    if (!$('#mission-form-title')) return; // 예전 선교지 폼이 없는 화면이면 건너뜀
+    editingMissionId = null;
+    $('#mission-form-title').textContent = '선교지 추가';
+    $('#add-mission-btn').textContent = '선교지 등록';
+    $('#cancel-mission-edit-btn').hidden = true;
+    $('#m-countryCode').value = 'KR';
+    $('#m-tag').value = '';
+    $('#m-name').value = '';
+    $('#m-desc').value = '';
+    $('#m-imageFile').value = '';
+    $('#m-imageFile').dataset.uploadedUrl = '';
+    $('#m-imagePreview').src = '';
   }
 
-  function openMissionModal(card) {
-    $('#mission-modal-name').textContent = card.name || '';
-    $('#mission-modal-country').textContent = card.country || '';
-    const photoImg = $('#mission-modal-photo');
-    if (card.photo) {
-      photoImg.src = card.photo;
-      photoImg.style.display = '';
-    } else {
-      photoImg.style.display = 'none';
-    }
-    $('#mission-modal-content').textContent = card.content || '';
-
-    const galleryWrap = $('#mission-modal-gallery');
-    const gallery = Array.isArray(card.gallery) ? card.gallery.filter(Boolean) : [];
-    galleryWrap.innerHTML = gallery
-      .map((url) => `<img src="${url}" alt="${escapeHtml(card.name || '')} 사진" />`)
-      .join('');
-
-    const prayerWrap = $('#mission-modal-prayer-wrap');
-    if (card.prayer) {
-      $('#mission-modal-prayer').textContent = card.prayer;
-      prayerWrap.style.display = '';
-    } else {
-      prayerWrap.style.display = 'none';
-    }
-
-    $('#mission-modal').classList.add('open');
-    lockScroll();
+  function loadMissionIntoForm(item) {
+    editingMissionId = item.id;
+    $('#mission-form-title').textContent = '선교지 수정';
+    $('#add-mission-btn').textContent = '수정 저장';
+    $('#cancel-mission-edit-btn').hidden = false;
+    $('#m-countryCode').value = item.countryCode || 'KR';
+    $('#m-tag').value = item.tag || '';
+    $('#m-name').value = item.name || '';
+    $('#m-desc').value = item.desc || '';
+    $('#m-imageFile').dataset.uploadedUrl = item.image || '';
+    $('#m-imagePreview').src = item.image || ''; // 사진이 없는 항목이면 이전 항목의 미리보기가 남아있지 않도록 확실히 비웁니다
+    $('#panel-missions').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
-  function closeMissionModal() {
-    $('#mission-modal').classList.remove('open');
-    unlockScroll();
-  }
-  const missionModalCloseBtn = $('#mission-modal-close');
-  if (missionModalCloseBtn) missionModalCloseBtn.addEventListener('click', closeMissionModal);
-  const missionModalEl = $('#mission-modal');
-  if (missionModalEl) {
-    missionModalEl.addEventListener('click', (e) => {
-      if (e.target.id === 'mission-modal') closeMissionModal();
+
+  function setupMissionEditor() {
+    if (!$('#add-mission-btn')) return; // 예전 선교지 폼(지금은 선교사 카드 방식)이 없는 화면이면 건너뜀
+    populateCountrySelect();
+
+    $('#cancel-mission-edit-btn').addEventListener('click', () => {
+      resetMissionForm();
+      loadMissionList();
+    });
+
+    $('#add-mission-btn').addEventListener('click', async () => {
+      const name = $('#m-name').value.trim();
+      if (!name) return alert('선교사님 성함을 입력해주세요.');
+      await waitForPendingUpload('m-imageFile');
+      const countryCode = $('#m-countryCode').value;
+      const country = window.findCountryByCode(countryCode);
+
+      const payload = {
+        countryCode,
+        country: country ? country.name : '',
+        lat: country ? country.lat : 0,
+        lon: country ? country.lon : 0,
+        name,
+        tag: $('#m-tag').value.trim(),
+        desc: $('#m-desc').value.trim(),
+        image: $('#m-imageFile').dataset.uploadedUrl || ''
+      };
+
+      const statusEl = $('#mission-save-status');
+      try {
+        if (editingMissionId) {
+          await api(`/api/admin/missions/${editingMissionId}`, { method: 'PUT', body: JSON.stringify(payload) });
+        } else {
+          await api('/api/admin/missions', { method: 'POST', body: JSON.stringify(payload) });
+        }
+        statusEl.textContent = '저장 완료 ✓';
+        setTimeout(() => (statusEl.textContent = ''), 3000);
+        resetMissionForm();
+        loadMissionList();
+      } catch (err) {
+        alert(err.message);
+      }
     });
   }
 
-  let missionCardsAutoTimer = null;
-  function stopMissionCardsAuto() {
-    if (missionCardsAutoTimer) {
-      missionCardsAutoTimer();
-      missionCardsAutoTimer = null;
-    }
+  // ---------------- 동역자의 섬김 ----------------
+  let currentPartnerList = [];
+  let editingPartnerId = null;
+
+  async function loadPartnerList() {
+    currentPartnerList = await api('/api/admin/partners');
+    renderPartnerList(currentPartnerList);
   }
 
-  function renderMissionCards(cards) {
-    const listEl = $('#mission-cards-row');
-    const pageEl = $('#mission-cards-page');
-    const prevBtn = $('#mission-cards-prev');
-    const nextBtn = $('#mission-cards-next');
-    if (!listEl) return;
-    stopMissionCardsAuto();
+  function renderPartnerList(list) {
+    const container = $('#partner-list');
+    if (!list || list.length === 0) {
+      container.innerHTML = `<p class="hint">등록된 동역자가 없습니다.</p>`;
+      return;
+    }
+    container.innerHTML = list
+      .map((p) => {
+        const days = p.startDate ? Math.floor((Date.now() - new Date(p.startDate).getTime()) / 86400000) + 1 : null;
+        return `
+        <div class="post-row${p.id === editingPartnerId ? ' editing' : ''}" data-id="${p.id}">
+          <span class="badge">${days !== null ? 'D+' + days : '-'}</span>
+          <div>
+            <div class="title">${escapeHtml(p.name || '')}</div>
+            <div class="meta">${escapeHtml(p.note || '')}</div>
+          </div>
+          <button type="button" class="icon-btn edit-partner">수정</button>
+          <button type="button" class="icon-btn remove-partner">삭제</button>
+        </div>`;
+      })
+      .join('');
 
-    const cardHTML = (c, i) => `
-      <div class="mission-card" data-index="${i}">
-        <div class="mission-card-photo-wrap">
-          ${c.photo ? `<img class="mission-card-photo" src="${c.photo}" alt="${escapeHtml(c.name || '')}" />` : `<div class="mission-card-photo-empty"></div>`}
-        </div>
-        <span class="mission-card-country">${escapeHtml(c.country || '')}</span>
-        <h4 class="mission-card-name">${escapeHtml(c.name || '')}</h4>
-        <p class="mission-card-content">${escapeHtml(c.content || '')}</p>
-      </div>`;
+    $$('#partner-list .remove-partner').forEach((btn) =>
+      btn.addEventListener('click', async (e) => {
+        if (!confirm('이 동역자 정보를 삭제하시겠습니까?')) return;
+        const id = e.target.closest('.post-row').dataset.id;
+        await api(`/api/admin/partners/${id}`, { method: 'DELETE' });
+        if (id === editingPartnerId) resetPartnerForm();
+        loadPartnerList();
+      })
+    );
+    $$('#partner-list .edit-partner').forEach((btn) =>
+      btn.addEventListener('click', (e) => {
+        const id = e.target.closest('.post-row').dataset.id;
+        const item = currentPartnerList.find((p) => p.id === id);
+        if (item) loadPartnerIntoForm(item);
+      })
+    );
+  }
 
-    function bindCardClicks() {
-      $$('.mission-card', listEl).forEach((el) => {
-        el.onclick = () => openMissionModal(cards[Number(el.dataset.index)]);
+  function resetPartnerForm() {
+    editingPartnerId = null;
+    $('#partner-form-title').textContent = '동역자 추가';
+    $('#add-partner-btn').textContent = '동역자 등록';
+    $('#cancel-partner-edit-btn').hidden = true;
+    $('#pt-name').value = '';
+    $('#pt-startDate').value = '';
+    $('#pt-note').value = '';
+    $('#pt-imageFile').value = '';
+    $('#pt-imageFile').dataset.uploadedUrl = '';
+    $('#pt-imagePreview').src = '';
+  }
+
+  function loadPartnerIntoForm(item) {
+    editingPartnerId = item.id;
+    $('#partner-form-title').textContent = '동역자 수정';
+    $('#add-partner-btn').textContent = '수정 저장';
+    $('#cancel-partner-edit-btn').hidden = false;
+    $('#pt-name').value = item.name || '';
+    $('#pt-startDate').value = item.startDate || '';
+    $('#pt-note').value = item.note || '';
+    $('#pt-imageFile').dataset.uploadedUrl = item.image || '';
+    $('#pt-imagePreview').src = item.image || ''; // 사진이 없는 항목이면 이전 항목의 미리보기가 남아있지 않도록 확실히 비웁니다
+    $('#panel-missions').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function setupPartnerEditor() {
+    $('#cancel-partner-edit-btn').addEventListener('click', () => {
+      resetPartnerForm();
+      loadPartnerList();
+    });
+
+    $('#add-partner-btn').addEventListener('click', async () => {
+      const name = $('#pt-name').value.trim();
+      if (!name) return alert('이름 또는 기관명을 입력해주세요.');
+      await waitForPendingUpload('pt-imageFile');
+
+      const payload = {
+        name,
+        startDate: $('#pt-startDate').value || '',
+        note: $('#pt-note').value.trim(),
+        image: $('#pt-imageFile').dataset.uploadedUrl || ''
+      };
+
+      const statusEl = $('#partner-save-status');
+      try {
+        if (editingPartnerId) {
+          await api(`/api/admin/partners/${editingPartnerId}`, { method: 'PUT', body: JSON.stringify(payload) });
+        } else {
+          await api('/api/admin/partners', { method: 'POST', body: JSON.stringify(payload) });
+        }
+        statusEl.textContent = '저장 완료 ✓';
+        setTimeout(() => (statusEl.textContent = ''), 3000);
+        resetPartnerForm();
+        loadPartnerList();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  }
+
+  // ---------------- 큐티 배경 디자인 ----------------
+  function toggleQtBgFields() {
+    const type = $('#qt-bg-type').value;
+    $('#qt-bg-preset-field').hidden = type !== 'preset';
+    $('#qt-bg-photo-field').hidden = type !== 'photo';
+  }
+
+  function setupQtBackgroundEditor() {
+    $('#qt-bg-type').addEventListener('change', toggleQtBgFields);
+
+    $('#save-qt-bg-btn').addEventListener('click', async () => {
+      await waitForPendingUpload('qt-bg-photoFile');
+      const payload = {
+        type: $('#qt-bg-type').value,
+        preset: $('#qt-bg-preset').value,
+        image: $('#qt-bg-photoFile').dataset.uploadedUrl || $('#qt-bg-photoPreview').getAttribute('src') || ''
+      };
+      const statusEl = $('#qt-bg-save-status');
+      try {
+        await api('/api/admin/qt-background', { method: 'PUT', body: JSON.stringify(payload) });
+        statusEl.textContent = '저장 완료 ✓';
+        setTimeout(() => (statusEl.textContent = ''), 3000);
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  }
+
+  // ---------------- 큐티 카드 배경 사진 보관함 ----------------
+  let qtBgPoolList = [];
+
+  function renderQtBgPoolList() {
+    const wrap = $('#qt-bg-pool-list');
+    if (!wrap) return;
+    wrap.innerHTML = qtBgPoolList
+      .map(
+        (url, i) => `
+        <div class="qt-bg-pool-item" style="position:relative; display:inline-block; margin:0 8px 8px 0;">
+          <img src="${url}" style="width:90px; height:90px; object-fit:cover; border-radius:8px; border:1px solid var(--line, #ddd);" />
+          <button type="button" class="qt-bg-pool-remove" data-i="${i}" style="position:absolute; top:-6px; right:-6px; width:22px; height:22px; border-radius:50%; border:none; background:#c0392b; color:#fff; cursor:pointer; line-height:1;">✕</button>
+        </div>`
+      )
+      .join('');
+    $$('.qt-bg-pool-remove', wrap).forEach((btn) => {
+      btn.addEventListener('click', () => {
+        qtBgPoolList.splice(Number(btn.dataset.i), 1);
+        renderQtBgPoolList();
+      });
+    });
+    const countEl = $('#qt-bg-pool-count');
+    if (countEl) countEl.textContent = qtBgPoolList.length ? `현재 ${qtBgPoolList.length}장 등록됨` : '아직 등록된 사진이 없습니다.';
+  }
+
+  function setupQtBgPoolEditor() {
+    const fileInput = $('#qt-bg-pool-file');
+    const addBtn = $('#qt-bg-pool-add-btn');
+    const saveBtn = $('#qt-bg-pool-save-btn');
+    const statusEl = $('#qt-bg-pool-status');
+    if (!fileInput || !addBtn) return;
+
+    addBtn.addEventListener('click', async () => {
+      const files = Array.from(fileInput.files || []);
+      if (!files.length) return;
+      addBtn.disabled = true;
+      addBtn.textContent = '업로드 중...';
+      try {
+        for (const file of files) {
+          const url = await uploadImage(file);
+          qtBgPoolList.push(url);
+        }
+        renderQtBgPoolList();
+        fileInput.value = '';
+      } catch (err) {
+        alert(err.message);
+      } finally {
+        addBtn.disabled = false;
+        addBtn.textContent = '보관함에 추가';
+      }
+    });
+
+    if (saveBtn) {
+      saveBtn.addEventListener('click', async () => {
+        try {
+          await api('/api/admin/qt-bg-pool', { method: 'PUT', body: JSON.stringify({ pool: qtBgPoolList }) });
+          if (statusEl) {
+            statusEl.textContent = '저장 완료 ✓';
+            setTimeout(() => (statusEl.textContent = ''), 3000);
+          }
+        } catch (err) {
+          alert(err.message);
+        }
       });
     }
 
-    const isMobile = window.matchMedia('(max-width: 860px)').matches;
-
-    if (isMobile) {
-      // 모바일: 전체 카드를 한 번에 렌더링하고, 손가락 스와이프(가로 스크롤)로 넘겨봅니다.
-      listEl.innerHTML = cards.map(cardHTML).join('');
-      if (cards.length > 1) {
-        // 앞쪽엔 마지막 카드 복제본, 뒤쪽엔 첫 카드 복제본을 둬서 양쪽 다 끝없이 순환하게 합니다.
-        const lastCloneEl = document.createElement('div');
-        lastCloneEl.innerHTML = cardHTML(cards[cards.length - 1], cards.length - 1);
-        listEl.insertBefore(lastCloneEl.firstElementChild, listEl.firstChild);
-
-        const firstCloneEl = document.createElement('div');
-        firstCloneEl.innerHTML = cardHTML(cards[0], 0);
-        listEl.appendChild(firstCloneEl.firstElementChild);
-      }
-      bindCardClicks();
-      if (prevBtn) prevBtn.style.display = 'none';
-      if (nextBtn) nextBtn.style.display = 'none';
-      const setActiveDot = setupMissionCardDots(listEl, pageEl, cards.length);
-
-      if (cards.length > 1) {
-        missionCardsAutoTimer = setupInfiniteAutoScroll(listEl, cards.length, 3000, setActiveDot);
-      }
-      return;
-    }
-
-    // PC: 3개씩 페이지 버튼으로 넘겨봅니다 (자동 순환 포함).
-    if (prevBtn) prevBtn.style.display = '';
-    if (nextBtn) nextBtn.style.display = '';
-    const perPage = 3;
-    const totalPages = Math.max(1, Math.ceil(cards.length / perPage));
-    let page = 0;
-
-    function draw() {
-      const slice = cards.slice(page * perPage, page * perPage + perPage);
-      listEl.innerHTML = slice.map((c, i) => cardHTML(c, page * perPage + i)).join('');
-      bindCardClicks();
-      if (pageEl) {
-        pageEl.innerHTML =
-          totalPages > 1
-            ? Array.from({ length: totalPages })
-                .map((_, i) => `<button type="button" class="mission-cards-dot${i === page ? ' active' : ''}" data-page="${i}" aria-label="${i + 1}번째 화면"></button>`)
-                .join('')
-            : '';
-        $$('.mission-cards-dot', pageEl).forEach((dot) => {
-          dot.onclick = () => {
-            page = Number(dot.dataset.page);
-            draw();
-            stopMissionCardsAuto();
-          };
-        });
-      }
-      if (prevBtn) prevBtn.disabled = totalPages <= 1;
-      if (nextBtn) nextBtn.disabled = totalPages <= 1;
-    }
-
-    if (prevBtn) {
-      prevBtn.onclick = () => {
-        page = (page - 1 + totalPages) % totalPages;
-        draw();
-        stopMissionCardsAuto();
-      };
-    }
-    if (nextBtn) {
-      nextBtn.onclick = () => {
-        page = (page + 1) % totalPages;
-        draw();
-        stopMissionCardsAuto();
-      };
-    }
-    draw();
-
-    if (totalPages > 1) {
-      const intervalId = setInterval(() => {
-        page = (page + 1) % totalPages;
-        draw();
-      }, 3000);
-      missionCardsAutoTimer = () => clearInterval(intervalId);
-    }
+    // 페이지 로드시 site 정보에서 기존 보관함을 불러옵니다.
+    api('/api/site')
+      .then((site) => {
+        qtBgPoolList = Array.isArray(site.qtBgPool) ? [...site.qtBgPool] : [];
+        renderQtBgPoolList();
+      })
+      .catch(() => {});
   }
 
-  function setupMissionCardDots(row, dotsWrap, count) {
-    if (!dotsWrap) return null;
-    if (!count || count <= 1) {
-      dotsWrap.innerHTML = '';
-      return null;
+  // ---------------- 통계 ----------------
+  function sumStatsByDay(byDay, days) {
+    const today = new Date();
+    let total = 0;
+    for (let i = 0; i < days; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      const dayData = byDay[key] || {};
+      total += Object.values(dayData).reduce((a, b) => a + b, 0);
     }
-    dotsWrap.innerHTML = Array.from({ length: count })
-      .map((_, i) => `<span class="mission-cards-dot${i === 0 ? ' active' : ''}"></span>`)
-      .join('');
-    const dots = $$('.mission-cards-dot', dotsWrap);
-
-    function setActiveByIndex(idx) {
-      const clamped = Math.max(0, Math.min(count - 1, idx));
-      dots.forEach((dot, i) => dot.classList.toggle('active', i === clamped));
-    }
-
-    return setActiveByIndex;
+    return total;
   }
 
-  async function loadMissions() {
-    const [site, partners] = await Promise.all([getJSON('/api/site'), getJSON('/api/partners')]);
-    const rawCards = (site && site.missions && site.missions.cards) || [];
-    const missionCards = rawCards.filter((c) => c && (c.name || c.country || c.content || c.photo));
-    const partnersList = partners || [];
-
-    if (missionCards.length === 0 && partnersList.length === 0) {
-      $('#missions').style.display = 'none';
-      return;
+  function aggregateByLabel(byDay, days) {
+    const today = new Date();
+    const totals = {};
+    for (let i = 0; i < days; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      const dayData = byDay[key] || {};
+      Object.entries(dayData).forEach(([label, count]) => {
+        totals[label] = (totals[label] || 0) + count;
+      });
     }
-
-    const cardsWrap = $('.mission-cards-wrap');
-    if (missionCards.length === 0) {
-      if (cardsWrap) cardsWrap.style.display = 'none';
-    } else {
-      if (cardsWrap) cardsWrap.style.display = '';
-      renderMissionCards(missionCards);
-    }
-
-    if (partnersList.length === 0) {
-      $('.missions-partners').style.display = 'none';
-    } else {
-      $('.missions-partners').style.display = '';
-      renderPartners(partnersList);
-    }
+    return Object.entries(totals).sort((a, b) => b[1] - a[1]);
   }
 
-  // ---------------- PWA: 서비스워커 등록 ----------------
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('/sw.js')
-        .then((reg) => setupPushPrompt(reg))
-        .catch(() => {});
-    });
-  }
-
-  // ---------------- 푸시 알림 구독 ----------------
-  function urlBase64ToUint8Array(base64String) {
-    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
-    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
-    const rawData = window.atob(base64);
-    return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
-  }
-
-  async function setupPushPrompt(registration) {
-    if (!('PushManager' in window) || !('Notification' in window)) return; // 미지원 기기(iOS 사파리 등)는 조용히 건너뜀
-    if (Notification.permission === 'denied') return; // 이미 차단한 경우 다시 안 물어봄
-    if (localStorage.getItem('push-prompt-dismissed') === '1') return; // 예전에 닫은 적 있으면 다시 안 보여줌
-
-    const existing = await registration.pushManager.getSubscription();
-    if (existing) return; // 이미 구독 중이면 배너 안 보여줌
-
-    const banner = $('#push-prompt');
-    if (!banner) return;
-    banner.style.display = 'flex';
-
-    $('#push-dismiss-btn').addEventListener('click', () => {
-      banner.style.display = 'none';
-      localStorage.setItem('push-prompt-dismissed', '1');
-    });
-
-    $('#push-allow-btn').addEventListener('click', async () => {
-      try {
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
-          banner.style.display = 'none';
-          return;
-        }
-        const { publicKey } = await getJSON('/api/push/vapid-public-key');
-        if (!publicKey) {
-          banner.style.display = 'none';
-          return;
-        }
-        const subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(publicKey)
-        });
-        await fetch('/api/push/subscribe', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(subscription)
-        });
-        banner.style.display = 'none';
-        localStorage.setItem('push-prompt-dismissed', '1');
-      } catch (err) {
-        banner.style.display = 'none';
-      }
-    });
-  }
-
-  // ---------------- 초기 로드 ----------------
-  observeReveals();
-  // ---------------- 말씀 퀴즈 티저 카드 ----------------
-  // 관리자가 이번 주 퀴즈를 등록해뒀을 때만 카드가 보이게 합니다. (없으면 빈 링크가
-  // 보이지 않도록 기본은 숨김 상태로 시작해서, 있을 때만 드러냅니다)
-  async function loadQuizTeaser() {
-    const card = $('#quiz-teaser-card');
-    if (!card) return;
-    try {
-      const res = await fetch('/api/quiz/current');
-      const data = await res.json();
-      if (data) {
-        card.style.display = '';
-        observeReveals(card.parentElement);
-      }
-    } catch (err) {
-      // 실패해도 조용히 숨긴 채로 둡니다.
-    }
-  }
-
-  // ---------------- 맨 위로 이동 버튼 ----------------
-  function setupScrollTopButton() {
-    const btn = $('#scroll-top-btn');
-    if (!btn) return;
-    let ticking = false;
-    let hideTimer = null;
-    const isMobile = () => window.matchMedia('(max-width: 900px)').matches;
-
-    function scheduleAutoHide() {
-      if (hideTimer) clearTimeout(hideTimer);
-      hideTimer = setTimeout(() => {
-        btn.classList.remove('visible');
-      }, 1500);
-    }
-
-    function update() {
-      const pastThreshold = window.scrollY > 600;
-      if (isMobile()) {
-        // 모바일: 스크롤 중일 때만 보이고, 멈추면 잠시 후 사라짐 (기준 스크롤 위치를 넘었을 때만)
-        if (pastThreshold) {
-          btn.classList.add('visible');
-          scheduleAutoHide();
-        } else {
-          btn.classList.remove('visible');
-        }
-      } else {
-        btn.classList.toggle('visible', pastThreshold);
-      }
-      ticking = false;
-    }
-    window.addEventListener('scroll', () => {
-      if (!ticking) {
-        requestAnimationFrame(update);
-        ticking = true;
-      }
-    });
-    btn.addEventListener('click', () => {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
-  }
-  setupScrollTopButton();
-
-  // ---------------- 해시(#qt 등)로 진입했을 때, 데이터·폰트 준비 후 한 번만 이동 ----------------
-  // index.html의 head 스크립트에서 location.hash를 미리 떼어 window.__pendingScrollHash에
-  // 저장해뒀습니다(브라우저의 이른 앵커 점프 방지). 설교·찬양·게시판 카드의 사진 자리는
-  // CSS aspect-ratio로 이미 예약돼 있어 사진 로딩 자체를 따로 기다릴 필요는 없습니다.
-  // 아래 함수는 head 스크립트가 "데이터 + 폰트"까지 모두 준비된 뒤 딱 한 번만 호출해서,
-  // 화면이 공개되기 직전에 정확한 위치로 이동시켜 줍니다.
-  window.__performPendingScroll = function () {
-    const hash = window.__pendingScrollHash;
-    if (!hash) return;
-    window.__pendingScrollHash = null;
-    const target = document.querySelector(hash);
-    if (!target) return;
-    // style.css에 html { scroll-behavior: smooth; }가 걸려 있어서, 그냥
-    // scrollIntoView({ behavior: 'auto' })만으로는 "즉시 이동"이 아니라
-    // CSS를 따라 부드럽게(smooth) 움직여버립니다. 화면 공개 직전 딱 이 순간만큼은
-    // 확실하게 즉시 이동하도록 scroll-behavior를 잠깐 꺼뒀다가 되돌립니다.
-    const html = document.documentElement;
-    const prevScrollBehavior = html.style.scrollBehavior;
-    html.style.scrollBehavior = 'auto';
-    target.scrollIntoView({ block: 'start', behavior: 'auto' });
-    html.style.scrollBehavior = prevScrollBehavior;
-    // 주소창에 #qt를 다시 붙이면, 그 이후 평범하게 새로고침할 때마다 계속
-    // 큐티로 이동해버리는 문제가 생기므로 URL은 계속 깨끗한 '/'로 둡니다.
+  const CLICK_LABELS = {
+    sermon_card: '설교 영상',
+    board_card: '소식·활동 게시글',
+    qt_card: '오늘의 큐티 카드',
+    qt_archive_row: '지난 큐티 목록',
+    amen_button: "'아멘' 누르기",
+    share_button: '큐티 공유'
   };
 
-  // 큐티(#qt)보다 위쪽 섹션(사이트정보·메뉴·설교·찬양·게시판·큐티)의 데이터만 스크롤
-  // 위치 계산에 영향을 줍니다. 아래쪽 섹션(선교·퀴즈)은 화면 공개를 굳이 기다릴
-  // 필요가 없어서, 느린 네트워크에서도 화면이 빨리 뜨도록 따로 분리해 불러옵니다.
-  Promise.all([loadSite(), loadMenu(), loadSermons(), loadPraises(), loadBoard(), loadQT()])
-    .catch((err) => {
-      console.error('콘텐츠를 불러오는 중 오류가 발생했습니다:', err);
-    })
-    .finally(() => {
-      if (window.__resolveDataReady) window.__resolveDataReady();
+  function renderBarList(container, entries, labelMap = {}) {
+    if (entries.length === 0) {
+      container.innerHTML = `<p class="hint">아직 데이터가 없습니다.</p>`;
+      return;
+    }
+    const max = entries[0][1] || 1;
+    container.innerHTML = entries
+      .slice(0, 10)
+      .map(([key, count]) => {
+        const label = labelMap[key] || key;
+        const pct = Math.max(6, Math.round((count / max) * 100));
+        return `
+        <div class="stats-bar-row">
+          <span class="stats-bar-label">${escapeHtml(label)}</span>
+          <div class="stats-bar-track"><div class="stats-bar-fill" style="width:${pct}%"></div></div>
+          <span class="stats-bar-count">${count}</span>
+        </div>`;
+      })
+      .join('');
+  }
+
+  // itemClicks[day][itemType][itemId] = { count, title } 구조를 최근 N일 합산해서
+  // [{ itemId, title, count }] 형태로 많이 눌린 순으로 정렬해 돌려줍니다.
+  function aggregateItemClicks(itemClicksByDay, itemType, days) {
+    const today = new Date();
+    const totals = {};
+    for (let i = 0; i < days; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      const dayData = (itemClicksByDay[key] && itemClicksByDay[key][itemType]) || {};
+      Object.entries(dayData).forEach(([itemId, info]) => {
+        if (!totals[itemId]) totals[itemId] = { itemId, title: info.title, count: 0 };
+        totals[itemId].count += info.count;
+        if (info.title) totals[itemId].title = info.title;
+      });
+    }
+    return Object.values(totals).sort((a, b) => b.count - a.count);
+  }
+
+  // timeSpent[day][path] = { totalSeconds, sessions } 구조를 최근 N일 합산해서
+  // 페이지별 '평균 체류시간'을 계산합니다.
+  function aggregateTimeSpent(timeSpentByDay, days) {
+    const today = new Date();
+    const totals = {};
+    for (let i = 0; i < days; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      const dayData = timeSpentByDay[key] || {};
+      Object.entries(dayData).forEach(([path, info]) => {
+        if (!totals[path]) totals[path] = { totalSeconds: 0, sessions: 0 };
+        totals[path].totalSeconds += info.totalSeconds;
+        totals[path].sessions += info.sessions;
+      });
+    }
+    return Object.entries(totals)
+      .map(([path, info]) => ({
+        path,
+        avgSeconds: info.sessions > 0 ? Math.round(info.totalSeconds / info.sessions) : 0,
+        sessions: info.sessions
+      }))
+      .sort((a, b) => b.sessions - a.sessions);
+  }
+
+  function formatSeconds(sec) {
+    if (sec < 60) return `${sec}초`;
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return s > 0 ? `${m}분 ${s}초` : `${m}분`;
+  }
+
+  function renderItemRankList(container, entries, emptyMessage) {
+    if (!entries || entries.length === 0) {
+      container.innerHTML = `<p class="hint">${emptyMessage}</p>`;
+      return;
+    }
+    const max = entries[0].count || 1;
+    container.innerHTML = entries
+      .slice(0, 10)
+      .map(
+        (e) => `
+        <div class="stats-bar-row">
+          <span class="stats-bar-label" title="${escapeHtml(e.title || e.itemId)}">${escapeHtml(e.title || e.itemId)}</span>
+          <div class="stats-bar-track"><div class="stats-bar-fill" style="width:${Math.max(6, Math.round((e.count / max) * 100))}%"></div></div>
+          <span class="stats-bar-count">${e.count}</span>
+        </div>`
+      )
+      .join('');
+  }
+
+
+  // deviceStats[day][device] = { pageviews, timeSpentSeconds, timeSpentSessions } 를
+  // 최근 N일 합산해서 PC/모바일 비율과 평균 체류시간을 계산합니다.
+  function aggregateDeviceStats(deviceStatsByDay, days) {
+    const today = new Date();
+    const totals = { desktop: { pageviews: 0, timeSpentSeconds: 0, timeSpentSessions: 0 }, mobile: { pageviews: 0, timeSpentSeconds: 0, timeSpentSessions: 0 } };
+    for (let i = 0; i < days; i++) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      const key = d.toISOString().slice(0, 10);
+      const dayData = deviceStatsByDay[key];
+      if (!dayData) continue;
+      ['desktop', 'mobile'].forEach((dev) => {
+        if (!dayData[dev]) return;
+        totals[dev].pageviews += dayData[dev].pageviews || 0;
+        totals[dev].timeSpentSeconds += dayData[dev].timeSpentSeconds || 0;
+        totals[dev].timeSpentSessions += dayData[dev].timeSpentSessions || 0;
+      });
+    }
+    return totals;
+  }
+
+  async function loadStats() {
+    const [stats, qtList, praiseCategoryList] = await Promise.all([
+      api('/api/admin/stats'),
+      api('/api/admin/qt'),
+      api('/api/admin/praise-categories')
+    ]);
+    const qtTitleById = {};
+    qtList.forEach((q) => (qtTitleById['/qt/' + q.id] = q.title));
+    const pageLabelMap = { '/': '홈페이지', ...qtTitleById };
+
+    const today = sumStatsByDay(stats.pageviews, 1);
+    const last7 = sumStatsByDay(stats.pageviews, 7);
+    const last30 = sumStatsByDay(stats.pageviews, 30);
+
+    $('#stats-summary-cards').innerHTML = `
+      <div class="stat-card"><div class="num">${today}</div><div class="label">오늘</div></div>
+      <div class="stat-card"><div class="num">${last7}</div><div class="label">최근 7일</div></div>
+      <div class="stat-card"><div class="num">${last30}</div><div class="label">최근 30일</div></div>`;
+
+    // ---- 기기별(PC/모바일) 방문 현황 ----
+    const deviceTotals = aggregateDeviceStats(stats.deviceStats || {}, 7);
+    const totalDeviceViews = deviceTotals.desktop.pageviews + deviceTotals.mobile.pageviews;
+    const mobilePct = totalDeviceViews > 0 ? Math.round((deviceTotals.mobile.pageviews / totalDeviceViews) * 100) : 0;
+    const desktopAvgSec = deviceTotals.desktop.timeSpentSessions > 0
+      ? Math.round(deviceTotals.desktop.timeSpentSeconds / deviceTotals.desktop.timeSpentSessions)
+      : 0;
+    const mobileAvgSec = deviceTotals.mobile.timeSpentSessions > 0
+      ? Math.round(deviceTotals.mobile.timeSpentSeconds / deviceTotals.mobile.timeSpentSessions)
+      : 0;
+    $('#stats-device-cards').innerHTML = `
+      <div class="stat-card"><div class="num">${deviceTotals.desktop.pageviews}</div><div class="label">PC 방문 (평균 ${formatSeconds(desktopAvgSec)})</div></div>
+      <div class="stat-card"><div class="num">${deviceTotals.mobile.pageviews}</div><div class="label">모바일 방문 (평균 ${formatSeconds(mobileAvgSec)})</div></div>
+      <div class="stat-card"><div class="num">${mobilePct}%</div><div class="label">모바일 비율</div></div>`;
+
+    renderBarList($('#stats-click-list'), aggregateByLabel(stats.clicks, 7), CLICK_LABELS);
+    renderBarList($('#stats-page-list'), aggregateByLabel(stats.pageviews, 7), pageLabelMap);
+
+    // ---- 항목별(콘텐츠 하나하나) 인기 순위 ----
+    const itemClicks = stats.itemClicks || {};
+    renderItemRankList($('#stats-sermon-list'), aggregateItemClicks(itemClicks, 'sermon', 30), '아직 데이터가 없습니다.');
+    renderItemRankList($('#stats-praise-list'), aggregateItemClicks(itemClicks, 'praise', 30), '아직 데이터가 없습니다.');
+    renderItemRankList($('#stats-qt-list'), aggregateItemClicks(itemClicks, 'qt', 30), '아직 데이터가 없습니다.');
+    renderItemRankList($('#stats-board-list'), aggregateItemClicks(itemClicks, 'board', 30), '아직 데이터가 없습니다.');
+
+    // 컨셉(카테고리) 필터는 이름표를 붙여서 보여줌
+    const categoryNameById = {};
+    (praiseCategoryList || []).forEach((c) => (categoryNameById[c.id] = c.name));
+    const categoryClicks = aggregateItemClicks(itemClicks, 'praise_category', 30).map((e) => ({
+      ...e,
+      title: categoryNameById[e.itemId] || e.title || e.itemId
+    }));
+    renderItemRankList($('#stats-praise-category-list'), categoryClicks, '아직 데이터가 없습니다.');
+
+    // ---- 페이지별 평균 체류시간 ----
+    const timeSpentEl = $('#stats-timespent-list');
+    if (timeSpentEl) {
+      const timeSpent = aggregateTimeSpent(stats.timeSpent || {}, 7).map((e) => ({
+        itemId: e.path,
+        title: `${pageLabelMap[e.path] || e.path} (평균 ${formatSeconds(e.avgSeconds)})`,
+        count: e.sessions
+      }));
+      renderItemRankList(timeSpentEl, timeSpent, '아직 데이터가 없습니다.');
+    }
+  }
+
+  // ---------------- 기부금 영수증 신청 관리 ----------------
+  function formatReceiptDate(iso) {
+    const d = new Date(iso);
+    if (isNaN(d)) return '';
+    return `${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`;
+  }
+
+  async function loadReceiptRequests() {
+    const list = await api('/api/admin/receipt-requests');
+    renderReceiptList(list);
+  }
+
+  function renderReceiptList(list) {
+    const container = $('#receipt-list');
+    if (!list || list.length === 0) {
+      container.innerHTML = `<p class="hint">접수된 신청이 없습니다.</p>`;
+      return;
+    }
+    container.innerHTML = list
+      .map(
+        (r) => `
+        <div class="post-row" data-id="${r.id}">
+          <span class="badge">신청</span>
+          <div>
+            <div class="title">${escapeHtml(r.name)} · ${escapeHtml(r.phone)}${r.email ? ' · ' + escapeHtml(r.email) : ''}</div>
+            <div class="meta">${escapeHtml(r.note || '')}</div>
+          </div>
+          <span class="date">${formatReceiptDate(r.createdAt)}</span>
+          <button type="button" class="icon-btn remove-receipt">처리완료(삭제)</button>
+        </div>`
+      )
+      .join('');
+
+    $$('#receipt-list .remove-receipt').forEach((btn) =>
+      btn.addEventListener('click', async (e) => {
+        if (!confirm('처리 완료 처리하고 목록에서 삭제하시겠습니까?')) return;
+        const id = e.target.closest('.post-row').dataset.id;
+        await api(`/api/admin/receipt-requests/${id}`, { method: 'DELETE' });
+        loadReceiptRequests();
+      })
+    );
+  }
+
+  // ---------------- 설교 영상 (유튜브) ----------------
+  let sermonCategories = [];
+  let sermonCategoryTags = {};
+
+  async function loadSermonPreview() {
+    const data = await api('/api/admin/sermons');
+    renderSermonPreview(data);
+  }
+
+  async function loadSermonCategories() {
+    [sermonCategories, sermonCategoryTags] = await Promise.all([
+      api('/api/admin/sermon-categories'),
+      api('/api/admin/sermon-category-tags')
+    ]);
+    renderSermonCategoryManageList();
+  }
+
+  function renderSermonCategoryManageList() {
+    const wrap = $('#sermon-category-list');
+    if (!wrap) return;
+    if (sermonCategories.length === 0) {
+      wrap.innerHTML = `<p class="hint" style="margin:0;">아직 만들어진 테마가 없습니다.</p>`;
+      return;
+    }
+    wrap.innerHTML = sermonCategories
+      .map(
+        (c) => `
+        <span class="badge" style="display:inline-flex; align-items:center; gap:6px;">
+          ${escapeHtml(c.name)}
+          <button type="button" class="sermon-category-edit" data-id="${c.id}" data-name="${escapeHtml(c.name)}" style="background:none; border:none; color:inherit; cursor:pointer; font-size:0.9em;" aria-label="수정">✎</button>
+          <button type="button" class="sermon-category-delete" data-id="${c.id}" style="background:none; border:none; color:inherit; cursor:pointer; font-size:0.9em;">×</button>
+        </span>`
+      )
+      .join('');
+    $$('.sermon-category-edit', wrap).forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const newName = prompt('테마 이름 수정', btn.dataset.name);
+        if (!newName || !newName.trim() || newName.trim() === btn.dataset.name) return;
+        try {
+          await api(`/api/admin/sermon-categories/${btn.dataset.id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ name: newName.trim() })
+          });
+          await loadSermonCategories();
+          renderSermonPreview(lastSermonPreviewData);
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+    });
+    $$('.sermon-category-delete', wrap).forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('이 테마를 삭제할까요? (이 테마가 붙어있던 영상에서도 태그가 빠집니다)')) return;
+        try {
+          await api(`/api/admin/sermon-categories/${btn.dataset.id}`, { method: 'DELETE' });
+          await loadSermonCategories();
+          renderSermonPreview(lastSermonPreviewData);
+        } catch (err) {
+          alert(err.message);
+        }
+      });
+    });
+  }
+
+  function setupSermonCategoryManagement() {
+    const addBtn = $('#sermon-category-add-btn');
+    if (!addBtn) return;
+    addBtn.addEventListener('click', async () => {
+      const input = $('#sermon-category-new-input');
+      const name = input.value.trim();
+      if (!name) return alert('테마 이름을 입력해주세요.');
+      try {
+        await api('/api/admin/sermon-categories', { method: 'POST', body: JSON.stringify({ name }) });
+        input.value = '';
+        await loadSermonCategories();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  }
+
+  let lastSermonPreviewData = null;
+
+  function renderSermonPreview(data) {
+    lastSermonPreviewData = data;
+    $('#sermon-last-updated').textContent = data.lastUpdated
+      ? `마지막 업데이트: ${new Date(data.lastUpdated).toLocaleString('ko-KR')}`
+      : '아직 업데이트된 적이 없습니다.';
+
+    const container = $('#sermon-preview-list');
+    if (!data.videos || data.videos.length === 0) {
+      container.innerHTML = `<p class="hint">캐시된 영상이 없습니다. 새로고침을 눌러주세요.</p>`;
+      return;
+    }
+    container.innerHTML = data.videos
+      .map((v) => {
+        const currentTags = sermonCategoryTags[v.videoId] || [];
+        const checksHtml = sermonCategories
+          .map(
+            (c) => `
+            <label style="font-size:0.78rem; display:flex; align-items:center; gap:4px;">
+              <input type="checkbox" class="sermon-tag-check" value="${c.id}" ${currentTags.includes(c.id) ? 'checked' : ''} />
+              ${escapeHtml(c.name)}
+            </label>`
+          )
+          .join('');
+        return `
+        <div class="sermon-preview-item">
+          <img src="${v.thumbnail}" alt="${escapeAttr(v.title)}" />
+          <div class="t">${escapeHtml(v.title)}</div>
+          ${sermonCategories.length > 0 ? `
+          <div class="sermon-tag-group" data-video-id="${escapeAttr(v.videoId)}" style="display:flex; flex-wrap:wrap; gap:8px; margin:8px 8px 10px; padding-top:8px; border-top:1px dashed var(--line);">
+            ${checksHtml}
+            <button type="button" class="btn-secondary sermon-tag-save-btn" data-video-id="${escapeAttr(v.videoId)}" style="font-size:0.78rem; padding:4px 10px;">테마 저장</button>
+          </div>` : ''}
+        </div>`;
+      })
+      .join('');
+    bindSermonTagSaveButtons();
+  }
+
+  function bindSermonTagSaveButtons() {
+    $$('.sermon-tag-save-btn').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const videoId = btn.dataset.videoId;
+        const group = $(`.sermon-tag-group[data-video-id="${videoId}"]`);
+        const categoryIds = $$('.sermon-tag-check', group).filter((cb) => cb.checked).map((cb) => cb.value);
+        const original = btn.textContent;
+        btn.textContent = '저장 중...';
+        try {
+          await api(`/api/admin/sermon-category-tags/${encodeURIComponent(videoId)}`, {
+            method: 'PUT',
+            body: JSON.stringify({ categoryIds })
+          });
+          sermonCategoryTags[videoId] = categoryIds;
+          btn.textContent = '저장됨 ✓';
+          setTimeout(() => (btn.textContent = original), 1500);
+        } catch (err) {
+          alert(err.message);
+          btn.textContent = original;
+        }
+      });
+    });
+  }
+
+  // ---------------- (예전 큐레이션 2슬롯 시스템은 설교 테마 태그 방식으로 대체되어 제거됨) ----------------
+
+  // ---------------- 사용할 사진 직접 고르기 ----------------
+  async function setupSermonPhotoOverride() {
+    const select = $('#sermon-photo-override-select');
+    if (!select) return;
+    try {
+      const [files, site] = await Promise.all([
+        api('/api/admin/sermon-photo-files'),
+        Promise.resolve(currentSite || (await api('/api/admin/site')))
+      ]);
+      if (!files || files.length === 0) {
+        const opt = document.createElement('option');
+        opt.disabled = true;
+        opt.textContent = '(utils/assets/sermon-card-photos 폴더에서 사진을 찾지 못했습니다)';
+        select.appendChild(opt);
+      } else {
+        files.forEach((f) => {
+          const opt = document.createElement('option');
+          opt.value = f;
+          opt.textContent = f;
+          select.appendChild(opt);
+        });
+      }
+      select.value = (site && site.sermonPhotoOverride) || '';
+    } catch (err) {
+      const opt = document.createElement('option');
+      opt.disabled = true;
+      opt.textContent = '목록을 불러오지 못했습니다: ' + err.message;
+      select.appendChild(opt);
+    }
+
+    $('#sermon-photo-override-save-btn').addEventListener('click', async () => {
+      const statusEl = $('#sermon-photo-override-status');
+      statusEl.textContent = '저장 중...';
+      try {
+        await api('/api/admin/site', {
+          method: 'PUT',
+          body: JSON.stringify({ sermonPhotoOverride: select.value })
+        });
+        if (currentSite) currentSite.sermonPhotoOverride = select.value;
+        statusEl.textContent = '저장 완료 ✓ (아래 "다시 만들기" 버튼도 눌러주세요)';
+        setTimeout(() => (statusEl.textContent = ''), 4000);
+      } catch (err) {
+        statusEl.textContent = '저장 실패: ' + err.message;
+      }
+    });
+  }
+
+  function setupSermonRefresh() {
+    $('#refresh-sermons-btn').addEventListener('click', async () => {
+      const statusEl = $('#sermon-refresh-status');
+      const channelId = $('#yt-channelId').value.trim();
+      statusEl.textContent = '새로고침 중...';
+      try {
+        const data = await api('/api/admin/sermons/refresh', {
+          method: 'POST',
+          body: JSON.stringify(channelId ? { channelId } : {})
+        });
+        renderSermonPreview(data);
+        statusEl.textContent = `완료 ✓ (영상 ${data.videos.length}개 갱신)`;
+        setTimeout(() => (statusEl.textContent = ''), 4000);
+      } catch (err) {
+        statusEl.textContent = '';
+        alert(err.message);
+      }
     });
 
-  Promise.all([loadMissions(), loadQuizTeaser()]).catch((err) => {
-    console.error('선교/퀴즈 콘텐츠를 불러오는 중 오류가 발생했습니다:', err);
-  });
+    $('#clear-sermon-posters-btn').addEventListener('click', async () => {
+      if (!confirm('저장된 설교 카드 이미지를 전부 지우고 다시 만들까요?')) return;
+      const statusEl = $('#sermon-posters-clear-status');
+      statusEl.textContent = '처리 중...';
+      try {
+        await api('/api/admin/sermon-posters', { method: 'DELETE' });
+        statusEl.textContent = '완료 ✓ (홈페이지를 새로고침하면 다시 만들어집니다)';
+        setTimeout(() => (statusEl.textContent = ''), 5000);
+      } catch (err) {
+        statusEl.textContent = '';
+        alert(err.message);
+      }
+    });
+  }
+
+  // ---------------- 계정 관리 ----------------
+  function setupAccountPanel() {
+    setupMyPasswordForm();
+    if (currentSession && currentSession.role === 'main') {
+      $('#account-add-card').hidden = false;
+      $('#account-list-card').hidden = false;
+      setupAddAccountForm();
+      loadAccountList();
+    }
+  }
+
+  function setupMyPasswordForm() {
+    $('#save-password-btn').addEventListener('click', async () => {
+      const currentPassword = $('#pw-current').value;
+      const newPassword = $('#pw-new').value;
+      const confirmPassword = $('#pw-confirm').value;
+      if (newPassword.length < 6) return alert('새 비밀번호는 6자 이상이어야 합니다.');
+      if (newPassword !== confirmPassword) return alert('새 비밀번호가 서로 일치하지 않습니다.');
+
+      const statusEl = $('#password-save-status');
+      try {
+        await api('/api/admin/my-password', {
+          method: 'PUT',
+          body: JSON.stringify({ currentPassword, newPassword })
+        });
+        $('#pw-current').value = '';
+        $('#pw-new').value = '';
+        $('#pw-confirm').value = '';
+        statusEl.textContent = '변경 완료 ✓';
+        setTimeout(() => (statusEl.textContent = ''), 3000);
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  }
+
+  function setupAddAccountForm() {
+    $('#add-account-btn').addEventListener('click', async () => {
+      const username = $('#acc-username').value.trim();
+      const password = $('#acc-password').value;
+      if (!username || password.length < 6) {
+        return alert('아이디와 6자 이상의 비밀번호를 입력해주세요.');
+      }
+      const permissions = {
+        site: $('#acc-perm-site').checked,
+        menu: $('#acc-perm-menu').checked,
+        posts: $('#acc-perm-posts').checked,
+        sermons: $('#acc-perm-sermons').checked,
+        qt: $('#acc-perm-qt').checked,
+        missions: $('#acc-perm-missions').checked,
+        stats: $('#acc-perm-stats').checked,
+        receipts: $('#acc-perm-receipts').checked
+      };
+      const statusEl = $('#account-add-status');
+      try {
+        await api('/api/admin/accounts', {
+          method: 'POST',
+          body: JSON.stringify({ username, password, permissions })
+        });
+        $('#acc-username').value = '';
+        $('#acc-password').value = '';
+        ['site', 'menu', 'posts', 'sermons', 'qt', 'missions', 'stats', 'receipts'].forEach((p) => ($('#acc-perm-' + p).checked = false));
+        statusEl.textContent = '추가 완료 ✓';
+        setTimeout(() => (statusEl.textContent = ''), 3000);
+        loadAccountList();
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+  }
+
+  async function loadAccountList() {
+    const accounts = await api('/api/admin/accounts');
+    renderAccountList(accounts);
+  }
+
+  function renderAccountList(accounts) {
+    const container = $('#account-list');
+    container.innerHTML = accounts
+      .map((a) => {
+        const isMain = a.role === 'main';
+        const perms = a.permissions || {};
+        const permRow = ['site', 'menu', 'posts', 'sermons', 'qt', 'missions', 'stats', 'receipts']
+          .map(
+            (p) => `
+            <label>
+              <input type="checkbox" class="perm-${p}" ${perms[p] ? 'checked' : ''} ${isMain ? 'disabled' : ''} />
+              ${{ site: '기본 정보', menu: '메뉴 관리', posts: '소식·활동 게시판', sermons: '설교 영상', qt: '오늘의 큐티', missions: '선교사역', stats: '통계', receipts: '영수증 신청' }[p]}
+            </label>`
+          )
+          .join('');
+
+        return `
+        <div class="account-row" data-id="${a.id}">
+          <div class="account-row-top">
+            <span class="badge${isMain ? ' main' : ''}">${isMain ? '메인 관리자' : '부관리자'}</span>
+            <span class="account-username">${escapeHtml(a.username)}</span>
+            ${!isMain ? `<button type="button" class="icon-btn remove-account">계정 삭제</button>` : ''}
+          </div>
+          <div class="permission-checks">${permRow}</div>
+          ${
+            !isMain
+              ? `<div class="account-pw-row">
+                  <input type="password" class="acc-new-pw" placeholder="새 비밀번호 (변경할 때만 입력, 6자 이상)" />
+                  <button type="button" class="btn-secondary save-account-btn">저장</button>
+                </div>`
+              : ''
+          }
+        </div>`;
+      })
+      .join('');
+
+    $$('#account-list .save-account-btn').forEach((btn) =>
+      btn.addEventListener('click', async (e) => {
+        const row = e.target.closest('.account-row');
+        const id = row.dataset.id;
+        const permissions = {
+          site: row.querySelector('.perm-site').checked,
+          menu: row.querySelector('.perm-menu').checked,
+          posts: row.querySelector('.perm-posts').checked,
+          sermons: row.querySelector('.perm-sermons').checked,
+          qt: row.querySelector('.perm-qt').checked,
+          missions: row.querySelector('.perm-missions').checked,
+          stats: row.querySelector('.perm-stats').checked,
+          receipts: row.querySelector('.perm-receipts').checked
+        };
+        const newPassword = row.querySelector('.acc-new-pw').value;
+        if (newPassword && newPassword.length < 6) {
+          return alert('새 비밀번호는 6자 이상이어야 합니다.');
+        }
+        const payload = { permissions };
+        if (newPassword) payload.newPassword = newPassword;
+        try {
+          await api(`/api/admin/accounts/${id}`, { method: 'PUT', body: JSON.stringify(payload) });
+          flashSaved(btn);
+          row.querySelector('.acc-new-pw').value = '';
+        } catch (err) {
+          alert(err.message);
+        }
+      })
+    );
+
+    $$('#account-list .remove-account').forEach((btn) =>
+      btn.addEventListener('click', async (e) => {
+        const row = e.target.closest('.account-row');
+        const id = row.dataset.id;
+        const username = row.querySelector('.account-username').textContent;
+        if (!confirm(`'${username}' 계정을 삭제하시겠습니까?`)) return;
+        await api(`/api/admin/accounts/${id}`, { method: 'DELETE' });
+        loadAccountList();
+      })
+    );
+  }
+
+  // ---------------- 시작 ----------------
+  checkSession();
 })();
