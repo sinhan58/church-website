@@ -1900,9 +1900,16 @@
       const isDesktopNow = window.matchMedia('(min-width: 861px)').matches;
       const maxCount = isDesktopNow ? 6 : 4;
       const items = rest.slice(0, maxCount);
-      archiveGrid.innerHTML = items.map((q) => buildQtCardHtml(q, { isToday: false })).join('');
+      archiveGrid.innerHTML = items
+        .map(
+          (q) => `
+          <a class="qt-archive-photo-card" href="/qt/${q.id}?from=home" data-id="${q.id}" data-title="${escapeHtml(q.title || '')}"${q.bgImage ? ` style="--qt-photo-bg: url('${escapeHtml(q.bgImage)}')"` : ''}>
+            <h4 class="qt-archive-photo-card-title">${escapeHtml(q.title || '')}</h4>
+          </a>`
+        )
+        .join('');
 
-      $$('.qt-card--archive-mini', archiveGrid).forEach((card) => {
+      $$('.qt-archive-photo-card', archiveGrid).forEach((card) => {
         card.addEventListener('click', () =>
           track('click', { label: 'qt_archive_grid', itemType: 'qt', itemId: card.dataset.id, itemTitle: card.dataset.title })
         );
