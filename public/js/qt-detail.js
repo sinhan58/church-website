@@ -45,17 +45,23 @@
   // 알려줍니다(홈페이지 큐티 카드 링크의 ?from=home 표시를 기준으로 판단하며,
   // 브라우저의 Referer 정보에 기대지 않아 PC/모바일 어디서나 일관되게 동작합니다).
   const homeBtn = document.getElementById('qt-home-btn');
+  console.log('[진단] homeBtn:', homeBtn, 'data-back:', homeBtn && homeBtn.dataset.back);
   if (homeBtn && homeBtn.dataset.back === '1') {
+    console.log('[진단] history.back() 리스너 붙임');
     homeBtn.addEventListener('click', (e) => {
+      console.log('[진단] 클릭됨, history.back() 호출 직전. history.length =', history.length);
       e.preventDefault();
       const startPath = location.pathname;
       history.back();
+      console.log('[진단] history.back() 호출 직후');
       // 일부 브라우저 확장 프로그램(광고 차단기 등)이 history.back()을 막거나
       // 무시하는 경우가 있어서, 짧은 시간 안에 실제로 페이지를 벗어났는지 확인하고
       // 안 벗어났으면 안전하게 홈페이지로 직접 이동시킵니다. 정상적으로 뒤로가기가
       // 됐다면 이미 다른 페이지로 넘어가 있을 것이므로 아래 코드는 실행되지 않습니다.
       setTimeout(() => {
+        console.log('[진단] 0.3초 후 체크. 현재 경로:', location.pathname, '/ 시작 경로:', startPath);
         if (location.pathname === startPath) {
+          console.log('[진단] 뒤로가기 실패로 판단, 홈으로 강제 이동');
           location.href = '/';
         }
       }, 300);
