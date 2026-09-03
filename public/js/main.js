@@ -1877,6 +1877,13 @@
 
     trackEl.innerHTML = todayCardHtml;
 
+    // 오늘 카드에 보관함 사진이 배정되어 있으면, 예전 프리셋 장식(원/십자가)이 그 위에
+    // 겹쳐 보이지 않도록 무조건 숨깁니다. (이 장식은 사진이 없는 프리셋 배경 전용입니다)
+    if (latest.bgImage) {
+      const decorEl = $('#qt-decor');
+      if (decorEl) decorEl.style.display = 'none';
+    }
+
     $$('#qt-carousel-track .qt-card--today').forEach((c) =>
       c.addEventListener('click', () =>
         track('click', { label: 'qt_card', itemType: 'qt', itemId: c.dataset.id, itemTitle: c.dataset.title })
@@ -1896,9 +1903,51 @@
     const archiveWrap = $('#qt-archive-wrap');
     const archiveGrid = $('#qt-archive-grid');
 
-    function renderArchiveGrid() {
-      archiveGrid.innerHTML = rest.map((q) => buildQtCardHtml(q, { isToday: false })).join('');
+    let archivePage = 0;
 
+    function renderArchiveGrid() {
+      const isDesktopNow = window.matchMedia('(min-width: 861px)').matches;
+
+      if (!isDesktopNow) {
+        // 모바일: 전체를 한 번에 렌더링하고 스크롤로 봅니다.
+        archiveGrid.innerHTML = rest.map((q) => buildQtCardHtml(q, { isToday: false })).join('');
+        bindArchiveCardClicks();
+        return;
+      }
+
+      // PC: 2개씩 페이지를 나눠서 좌우 버튼/하단 번호로 넘겨봅니다.
+      const perPage = 2;
+      const totalPages = Math.max(1, Math.ceil(rest.length / perPage));
+      if (archivePage >= totalPages) archivePage = totalPages - 1;
+      if (archivePage < 0) archivePage = 0;
+
+      const items = rest.slice(archivePage * perPage, archivePage * perPage + perPage);
+      archiveGrid.innerHTML = items.map((q) => buildQtCardHtml(q, { isToday: false })).join('');
+      bindArchiveCardClicks();
+
+      const sidePrevBtn = $('#qt-archive-side-prev');
+      const sideNextBtn = $('#qt-archive-side-next');
+      if (sidePrevBtn) sidePrevBtn.disabled = archivePage === 0;
+      if (sideNextBtn) sideNextBtn.disabled = archivePage >= totalPages - 1;
+
+      const pageNumbersEl = $('#qt-archive-page-numbers');
+      if (pageNumbersEl) {
+        pageNumbersEl.innerHTML =
+          totalPages > 1
+            ? Array.from({ length: totalPages })
+                .map((_, i) => `<button type="button" class="board-page-btn${i === archivePage ? ' active' : ''}" data-page="${i}">${i + 1}</button>`)
+                .join('')
+            : '';
+        $$('.board-page-btn', pageNumbersEl).forEach((btn) => {
+          btn.addEventListener('click', () => {
+            archivePage = Number(btn.dataset.page);
+            renderArchiveGrid();
+          });
+        });
+      }
+    }
+
+    function bindArchiveCardClicks() {
       $$('.qt-card--archive-mini', archiveGrid).forEach((card) => {
         card.addEventListener('click', () =>
           track('click', { label: 'qt_archive_grid', itemType: 'qt', itemId: card.dataset.id, itemTitle: card.dataset.title })
@@ -1906,11 +1955,27 @@
       });
     }
 
+    const archiveSidePrevBtn = $('#qt-archive-side-prev');
+    const archiveSideNextBtn = $('#qt-archive-side-next');
+    if (archiveSidePrevBtn) {
+      archiveSidePrevBtn.addEventListener('click', () => {
+        archivePage -= 1;
+        renderArchiveGrid();
+      });
+    }
+    if (archiveSideNextBtn) {
+      archiveSideNextBtn.addEventListener('click', () => {
+        archivePage += 1;
+        renderArchiveGrid();
+      });
+    }
+
     $('#qt-archive-toggle').addEventListener('click', () => {
       const isOpen = archiveWrap.classList.toggle('open');
       $('#qt-archive-toggle').textContent = isOpen ? '지난 큐티 접기 ▾' : '지난 큐티 보기 ▴';
-      // 열 때마다 스크롤을 맨 위로 되돌리고 새로 그립니다.
+      // 열 때마다 처음(1페이지/맨 위)부터 새로 그립니다.
       if (isOpen) {
+        archivePage = 0;
         const scrollEl = $('#qt-archive-scroll');
         if (scrollEl) scrollEl.scrollTop = 0;
         renderArchiveGrid();
