@@ -2448,7 +2448,13 @@ body.has-mini-player .ministry-duty-fab { bottom: calc(84px + 60px); }
   display: grid;
   grid-template-columns: 3fr 1fr;
   gap: 28px;
-  align-items: start; /* 큐티 쪽이 늘어나도(지난 큐티 펼침 등) 퀴즈 카드는 영향받지 않도록 */
+  align-items: start;
+}
+@media (min-width: 861px) {
+  .qt-quiz-layout {
+    grid-template-columns: 1fr 420px; /* 오른쪽 퀴즈 칸을 오늘의 큐티 카드와 같은 폭으로 */
+    align-items: stretch; /* 세로 높이도 큐티 카드에 맞춰 늘어나도록 */
+  }
 }
 @media (max-width: 860px) {
   .qt-quiz-layout { grid-template-columns: 1fr; }
