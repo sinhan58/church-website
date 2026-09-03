@@ -89,8 +89,9 @@ function buildQtTextSvg({ title, subtitle, verseRef }) {
   const verseBlockH = verseRef ? verseFontSize + 40 : 0;
   const totalH = titleBlockH + subtitleBlockH + verseBlockH;
 
-  const topExtraSpace = -70; // 제목이 위쪽에서 잘리지 않도록, 완전 중앙보다 살짝 위로 밀어줍니다
-  let y = H / 2 - totalH / 2 + titleFontSize * 0.75 + topExtraSpace;
+  const topExtraSpace = -150; // 제목이 위쪽에서 잘리지 않도록, 완전 중앙보다 더 위로 밀어줍니다
+  const MIN_TOP_Y = 130; // 제목이 몇 줄이든, 첫 줄이 이 지점보다 위로는 절대 안 올라가게(=안 잘리게) 막는 안전선
+  let y = Math.max(MIN_TOP_Y, H / 2 - totalH / 2 + titleFontSize * 0.75 + topExtraSpace);
 
   let titleTspans = '';
   titleLines.forEach((line, i) => {
