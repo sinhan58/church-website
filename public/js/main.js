@@ -1900,7 +1900,7 @@
 
     function renderArchiveGrid() {
       const isDesktopNow = window.matchMedia('(min-width: 861px)').matches;
-      const perPage = isDesktopNow ? 3 : 2;
+      const perPage = isDesktopNow ? 6 : 4;
       const totalPages = Math.max(1, Math.ceil(rest.length / perPage));
       if (archivePage >= totalPages) archivePage = totalPages - 1;
       if (archivePage < 0) archivePage = 0;
