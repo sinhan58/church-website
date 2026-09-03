@@ -163,7 +163,7 @@ ${fontStyleTag}
           data-url="${pageUrl}">
           공유
         </button>
-        <a href="/#qt" class="qt-home-btn">홈으로</a>
+        <a href="/" class="qt-home-btn" id="qt-home-btn">홈으로</a>
       </div>
 
       ${navHtml}
