@@ -44,7 +44,7 @@ function renderQtDetailPage({ site, item, prev, next, siteUrl }) {
   const pageTitle = `${item.title || '오늘의 큐티'} | ${churchName} 오늘의 큐티`;
   const description = (item.body || item.verseText || '').replace(/\s+/g, ' ').trim().slice(0, 100);
   const pageUrl = `${siteUrl}/qt/${item.id}`;
-  const ogImage = site.about?.image || `${siteUrl}/uploads/0001.png`;
+  const ogImage = item.posterImage || item.bgImage || site.about?.image || `${siteUrl}/uploads/0001.png`;
 
   // 관리자가 '기본 정보 > 글꼴 설정'에서 고른 글씨체를 반영합니다. (홈페이지와 같은 공용 모듈 사용)
   const { styleTag: fontStyleTag, extraLinks: extraFontLinks } = getFontStyleAndLinks(site.design || {});
@@ -160,9 +160,7 @@ ${fontStyleTag}
         ${renderQtAmenBadgeHtml(item.amen)}
         <button class="qt-share-btn" id="qt-share-btn"
           data-title="${escapeHtml(item.title || '오늘의 큐티')}"
-          data-text="${escapeHtml((item.verseText || '').slice(0, 60))}"
-          data-url="${pageUrl}"
-          data-image="${escapeHtml(item.posterImage || item.bgImage || '')}">
+          data-url="${pageUrl}">
           공유
         </button>
         <a href="/#qt" class="qt-home-btn">홈으로</a>
