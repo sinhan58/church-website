@@ -41,6 +41,65 @@
   const amenBtn = document.getElementById('qt-amen-btn');
   const heartEl = document.getElementById('qt-heart');
   const shareBtn = document.getElementById('qt-share-btn');
+  const listenBtn = document.getElementById('qt-listen-btn');
+
+  if (listenBtn) {
+    const supportsTTS = 'speechSynthesis' in window;
+    if (!supportsTTS) {
+      listenBtn.style.display = 'none';
+    } else {
+      let isSpeaking = false;
+
+      function buildReadingText() {
+        const parts = [];
+        const title = document.querySelector('.qt-detail-title');
+        if (title) parts.push(title.textContent.trim());
+
+        const verseRef = document.querySelector('.qt-verse-ref');
+        const verseText = document.querySelector('.qt-verse-text');
+        if (verseRef) parts.push(verseRef.textContent.trim());
+        if (verseText) parts.push(verseText.textContent.trim());
+
+        const body = document.querySelector('.qt-detail-body');
+        if (body) parts.push(body.textContent.trim());
+
+        return parts.filter(Boolean).join('. ');
+      }
+
+      function stopReading() {
+        window.speechSynthesis.cancel();
+        isSpeaking = false;
+        document.getElementById('qt-listen-icon').textContent = '🔊';
+        document.getElementById('qt-listen-label').textContent = '듣기';
+      }
+
+      listenBtn.addEventListener('click', () => {
+        if (isSpeaking) {
+          stopReading();
+          track('click', { label: 'listen_stop' });
+          return;
+        }
+        const text = buildReadingText();
+        if (!text) return;
+
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'ko-KR';
+        utterance.rate = 0.95;
+        utterance.onend = stopReading;
+        utterance.onerror = stopReading;
+
+        window.speechSynthesis.cancel(); // 혹시 이전에 남아있던 음성이 있으면 정리하고 새로 시작
+        window.speechSynthesis.speak(utterance);
+        isSpeaking = true;
+        document.getElementById('qt-listen-icon').textContent = '⏸';
+        document.getElementById('qt-listen-label').textContent = '멈추기';
+        track('click', { label: 'listen_start' });
+      });
+
+      // 페이지를 벗어나면 음성이 계속 재생되지 않도록 정리합니다.
+      window.addEventListener('beforeunload', () => window.speechSynthesis.cancel());
+    }
+  }
 
   if (amenBtn) {
     const qtId = amenBtn.dataset.id;
@@ -103,6 +162,25 @@
       track('click', { label: 'share_button' });
       const title = shareBtn.dataset.title;
       const url = shareBtn.dataset.url;
+      const text = shareBtn.dataset.text;
+      const imageUrl = shareBtn.dataset.image;
+
+      // 사진까지 같이 보낼 수 있는 기기라면(대부분의 최신 모바일 브라우저), 사진 파일을
+      // 실제로 받아와서 제목/말씀과 함께 첨부해 보냅니다. 카카오톡 등으로 보내면 사진과
+      // 글이 같이 전달됩니다.
+      if (imageUrl && navigator.share && navigator.canShare) {
+        try {
+          const res = await fetch(imageUrl);
+          const blob = await res.blob();
+          const file = new File([blob], 'qt.jpg', { type: blob.type || 'image/jpeg' });
+          if (navigator.canShare({ files: [file] })) {
+            await navigator.share({ title, text: text ? `${text}\n${url}` : url, files: [file] });
+            return;
+          }
+        } catch (err) {
+          // 사진을 못 가져왔거나 파일 공유가 안 되면, 아래의 링크 공유로 자연스럽게 넘어갑니다.
+        }
+      }
 
       // 카카오톡 등 메신저는 링크만 보내면 og 태그로 자동 카드 미리보기를 만들어줍니다.
       // title/text까지 같이 보내면 텍스트 말풍선과 카드가 중복으로 노출되어 링크만 전달합니다.
