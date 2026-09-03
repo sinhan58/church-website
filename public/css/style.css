@@ -1920,6 +1920,9 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   justify-content: center;
 }
 .qt-stage svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+@media (max-width: 860px) {
+  .qt-stage svg { display: none; } /* 모바일에서는 카드 양옆에 장식 원이 겹쳐 보여서 항상 숨김 */
+}
 
 /* 캐러셀 트랙 (오늘 카드 1개만 항상 렌더링) */
 .qt-carousel {
@@ -2088,6 +2091,20 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 .qt-archive-toggle:hover { color: var(--navy-deep); }
 
 
+.qt-archive-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(13,21,38,0.55);
+  z-index: 199;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+.qt-archive-backdrop.open { display: block; opacity: 1; }
+@media (min-width: 861px) {
+  .qt-archive-backdrop { display: none !important; } /* PC는 기존처럼 큐티 영역 안에서만 덮이는 방식 유지 */
+}
+
 .qt-archive-wrap {
   position: absolute;
   top: 0;
@@ -2109,7 +2126,18 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   transition: opacity 0.3s ease, transform 0.3s ease, visibility 0s linear 0.3s;
 }
 @media (max-width: 860px) {
-  .qt-archive-wrap { height: min(620px, 82vh); padding: 16px; }
+  /* 게시판(소식·친교) 모달과 똑같이, 화면 정중앙에 고정으로 뜨게 합니다 */
+  .qt-archive-wrap {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    right: auto;
+    width: min(92vw, 480px);
+    height: min(620px, 82vh);
+    transform: translate(-50%, -50%) scale(0.96);
+    z-index: 200;
+    padding: 16px;
+  }
 }
 .qt-archive-wrap.open {
   opacity: 1;
@@ -2117,6 +2145,9 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   visibility: visible;
   pointer-events: auto;
   transition: opacity 0.3s ease, transform 0.3s ease, visibility 0s linear 0s;
+}
+@media (max-width: 860px) {
+  .qt-archive-wrap.open { transform: translate(-50%, -50%) scale(1); }
 }
 .qt-archive-close {
   position: absolute;
@@ -2212,6 +2243,9 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   flex: 1;
   min-height: 0;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  overscroll-behavior: contain; /* 스크롤이 끝에 닿아도 뒤에 있는 페이지가 같이 움직이지 않도록 */
   padding-right: 6px;
   /* 고급스러운 스크롤바 (Firefox) */
   scrollbar-width: thin;
