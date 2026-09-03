@@ -1996,6 +1996,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   padding: 0;
   overflow: hidden;
   width: min(420px, 92%);
+  box-shadow: none;
 }
 .qt-card-badges {
   display: flex;
