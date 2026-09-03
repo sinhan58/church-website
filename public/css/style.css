@@ -2120,7 +2120,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 .qt-detail-body { font-size: 1rem; line-height: 1.9; margin-bottom: 28px; }
 
 .qt-reaction-bar { display: flex; gap: 10px; justify-content: center; margin-bottom: 28px; flex-wrap: wrap; }
-.qt-amen-btn, .qt-share-btn, .qt-home-btn {
+.qt-amen-btn, .qt-share-btn, .qt-home-btn, .qt-listen-btn {
   display: flex; align-items: center; gap: 6px;
   font-size: 0.86rem;
   padding: 10px 20px;
@@ -2128,9 +2128,10 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   border-radius: 999px;
   background: var(--ivory);
   color: var(--ink);
+  cursor: pointer;
 }
 .qt-amen-btn { position: relative; overflow: visible; }
-.qt-amen-btn:hover, .qt-share-btn:hover, .qt-home-btn:hover { border-color: var(--gold); }
+.qt-amen-btn:hover, .qt-share-btn:hover, .qt-home-btn:hover, .qt-listen-btn:hover { border-color: var(--gold); }
 .qt-amen-btn.pressed { border-color: var(--gold); background: var(--gold-soft); color: var(--navy-deep); }
 .qt-heart { color: var(--gold-deep); font-size: 1.05rem; }
 @keyframes qtAmenPop {
