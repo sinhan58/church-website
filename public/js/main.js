@@ -2522,37 +2522,25 @@
   window.addEventListener('pagehide', () => {
     try {
       sessionStorage.setItem('homeScrollY', String(window.scrollY));
-      console.log('[진단] pagehide에서 scrollY 저장함:', window.scrollY);
-    } catch (err) {
-      console.log('[진단] pagehide 저장 에러:', err.message);
-    }
+    } catch (err) {}
   });
   window.addEventListener('pageshow', (event) => {
     // event.persisted: 뒤로/앞으로 가기로 캐시에서 복원된 경우 true.
     // 일부 상황에서는 캐시 복원이 아니라 완전히 새로 불러오는 경우도 있어서,
     // 그런 경우까지 대비해 Navigation Timing API로 "뒤로가기로 온 것"인지도 같이 봅니다.
     let isBackNavigation = event.persisted;
-    console.log('[진단] pageshow 발생. persisted:', event.persisted);
     if (!isBackNavigation) {
       try {
         const navEntries = performance.getEntriesByType('navigation');
         isBackNavigation = navEntries[0] && navEntries[0].type === 'back_forward';
-        console.log('[진단] navigation type:', navEntries[0] && navEntries[0].type);
-      } catch (err) {
-        console.log('[진단] navigation timing 에러:', err.message);
-      }
+      } catch (err) {}
     }
-    console.log('[진단] isBackNavigation:', isBackNavigation);
     if (!isBackNavigation) return;
     try {
       const savedY = sessionStorage.getItem('homeScrollY');
-      console.log('[진단] savedY:', savedY);
       if (savedY !== null) {
         window.scrollTo(0, Number(savedY));
-        console.log('[진단] scrollTo 실행함. 실제 scrollY:', window.scrollY);
       }
-    } catch (err) {
-      console.log('[진단] 복원 에러:', err.message);
-    }
+    } catch (err) {}
   });
 })();
