@@ -1998,8 +1998,11 @@
       });
     }
 
+    const archiveBackdrop = $('#qt-archive-backdrop');
+
     $('#qt-archive-toggle').addEventListener('click', () => {
       const isOpen = archiveWrap.classList.toggle('open');
+      if (archiveBackdrop) archiveBackdrop.classList.toggle('open', isOpen);
       $('#qt-archive-toggle').textContent = isOpen ? '지난 큐티 접기 ▾' : '지난 큐티 보기 ▴';
       // 열 때마다 처음(1페이지/맨 위)부터 새로 그립니다.
       if (isOpen) {
@@ -2010,13 +2013,15 @@
       }
     });
 
-    const archiveCloseBtn = $('#qt-archive-close');
-    if (archiveCloseBtn) {
-      archiveCloseBtn.addEventListener('click', () => {
-        archiveWrap.classList.remove('open');
-        $('#qt-archive-toggle').textContent = '지난 큐티 보기 ▴';
-      });
+    function closeArchive() {
+      archiveWrap.classList.remove('open');
+      if (archiveBackdrop) archiveBackdrop.classList.remove('open');
+      $('#qt-archive-toggle').textContent = '지난 큐티 보기 ▴';
     }
+
+    const archiveCloseBtn = $('#qt-archive-close');
+    if (archiveCloseBtn) archiveCloseBtn.addEventListener('click', closeArchive);
+    if (archiveBackdrop) archiveBackdrop.addEventListener('click', closeArchive);
   }
 
   // ---------------- 선교사역 (세계지도 + 동역자의 섬김) ----------------
