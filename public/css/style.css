@@ -2147,10 +2147,12 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 .qt-archive-photo-card {
   position: relative;
   display: flex;
-  align-items: flex-end;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
   border-radius: 12px;
   overflow: hidden;
-  padding: 14px;
+  padding: 16px;
   background: var(--qt-photo-bg, linear-gradient(160deg, var(--navy-deep), var(--navy-soft))) center/cover no-repeat;
   transition: transform 0.2s ease;
 }
@@ -2159,7 +2161,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(13,21,38,0.1), rgba(13,21,38,0.68));
+  background: linear-gradient(180deg, rgba(13,21,38,0.35), rgba(13,21,38,0.5));
 }
 .qt-archive-photo-card-title {
   position: relative;
@@ -2171,7 +2173,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   word-break: keep-all;
   text-shadow: 0 1px 3px rgba(0,0,0,0.7), 0 2px 10px rgba(0,0,0,0.5);
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
