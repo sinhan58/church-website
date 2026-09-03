@@ -1919,6 +1919,10 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   align-items: center;
   justify-content: center;
 }
+@media (min-width: 861px) {
+  /* PC에서는 큐티 카드를 왼쪽 정렬하기 위해, 이 부모의 가운데 정렬도 같이 풀어줍니다 */
+  .qt-quiz-main .qt-stage { justify-content: flex-start; }
+}
 .qt-stage svg { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
 @media (max-width: 860px) {
   .qt-stage svg { display: none; } /* 모바일에서는 카드 양옆에 장식 원이 겹쳐 보여서 항상 숨김 */
@@ -1997,6 +2001,12 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   overflow: hidden;
   width: min(420px, 100%);
   box-shadow: none;
+}
+@media (min-width: 861px) {
+  /* PC에서는 큐티 칸이 퀴즈 칸(420px)을 뺀 나머지 넓은 공간이라, 카드를 가운데
+     정렬하면 왼쪽에 불필요한 여백이 생겨 다른 섹션들과 시작 지점이 안 맞습니다.
+     그래서 왼쪽 정렬로 바꿔 컨테이너 왼쪽 끝과 자연스럽게 맞춥니다. */
+  .qt-quiz-main .qt-card--today { margin-left: 0; }
 }
 .qt-card-badges {
   display: flex;
@@ -2082,6 +2092,9 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 .qt-empty { text-align: center; color: var(--ivory-dim); padding: 40px 0; position: relative; }
 
 .qt-archive-toggle-wrap { text-align: center; margin-top: 20px; }
+@media (min-width: 861px) {
+  .qt-quiz-main .qt-archive-toggle-wrap { max-width: 420px; margin-left: 0; margin-right: 0; }
+}
 .qt-archive-toggle {
   background: none;
   border: none;
