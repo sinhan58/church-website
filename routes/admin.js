@@ -585,9 +585,27 @@ router.post('/qt', requirePermission('qt'), async (req, res) => {
       body: req.body.body || '',
       pastor: req.body.pastor || '',
       bgImage,
+      posterImage: '',
       amen: 0,
       createdAt: new Date().toISOString()
     };
+
+    // 공유하기 눌렀을 때 보낼 "글씨가 사진에 합성된" 포스터 이미지를 미리 만들어둡니다.
+    // 여기서 실패해도(사진 주소 오류 등) 큐티 등록 자체는 그대로 진행되어야 하므로 감싸둡니다.
+    try {
+      const { buildAndCacheQtPoster } = require('../utils/qtPoster');
+      item.posterImage = await buildAndCacheQtPoster({
+        qtId: item.id,
+        imageUrl: bgImage,
+        title: item.title,
+        subtitle: item.subtitle,
+        verseRef: item.verseRef,
+        uploadsDir
+      });
+    } catch (posterErr) {
+      console.error('[qt] 공유용 포스터 생성 실패(큐티 등록은 정상 진행됩니다):', posterErr.message);
+    }
+
     qt.unshift(item);
     await writeData('qt', qt);
     res.json(item);
