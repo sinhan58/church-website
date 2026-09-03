@@ -2146,10 +2146,10 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 
 .qt-archive-title {
   text-align: center;
-  font-size: 1.1rem;
+  font-size: 1.18rem;
   font-weight: 700;
   color: var(--navy-deep);
-  margin: 0 0 12px;
+  margin: -8px 0 12px;
 }
 
 .qt-archive-body-row {
@@ -2189,9 +2189,21 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   justify-content: center;
   gap: 6px;
   flex-wrap: wrap;
-  margin-top: 14px;
+  margin-top: 22px;
 }
 .qt-archive-page-numbers .board-page-btn { min-width: 32px; height: 32px; font-size: 0.84rem; }
+.qt-archive-page-window-nav {
+  width: 28px;
+  height: 32px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+  color: var(--ink);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+.qt-archive-page-window-nav:hover { background: var(--ivory-dim); }
+.qt-archive-page-window-nav:disabled { opacity: 0.3; cursor: default; }
 @media (max-width: 860px) {
   .qt-archive-page-numbers { display: none; }
 }
@@ -2222,6 +2234,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: 24px;
+  padding-top: 6px; /* 카드 호버 시 위로 살짝 움직여도 제목 영역에 안 가리게 여유 확보 */
   padding-bottom: 4px;
 }
 @media (max-width: 860px) {
