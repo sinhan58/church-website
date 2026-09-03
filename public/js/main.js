@@ -1932,18 +1932,46 @@
 
       const pageNumbersEl = $('#qt-archive-page-numbers');
       if (pageNumbersEl) {
-        pageNumbersEl.innerHTML =
-          totalPages > 1
-            ? Array.from({ length: totalPages })
-                .map((_, i) => `<button type="button" class="board-page-btn${i === archivePage ? ' active' : ''}" data-page="${i}">${i + 1}</button>`)
-                .join('')
-            : '';
-        $$('.board-page-btn', pageNumbersEl).forEach((btn) => {
-          btn.addEventListener('click', () => {
-            archivePage = Number(btn.dataset.page);
-            renderArchiveGrid();
+        const WINDOW_SIZE = 10;
+        // 현재 페이지가 항상 보이는 10개짜리 창을 계산합니다.
+        let windowStart = Math.floor(archivePage / WINDOW_SIZE) * WINDOW_SIZE;
+        const windowEnd = Math.min(totalPages, windowStart + WINDOW_SIZE);
+
+        if (totalPages <= 1) {
+          pageNumbersEl.innerHTML = '';
+        } else {
+          const numberButtons = [];
+          for (let i = windowStart; i < windowEnd; i++) {
+            numberButtons.push(`<button type="button" class="board-page-btn${i === archivePage ? ' active' : ''}" data-page="${i}">${i + 1}</button>`);
+          }
+          const hasPrevWindow = windowStart > 0;
+          const hasNextWindow = windowEnd < totalPages;
+          pageNumbersEl.innerHTML = `
+            <button type="button" class="qt-archive-page-window-nav" id="qt-archive-window-prev" ${hasPrevWindow ? '' : 'disabled'}>‹</button>
+            ${numberButtons.join('')}
+            <button type="button" class="qt-archive-page-window-nav" id="qt-archive-window-next" ${hasNextWindow ? '' : 'disabled'}>›</button>
+          `;
+          $$('.board-page-btn', pageNumbersEl).forEach((btn) => {
+            btn.addEventListener('click', () => {
+              archivePage = Number(btn.dataset.page);
+              renderArchiveGrid();
+            });
           });
-        });
+          const windowPrevBtn = $('#qt-archive-window-prev');
+          const windowNextBtn = $('#qt-archive-window-next');
+          if (windowPrevBtn) {
+            windowPrevBtn.addEventListener('click', () => {
+              archivePage = Math.max(0, windowStart - WINDOW_SIZE);
+              renderArchiveGrid();
+            });
+          }
+          if (windowNextBtn) {
+            windowNextBtn.addEventListener('click', () => {
+              archivePage = Math.min(totalPages - 1, windowStart + WINDOW_SIZE);
+              renderArchiveGrid();
+            });
+          }
+        }
       }
     }
 
