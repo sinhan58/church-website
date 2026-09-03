@@ -45,7 +45,7 @@
   // 알려줍니다(홈페이지 큐티 카드 링크의 ?from=home 표시를 기준으로 판단하며,
   // 브라우저의 Referer 정보에 기대지 않아 PC/모바일 어디서나 일관되게 동작합니다).
   const homeBtn = document.getElementById('qt-home-btn');
-  if (homeBtn && homeBtn.dataset.back === '1' && history.length > 1) {
+  if (homeBtn && homeBtn.dataset.back === '1') {
     homeBtn.addEventListener('click', (e) => {
       e.preventDefault();
       const startPath = location.pathname;
