@@ -1896,61 +1896,23 @@
     const archiveWrap = $('#qt-archive-wrap');
     const archiveGrid = $('#qt-archive-grid');
 
-    let archivePage = 0;
-
     function renderArchiveGrid() {
-      const isDesktopNow = window.matchMedia('(min-width: 861px)').matches;
-      const perPage = isDesktopNow ? 6 : 4;
-      const totalPages = Math.max(1, Math.ceil(rest.length / perPage));
-      if (archivePage >= totalPages) archivePage = totalPages - 1;
-      if (archivePage < 0) archivePage = 0;
+      archiveGrid.innerHTML = rest.map((q) => buildQtCardHtml(q, { isToday: false })).join('');
 
-      const items = rest.slice(archivePage * perPage, archivePage * perPage + perPage);
-      archiveGrid.innerHTML = items
-        .map(
-          (q) => `
-          <a class="qt-archive-photo-card" href="/qt/${q.id}?from=home" data-id="${q.id}" data-title="${escapeHtml(q.title || '')}"${q.bgImage ? ` style="--qt-photo-bg: url('${escapeHtml(q.bgImage)}')"` : ''}>
-            <p class="qt-archive-photo-card-date">${formatQtDate(q.date)}</p>
-            <h4 class="qt-archive-photo-card-title"><span class="qt-title-chevron">「</span>${escapeHtml(q.title || '')}<span class="qt-title-chevron">」</span></h4>
-            ${q.subtitle ? `<p class="qt-archive-photo-card-subtitle">${escapeHtml(q.subtitle)}</p>` : ''}
-            ${q.verseRef ? `<p class="qt-archive-photo-card-verseref">${escapeHtml(q.verseRef)}</p>` : ''}
-          </a>`
-        )
-        .join('');
-
-      $$('.qt-archive-photo-card', archiveGrid).forEach((card) => {
+      $$('.qt-card--archive-mini', archiveGrid).forEach((card) => {
         card.addEventListener('click', () =>
           track('click', { label: 'qt_archive_grid', itemType: 'qt', itemId: card.dataset.id, itemTitle: card.dataset.title })
         );
-      });
-
-      const pagePrevBtn = $('#qt-archive-page-prev');
-      const pageNextBtn = $('#qt-archive-page-next');
-      if (pagePrevBtn) pagePrevBtn.disabled = archivePage === 0;
-      if (pageNextBtn) pageNextBtn.disabled = archivePage >= totalPages - 1;
-    }
-
-    const archivePagePrevBtn = $('#qt-archive-page-prev');
-    const archivePageNextBtn = $('#qt-archive-page-next');
-    if (archivePagePrevBtn) {
-      archivePagePrevBtn.addEventListener('click', () => {
-        archivePage -= 1;
-        renderArchiveGrid();
-      });
-    }
-    if (archivePageNextBtn) {
-      archivePageNextBtn.addEventListener('click', () => {
-        archivePage += 1;
-        renderArchiveGrid();
       });
     }
 
     $('#qt-archive-toggle').addEventListener('click', () => {
       const isOpen = archiveWrap.classList.toggle('open');
       $('#qt-archive-toggle').textContent = isOpen ? '지난 큐티 접기 ▾' : '지난 큐티 보기 ▴';
-      // 열 때마다 1페이지부터 새로 그립니다 (모바일/PC 화면 폭이 그 사이 바뀌었을 수도 있어서).
+      // 열 때마다 스크롤을 맨 위로 되돌리고 새로 그립니다.
       if (isOpen) {
-        archivePage = 0;
+        const scrollEl = $('#qt-archive-scroll');
+        if (scrollEl) scrollEl.scrollTop = 0;
         renderArchiveGrid();
       }
     });
