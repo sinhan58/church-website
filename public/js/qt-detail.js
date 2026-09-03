@@ -41,27 +41,15 @@
   // '홈으로' 버튼 — 홈페이지 큐티 카드를 눌러서 들어온 경우라면, 페이지를 다시
   // 불러올 필요 없이 뒤로 가기만 하면 원래 보던 화면(스크롤 위치까지) 그대로
   // 순간 이동합니다. 로딩/깜빡임/버벅임이 전혀 없는 가장 매끄러운 방법입니다.
-  // (카카오톡 공유 링크 등으로 바로 들어온 경우처럼, 돌아갈 홈페이지 기록이 없을
-  // 때는 이 조건에 안 걸려서 예전처럼 '/#qt'로 새로 이동하는 방식이 그대로 씁니다)
+  // 홈에서 왔는지 여부는 서버가 이미 안정적으로 판단해서 data-back 속성으로
+  // 알려줍니다(홈페이지 큐티 카드 링크의 ?from=home 표시를 기준으로 판단하며,
+  // 브라우저의 Referer 정보에 기대지 않아 PC/모바일 어디서나 일관되게 동작합니다).
   const homeBtn = document.getElementById('qt-home-btn');
-  if (homeBtn) {
-    try {
-      const referrerUrl = document.referrer ? new URL(document.referrer) : null;
-      const cameFromOwnHome =
-        referrerUrl &&
-        referrerUrl.origin === location.origin &&
-        (referrerUrl.pathname === '/' || referrerUrl.pathname === '') &&
-        history.length > 1;
-      if (cameFromOwnHome) {
-        homeBtn.addEventListener('click', (e) => {
-          e.preventDefault();
-          history.back();
-        });
-      }
-    } catch (err) {
-      // document.referrer가 이상한 값이어도(브라우저 설정 등으로) 안전하게 그냥
-      // 기존 링크 방식으로 넘어갑니다.
-    }
+  if (homeBtn && homeBtn.dataset.back === '1' && history.length > 1) {
+    homeBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      history.back();
+    });
   }
 
   const amenBtn = document.getElementById('qt-amen-btn');
