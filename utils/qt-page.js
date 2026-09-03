@@ -162,7 +162,7 @@ ${fontStyleTag}
           data-title="${escapeHtml(item.title || '오늘의 큐티')}"
           data-text="${escapeHtml((item.verseText || '').slice(0, 60))}"
           data-url="${pageUrl}"
-          data-image="${escapeHtml(item.bgImage || '')}">
+          data-image="${escapeHtml(item.posterImage || item.bgImage || '')}">
           공유
         </button>
         <a href="/#qt" class="qt-home-btn">홈으로</a>
