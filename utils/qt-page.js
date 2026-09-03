@@ -110,7 +110,7 @@ function renderQtDetailPage({ site, item, prev, next, siteUrl, cameFromHome }) {
 <link class="gfont-link" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;600;700&display=block" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
 ${extraFontLinks}
-<link rel="stylesheet" href="/css/style.css" />
+<link rel="stylesheet" href="/css/style.css?v=109" />
 ${fontStyleTag}
 
 <!-- PWA: 홈 화면에 추가했을 때 앱처럼 보이도록 하는 설정 -->
@@ -178,7 +178,7 @@ ${fontStyleTag}
   </div>
 </footer>
 
-<script src="/js/qt-detail.js"></script>
+<script src="/js/qt-detail.js?v=2"></script>
 </body>
 </html>`;
 }
