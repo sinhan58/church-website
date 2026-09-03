@@ -151,6 +151,9 @@ ${fontStyleTag}
       ${item.body ? `<div class="qt-detail-body">${nl2br(item.body)}</div>` : ''}
 
       <div class="qt-reaction-bar">
+        <button class="qt-listen-btn" id="qt-listen-btn">
+          <span id="qt-listen-icon">🔊</span> <span id="qt-listen-label">듣기</span>
+        </button>
         <button class="qt-amen-btn" id="qt-amen-btn" data-id="${escapeHtml(item.id)}">
           <span class="qt-heart" id="qt-heart">♡</span> '아멘' 누르기
         </button>
@@ -158,7 +161,8 @@ ${fontStyleTag}
         <button class="qt-share-btn" id="qt-share-btn"
           data-title="${escapeHtml(item.title || '오늘의 큐티')}"
           data-text="${escapeHtml((item.verseText || '').slice(0, 60))}"
-          data-url="${pageUrl}">
+          data-url="${pageUrl}"
+          data-image="${escapeHtml(item.bgImage || '')}">
           공유
         </button>
         <a href="/#qt" class="qt-home-btn">홈으로</a>
