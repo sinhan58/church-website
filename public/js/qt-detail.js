@@ -48,7 +48,17 @@
   if (homeBtn && homeBtn.dataset.back === '1' && history.length > 1) {
     homeBtn.addEventListener('click', (e) => {
       e.preventDefault();
+      const startPath = location.pathname;
       history.back();
+      // 일부 브라우저 확장 프로그램(광고 차단기 등)이 history.back()을 막거나
+      // 무시하는 경우가 있어서, 짧은 시간 안에 실제로 페이지를 벗어났는지 확인하고
+      // 안 벗어났으면 안전하게 홈페이지로 직접 이동시킵니다. 정상적으로 뒤로가기가
+      // 됐다면 이미 다른 페이지로 넘어가 있을 것이므로 아래 코드는 실행되지 않습니다.
+      setTimeout(() => {
+        if (location.pathname === startPath) {
+          location.href = '/';
+        }
+      }, 300);
     });
   }
 
