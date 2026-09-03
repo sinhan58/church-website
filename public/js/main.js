@@ -1903,79 +1903,10 @@
     const archiveWrap = $('#qt-archive-wrap');
     const archiveGrid = $('#qt-archive-grid');
 
-    let archivePage = 0;
-
+    // 게시판 상세보기 모달과 완전히 같은 방식입니다: 열리면 화면 중앙에 뜨고,
+    // 카드는 세로로 쭉 나열되어 스크롤로 봅니다. PC/모바일 구분도, 페이지 넘김도 없습니다.
     function renderArchiveGrid() {
-      const isDesktopNow = window.matchMedia('(min-width: 861px)').matches;
-
-      if (!isDesktopNow) {
-        // 모바일: 전체를 한 번에 렌더링하고 스크롤로 봅니다.
-        archiveGrid.innerHTML = rest.map((q) => buildQtCardHtml(q, { isToday: false })).join('');
-        bindArchiveCardClicks();
-        return;
-      }
-
-      // PC: 2개씩 페이지를 나눠서 좌우 버튼/하단 번호로 넘겨봅니다.
-      const perPage = 2;
-      const totalPages = Math.max(1, Math.ceil(rest.length / perPage));
-      if (archivePage >= totalPages) archivePage = totalPages - 1;
-      if (archivePage < 0) archivePage = 0;
-
-      const items = rest.slice(archivePage * perPage, archivePage * perPage + perPage);
-      archiveGrid.innerHTML = items.map((q) => buildQtCardHtml(q, { isToday: false })).join('');
-      bindArchiveCardClicks();
-
-      const sidePrevBtn = $('#qt-archive-side-prev');
-      const sideNextBtn = $('#qt-archive-side-next');
-      if (sidePrevBtn) sidePrevBtn.disabled = archivePage === 0;
-      if (sideNextBtn) sideNextBtn.disabled = archivePage >= totalPages - 1;
-
-      const pageNumbersEl = $('#qt-archive-page-numbers');
-      if (pageNumbersEl) {
-        const WINDOW_SIZE = 10;
-        // 현재 페이지가 항상 보이는 10개짜리 창을 계산합니다.
-        let windowStart = Math.floor(archivePage / WINDOW_SIZE) * WINDOW_SIZE;
-        const windowEnd = Math.min(totalPages, windowStart + WINDOW_SIZE);
-
-        if (totalPages <= 1) {
-          pageNumbersEl.innerHTML = '';
-        } else {
-          const numberButtons = [];
-          for (let i = windowStart; i < windowEnd; i++) {
-            numberButtons.push(`<button type="button" class="board-page-btn${i === archivePage ? ' active' : ''}" data-page="${i}">${i + 1}</button>`);
-          }
-          const hasPrevWindow = windowStart > 0;
-          const hasNextWindow = windowEnd < totalPages;
-          pageNumbersEl.innerHTML = `
-            <button type="button" class="qt-archive-page-window-nav" id="qt-archive-window-prev" ${hasPrevWindow ? '' : 'disabled'}>‹</button>
-            ${numberButtons.join('')}
-            <button type="button" class="qt-archive-page-window-nav" id="qt-archive-window-next" ${hasNextWindow ? '' : 'disabled'}>›</button>
-          `;
-          $$('.board-page-btn', pageNumbersEl).forEach((btn) => {
-            btn.addEventListener('click', () => {
-              archivePage = Number(btn.dataset.page);
-              renderArchiveGrid();
-            });
-          });
-          const windowPrevBtn = $('#qt-archive-window-prev');
-          const windowNextBtn = $('#qt-archive-window-next');
-          if (windowPrevBtn) {
-            windowPrevBtn.addEventListener('click', () => {
-              archivePage = Math.max(0, windowStart - WINDOW_SIZE);
-              renderArchiveGrid();
-            });
-          }
-          if (windowNextBtn) {
-            windowNextBtn.addEventListener('click', () => {
-              archivePage = Math.min(totalPages - 1, windowStart + WINDOW_SIZE);
-              renderArchiveGrid();
-            });
-          }
-        }
-      }
-    }
-
-    function bindArchiveCardClicks() {
+      archiveGrid.innerHTML = rest.map((q) => buildQtCardHtml(q, { isToday: false })).join('');
       $$('.qt-card--archive-mini', archiveGrid).forEach((card) => {
         card.addEventListener('click', () =>
           track('click', { label: 'qt_archive_grid', itemType: 'qt', itemId: card.dataset.id, itemTitle: card.dataset.title })
@@ -1983,45 +1914,22 @@
       });
     }
 
-    const archiveSidePrevBtn = $('#qt-archive-side-prev');
-    const archiveSideNextBtn = $('#qt-archive-side-next');
-    if (archiveSidePrevBtn) {
-      archiveSidePrevBtn.addEventListener('click', () => {
-        archivePage -= 1;
-        renderArchiveGrid();
-      });
-    }
-    if (archiveSideNextBtn) {
-      archiveSideNextBtn.addEventListener('click', () => {
-        archivePage += 1;
-        renderArchiveGrid();
-      });
-    }
-
-    const archiveBackdrop = $('#qt-archive-backdrop');
-
     $('#qt-archive-toggle').addEventListener('click', () => {
-      const isOpen = archiveWrap.classList.toggle('open');
-      if (archiveBackdrop) archiveBackdrop.classList.toggle('open', isOpen);
-      $('#qt-archive-toggle').textContent = isOpen ? '지난 큐티 접기 ▾' : '지난 큐티 보기 ▴';
-      // 열 때마다 처음(1페이지/맨 위)부터 새로 그립니다.
-      if (isOpen) {
-        archivePage = 0;
-        const scrollEl = $('#qt-archive-scroll');
-        if (scrollEl) scrollEl.scrollTop = 0;
-        renderArchiveGrid();
-      }
+      renderArchiveGrid();
+      archiveWrap.classList.add('open');
+      lockScroll();
     });
 
     function closeArchive() {
       archiveWrap.classList.remove('open');
-      if (archiveBackdrop) archiveBackdrop.classList.remove('open');
-      $('#qt-archive-toggle').textContent = '지난 큐티 보기 ▴';
+      unlockScroll();
     }
 
     const archiveCloseBtn = $('#qt-archive-close');
     if (archiveCloseBtn) archiveCloseBtn.addEventListener('click', closeArchive);
-    if (archiveBackdrop) archiveBackdrop.addEventListener('click', closeArchive);
+    archiveWrap.addEventListener('click', (e) => {
+      if (e.target.id === 'qt-archive-wrap') closeArchive();
+    });
   }
 
   // ---------------- 선교사역 (세계지도 + 동역자의 섬김) ----------------
