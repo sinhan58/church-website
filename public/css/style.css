@@ -2099,7 +2099,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   flex-direction: column;
   gap: 24px;
 }
-.qt-card--archive-mini { padding: 0; overflow: hidden; width: 100%; margin: 0; }
+.qt-card--archive-mini { padding: 0; overflow: hidden; width: min(420px, 100%); margin: 0 auto; }
 
 /* ---------------- 오늘의 큐티 (상세 페이지) ---------------- */
 .qt-detail-section { padding: 64px 0 96px; }
