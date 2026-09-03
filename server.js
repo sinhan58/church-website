@@ -153,6 +153,16 @@ app.get('/privacy.html', async (req, res, next) => {
   }
 });
 
+// 서비스워커 파일은 항상 최신 버전으로 받아야 합니다 (그래야 CACHE_VERSION을 올렸을 때
+// 브라우저/Cloudflare가 그 변경을 놓치지 않고 곧바로 새 버전을 감지합니다). 이 파일은
+// 주소에 버전 번호(?v=)를 붙일 수 없는 특수한 파일이라, 캐시를 아예 못 하게 헤더로 막아둡니다.
+app.get('/sw.js', (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
+  res.sendFile(path.join(__dirname, 'public', 'sw.js'));
+});
+
 // 정적 파일 (홈페이지 외 나머지 화면 + 관리자 화면 + 업로드 이미지)
 // index:false로 꺼둔 이유: 그대로 두면 '/' 요청을 이 static 미들웨어가 먼저 가로채서
 // public/index.html을 그냥 파일 그대로 보내버려, 위에서 만든 '/' 라우트가 아예 실행되지
@@ -164,7 +174,7 @@ app.use('/api', apiRoutes);
 app.use('/api/admin', adminRoutes);
 
 // 관리자 화면 진입점 (SPA 형태로 로그인/대시보드를 admin.js에서 분기)
-app.get(['/admin', '/admin/'], (req, res) => {
+app.get('/admin', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin', 'index.html'));
 });
 
