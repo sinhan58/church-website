@@ -38,6 +38,32 @@
     badgeEl.style.display = '';
   }
 
+  // '홈으로' 버튼 — 홈페이지 큐티 카드를 눌러서 들어온 경우라면, 페이지를 다시
+  // 불러올 필요 없이 뒤로 가기만 하면 원래 보던 화면(스크롤 위치까지) 그대로
+  // 순간 이동합니다. 로딩/깜빡임/버벅임이 전혀 없는 가장 매끄러운 방법입니다.
+  // (카카오톡 공유 링크 등으로 바로 들어온 경우처럼, 돌아갈 홈페이지 기록이 없을
+  // 때는 이 조건에 안 걸려서 예전처럼 '/#qt'로 새로 이동하는 방식이 그대로 씁니다)
+  const homeBtn = document.getElementById('qt-home-btn');
+  if (homeBtn) {
+    try {
+      const referrerUrl = document.referrer ? new URL(document.referrer) : null;
+      const cameFromOwnHome =
+        referrerUrl &&
+        referrerUrl.origin === location.origin &&
+        (referrerUrl.pathname === '/' || referrerUrl.pathname === '') &&
+        history.length > 1;
+      if (cameFromOwnHome) {
+        homeBtn.addEventListener('click', (e) => {
+          e.preventDefault();
+          history.back();
+        });
+      }
+    } catch (err) {
+      // document.referrer가 이상한 값이어도(브라우저 설정 등으로) 안전하게 그냥
+      // 기존 링크 방식으로 넘어갑니다.
+    }
+  }
+
   const amenBtn = document.getElementById('qt-amen-btn');
   const heartEl = document.getElementById('qt-heart');
   const shareBtn = document.getElementById('qt-share-btn');
