@@ -162,28 +162,11 @@
       track('click', { label: 'share_button' });
       const title = shareBtn.dataset.title;
       const url = shareBtn.dataset.url;
-      const text = shareBtn.dataset.text;
-      const imageUrl = shareBtn.dataset.image;
 
-      // 사진까지 같이 보낼 수 있는 기기라면(대부분의 최신 모바일 브라우저), 사진 파일을
-      // 실제로 받아와서 제목/말씀과 함께 첨부해 보냅니다. 카카오톡 등으로 보내면 사진과
-      // 글이 같이 전달됩니다.
-      if (imageUrl && navigator.share && navigator.canShare) {
-        try {
-          const res = await fetch(imageUrl);
-          const blob = await res.blob();
-          const file = new File([blob], 'qt.jpg', { type: blob.type || 'image/jpeg' });
-          if (navigator.canShare({ files: [file] })) {
-            await navigator.share({ title, text: text ? `${text}\n${url}` : url, files: [file] });
-            return;
-          }
-        } catch (err) {
-          // 사진을 못 가져왔거나 파일 공유가 안 되면, 아래의 링크 공유로 자연스럽게 넘어갑니다.
-        }
-      }
-
-      // 카카오톡 등 메신저는 링크만 보내면 og 태그로 자동 카드 미리보기를 만들어줍니다.
-      // title/text까지 같이 보내면 텍스트 말풍선과 카드가 중복으로 노출되어 링크만 전달합니다.
+      // 링크만 보내면 카카오톡 등 메신저가 og:image(방금 만든 포스터 사진)로 자동으로
+      // 사진+제목+URL이 다 들어간 미리보기 카드를 만들어줍니다. 이게 사진 파일을 직접
+      // 첨부하는 것보다 훨씬 안정적으로 "사진과 링크가 같이" 전달되는 방법입니다
+      // (파일을 같이 보내면 앱에 따라 URL 텍스트가 누락되는 경우가 있습니다).
       if (navigator.share) {
         try {
           await navigator.share({ title, url });
