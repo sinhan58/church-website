@@ -2513,4 +2513,34 @@
   Promise.all([loadMissions(), loadQuizTeaser()]).catch((err) => {
     console.error('선교/퀴즈 콘텐츠를 불러오는 중 오류가 발생했습니다:', err);
   });
+
+  // ---------------- 뒤로가기 시 스크롤 위치 직접 복원 ----------------
+  // 위쪽의 history.scrollRestoration = 'manual' 설정 때문에(해시 이동이 미리
+  // 튀는 것을 막기 위한 용도), 브라우저가 뒤로가기 때 스크롤 위치를 자동으로
+  // 복원해주지 않게 됐습니다. 그래서 이 페이지를 벗어날 때 스크롤 위치를 직접
+  // 저장해두고, 뒤로가기로 다시 돌아왔을 때 직접 그 위치로 되돌려줍니다.
+  window.addEventListener('pagehide', () => {
+    try {
+      sessionStorage.setItem('homeScrollY', String(window.scrollY));
+    } catch (err) {}
+  });
+  window.addEventListener('pageshow', (event) => {
+    // event.persisted: 뒤로/앞으로 가기로 캐시에서 복원된 경우 true.
+    // 일부 상황에서는 캐시 복원이 아니라 완전히 새로 불러오는 경우도 있어서,
+    // 그런 경우까지 대비해 Navigation Timing API로 "뒤로가기로 온 것"인지도 같이 봅니다.
+    let isBackNavigation = event.persisted;
+    if (!isBackNavigation) {
+      try {
+        const navEntries = performance.getEntriesByType('navigation');
+        isBackNavigation = navEntries[0] && navEntries[0].type === 'back_forward';
+      } catch (err) {}
+    }
+    if (!isBackNavigation) return;
+    try {
+      const savedY = sessionStorage.getItem('homeScrollY');
+      if (savedY !== null) {
+        window.scrollTo(0, Number(savedY));
+      }
+    } catch (err) {}
+  });
 })();
