@@ -500,8 +500,8 @@
     }
     footerSns.innerHTML = links.join('');
 
-    // 오른쪽 하단에 떠있는 밴드 바로가기 버튼 (밴드 주소를 등록해두신 경우에만 보임)
-    const bandFab = $('#band-fab');
+    // 확장 메뉴 안 밴드 항목 (밴드 주소를 등록해두신 경우에만 보임)
+    const bandFab = $('#quick-fab-band');
     if (bandFab) {
       if (site.sns && site.sns.band) {
         bandFab.href = normalizeExternalUrl(site.sns.band);
@@ -700,8 +700,8 @@
   if ($('#mini-player-expand')) $('#mini-player-expand').addEventListener('click', toggleMiniPlayerExpand);
 
   // ---------------- 섬김 안내 모달 열기/닫기 ----------------
-  if ($('#ministry-duty-fab')) {
-    $('#ministry-duty-fab').addEventListener('click', () => {
+  if ($('#quick-fab-ministry')) {
+    $('#quick-fab-ministry').addEventListener('click', () => {
       $('#ministry-duty-modal').classList.add('open');
     });
   }
@@ -713,6 +713,25 @@
   if ($('#ministry-duty-modal')) {
     $('#ministry-duty-modal').addEventListener('click', (e) => {
       if (e.target.id === 'ministry-duty-modal') $('#ministry-duty-modal').classList.remove('open');
+    });
+  }
+
+  // ---------------- 오른쪽 하단 확장형 플로팅 버튼 (큐티/밴드/섬김안내/소식·친교) ----------------
+  const quickFabWrap = $('#quick-fab-wrap');
+  const quickFabToggle = $('#quick-fab-toggle');
+  if (quickFabWrap && quickFabToggle) {
+    quickFabToggle.addEventListener('click', () => {
+      quickFabWrap.classList.toggle('open');
+    });
+    // 메뉴 항목 중 하나를 누르면(밴드로 이동하든, 큐티로 스크롤하든) 자동으로 접어줍니다.
+    $$('.quick-fab-item', quickFabWrap).forEach((item) => {
+      item.addEventListener('click', () => quickFabWrap.classList.remove('open'));
+    });
+    // 메뉴가 펼쳐진 상태에서 바깥을 누르면 접어줍니다.
+    document.addEventListener('click', (e) => {
+      if (quickFabWrap.classList.contains('open') && !quickFabWrap.contains(e.target)) {
+        quickFabWrap.classList.remove('open');
+      }
     });
   }
 
@@ -1549,7 +1568,7 @@
 
   // ---------------- 섬김 안내 (예배 위원 / 식사 봉사) ----------------
   function applyMinistryDuty(duty) {
-    const fab = $('#ministry-duty-fab');
+    const fab = $('#quick-fab-ministry');
     const worshipEl = $('#ministry-duty-worship');
     const mealEl = $('#ministry-duty-meal');
     if (!fab) return;
