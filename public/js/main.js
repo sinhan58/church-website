@@ -2358,7 +2358,6 @@
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('/sw.js')
         .then((reg) => {
-          setupPushPrompt(reg);
           setupQtNotifyButton(reg);
         })
         .catch(() => {});
@@ -2373,51 +2372,6 @@
     return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
   }
 
-  async function setupPushPrompt(registration) {
-    if (!('PushManager' in window) || !('Notification' in window)) return; // 미지원 기기(iOS 사파리 등)는 조용히 건너뜀
-    if (Notification.permission === 'denied') return; // 이미 차단한 경우 다시 안 물어봄
-    if (localStorage.getItem('push-prompt-dismissed') === '1') return; // 예전에 닫은 적 있으면 다시 안 보여줌
-
-    const existing = await registration.pushManager.getSubscription();
-    if (existing) return; // 이미 구독 중이면 배너 안 보여줌
-
-    const banner = $('#push-prompt');
-    if (!banner) return;
-    banner.style.display = 'flex';
-
-    $('#push-dismiss-btn').addEventListener('click', () => {
-      banner.style.display = 'none';
-      localStorage.setItem('push-prompt-dismissed', '1');
-    });
-
-    $('#push-allow-btn').addEventListener('click', async () => {
-      try {
-        const permission = await Notification.requestPermission();
-        if (permission !== 'granted') {
-          banner.style.display = 'none';
-          return;
-        }
-        const { publicKey } = await getJSON('/api/push/vapid-public-key');
-        if (!publicKey) {
-          banner.style.display = 'none';
-          return;
-        }
-        const subscription = await registration.pushManager.subscribe({
-          userVisibleOnly: true,
-          applicationServerKey: urlBase64ToUint8Array(publicKey)
-        });
-        await fetch('/api/push/subscribe', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(subscription)
-        });
-        banner.style.display = 'none';
-        localStorage.setItem('push-prompt-dismissed', '1');
-      } catch (err) {
-        banner.style.display = 'none';
-      }
-    });
-  }
 
   // ---------------- 큐티 섹션 "알림 받기" 버튼 (누구나 이용 가능) ----------------
   async function setupQtNotifyButton(registration) {
@@ -2476,7 +2430,6 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(subscription)
         });
-        localStorage.setItem('push-prompt-dismissed', '1'); // 이미 여기서 구독했으니, 홈 화면 배너는 또 안 뜨게
         await refreshState();
       } catch (err) {
         // 실패해도 조용히 그대로 둡니다 (버튼이 다시 "알림 받기" 상태로 남아있어 재시도 가능)
