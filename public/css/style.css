@@ -2296,10 +2296,10 @@ body.has-mini-player .quick-fab-wrap { bottom: calc(20px + 68px); }
   right: 20px;
   bottom: 20px;
   z-index: 95;
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 12px;
+  /* 펼침 메뉴는 아래에서 position:absolute로 따로 띄우기 때문에, 이 박스 자체는
+     토글 버튼(56x56) 크기만 차지합니다 — 평소엔 그 이상의 영역을 절대 차지하지 않습니다. */
+  width: 56px;
+  height: 56px;
 }
 .quick-fab-toggle {
   width: 56px;
@@ -2321,6 +2321,9 @@ body.has-mini-player .quick-fab-wrap { bottom: calc(20px + 68px); }
 .quick-fab-wrap.open .quick-fab-toggle-icon { transform: rotate(45deg); }
 
 .quick-fab-menu {
+  position: absolute;
+  right: 0;
+  bottom: 68px; /* 토글 버튼(56px) + 여백(12px) 바로 위 */
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -2328,12 +2331,14 @@ body.has-mini-player .quick-fab-wrap { bottom: calc(20px + 68px); }
   /* 평소엔 숨겨두고, 펼쳤을 때만 아래에서 위로 살짝 올라오며 나타납니다 */
   opacity: 0;
   visibility: hidden;
+  pointer-events: none;
   transform: translateY(8px);
   transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s linear 0.2s;
 }
 .quick-fab-wrap.open .quick-fab-menu {
   opacity: 1;
   visibility: visible;
+  pointer-events: auto;
   transform: translateY(0);
   transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s linear 0s;
 }
