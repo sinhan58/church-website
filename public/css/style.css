@@ -347,7 +347,8 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   overflow: hidden;
 }
 /* 글씨가 잘 보이도록 어둡게 깔아주는 그라데이션은 사진과 분리된 고정 레이어로 둡니다
-   (사진이 나중에 바뀌어도 이 오버레이 자체는 흔들리지 않습니다) */
+   (사진이 나중에 바뀌어도 이 오버레이 자체는 흔들리지 않습니다).
+   관리자가 "대문 사진을 어둡게 처리" 체크를 끄면 .hero--no-overlay가 붙어서 이 레이어가 사라집니다. */
 .hero::before {
   content: '';
   position: absolute;
@@ -355,6 +356,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   background: linear-gradient(180deg, rgba(13,21,38,0.4), rgba(13,21,38,0.55));
   z-index: 1;
 }
+.hero--no-overlay::before { display: none; }
 /* 관리자가 등록한 대문 사진을 담는 전용 레이어. 기본은 투명 상태(opacity:0)로 시작해서
    JS가 사진을 다 불러온 뒤 .is-visible을 붙이면 그제서야 부드럽게 페이드인됩니다.
    (사진이 로딩되자마자 '빡' 하고 즉시 나타나던 현상을 없애기 위함) */
@@ -375,13 +377,18 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   padding: 0 24px;
   animation: heroRise 1s ease both;
 }
+@media (min-width: 861px) {
+  /* PC 큰 화면에서는 720px 박스가 가운데 좁게 몰려 보이는 느낌이 있어서, 여백을
+     넉넉히 살리면서도 좀 더 시원하게 넓혀줍니다 */
+  .hero-inner { max-width: 960px; }
+}
 @keyframes heroRise {
   from { opacity: 0; transform: translateY(18px); }
   to { opacity: 1; transform: translateY(0); }
 }
 .verse-card {
-  border-top: 1px solid var(--gold);
-  border-bottom: 1px solid var(--gold);
+  border-top: 1px solid #7ec4e8; /* 밝은 톤 시험 적용: 골드 → 하늘색 포인트 */
+  border-bottom: 1px solid #7ec4e8;
   padding: 28px 8px;
   margin-bottom: 28px;
 }
@@ -395,17 +402,26 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   word-break: keep-all;
   text-shadow: 0 1px 3px rgba(0,0,0,0.7), 0 2px 14px rgba(0,0,0,0.5), 0 0 30px rgba(0,0,0,0.3);
 }
+@media (min-width: 861px) {
+  .verse-card .verse-text { font-size: clamp(1.85rem, 2.6vw, 2.4rem); }
+}
 .verse-card .verse-ref {
-  color: var(--gold-soft);
+  color: #cdeaf9; /* 밝은 톤 시험 적용: 골드 → 하늘색 포인트 */
   font-size: 0.9rem;
   letter-spacing: 0.08em;
   text-shadow: 0 1px 3px rgba(0,0,0,0.7), 0 2px 10px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.3);
+}
+@media (min-width: 861px) {
+  .verse-card .verse-ref { font-size: 1.05rem; }
 }
 .hero-subtitle {
   color: #d7d9e4;
   font-size: 1.05rem;
   margin-bottom: 36px;
   text-shadow: 0 1px 3px rgba(0,0,0,0.7), 0 2px 12px rgba(0,0,0,0.5), 0 0 24px rgba(0,0,0,0.3);
+}
+@media (min-width: 861px) {
+  .hero-subtitle { font-size: 1.3rem; }
 }
 .hero-cta { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
 
