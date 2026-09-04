@@ -285,25 +285,6 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   }
 }
 
-/* ---- 컨셉 B: 메뉴줄을 색 없는 "투명 미스트"(뿌옇게 흐린 유리) 느낌으로 ---- */
-html.theme-b .site-header {
-  background: rgba(255,255,255,0.35);
-  backdrop-filter: blur(14px) saturate(140%);
-  -webkit-backdrop-filter: blur(14px) saturate(140%);
-  border-bottom: 1px solid rgba(255,255,255,0.4);
-}
-html.theme-b .site-header.scrolled {
-  background: rgba(255,255,255,0.55);
-  backdrop-filter: blur(18px) saturate(140%);
-  -webkit-backdrop-filter: blur(18px) saturate(140%);
-  box-shadow: 0 4px 20px rgba(0,0,0,0.06);
-}
-html.theme-b .brand,
-html.theme-b .nav-desktop a {
-  color: var(--ink); /* 밝은 미스트 배경이라 흰 글씨 대신 짙은 색으로 */
-  text-shadow: none;
-}
-html.theme-b .hamburger span { background: var(--ink); }
 .site-header .container {
   display: flex;
   align-items: center;
