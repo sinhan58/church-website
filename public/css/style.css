@@ -2284,12 +2284,10 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 
 /* 미니 플레이어가 떠 있을 때는 우측 하단 버튼들을 그만큼 밀어올림 */
 body.has-mini-player .quick-fab-wrap { bottom: calc(20px + 68px); }
-body.has-mini-player .scroll-top-btn { bottom: calc(84px + 68px); }
 @media (max-width: 900px) {
   .mini-player { padding: 6px 10px; gap: 10px; }
   .mini-player-video { width: 48px; height: 48px; }
   body.has-mini-player .quick-fab-wrap { bottom: calc(74px + 60px); }
-  body.has-mini-player .scroll-top-btn { bottom: calc(14px + 60px); }
 }
 
 /* ---------------- 오른쪽 하단 확장형 플로팅 버튼 (큐티/밴드/섬김안내/소식·친교) ---------------- */
@@ -2308,17 +2306,17 @@ body.has-mini-player .scroll-top-btn { bottom: calc(84px + 68px); }
   height: 56px;
   border-radius: 50%;
   border: none;
-  background: var(--navy-deep);
-  color: #fff;
+  background: var(--gold);
+  color: var(--navy-deep);
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  box-shadow: 0 8px 22px rgba(0,0,0,0.25);
+  box-shadow: 0 8px 22px rgba(201,162,39,0.4);
   transition: transform 0.2s ease, box-shadow 0.2s ease;
   flex: none;
 }
-.quick-fab-toggle:hover { box-shadow: 0 10px 26px rgba(0,0,0,0.3); }
+.quick-fab-toggle:hover { box-shadow: 0 10px 26px rgba(201,162,39,0.5); }
 .quick-fab-toggle-icon { width: 24px; height: 24px; transition: transform 0.25s ease; }
 .quick-fab-wrap.open .quick-fab-toggle-icon { transform: rotate(45deg); }
 
@@ -2439,47 +2437,6 @@ body.has-mini-player .scroll-top-btn { bottom: calc(84px + 68px); }
 }
 
 /* ---------------- 맨 위로 이동 버튼 ---------------- */
-.scroll-top-btn {
-  position: fixed;
-  right: 20px;
-  bottom: 84px; /* 새 통합 플로팅 버튼(20px, 56px 높이) 바로 위에 쌓임 */
-  z-index: 90;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  border: 1px solid var(--line);
-  background: #fff;
-  color: var(--navy-deep);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  box-shadow: 0 8px 22px rgba(0,0,0,0.12);
-  opacity: 0;
-  transform: translateY(10px);
-  pointer-events: none;
-  transition: opacity 0.25s ease, transform 0.25s ease, background 0.2s ease, border-color 0.2s ease;
-}
-.scroll-top-btn.visible { opacity: 1; transform: translateY(0); pointer-events: auto; }
-@media (hover: hover) {
-  .scroll-top-btn:hover { background: var(--gold); border-color: var(--gold); color: var(--navy-deep); }
-}
-.scroll-top-btn svg { width: 24px; height: 24px; }
-@media (max-width: 900px) {
-  /* 모바일: 화면 하단 가운데에 작은 버튼으로 */
-  .scroll-top-btn {
-    left: 50%;
-    right: auto;
-    bottom: 14px;
-    width: 44px;
-    height: 44px;
-    transform: translateX(-50%) translateY(10px);
-  }
-  .scroll-top-btn.visible { transform: translateX(-50%) translateY(0); }
-  #scroll-top-btn:active { transform: translateX(-50%) translateY(0) scale(0.97); }
-  .scroll-top-btn svg { width: 20px; height: 20px; }
-}
-
 /* ---------------- 오늘의 큐티 + 말씀 퀴즈 (3:1 배치) ---------------- */
 .qt-quiz-layout {
   position: relative;
