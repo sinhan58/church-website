@@ -1910,36 +1910,6 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   padding: 72px 0;
   background: var(--ivory-dim);
 }
-.qt-notify-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 14px;
-  padding: 8px 16px;
-  border-radius: 999px;
-  border: 1px solid var(--gold);
-  background: #fff;
-  color: var(--navy-deep);
-  font-size: 0.85rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-.qt-notify-btn:hover { background: var(--gold-soft); }
-.qt-notify-btn.subscribed {
-  border-color: var(--line);
-  background: var(--ivory);
-  color: var(--muted);
-  cursor: default;
-}
-.qt-notify-btn.subscribed:hover { background: var(--ivory); }
-.qt-notify-btn.blocked {
-  border-color: #d99a9a;
-  background: #fdf1f1;
-  color: #a33b3b;
-}
-.qt-notify-btn.blocked:hover { background: #fbe4e4; }
-.qt-notify-icon { font-size: 0.95rem; }
 .qt-stage {
   position: relative;
   border-radius: 20px;
@@ -2524,6 +2494,28 @@ body.has-mini-player .quick-fab-wrap { bottom: calc(20px + 68px); }
 }
 
 /* ---------------- 푸시 알림 허용 안내 배너 ---------------- */
+.push-prompt {
+  position: fixed;
+  left: 16px; right: 16px; bottom: 16px;
+  max-width: 420px;
+  margin: 0 auto;
+  z-index: 95;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 14px 16px;
+  font-size: 0.85rem;
+  color: var(--ink);
+}
+.push-prompt-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.push-prompt-close {
+  background: none; border: none; color: var(--muted); font-size: 0.9rem; padding: 4px; cursor: pointer;
+}
+
 /* Focus visibility for accessibility */
 a:focus-visible, button:focus-visible {
   outline: 2px solid var(--gold);
