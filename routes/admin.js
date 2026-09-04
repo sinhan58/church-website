@@ -378,7 +378,19 @@ router.put('/site', requirePermission('site'), async (req, res) => {
       }
     }
     const current = (await readData('site')) || {};
-    const updated = { ...current, ...req.body };
+    // 얕은 병합(...current, ...req.body)만 쓰면, missions처럼 여러 화면에서 나눠서
+    // 저장하는 중첩 객체는 이번 요청에 없는 필드(예: missions.cards)가 통째로
+    // 사라져버립니다. 그래서 객체 타입 필드는 한 단계 더 깊이 병합해서, 이번 요청에
+    // 포함 안 된 기존 값은 그대로 보존되게 합니다.
+    const updated = { ...current };
+    for (const [key, value] of Object.entries(req.body)) {
+      const isPlainObject = (v) => v && typeof v === 'object' && !Array.isArray(v);
+      if (isPlainObject(value) && isPlainObject(current[key])) {
+        updated[key] = { ...current[key], ...value };
+      } else {
+        updated[key] = value;
+      }
+    }
     await writeData('site', updated);
     res.json(updated);
   } catch (err) {
