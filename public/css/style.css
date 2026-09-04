@@ -1910,6 +1910,36 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   padding: 72px 0;
   background: var(--ivory-dim);
 }
+.qt-notify-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 14px;
+  padding: 8px 16px;
+  border-radius: 999px;
+  border: 1px solid var(--gold);
+  background: #fff;
+  color: var(--navy-deep);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.qt-notify-btn:hover { background: var(--gold-soft); }
+.qt-notify-btn.subscribed {
+  border-color: var(--line);
+  background: var(--ivory);
+  color: var(--muted);
+  cursor: default;
+}
+.qt-notify-btn.subscribed:hover { background: var(--ivory); }
+.qt-notify-btn.blocked {
+  border-color: #d99a9a;
+  background: #fdf1f1;
+  color: #a33b3b;
+}
+.qt-notify-btn.blocked:hover { background: #fbe4e4; }
+.qt-notify-icon { font-size: 0.95rem; }
 .qt-stage {
   position: relative;
   border-radius: 20px;
