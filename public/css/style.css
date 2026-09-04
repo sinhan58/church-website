@@ -5,6 +5,7 @@
    ========================================================= */
 
 :root {
+  /* ---- 컨셉 A (기본 테마) ---- */
   --navy-deep: #0d1526;
   --navy: #16213e;
   --navy-soft: #22315a;
@@ -19,12 +20,35 @@
   --ink: #201f1c;
   --muted: #6b6a63;
   --line: #e4ddc9;
+  --hero-accent: #7ec4e8; /* 히어로 성경구절 테두리 */
+  --hero-accent-soft: #cdeaf9; /* 히어로 성경구절 출처 글씨 */
   --radius: 4px;
   --max-width: 1140px;
   --shadow: 0 10px 30px rgba(13, 21, 38, 0.12);
   /* 관리자 페이지 "글꼴 설정"에서 선택하면 JS가 이 값을 덮어씁니다 */
   --font-heading: 'Noto Serif KR', serif;
   --font-body: 'Pretendard', 'Noto Sans KR', -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+/* ---- 컨셉 B ----
+   관리자 페이지에서 "컨셉 B 적용"을 누르면 <html>에 이 클래스가 붙어서, 아래 값들로
+   전체 사이트 색상이 즉시 바뀝니다. 지금은 컨셉 A와 똑같은 값으로 시작하고,
+   앞으로 색상 관련 요청이 오면 여기 값들만 따로 바꿔나갈 예정입니다
+   (컨셉 A는 항상 지금 이 상태 그대로 안전하게 보존됩니다). */
+html.theme-b {
+  --navy-deep: #0d1526;
+  --navy: #16213e;
+  --navy-soft: #22315a;
+  --ivory: #faf7f0;
+  --ivory-dim: #f0ebdf;
+  --gold: #c9a227;
+  --gold-soft: #e4c876;
+  --gold-deep: #8f6b17;
+  --ink: #201f1c;
+  --muted: #6b6a63;
+  --line: #e4ddc9;
+  --hero-accent: #7ec4e8;
+  --hero-accent-soft: #cdeaf9;
 }
 
 * { box-sizing: border-box; }
@@ -387,8 +411,8 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   to { opacity: 1; transform: translateY(0); }
 }
 .verse-card {
-  border-top: 1px solid #7ec4e8; /* 밝은 톤 시험 적용: 골드 → 하늘색 포인트 */
-  border-bottom: 1px solid #7ec4e8;
+  border-top: 1px solid var(--hero-accent);
+  border-bottom: 1px solid var(--hero-accent);
   padding: 28px 8px;
   margin-bottom: 28px;
 }
@@ -406,7 +430,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
   .verse-card .verse-text { font-size: clamp(1.85rem, 2.6vw, 2.4rem); }
 }
 .verse-card .verse-ref {
-  color: #cdeaf9; /* 밝은 톤 시험 적용: 골드 → 하늘색 포인트 */
+  color: var(--hero-accent-soft);
   font-size: 0.9rem;
   letter-spacing: 0.08em;
   text-shadow: 0 1px 3px rgba(0,0,0,0.7), 0 2px 10px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.3);
