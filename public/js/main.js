@@ -338,6 +338,8 @@
   async function loadSite() {
     const site = await getJSON('/api/site');
 
+    document.documentElement.classList.toggle('theme-b', site.theme === 'b');
+
     if (site.design) {
       window.ensureGoogleFont && window.ensureGoogleFont(site.design.headingFont);
       window.ensureGoogleFont && window.ensureGoogleFont(site.design.bodyFont);
