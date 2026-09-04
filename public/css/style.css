@@ -264,24 +264,26 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
      대문 사진은 여전히 비치되, 뒤 콘텐츠가 헤더 글자와 뒤섞여 보이는 문제를 없앱니다. */
   background: linear-gradient(180deg, rgba(13,21,38,0.45) 0%, rgba(13,21,38,0.15) 70%, rgba(13,21,38,0) 100%);
   transition: background 0.3s ease, box-shadow 0.3s ease;
-  padding: 20px 0;
+  padding: 35px 0;
 }
 .site-header.scrolled {
   /* 모바일 번쩍임 방지를 위해 흐림 효과(backdrop-filter) 대신 살짝 더 진한
      불투명 배경만 사용합니다. 이미 94~96%가 불투명해서 육안상 차이는 거의 없습니다. */
   background: rgba(13, 21, 38, 0.96);
   box-shadow: 0 4px 20px rgba(0,0,0,0.15);
-  padding: 12px 0;
+  padding: 27px 0;
 }
 
 /* PC 등 성능 여유가 있는 화면에서는 원래의 유리 느낌(흐림 효과)을 그대로 살립니다 */
 @media (min-width: 861px) {
   .site-header {
     transition: background 0.3s ease, box-shadow 0.3s ease, backdrop-filter 0.3s ease;
+    padding: 50px 0; /* 기존보다 약 4mm(15px) 더 넉넉하게 */
   }
   .site-header.scrolled {
     background: rgba(13, 21, 38, 0.94);
     backdrop-filter: blur(6px);
+    padding: 42px 0;
   }
 }
 
@@ -312,14 +314,14 @@ html.theme-b .nav-desktop a {
   letter-spacing: -0.01em;
 }
 @media (min-width: 861px) {
-  .brand { font-size: 1.55rem; }
+  .brand { font-size: 1.9rem; }
 }
 .brand .gold-dot { color: var(--gold); }
 
 .nav-desktop { display: flex; gap: 36px; }
 .nav-desktop a {
   color: #eceaf0;
-  font-size: 1.05rem;
+  font-size: 1.15rem;
   font-weight: 500;
   position: relative;
   padding: 6px 0;
