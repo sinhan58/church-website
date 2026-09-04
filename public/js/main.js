@@ -360,6 +360,7 @@
       $('#hero-verse').textContent = site.hero.verse || '';
       $('#hero-verse-ref').textContent = site.hero.verseRef || '';
       $('#hero-subtitle').innerHTML = escapeHtml(site.hero.subtitle || '').replace(/\n/g, '<br>');
+      $('.hero').classList.toggle('hero--no-overlay', site.hero.overlayEnabled === false);
       if (Array.isArray(site.hero.backgroundImages) && site.hero.backgroundImages.length) {
         startHeroSlideshow(site.hero.backgroundImages);
       } else if (site.hero.backgroundImage) {
