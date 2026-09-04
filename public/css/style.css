@@ -23,7 +23,7 @@
   --hero-accent: #7ec4e8; /* 히어로 성경구절 테두리 */
   --hero-accent-soft: #cdeaf9; /* 히어로 성경구절 출처 글씨 */
   --radius: 4px;
-  --max-width: 1140px;
+  --max-width: 1280px; /* 최신 프레임워크(Tailwind 등) 기본값 기준 */
   --shadow: 0 10px 30px rgba(13, 21, 38, 0.12);
   /* 관리자 페이지 "글꼴 설정"에서 선택하면 JS가 이 값을 덮어씁니다 */
   --font-heading: 'Noto Serif KR', serif;
