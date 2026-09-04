@@ -72,7 +72,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link class="gfont-link" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;600;700&display=block" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
-<link rel="stylesheet" href="/css/style.css?v=110" />
+<link rel="stylesheet" href="/css/style.css?v=111" />
 <meta property="og:title" content="물댄동산교회 - 오산시 중앙동" />
 <meta property="og:description" content="경기도 오산시 중앙동 대동다숲(오색시장 인근)에 위치한 물댄동산교회입니다. 담임목사 이기삼." />
 <meta property="og:image" content="https://muldaen.com/uploads/0001.png" />
@@ -472,12 +472,36 @@
   </div>
 </div>
 
-<!-- 찬양 미니 플레이어 (유튜브 IFrame Player API로 제어, 화면 하단 고정) -->
-<!-- 섬김 안내 (예배 위원 / 주일 식사 봉사 당번) — 모바일 전용 플로팅 버튼 -->
-<button type="button" id="ministry-duty-fab" class="ministry-duty-fab" style="display:none;">
-  <svg viewBox="0 0 24 24" fill="none"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zM4 21a8 8 0 0116 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-  <span>섬김안내</span>
-</button>
+<!-- 오른쪽 하단 확장형 플로팅 버튼 (큐티 / 밴드 / 섬김안내 / 소식·친교) -->
+<div class="quick-fab-wrap" id="quick-fab-wrap">
+  <div class="quick-fab-menu" id="quick-fab-menu">
+    <a href="#board" class="quick-fab-item" id="quick-fab-board">
+      <span class="quick-fab-item-label">소식 · 친교</span>
+      <span class="quick-fab-item-icon">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4 5h16v11H7l-3 3V5z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+    </a>
+    <button type="button" class="quick-fab-item" id="quick-fab-ministry" style="display:none;">
+      <span class="quick-fab-item-label">섬김안내</span>
+      <span class="quick-fab-item-icon">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zM4 21a8 8 0 0116 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+    </button>
+    <a href="#" id="quick-fab-band" class="quick-fab-item" target="_blank" rel="noopener" style="display:none;">
+      <span class="quick-fab-item-label">밴드에서 소통해요</span>
+      <span class="quick-fab-item-icon quick-fab-item-icon--band">BAND</span>
+    </a>
+    <a href="#qt" class="quick-fab-item" id="quick-fab-qt">
+      <span class="quick-fab-item-label">오늘의 큐티</span>
+      <span class="quick-fab-item-icon">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20V2H6.5A2.5 2.5 0 004 4.5v15z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+    </a>
+  </div>
+  <button type="button" class="quick-fab-toggle" id="quick-fab-toggle" aria-label="빠른 메뉴 열기">
+    <svg class="quick-fab-toggle-icon" viewBox="0 0 24 24" fill="none"><path d="M12 5v14M5 12h14" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+  </button>
+</div>
 <div class="ministry-duty-modal" id="ministry-duty-modal">
   <div class="ministry-duty-modal-inner">
     <button type="button" class="ministry-duty-modal-close" id="ministry-duty-modal-close" aria-label="닫기">✕</button>
@@ -520,14 +544,6 @@
   </div>
 </div>
 
-<a href="#" id="band-fab" class="band-fab" target="_blank" rel="noopener" aria-label="네이버 밴드에서 소통해요" style="display:none;">
-  <span class="band-fab-badge">
-    <span style="display:block;font-size:0.6rem;line-height:1;">BAND</span>
-    <span style="display:block;font-size:0.62rem;line-height:1.2;">밴드</span>
-  </span>
-  <span>밴드에서 소통해요</span>
-</a>
-
 <button type="button" id="scroll-top-btn" class="scroll-top-btn" aria-label="맨 위로 이동">
   <svg viewBox="0 0 24 24" fill="none"><path d="M5 15l7-7 7 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
 </button>
@@ -536,6 +552,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
 <script src="/js/countries.js"></script>
 <script src="/js/font-catalog.js"></script>
-<script src="/js/main.js?v=65"></script>
+<script src="/js/main.js?v=66"></script>
 </body>
 </html>
