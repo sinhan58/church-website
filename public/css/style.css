@@ -278,12 +278,12 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 @media (min-width: 861px) {
   .site-header {
     transition: background 0.3s ease, box-shadow 0.3s ease, backdrop-filter 0.3s ease;
-    padding: 40px 0;
+    padding: 25px 0;
   }
   .site-header.scrolled {
     background: rgba(13, 21, 38, 0.94);
     backdrop-filter: blur(6px);
-    padding: 40px 0;
+    padding: 25px 0;
   }
 }
 
