@@ -578,6 +578,28 @@
     select.addEventListener('change', () => loadQuizStats(select.value));
   }
 
+  // ---------------- 홈페이지 색상 컨셉 전환 ----------------
+  function setupThemeSwitcher() {
+    const aBtn = $('#s-theme-a-btn');
+    const bBtn = $('#s-theme-b-btn');
+    if (!aBtn || !bBtn) return;
+
+    async function applyTheme(theme) {
+      // 화면에 바로 반영(관리자 페이지 자체에는 이 클래스가 없어서 시각적 변화는 없지만,
+      // 저장은 즉시 진행합니다)
+      try {
+        await api('/api/admin/site', { method: 'PUT', body: JSON.stringify({ theme }) });
+        if ($('#s-theme-current')) $('#s-theme-current').textContent = `현재 적용 중: 컨셉 ${theme === 'b' ? 'B' : 'A'}`;
+        alert(`컨셉 ${theme === 'b' ? 'B' : 'A'}가 적용되었습니다. 홈페이지를 새로고침하면 바로 확인하실 수 있어요.`);
+      } catch (err) {
+        alert('저장에 실패했습니다: ' + err.message);
+      }
+    }
+
+    aBtn.addEventListener('click', () => applyTheme('a'));
+    bBtn.addEventListener('click', () => applyTheme('b'));
+  }
+
   function setupPushPanel() {
     const sendBtn = $('#push-send-btn');
     if (!sendBtn) return; // 권한 없는 부관리자는 조용히 건너뜀
@@ -787,6 +809,7 @@
       placeholder: '내용을 입력하세요. Enter로 줄바꿈, 위 도구모음으로 글자 크기·굵기·색상을 바꿀 수 있습니다.'
     });
     setupNav();
+    setupThemeSwitcher();
     const initialActiveNav = $('.nav-item.active');
     const toggleCurrentLabelInit = $('#sidebar-toggle-current');
     if (initialActiveNav && toggleCurrentLabelInit) {
@@ -1020,6 +1043,8 @@
     $('#s-heroVerseRef').value = s.hero?.verseRef || '';
     $('#s-heroSubtitle').value = s.hero?.subtitle || '';
     $('#s-heroOverlay').checked = s.hero?.overlayEnabled !== false;
+    const currentTheme = s.theme === 'b' ? 'B' : 'A';
+    if ($('#s-theme-current')) $('#s-theme-current').textContent = `현재 적용 중: 컨셉 ${currentTheme}`;
     heroBackgroundImages = Array.isArray(s.hero?.backgroundImages) && s.hero.backgroundImages.length
       ? s.hero.backgroundImages.slice()
       : (s.hero?.backgroundImage ? [s.hero.backgroundImage] : []);
