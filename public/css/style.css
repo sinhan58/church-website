@@ -109,8 +109,8 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 .kakao-map-preview:active,
 .btn:active,
 .btn-gold:active,
-.band-fab:active,
-.ministry-duty-fab:active,
+.quick-fab-toggle:active,
+.quick-fab-item:active,
 .nav-mobile a:active {
   filter: brightness(0.92);
 }
@@ -2283,39 +2283,107 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 #mini-player-expand-icon { transition: transform 0.2s ease; }
 
 /* 미니 플레이어가 떠 있을 때는 우측 하단 버튼들을 그만큼 밀어올림 */
-body.has-mini-player .band-fab { bottom: calc(20px + 68px); }
-body.has-mini-player .scroll-top-btn { bottom: calc(148px + 68px); }
+body.has-mini-player .quick-fab-wrap { bottom: calc(20px + 68px); }
+body.has-mini-player .scroll-top-btn { bottom: calc(84px + 68px); }
 @media (max-width: 900px) {
   .mini-player { padding: 6px 10px; gap: 10px; }
   .mini-player-video { width: 48px; height: 48px; }
-  body.has-mini-player .band-fab { bottom: calc(74px + 60px); }
+  body.has-mini-player .quick-fab-wrap { bottom: calc(74px + 60px); }
   body.has-mini-player .scroll-top-btn { bottom: calc(14px + 60px); }
 }
 
-/* ---------------- 섬김 안내 (예배 위원 / 식사 봉사) ---------------- */
-.ministry-duty-fab {
-  display: flex; /* 이제 PC/모바일 둘 다 표시 */
+/* ---------------- 오른쪽 하단 확장형 플로팅 버튼 (큐티/밴드/섬김안내/소식·친교) ---------------- */
+.quick-fab-wrap {
   position: fixed;
   right: 20px;
-  bottom: 84px; /* PC: 밴드 버튼(bottom:20px) 바로 위 */
-  z-index: 90;
+  bottom: 20px;
+  z-index: 95;
+  display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 1px;
+  align-items: flex-end;
+  gap: 12px;
+}
+.quick-fab-toggle {
   width: 56px;
   height: 56px;
-  border: 1.5px solid #dcdcdc;
   border-radius: 50%;
-  background: var(--ivory-dim);
-  color: var(--navy-deep);
-  box-shadow: var(--shadow);
+  border: none;
+  background: var(--navy-deep);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
-  transition: filter 0.15s ease;
+  box-shadow: 0 8px 22px rgba(0,0,0,0.25);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  flex: none;
 }
-.ministry-duty-fab svg { width: 16px; height: 16px; }
-.ministry-duty-fab span { font-size: 0.68rem; font-weight: 700; white-space: nowrap; }
-body.has-mini-player .ministry-duty-fab { bottom: calc(84px + 60px); }
+.quick-fab-toggle:hover { box-shadow: 0 10px 26px rgba(0,0,0,0.3); }
+.quick-fab-toggle-icon { width: 24px; height: 24px; transition: transform 0.25s ease; }
+.quick-fab-wrap.open .quick-fab-toggle-icon { transform: rotate(45deg); }
+
+.quick-fab-menu {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  /* 평소엔 숨겨두고, 펼쳤을 때만 아래에서 위로 살짝 올라오며 나타납니다 */
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(8px);
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s linear 0.2s;
+}
+.quick-fab-wrap.open .quick-fab-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s linear 0s;
+}
+.quick-fab-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 0;
+}
+.quick-fab-item-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--navy-deep);
+  background: #fff;
+  padding: 6px 12px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  white-space: nowrap;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.quick-fab-item-icon {
+  flex: none;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: #fff;
+  border: 1px solid var(--line);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  color: var(--navy-deep);
+}
+.quick-fab-item-icon svg { width: 20px; height: 20px; }
+.quick-fab-item-icon--band {
+  background: #00c73c;
+  color: #fff;
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+@media (max-width: 560px) {
+  .quick-fab-wrap { right: 14px; }
+}
 
 .ministry-duty-modal {
   display: none;
@@ -2369,54 +2437,12 @@ body.has-mini-player .ministry-duty-fab { bottom: calc(84px + 60px); }
   color: var(--muted);
   cursor: pointer;
 }
-@media (max-width: 900px) {
-  .ministry-duty-fab { bottom: 14px; } /* 모바일: 밴드 버튼(bottom:74px) 바로 아래 */
-  body.has-mini-player .ministry-duty-fab { bottom: calc(14px + 60px); }
-}
-
-/* ---------------- 밴드 바로가기 (오른쪽 하단 떠있는 버튼) ---------------- */
-.band-fab {
-  position: fixed;
-  right: 20px;
-  bottom: 20px;
-  z-index: 90;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 56px;
-  height: 56px;
-  border-radius: 50%;
-  background: #00c73c; /* 네이버 밴드 브랜드 색상 */
-  color: #fff;
-  font-size: 0.9rem;
-  font-weight: 700;
-  box-shadow: 0 8px 22px rgba(0,0,0,0.25);
-  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.15s ease;
-}
-.band-fab:hover { transform: translateY(-2px); box-shadow: 0 10px 26px rgba(0,0,0,0.3); }
-.band-fab-badge {
-  display: inline-flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  background: #fff;
-  color: #00c73c;
-  border-radius: 8px;
-  padding: 3px 6px;
-  letter-spacing: -0.02em;
-  font-weight: 800;
-}
-.band-fab > span:not(.band-fab-badge) { display: none; } /* 동그라미 안에는 배지만, 텍스트는 항상 숨김 */
-@media (max-width: 560px) {
-  .band-fab { right: 14px; }
-  .ministry-duty-fab { right: 14px; }
-}
 
 /* ---------------- 맨 위로 이동 버튼 ---------------- */
 .scroll-top-btn {
   position: fixed;
   right: 20px;
-  bottom: 148px; /* 밴드(20px) → 섬김안내(84px) → 맨위로(148px) 순서로 쌓임 */
+  bottom: 84px; /* 새 통합 플로팅 버튼(20px, 56px 높이) 바로 위에 쌓임 */
   z-index: 90;
   width: 56px;
   height: 56px;
@@ -2452,7 +2478,6 @@ body.has-mini-player .ministry-duty-fab { bottom: calc(84px + 60px); }
   .scroll-top-btn.visible { transform: translateX(-50%) translateY(0); }
   #scroll-top-btn:active { transform: translateX(-50%) translateY(0) scale(0.97); }
   .scroll-top-btn svg { width: 20px; height: 20px; }
-  .band-fab { bottom: 74px; }
 }
 
 /* ---------------- 오늘의 큐티 + 말씀 퀴즈 (3:1 배치) ---------------- */
