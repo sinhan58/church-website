@@ -2436,47 +2436,12 @@
     }
   }
 
-  // ---------------- 맨 위로 이동 버튼 ----------------
-  function setupScrollTopButton() {
-    const btn = $('#scroll-top-btn');
-    if (!btn) return;
-    let ticking = false;
-    let hideTimer = null;
-    const isMobile = () => window.matchMedia('(max-width: 900px)').matches;
-
-    function scheduleAutoHide() {
-      if (hideTimer) clearTimeout(hideTimer);
-      hideTimer = setTimeout(() => {
-        btn.classList.remove('visible');
-      }, 1500);
-    }
-
-    function update() {
-      const pastThreshold = window.scrollY > 600;
-      if (isMobile()) {
-        // 모바일: 스크롤 중일 때만 보이고, 멈추면 잠시 후 사라짐 (기준 스크롤 위치를 넘었을 때만)
-        if (pastThreshold) {
-          btn.classList.add('visible');
-          scheduleAutoHide();
-        } else {
-          btn.classList.remove('visible');
-        }
-      } else {
-        btn.classList.toggle('visible', pastThreshold);
-      }
-      ticking = false;
-    }
-    window.addEventListener('scroll', () => {
-      if (!ticking) {
-        requestAnimationFrame(update);
-        ticking = true;
-      }
-    });
-    btn.addEventListener('click', () => {
+  // ---------------- 맨 위로 이동 (확장 메뉴 안의 항목) ----------------
+  if ($('#quick-fab-top')) {
+    $('#quick-fab-top').addEventListener('click', () => {
       window.scrollTo({ top: 0, behavior: 'smooth' });
     });
   }
-  setupScrollTopButton();
 
   // ---------------- 해시(#qt 등)로 진입했을 때, 데이터·폰트 준비 후 이동 ----------------
   // index.html의 head 스크립트에서 location.hash를 미리 떼어 window.__pendingScrollHash에
