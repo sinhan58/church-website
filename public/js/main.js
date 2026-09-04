@@ -2357,7 +2357,10 @@
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('/sw.js')
-        .then((reg) => setupPushPrompt(reg))
+        .then((reg) => {
+          setupPushPrompt(reg);
+          setupQtNotifyButton(reg);
+        })
         .catch(() => {});
     });
   }
@@ -2412,6 +2415,71 @@
         localStorage.setItem('push-prompt-dismissed', '1');
       } catch (err) {
         banner.style.display = 'none';
+      }
+    });
+  }
+
+  // ---------------- 큐티 섹션 "알림 받기" 버튼 (누구나 이용 가능) ----------------
+  async function setupQtNotifyButton(registration) {
+    const btn = $('#qt-notify-btn');
+    if (!btn) return;
+    if (!('PushManager' in window) || !('Notification' in window)) return; // 미지원 기기는 조용히 숨김
+
+    const label = $('#qt-notify-label');
+
+    if (Notification.permission === 'denied') {
+      // 브라우저에서 이미 차단된 상태는 JS로 직접 풀어줄 수 없어서(권한 요청 창 자체가
+      // 안 뜸), 숨기는 대신 "차단됨" 상태를 보여주고 누르면 푸는 방법을 안내합니다.
+      btn.style.display = 'inline-flex';
+      btn.classList.add('blocked');
+      label.textContent = '알림 차단됨';
+      const iconEl = $('#qt-notify-icon');
+      if (iconEl) iconEl.textContent = '🔕';
+      btn.addEventListener('click', () => {
+        alert(
+          '알림이 브라우저에서 차단되어 있어요.\n\n' +
+          '주소창 왼쪽의 자물쇠(또는 사이트 정보) 아이콘을 누르신 뒤,\n' +
+          '"알림"을 찾아 "허용"으로 바꾸고 새로고침해주세요.'
+        );
+      });
+      return;
+    }
+
+    async function refreshState() {
+      const existing = await registration.pushManager.getSubscription();
+      btn.style.display = 'inline-flex';
+      if (existing) {
+        btn.classList.add('subscribed');
+        label.textContent = '알림 받는 중';
+      } else {
+        btn.classList.remove('subscribed');
+        label.textContent = '알림 받기';
+      }
+    }
+
+    await refreshState();
+
+    btn.addEventListener('click', async () => {
+      // 이미 구독 중이면 버튼은 상태 표시 용도라 별도 동작 없음
+      if (btn.classList.contains('subscribed')) return;
+      try {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') return;
+        const { publicKey } = await getJSON('/api/push/vapid-public-key');
+        if (!publicKey) return;
+        const subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey)
+        });
+        await fetch('/api/push/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(subscription)
+        });
+        localStorage.setItem('push-prompt-dismissed', '1'); // 이미 여기서 구독했으니, 홈 화면 배너는 또 안 뜨게
+        await refreshState();
+      } catch (err) {
+        // 실패해도 조용히 그대로 둡니다 (버튼이 다시 "알림 받기" 상태로 남아있어 재시도 가능)
       }
     });
   }
