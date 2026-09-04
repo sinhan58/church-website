@@ -726,6 +726,14 @@
     loadScheduled();
   }
 
+  // ---------------- 알림 구독 관련 공통 유틸 ----------------
+  function urlBase64ToUint8Array(base64String) {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+    const rawData = atob(base64);
+    return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
+  }
+
   // 큐티·말씀 퀴즈 등록 폼의 "알림 예약하기" 체크박스 공통 처리.
   // 체크하면 시간 선택칸을 보여주고 기본값을 1시간 뒤로 채워둡니다.
   function setupSchedulePushToggle(checkboxId, fieldId, timeInputId) {
@@ -1011,6 +1019,7 @@
     $('#s-heroVerse').value = s.hero?.verse || '';
     $('#s-heroVerseRef').value = s.hero?.verseRef || '';
     $('#s-heroSubtitle').value = s.hero?.subtitle || '';
+    $('#s-heroOverlay').checked = s.hero?.overlayEnabled !== false;
     heroBackgroundImages = Array.isArray(s.hero?.backgroundImages) && s.hero.backgroundImages.length
       ? s.hero.backgroundImages.slice()
       : (s.hero?.backgroundImage ? [s.hero.backgroundImage] : []);
@@ -1165,7 +1174,8 @@
           verseRef: $('#s-heroVerseRef').value.trim(),
           subtitle: $('#s-heroSubtitle').value.trim(),
           backgroundImages: heroBackgroundImages,
-          backgroundImage: heroBackgroundImages[0] || '' // 예전 방식과의 호환을 위해 첫 사진도 같이 저장
+          backgroundImage: heroBackgroundImages[0] || '', // 예전 방식과의 호환을 위해 첫 사진도 같이 저장
+          overlayEnabled: $('#s-heroOverlay').checked
         },
         about: {
           greeting: $('#s-aboutGreeting').value.trim(),
