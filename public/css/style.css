@@ -2524,28 +2524,6 @@ body.has-mini-player .quick-fab-wrap { bottom: calc(20px + 68px); }
 }
 
 /* ---------------- 푸시 알림 허용 안내 배너 ---------------- */
-.push-prompt {
-  position: fixed;
-  left: 16px; right: 16px; bottom: 16px;
-  max-width: 420px;
-  margin: 0 auto;
-  z-index: 95;
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 14px 16px;
-  font-size: 0.85rem;
-  color: var(--ink);
-}
-.push-prompt-actions { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
-.push-prompt-close {
-  background: none; border: none; color: var(--muted); font-size: 0.9rem; padding: 4px; cursor: pointer;
-}
-
 /* Focus visibility for accessibility */
 a:focus-visible, button:focus-visible {
   outline: 2px solid var(--gold);
