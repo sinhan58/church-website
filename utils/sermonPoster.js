@@ -166,7 +166,7 @@ function buildTextSvg({ title, verseRef, pastorName, churchName }) {
 // 원본(buildTextSvg)과 로직 흐름은 같지만, 좌표·크기 값들만 컨셉B의 넓어진 캔버스(W_B/H_B)에
 // 맞게 다시 잡았습니다. 원본 함수는 이 함수와 완전히 독립적이라 서로 영향을 주지 않습니다.
 function buildTextSvgB({ title, verseRef, pastorName, churchName }) {
-  const textX = 0; // 가능한 한계까지 왼쪽으로
+  const textX = 28; // 완전히 붙지 않도록 약간의 여백
   const textMaxWidth = W_B - PHOTO_W_B - textX - 40;
 
   let titleFontSize = 66;
