@@ -573,10 +573,6 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   gap: 20px;
   position: relative;
 }
-html.theme-b .service-grid {
-  max-width: 1280px; /* 넓은 컨테이너(1600px)에서 카드가 휑하게 늘어지지 않도록 제한 */
-  margin: 0 auto;
-}
 .service-card {
   position: relative;
   padding: 34px 20px;
@@ -1299,7 +1295,6 @@ html.theme-b .service-grid {
 .board-tab.active { background: var(--navy-deep); border-color: var(--navy-deep); color: #fff; }
 
 .board-list { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; }
-html.theme-b .board-list { max-width: 1280px; margin: 0 auto; }
 .board-card {
   cursor: pointer;
   background: #fff;
