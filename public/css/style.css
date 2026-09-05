@@ -619,13 +619,11 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
 .service-card-content--lg .name { font-size: 1.55rem; }
 @media (min-width: 861px) {
   /* 컨셉B 전용: 화면 폭이 넓어진 만큼, 예배명/시간 글씨도 존재감 있게 키웁니다.
-     예배명은 "주일예배"처럼 공백 없는 4~5글자 단어라 word-break:keep-all이 걸려있으면
-     글씨가 커졌을 때 줄바꿈이 안 되고 넘쳐버려서, 이 카드 안에서만 줄바꿈이 자연스럽게
-     되도록 풀어줍니다. */
+     예배명 줄바꿈은 이제 JS에서 정확한 지점에 <br>을 넣어주므로, 여기서는
+     글씨 크기만 조정합니다. */
   html.theme-b .service-card .time { font-size: 1.3rem; }
   html.theme-b .service-card .name {
     font-size: 1.9rem;
-    word-break: break-all;
   }
 }
 .service-card .desc {
