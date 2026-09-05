@@ -341,7 +341,7 @@ async function generateSermonPoster({
     if (isThemeB) {
       sourceForResize = await sharp(photoBuffer).trim().toBuffer();
     }
-    const targetH = Math.round(H * (isThemeB ? 1.06 : 1.06)); // trim으로 이미 커져서, 배율은 안전하게
+    const targetH = Math.round(H * (isThemeB ? 1.32 : 1.06)); // trim 적용 후에도 세로 여백이 안 커지도록 배율 유지
     const cutoutBuf = await sharp(sourceForResize)
       .resize({ height: targetH, fit: 'inside', withoutEnlargement: false })
       .ensureAlpha()
@@ -366,7 +366,7 @@ async function generateSermonPoster({
     const SHIFT_LEFT = isThemeB ? 0 : 133; // 컨셉B는 오른쪽으로 최대한 붙게
     let left = Math.round(zoneLeft + canvasPhotoW / 2 - cutoutW / 2) - SHIFT_LEFT;
     left = Math.max(left, zoneLeft - 170); // 너무 왼쪽으로 가지 않도록
-    const rightSlack = isThemeB ? 200 : 10;
+    const rightSlack = isThemeB ? 80 : 10;
     left = Math.min(left, canvasW - cutoutW + rightSlack); // 그 다음, 오른쪽으로 넘치지 않도록 (이 제한이 최종적으로 이깁니다)
     const top = Math.max(0, canvasH - cutoutH);
 
