@@ -928,6 +928,10 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   overflow: hidden;
 }
 .sermon-list-row .verse { color: rgba(255,255,255,0.5); font-size: 0.8rem; margin: 0; padding-left: 1em; }
+@media (min-width: 861px) {
+  html.theme-b .sermon-list-row .title { font-size: 1.15rem; }
+  html.theme-b .sermon-list-row .verse { font-size: 0.95rem; }
+}
 
 .sermon-more-row {
   display: inline-flex;
