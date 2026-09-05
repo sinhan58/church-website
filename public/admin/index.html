@@ -2,953 +2,557 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8" />
+<script>
+  if ('scrollRestoration' in history) { history.scrollRestoration = 'manual'; }
+  // 큐티 상세 등 다른 페이지에서 '/#qt' 같은 해시로 돌아올 때, 위쪽 섹션들이
+  // 아직 JS로 렌더링되기 전이라 브라우저가 엉뚱한(너무 위쪽) 위치로 먼저 점프했다가
+  // 콘텐츠가 채워지면서 다시 밀려 내려가는 것처럼 보이는 문제를 막기 위해 해시를
+  // 일단 떼어둡니다. 실제 이동은 데이터·폰트가 모두 준비된 뒤 main.js가 한 번만 합니다.
+  if (location.hash) {
+    window.__pendingScrollHash = location.hash;
+    history.replaceState(null, '', location.pathname + location.search);
+    window.__dataReadyPromise = new Promise(function (resolve) {
+      window.__resolveDataReady = resolve;
+    });
+  } else {
+    window.__dataReadyPromise = Promise.resolve();
+  }
+</script>
+<!-- 글씨체 준비될 때까지, 그리고(해시 진입 시) 콘텐츠 데이터가 준비될 때까지 화면 숨기기 -->
+<script>document.documentElement.classList.add('fonts-loading');</script>
+<style>
+  html.fonts-loading body { opacity: 0; }
+  body { transition: opacity 0.25s ease; }
+</style>
+<script>
+(function () {
+  var done = false;
+  function reveal() {
+    if (done) return;
+    done = true;
+    document.documentElement.classList.remove('fonts-loading');
+  }
+
+  // <link>가 아직 도착도 안 한 시점에는 document.fonts.ready가 "기다릴 게 없다"고
+  // 착각하고 너무 일찍 끝나버리는 경우가 있어서, 먼저 폰트 파일(<link>) 자체가
+  // 도착했는지부터 확인한 뒤에 document.fonts.ready를 확인하는 2단계로 체크합니다.
+  function waitForLinkLoad(link) {
+    return new Promise(function (resolve) {
+      if (link.sheet) { resolve(); return; } // 이미 캐시 등으로 로딩이 끝난 상태
+      link.addEventListener('load', resolve, { once: true });
+      link.addEventListener('error', resolve, { once: true }); // 실패해도 멈추지 않음
+    });
+  }
+
+  var fontLinks = Array.prototype.slice.call(document.querySelectorAll('link.gfont-link'));
+  var linksReady = fontLinks.length ? Promise.all(fontLinks.map(waitForLinkLoad)) : Promise.resolve();
+  var fontsApiReady = ('fonts' in document) ? document.fonts.ready : Promise.resolve();
+  var fontsReady = linksReady.then(function () { return fontsApiReady; });
+  var dataReady = window.__dataReadyPromise || Promise.resolve();
+
+  // 설교·찬양·게시판 카드의 사진 자리는 CSS aspect-ratio로 이미 예약되어 있어
+  // 사진이 늦게 도착해도 레이아웃이 크게 밀리지 않습니다. 그래서 데이터·폰트가
+  // 완전히 다 끝나기를 무한정 기다리지 않고, 최대 0.8초까지만 기다린 뒤 그
+  // 시점 기준으로 스크롤 위치를 계산해서 이동시키고 바로 화면을 보여줍니다.
+  // (느린 네트워크에서 첫 화면이 뜨는 속도를 우선함)
+  Promise.race([
+    Promise.all([fontsReady, dataReady]),
+    new Promise(function (resolve) { setTimeout(resolve, 800); })
+  ]).then(function () {
+    if (window.__performPendingScroll) window.__performPendingScroll();
+    reveal();
+  });
+
+  setTimeout(reveal, 2500); // 안전장치: 무슨 이유로든 위에서 안 풀리면 강제로 화면을 보여줌
+})();
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>관리자 페이지</title>
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;600;700&family=Noto+Serif+KR:wght@400;500;700&family=Gowun+Dodum&family=Gowun+Batang&family=Nanum+Gothic:wght@400;700;800&family=Nanum+Myeongjo:wght@400;700;800&family=Black+Han+Sans&family=Do+Hyeon&family=Song+Myung&family=Poor+Story&display=swap" rel="stylesheet">
+<title id="page-title">물댄동산교회 | 오산시 중앙동 대동다숲 - 이기삼 목사</title>
+<meta name="description" content="물댄동산교회는 경기도 오산시 중앙동 대동다숲(오색시장 인근)에 위치한 교회입니다. 담임목사 이기삼. 주일예배, 설교 영상, 교회 소식을 만나보세요." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link class="gfont-link" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;600;700&display=block" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
-<link rel="stylesheet" href="/admin/css/admin.css" />
-<link href="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.snow.min.css" rel="stylesheet" />
+<link rel="stylesheet" href="/css/style.css?v=137" />
+<meta property="og:title" content="물댄동산교회 - 오산시 중앙동" />
+<meta property="og:description" content="경기도 오산시 중앙동 대동다숲(오색시장 인근)에 위치한 물댄동산교회입니다. 담임목사 이기삼." />
+<meta property="og:image" content="https://muldaen.com/uploads/0001.png" />
+<meta property="og:url" content="https://muldaen.com" />
+<link rel="canonical" href="https://muldaen.com" />
+<meta property="og:type" content="website" />
+<meta property="og:locale" content="ko_KR" />
+<meta name="google-site-verification" content="6F1Ati1QNE8s_yUbFkoHqn354YUirFrOycEBX5uXvxA" />
+
+<!-- PWA: 홈 화면에 추가했을 때 앱처럼 보이도록 하는 설정 -->
+<link rel="manifest" href="/manifest.json" />
+<meta name="theme-color" content="#0d1526" />
+<link rel="icon" href="/icons/icon-192-v2.png" />
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon-v2.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<meta name="apple-mobile-web-app-title" content="물댄동산교회" />
+<meta name="mobile-web-app-capable" content="yes" />
 </head>
 <body>
 
-<!-- 로그인 화면 -->
-<div class="login-screen" id="login-screen">
-  <form class="login-box" id="login-form" method="post" action="#">
-    <h1>관리자 로그인</h1>
-    <p class="login-sub">교회 홈페이지 관리자 페이지입니다</p>
-    <label>아이디
-      <input type="text" name="username" required autocomplete="username" />
-    </label>
-    <label>비밀번호
-      <input type="password" name="password" required autocomplete="current-password" />
-    </label>
-    <p class="login-error" id="login-error"></p>
-    <button type="submit" class="btn-primary">로그인</button>
-  </form>
-</div>
-
-<div class="dashboard" id="dashboard" hidden>
-  <aside class="sidebar">
-    <div class="sidebar-brand">교회 관리자</div>
-    <button class="sidebar-toggle-btn" id="sidebar-toggle-btn" type="button">
-      <span>☰ 메뉴</span>
-      <span id="sidebar-toggle-current"></span>
+<header class="site-header" id="site-header">
+  <div class="container">
+    <a href="#home" class="brand" id="brand-name">물댄동산교회</a>
+    <nav class="nav-desktop" id="nav-desktop"></nav>
+    <button class="hamburger" id="hamburger" aria-label="메뉴 열기">
+      <span></span><span></span><span></span>
     </button>
-    <nav class="sidebar-nav" id="sidebar-nav">
-      <div class="nav-group">
-        <div class="nav-group-title">콘텐츠 관리</div>
-        <button class="nav-item active" data-panel="panel-site" data-permission="site">기본 정보</button>
-        <button class="nav-item" data-panel="panel-menu" data-permission="menu">메뉴 관리</button>
-        <button class="nav-item" data-panel="panel-sermons" data-permission="sermons">설교 영상(유튜브)</button>
-        <button class="nav-item" data-panel="panel-praise">찬양</button>
-        <button class="nav-item" data-panel="panel-qt" data-permission="qt">오늘의 큐티</button>
-        <button class="nav-item" data-panel="panel-quiz" data-permission="qt">말씀 퀴즈</button>
-        <button class="nav-item" data-panel="panel-missions" data-permission="missions">선교사역</button>
+  </div>
+</header>
+
+<nav class="nav-mobile" id="nav-mobile"></nav>
+
+<main>
+
+  <!-- HERO -->
+  <section class="hero" id="home">
+    <div class="hero-bg-photo" id="hero-bg-photo-a"></div>
+    <div class="hero-bg-photo" id="hero-bg-photo-b"></div>
+    <div class="hero-inner">
+      <div class="verse-card">
+        <p class="verse-text" id="hero-verse">너는 물댄동산 같겠고
+물이 끊어지지 아니하는 샘 같을 것이라</p>
+        <p class="verse-ref" id="hero-verse-ref">이사야 58:11</p>
       </div>
-      <div class="nav-group">
-        <div class="nav-group-title">소통·게시판</div>
-        <button class="nav-item" data-panel="panel-board" data-permission="posts">소식·친교 게시판</button>
-        <button class="nav-item" data-panel="panel-prayers">기도 요청</button>
-        <button class="nav-item" data-panel="panel-inquiries">온라인 문의</button>
+      <p class="hero-subtitle" id="hero-subtitle">가정이 교회 되고, 매일이 주일 되고, <br />일상이 예배가 되는 교회!</p>
+      <div class="hero-cta">
+        <a href="#service" class="btn btn--gold">예배 시간 안내</a>
+        <a href="#sermons" class="btn btn--outline">설교 영상 보기</a>
       </div>
-      <div class="nav-group">
-        <div class="nav-group-title">운영 관리</div>
-        <button class="nav-item" data-panel="panel-receipts" data-permission="receipts">영수증 신청</button>
-        <button class="nav-item" data-panel="panel-push" data-permission="site">푸시 알림</button>
-        <button class="nav-item" data-panel="panel-stats" data-permission="stats">통계</button>
-        <button class="nav-item" data-panel="panel-account">계정 관리</button>
-      </div>
-    </nav>
-    <div class="sidebar-footer">
-      <a href="/" target="_blank" class="view-site-link">홈페이지 보기 ↗</a>
-      <button class="logout-btn" id="logout-btn">로그아웃</button>
     </div>
-  </aside>
+    <span class="scroll-cue">SCROLL</span>
+  </section>
 
-  <main class="content">
-
-    <!-- 기본 정보 -->
-    <section class="panel active" id="panel-site">
-      <h2>기본 정보</h2>
-      <p class="panel-desc">교회 이름, 대문(히어로) 문구, 교회 소개, 예배 시간, 연락처를 수정합니다.</p>
-
-      <div class="card">
-        <h3>교회 이름</h3>
-        <div class="field"><label>교회 이름</label><input id="s-churchName" type="text" /></div>
-      </div>
-
-      <div class="card">
-        <h3>글꼴 설정</h3>
-        <p class="hint" style="margin-top:0;">교회 이름·제목 등에 쓰이는 글씨체와, 소개글·본문에 쓰이는 글씨체를 컨셉별로 각각 선택할 수 있습니다.</p>
-        <div style="display:flex; gap:8px; margin-bottom:16px;">
-          <button type="button" class="btn-secondary font-concept-tab active" data-concept="a">컨셉 A 글꼴</button>
-          <button type="button" class="btn-secondary font-concept-tab" data-concept="b">컨셉 B 글꼴</button>
-        </div>
-        <div class="field">
-          <label>제목용 글씨체 (교회 이름, 각 섹션 제목 등)</label>
-          <select id="s-headingFont"></select>
-          <div class="font-preview" id="s-headingFont-preview">물댄동산교회 <span class="gold-dot">.</span></div>
-        </div>
-        <div class="field">
-          <label>본문용 글씨체 (소개글, 안내 문구 등)</label>
-          <select id="s-bodyFont"></select>
-          <div class="font-preview" id="s-bodyFont-preview">언제나 문을 열어두고 여러분을 기다리고 있습니다.</div>
+  <!-- ABOUT -->
+  <section class="section" id="about">
+    <div class="container about-grid">
+      <img id="about-image" class="reveal" src="/uploads/about-default.svg" alt="교회 사진" />
+      <div class="about-body reveal reveal-delay-2">
+        <span class="eyebrow">ABOUT US</span>
+        <h2 id="about-greeting">교회 소개</h2>
+        <div id="about-body-text"></div>
+        <p id="about-history" style="color:var(--muted); font-size:0.92rem; white-space:pre-line;"></p>
+        <div class="pastor-box">
+          <p class="name" id="pastor-name"></p>
+          <p id="pastor-message"></p>
         </div>
       </div>
+    </div>
+  </section>
+  <section class="section section--dark" id="service">
+    <img class="service-bg-img" id="service-bg-img" alt="" />
+    <div class="service-bg-overlay"></div>
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">SERVICE TIMES</span>
+        <h2>예배 안내</h2>
+        <p>언제든 편안한 마음으로 함께 예배드려요</p>
+      </div>
+      <div class="service-cards-block">
+        <div class="service-grid reveal reveal-delay-2" id="service-grid"></div>
+        <div class="service-dots" id="service-dots"></div>
+      </div>
+    </div>
+  </section>
+  <section class="section section--dark" id="sermons">
+    <img class="sermon-bg-img" id="sermon-bg-img" alt="" />
+    <div class="sermon-bg-overlay"></div>
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">SERMONS</span>
+        <h2>설교 영상</h2>
+        <p id="sermons-intro">매주 유튜브 채널에 올라오는 설교 영상이 자동으로 갱신됩니다</p>
+      </div>
+      <p class="sermon-updated" id="sermon-updated" style="display:none;"></p>
+      <div class="praise-category-chips" id="sermon-category-chips" style="display:none;"></div>
 
-      <div class="card">
-        <h3>대문 화면 (히어로)</h3>
-        <div class="field"><label>대표 성경 말씀</label><textarea id="s-heroVerse" rows="2"></textarea></div>
-        <div class="field"><label>말씀 출처 (예: 마태복음 11:28)</label><input id="s-heroVerseRef" type="text" /></div>
-        <div class="field">
-          <label>부제목</label>
-          <textarea id="s-heroSubtitle" rows="2"></textarea>
-          <p class="hint" style="margin-top:6px;">줄을 나누고 싶은 곳에서 Enter를 눌러 줄바꿈하면 화면에도 그대로 두 줄로 나옵니다.</p>
-        </div>
-        <div class="field">
-  <label>배경 이미지 (여러 장 등록 가능)</label>
-  <input type="file" id="s-heroImageFile" accept="image/*" />
-  <div id="s-heroImageList" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;"></div>
-  <p class="hint" style="margin-top:6px;">사진을 여러 장 올리시면 홈페이지 대문에서 6초마다 자연스럽게 다음 사진으로 넘어갑니다. 한 장만 올리면 예전처럼 고정된 사진으로 보여요.</p>
-</div>
-        <div class="field">
-          <label style="display:flex; align-items:center; gap:8px; font-weight:normal;">
-            <input type="checkbox" id="s-heroOverlay" style="width:auto;" checked />
-            대문 사진을 어둡게 처리 (글씨가 잘 안 보일 때만 켜두세요)
-          </label>
+      <div class="sermon-layout reveal" id="sermon-layout">
+        <div class="sermon-hero-card" id="sermon-hero-card"></div>
+        <div class="sermon-list-wrap">
+          <div class="sermon-list" id="sermon-list"></div>
+          <a href="#" id="sermon-more-row" class="sermon-more-row" target="_blank" rel="noopener" style="display:none;">
+            <svg class="yt-icon" viewBox="0 0 48 34" width="26" height="18">
+              <rect x="0" y="0" width="48" height="34" rx="8" fill="#FF0000"/>
+              <path d="M19 10L19 24L32 17Z" fill="#fff"/>
+            </svg>
+            <span class="sermon-more-label">설교 더 보기</span>
+          </a>
         </div>
       </div>
-
-      <div class="field">
-        <h3>홈페이지 색상 컨셉</h3>
-        <p class="hint" style="margin-top:0;">
-          컨셉 A는 지금까지 써온 색상 조합이고, 컨셉 B는 앞으로 새로 다듬어나갈 색상 조합이에요.
-          언제든 버튼 하나로 바꿔볼 수 있고, 다시 원래대로 되돌릴 수도 있어요.
-        </p>
-        <div style="display:flex; gap:10px;">
-          <button type="button" class="btn-secondary" id="s-theme-a-btn">컨셉 A 적용</button>
-          <button type="button" class="btn-secondary" id="s-theme-b-btn">컨셉 B 적용</button>
-        </div>
-        <p class="hint" id="s-theme-current" style="margin-top:10px;"></p>
+    </div>
+  </section>
+  <section class="section" id="board" style="background:var(--ivory-dim);">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">NEWS &amp; FELLOWSHIP</span>
+        <h2>소식 · 친교</h2>
+        <p>교회의 다양한 소식과 친교를 전해드립니다</p>
+      </div>
+      <div class="board-tabs" id="board-tabs">
+        <button class="board-tab active" data-cat="전체">전체</button>
+        <button class="board-tab" data-cat="소식">소식</button>
+        <button class="board-tab" data-cat="활동">친교</button>
+        <button class="board-tab" data-cat="주보">주보</button>
+      </div>
+      <div class="board-list reveal" id="board-list"></div>
+      <div class="board-pagination" id="board-pagination"></div>
+    </div>
+  </section>
+  <section class="section section--tight" id="praise" style="background:var(--ivory-dim); display:none;">
+    <img class="praise-bg-img" id="praise-bg-img" alt="" />
+    <div class="praise-bg-overlay"></div>
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">PRAISE</span>
+        <h2>찬양</h2>
+        <p>함께 듣고 싶은 찬양을 나눠요</p>
+      </div>
+      <div class="praise-category-chips" id="praise-category-chips" style="display:none;"></div>
+      <div class="carousel-wrap reveal">
+        <button class="carousel-nav carousel-nav--prev" id="praise-nav-prev" aria-label="이전 찬양 보기"><svg viewBox="0 0 24 48" fill="none"><path d="M18 4L6 24L18 44" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="praise-grid" id="praise-grid"></div>
+        <button class="carousel-nav carousel-nav--next" id="praise-nav-next" aria-label="다음 찬양 보기"><svg viewBox="0 0 24 48" fill="none"><path d="M6 4L18 24L6 44" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="praise-scroll-fade" aria-hidden="true"></div>
+      </div>
+      <div class="praise-dots" id="praise-dots"></div>
+      <div class="scroll-progress-track" id="praise-scroll-track" aria-hidden="true">
+        <div class="scroll-progress-thumb" id="praise-scroll-thumb"></div>
+      </div>
+      <div class="praise-theme-dial-wrap" id="praise-theme-dial-wrap" style="display:none;">
+        <p class="praise-theme-dial-label">테마별 듣기</p>
+        <div class="praise-theme-dial" id="praise-theme-dial"></div>
+      </div>
+    </div>
+  </section>
+  <section class="qt-section" id="qt">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">TODAY'S QT</span>
+        <h2>오늘의 큐티</h2>
+        <p>담임목사님의 매일 아침 묵상을 함께 나눠요</p>
       </div>
 
-      <div class="card">
-        <h3>예배 안내 배경 사진</h3>
-        <p class="hint" style="margin-top:0;">
-          새 사진을 올리거나, <strong>이미 등록된 사진도</strong> 아래 미리보기에서 원하는 지점을 클릭하면
-          그 부분이 항상 중심에 오도록 위치를 다시 잡을 수 있어요. 슬라이더로 확대해서 원하는 만큼
-          크롭할 수도 있고요. 사진을 등록하지 않으면 기존처럼 남색 배경 그대로 나갑니다.
-        </p>
-        <div class="field">
-          <label>배경 사진 (교체하려면 다시 선택)</label>
-          <input type="file" id="s-serviceImageFile" accept="image/*" />
-        </div>
-        <div class="field">
-          <label>미리보기 — 클릭해서 위치 다시 잡기</label>
-          <div id="s-serviceBgPreviewWrap" style="position:relative; width:100%; max-width:480px; height:220px; border-radius:10px; overflow:hidden; background:#0d1526; display:none; cursor:crosshair;">
-            <img id="s-serviceBgPreviewImg" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover;" alt="" />
-            <div id="s-serviceBgFocalMarker" style="position:absolute; width:22px; height:22px; border:2px solid #fff; border-radius:50%; box-shadow:0 0 0 2px rgba(0,0,0,0.5); transform:translate(-50%,-50%); left:50%; top:50%; pointer-events:none;"></div>
+      <div class="qt-quiz-layout">
+        <div class="qt-quiz-main">
+          <div class="qt-stage reveal" id="qt-stage">
+            <svg id="qt-decor" viewBox="0 0 680 300" aria-hidden="true">
+              <circle cx="580" cy="60" r="100" fill="rgba(201,162,39,0.16)" />
+              <circle cx="80" cy="250" r="130" fill="rgba(201,162,39,0.1)" />
+              <line x1="150" y1="70" x2="150" y2="120" stroke="rgba(228,200,118,0.5)" stroke-width="3" stroke-linecap="round" />
+              <line x1="122" y1="95" x2="178" y2="95" stroke="rgba(228,200,118,0.5)" stroke-width="3" stroke-linecap="round" />
+            </svg>
+            <button class="qt-carousel-nav qt-carousel-nav--prev" id="qt-nav-prev" aria-label="이전 큐티 보기">&#8249;</button>
+            <div class="qt-carousel" id="qt-carousel">
+              <div class="qt-carousel-track" id="qt-carousel-track"></div>
+            </div>
+            <button class="qt-carousel-nav qt-carousel-nav--next" id="qt-nav-next" aria-label="다음 큐티 보기">&#8250;</button>
           </div>
-          <p class="hint" id="s-serviceBgEmptyHint" style="margin-top:6px;">아직 등록된 사진이 없습니다.</p>
-        </div>
-        <div class="field">
-          <label>확대 (<span id="s-serviceZoomValue">100</span>%)</label>
-          <input type="range" id="s-serviceZoom" min="100" max="200" value="100" style="width:100%; max-width:480px;" />
-        </div>
-        <button type="button" id="s-serviceBgSaveBtn" class="btn-primary" style="margin-top:8px;">예배 안내 배경 저장</button>
-        <p class="hint" id="s-serviceBgStatus" style="margin-top:6px;"></p>
-      </div>
-
-      <div class="card">
-        <h3>찬양 섹션 배경 사진</h3>
-        <p class="hint" style="margin-top:0;">
-          예배 안내와 동일한 방식이에요. 새 사진을 올리거나 <strong>이미 등록된 사진도</strong>
-          아래 미리보기를 클릭해서 중심 위치를 다시 잡을 수 있고, 확대 슬라이더로 원하는 만큼
-          크롭할 수 있어요.
-        </p>
-        <div class="field">
-          <label>배경 사진 (교체하려면 다시 선택)</label>
-          <input type="file" id="s-praiseImageFile" accept="image/*" />
-        </div>
-        <div class="field">
-          <label>미리보기 — 클릭해서 위치 다시 잡기</label>
-          <div id="s-praiseBgPreviewWrap" style="position:relative; width:100%; max-width:480px; height:220px; border-radius:10px; overflow:hidden; background:#0d1526; display:none; cursor:crosshair;">
-            <img id="s-praiseBgPreviewImg" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover;" alt="" />
-            <div id="s-praiseBgFocalMarker" style="position:absolute; width:22px; height:22px; border:2px solid #fff; border-radius:50%; box-shadow:0 0 0 2px rgba(0,0,0,0.5); transform:translate(-50%,-50%); left:50%; top:50%; pointer-events:none;"></div>
-          </div>
-          <p class="hint" id="s-praiseBgEmptyHint" style="margin-top:6px;">아직 등록된 사진이 없습니다.</p>
-        </div>
-        <div class="field">
-          <label>확대 (<span id="s-praiseZoomValue">100</span>%)</label>
-          <input type="range" id="s-praiseZoom" min="100" max="200" value="100" style="width:100%; max-width:480px;" />
-        </div>
-        <button type="button" id="s-praiseBgSaveBtn" class="btn-primary" style="margin-top:8px;">찬양 배경 저장</button>
-        <p class="hint" id="s-praiseBgStatus" style="margin-top:6px;"></p>
-      </div>
-
-      <div class="card">
-        <h3>설교 영상 섹션 배경 사진</h3>
-        <p class="hint" style="margin-top:0;">
-          예배 안내·찬양과 동일한 방식이에요. 새 사진을 올리거나 <strong>이미 등록된 사진도</strong>
-          아래 미리보기를 클릭해서 중심 위치를 다시 잡을 수 있고, 확대 슬라이더로 원하는 만큼
-          크롭할 수 있어요. 등록하지 않으면 기존처럼 남색 배경 그대로 나갑니다.
-        </p>
-        <div class="field">
-          <label>배경 사진 (교체하려면 다시 선택)</label>
-          <input type="file" id="s-sermonImageFile" accept="image/*" />
-        </div>
-        <div class="field">
-          <label>미리보기 — 클릭해서 위치 다시 잡기</label>
-          <div id="s-sermonBgPreviewWrap" style="position:relative; width:100%; max-width:480px; height:220px; border-radius:10px; overflow:hidden; background:#0d1526; display:none; cursor:crosshair;">
-            <img id="s-sermonBgPreviewImg" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover;" alt="" />
-            <div id="s-sermonBgFocalMarker" style="position:absolute; width:22px; height:22px; border:2px solid #fff; border-radius:50%; box-shadow:0 0 0 2px rgba(0,0,0,0.5); transform:translate(-50%,-50%); left:50%; top:50%; pointer-events:none;"></div>
-          </div>
-          <p class="hint" id="s-sermonBgEmptyHint" style="margin-top:6px;">아직 등록된 사진이 없습니다.</p>
-        </div>
-        <div class="field">
-          <label>확대 (<span id="s-sermonZoomValue">100</span>%)</label>
-          <input type="range" id="s-sermonZoom" min="100" max="200" value="100" style="width:100%; max-width:480px;" />
-        </div>
-        <button type="button" id="s-sermonBgSaveBtn" class="btn-primary" style="margin-top:8px;">설교 배경 저장</button>
-        <p class="hint" id="s-sermonBgStatus" style="margin-top:6px;"></p>
-      </div>
-
-      <div class="card">
-        <h3>섬김 안내 (모바일·PC 플로팅 버튼)</h3>
-        <p class="hint" style="margin-top:0;">
-          "섬김안내" 버튼을 누르면 뜨는 팝업 내용이에요. 예배 위원/식사 봉사 내용을 둘 다 비워두면
-          버튼 자체가 안 보여요. 줄바꿈은 그대로 반영돼요.
-        </p>
-        <div class="field">
-          <label>팝업 제목</label>
-          <input type="text" id="s-ministryTitle" placeholder="이번 주 섬김 안내" />
-        </div>
-        <div class="field">
-          <label>첫 번째 소제목</label>
-          <input type="text" id="s-ministryWorshipLabel" placeholder="예배 위원" />
-        </div>
-        <div class="field">
-          <label>첫 번째 내용</label>
-          <textarea id="s-ministryWorship" rows="3" placeholder="예: 안내위원 홍길동, 김철수 / 찬양인도 이영희"></textarea>
-        </div>
-        <div class="field">
-          <label>두 번째 소제목</label>
-          <input type="text" id="s-ministryMealLabel" placeholder="주일 식사 봉사 당번" />
-        </div>
-        <div class="field">
-          <label>두 번째 내용</label>
-          <textarea id="s-ministryMeal" rows="3" placeholder="예: 1팀 박민수, 최지은"></textarea>
-        </div>
-        <button type="button" id="s-ministryDutySaveBtn" class="btn-primary" style="margin-top:8px;">섬김 안내 저장</button>
-        <p class="hint" id="s-ministryDutyStatus" style="margin-top:6px;"></p>
-      </div>
-
-      <div class="card">
-        <h3>예배 시간별 세부 설정</h3>
-        <p class="hint" style="margin-top:0;">
-          예배 시간마다 글씨 굵기, 글자 크기, 간단한 설명을 따로 설정할 수 있어요.
-          예배 시간을 추가/삭제/수정하신 뒤에는 새로고침해서 다시 확인해주세요.
-        </p>
-        <div id="s-serviceBoldList" style="display:flex; flex-direction:column; gap:20px;"></div>
-        <button type="button" id="s-serviceBoldSaveBtn" class="btn-primary" style="margin-top:12px;">저장</button>
-        <p class="hint" id="s-serviceBoldStatus" style="margin-top:6px;"></p>
-      </div>
-
-      <div class="card">
-        <h3>설교 영상 섹션</h3>
-        <div class="field">
-          <label>안내 문구 (섹션 제목 아래에 작게 나오는 설명)</label>
-          <input id="s-sermonsIntro" type="text" placeholder="매주 유튜브 채널에 올라오는 설교 영상이 자동으로 갱신됩니다" />
-        </div>
-        <div class="field">
-          <label>설교 카드용 목사님 사진 (선택)</label>
-          <p class="hint" style="margin-top:0;">
-            설교 영상 카드에 목사님 사진 + 자동 배경 + 설교 제목이 합성되어 노출됩니다. 기본 사진 3장이
-            이미 들어가 있고, 여기서 사진을 추가로 올리시면 그것들과 함께 영상마다 자동으로 섞여서
-            사용됩니다. (배경이 복잡한 사진을 올리시면 배경이 그대로 나옵니다 — 깔끔한 인물 사진일수록
-            잘 어울려요)
-          </p>
-          <input type="file" id="s-sermonPhotoFile" accept="image/*" />
-          <div id="s-sermonPhotoList" style="display:flex; flex-wrap:wrap; gap:10px; margin-top:10px;"></div>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>교회 소개</h3>
-        <div class="field"><label>인사말 제목</label><input id="s-aboutGreeting" type="text" /></div>
-        <div class="field">
-          <label>소개 본문</label>
-          <textarea id="s-aboutBody" rows="4" style="display:none;"></textarea>
-          <div id="s-aboutBody-quill" style="background:#fff; border-radius: var(--radius); overflow:hidden;"></div>
-        </div>
-        <div class="field"><label>연혁 (한 줄에 하나씩 입력하세요)</label><textarea id="s-aboutHistory" rows="3"></textarea></div>
-        <div class="field"><label>담임목사 성함</label><input id="s-pastorName" type="text" /></div>
-        <div class="field"><label>목회자 인사말</label><textarea id="s-pastorMessage" rows="3"></textarea></div>
-        <div class="field">
-          <label>교회 소개 이미지</label>
-          <input type="file" id="s-aboutImageFile" accept="image/*" />
-          <img class="preview" id="s-aboutImagePreview" />
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>예배 시간</h3>
-        <div id="service-list" class="list-editor"></div>
-        <button class="btn-secondary" id="add-service-btn">+ 예배 시간 추가</button>
-      </div>
-
-      <div class="card">
-        <h3>연락처 · 오시는 길</h3>
-        <div class="field"><label>주소</label><input id="s-address" type="text" /></div>
-        <div class="field"><label>추가 설명 (선택, 여러 줄 입력 가능)</label><textarea id="s-addressNote" rows="4" placeholder="예: 대동다숲 주상복합 3층
-오색시장 정문에서 도보 3분"></textarea></div>
-        <div class="field"><label>전화번호</label><input id="s-phone" type="text" /></div>
-        <div class="field"><label>이메일</label><input id="s-email" type="text" /></div>
-        <div class="field">
-          <label>지도 임베드 URL (구글맵 등 &lt;iframe&gt; 방식 - 카카오맵을 아래에 설정하지 않았을 때 대신 쓰입니다)</label>
-          <input id="s-mapUrl" type="text" placeholder="https://www.google.com/maps/embed?..." />
-          <p class="hint" style="margin-top:6px;">
-            구글맵(google.com/maps)에서 교회 주소 검색 → 공유 → '지도 퍼가기' → iframe 코드 안의 src="..." 주소만
-            복사해서 붙여넣으면 됩니다. (카카오맵은 더 이상 이 방식의 코드를 제공하지 않아서, 카카오맵을 쓰시려면
-            바로 아래 '카카오맵 연결' 항목을 이용해주세요.)
-          </p>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>카카오맵 연결</h3>
-        <p class="hint" style="margin-top:0;">
-          1) map.kakao.com에서 교회 주소 검색 → 공유 아이콘 → 'HTML 태그 복사' 클릭<br />
-          2) 뜨는 코드를 <strong>전체 다 선택해서(Ctrl+A) 복사</strong>(Ctrl+C)한 다음, 아래 칸에 그대로
-          붙여넣기(Ctrl+V)만 해주세요. 어느 부분만 골라 복사할 필요 없이 통째로 붙여넣으면 됩니다.<br />
-          3) 이 화면 맨 아래 '저장하기' 버튼을 누르면 자동으로 필요한 부분만 인식해서 반영됩니다.<br />
-          4) 홈페이지에는 지도 미리보기 사진이 나오고, 방문자가 클릭하면 실제 카카오맵으로 이동해서
-          확대·길찾기 등을 이용할 수 있습니다.
-        </p>
-        <div class="field">
-          <label>카카오맵 코드 붙여넣기</label>
-          <textarea id="s-kakaoMapCode" rows="6" placeholder="카카오맵에서 복사한 코드를 여기에 그대로 붙여넣으세요"></textarea>
-          <p class="hint" id="kakao-map-status" style="margin-top:6px;"></p>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>헌금 안내</h3>
-        <p class="hint">홈페이지 '헌금 안내' 섹션에 표시됩니다. 계좌번호는 공개되니 신중히 입력해주세요.</p>
-        <div class="field-row">
-          <div class="field"><label>은행명</label><input id="s-offeringBank" type="text" placeholder="OO은행" /></div>
-          <div class="field"><label>계좌번호</label><input id="s-offeringAccount" type="text" placeholder="000-0000-0000" /></div>
-        </div>
-        <div class="field"><label>예금주</label><input id="s-offeringHolder" type="text" placeholder="물댄동산교회" /></div>
-        <div class="field"><label>안내 문구 (헌금 종류 기재 방법 등)</label><textarea id="s-offeringNote" rows="4" placeholder="입금 시 '이름+헌금종류'를 남겨주세요. (예: 홍길동 십일조)"></textarea></div>
-      </div>
-
-      <div class="card">
-        <h3>선교사역 섹션 타이틀</h3>
-        <p class="hint" style="margin-top:0;">홈페이지 '선교사역' 섹션 상단 제목·부제입니다. 핀·동역자 항목은 좌측 '선교사역' 메뉴에서 관리합니다.</p>
-        <div class="field"><label>제목</label><input id="s-missionsTitle" type="text" placeholder="물댄동산교회가 함께하는 선교지" /></div>
-        <div class="field"><label>부제 (선택)</label><input id="s-missionsSubtitle" type="text" placeholder="함께 걷는 선교의 발걸음을 소개합니다" /></div>
-      </div>
-
-      <div class="card">
-        <h3>SNS 링크</h3>
-        <div class="field"><label>유튜브 채널 URL</label><input id="s-snsYoutube" type="text" /></div>
-        <div class="field"><label>인스타그램 URL</label><input id="s-snsInstagram" type="text" /></div>
-        <div class="field"><label>페이스북 URL</label><input id="s-snsFacebook" type="text" /></div>
-        <div class="field"><label>네이버 밴드 URL</label><input id="s-snsBand" type="text" placeholder="https://www.band.us/band/1444664" /></div>
-      </div>
-
-      <button class="btn-primary" id="save-site-btn">기본 정보 저장</button>
-      <span class="save-status" id="site-save-status"></span>
-    </section>
-
-    <!-- 메뉴 관리 -->
-    <section class="panel" id="panel-menu">
-      <h2>메뉴 관리</h2>
-      <p class="panel-desc">상단 내비게이션에 표시될 메뉴를 추가, 수정, 삭제, 순서 변경할 수 있습니다.</p>
-      <div class="card">
-        <div id="menu-list" class="list-editor"></div>
-        <div class="menu-add-row">
-          <input type="text" id="new-menu-label" placeholder="메뉴 이름 (예: 새가족)" />
-          <input type="text" id="new-menu-link" placeholder="연결 위치 (예: #about)" />
-          <button class="btn-secondary" id="add-menu-btn">+ 메뉴 추가</button>
-        </div>
-      </div>
-    </section>
-
-    <!-- 게시판 관리 -->
-    <section class="panel" id="panel-board">
-      <h2>소식 · 친교 게시판</h2>
-      <p class="panel-desc">교회 소식과 활동 게시글을 작성, 수정, 삭제합니다. 상단 고정도 가능합니다.</p>
-
-      <div class="card">
-        <h3 id="post-form-title">새 글 작성</h3>
-        <div class="field-row">
-          <div class="field"><label>구분</label>
-            <select id="p-category"><option value="소식">소식</option><option value="활동">친교</option><option value="주보">주보</option></select>
-          </div>
-          <div class="field"><label>날짜</label><input id="p-date" type="date" /></div>
-        </div>
-        <div class="field"><label>제목</label><input id="p-title" type="text" /></div>
-        <div class="field">
-          <label>내용</label>
-          <div id="p-content-toolbar">
-            <span class="ql-formats">
-              <select class="ql-size"><option value="small"></option><option selected></option><option value="large"></option><option value="huge"></option></select>
-            </span>
-            <span class="ql-formats">
-              <button class="ql-bold"></button>
-              <button class="ql-italic"></button>
-              <button class="ql-underline"></button>
-            </span>
-            <span class="ql-formats">
-              <select class="ql-color"></select>
-            </span>
-            <span class="ql-formats">
-              <button class="ql-list" value="ordered"></button>
-              <button class="ql-list" value="bullet"></button>
-            </span>
-            <span class="ql-formats">
-              <button class="ql-align" value=""></button>
-              <button class="ql-align" value="center"></button>
-            </span>
-            <span class="ql-formats">
-              <button class="ql-clean"></button>
-            </span>
-          </div>
-          <div id="p-content-editor"></div>
-        </div>
-        <div class="field">
-          <label>첨부 이미지 (선택, 본문 상단에 표시됨)</label>
-          <input type="file" id="p-imageFile" accept="image/*" />
-          <img class="preview" id="p-imagePreview" />
-        </div>
-        <div class="field">
-          <label>첨부파일 (선택, 문서·PDF·한글파일 등, 최대 5개)</label>
-          <input type="file" id="p-attachmentFiles" multiple />
-          <div id="p-attachmentList" class="attachment-edit-list"></div>
-        </div>
-        <div class="field-checkbox"><label><input type="checkbox" id="p-pinned" /> 상단 고정</label></div>
-        <div class="post-form-actions">
-          <button class="btn-primary" id="add-post-btn">게시글 등록</button>
-          <button class="btn-secondary" id="cancel-edit-btn" hidden>취소</button>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>게시글 목록</h3>
-        <div id="post-list" class="post-list"></div>
-      </div>
-    </section>
-
-    <!-- 기도 요청 -->
-    <section class="panel" id="panel-prayers">
-      <h2>기도 요청</h2>
-      <p class="panel-desc">
-        홈페이지 '기도 요청'에 성도님들이 남긴 내용입니다. 비밀글로 등록된 항목도
-        목회자 확인을 위해 이 화면에서는 내용이 그대로 보입니다(다른 방문자에게는 비공개).
-      </p>
-      <div class="card">
-        <button class="btn-secondary" id="prayers-refresh-btn" type="button">새로고침</button>
-        <div id="prayers-admin-list" class="post-list" style="margin-top:14px;"></div>
-      </div>
-    </section>
-
-    <!-- 온라인 문의 -->
-    <section class="panel" id="panel-inquiries">
-      <h2>온라인 문의</h2>
-      <p class="panel-desc">
-        홈페이지 '오시는 길 &gt; 온라인 문의하기'로 접수된 내용입니다. 비밀글로 등록된 항목도
-        이 화면에서는 내용이 그대로 보입니다(다른 방문자에게는 비공개).
-      </p>
-      <div class="card">
-        <button class="btn-secondary" id="inquiries-refresh-btn" type="button">새로고침</button>
-        <div id="inquiries-admin-list" class="post-list" style="margin-top:14px;"></div>
-      </div>
-    </section>
-
-    <!-- 오늘의 큐티 -->
-    <section class="panel" id="panel-qt">
-      <h2>오늘의 큐티</h2>
-      <p class="panel-desc">매일 아침 카카오톡으로 보내시는 큐티 내용을 그대로 붙여넣으면 홈페이지에 자동으로 게시됩니다.</p>
-
-      <div class="card">
-        <h3>배경 디자인</h3>
-        <p class="hint">홈 화면 '오늘의 큐티' 카드 뒤쪽 배경을 골라주세요.</p>
-        <div class="field">
-          <label>배경 유형</label>
-          <select id="qt-bg-type">
-            <option value="preset">프리셋</option>
-            <option value="photo">사진 업로드</option>
-          </select>
-        </div>
-        <div class="field" id="qt-bg-preset-field">
-          <label>프리셋</label>
-          <select id="qt-bg-preset">
-            <option value="navy">딥네이비 (기본)</option>
-            <option value="gold">골드 글로우</option>
-            <option value="dawn">새벽빛</option>
-          </select>
-        </div>
-        <div class="field" id="qt-bg-photo-field" hidden>
-          <label>배경 사진</label>
-          <input type="file" id="qt-bg-photoFile" accept="image/*" />
-          <img class="preview" id="qt-bg-photoPreview" />
-        </div>
-        <button class="btn-primary" id="save-qt-bg-btn">배경 저장</button>
-        <span class="save-status" id="qt-bg-save-status"></span>
-      </div>
-
-      <div class="card">
-        <h3>큐티 카드 배경 사진 보관함</h3>
-        <p class="hint" style="margin-top:0;">
-          사진을 여러 장 모아두면, <b>새 큐티를 등록할 때마다 자동으로 다음 사진을 순서대로</b> 사용합니다
-          (끝까지 가면 다시 처음부터). 이미 등록된 큐티의 사진은 나중에 여기서 순서를 바꾸거나
-          사진을 지워도 바뀌지 않아요. 보관함에 사진이 1장이라도 있으면, 위쪽 "배경 디자인"보다
-          이 보관함이 우선 사용됩니다.
-        </p>
-        <div class="field">
-          <label>사진 추가 (여러 장 한 번에 선택 가능)</label>
-          <input type="file" id="qt-bg-pool-file" accept="image/*" multiple />
-          <button type="button" class="btn-secondary" id="qt-bg-pool-add-btn" style="margin-top:8px;">보관함에 추가</button>
-        </div>
-        <div class="field">
-          <label>등록된 사진들 (✕ 눌러서 삭제)</label>
-          <p class="hint" id="qt-bg-pool-count" style="margin:0 0 8px;">아직 등록된 사진이 없습니다.</p>
-          <div id="qt-bg-pool-list"></div>
-        </div>
-        <button class="btn-primary" id="qt-bg-pool-save-btn">보관함 저장</button>
-        <span class="save-status" id="qt-bg-pool-status"></span>
-      </div>
-
-      <div class="card">
-        <h3 id="qt-form-title">새 큐티 작성</h3>
-        <div class="field">
-          <label>카톡 붙여넣기로 자동 채우기</label>
-          <p class="hint">카카오톡으로 받은 큐티 원문 전체를 아래에 붙여넣고 "자동 채우기"를 누르면 아래 입력칸이 채워집니다. 채워진 내용은 저장 전에 직접 확인·수정할 수 있습니다.</p>
-          <textarea id="qt-paste" rows="10" placeholder="카카오톡 큐티 원문 전체를 여기에 붙여넣으세요."></textarea>
-          <div class="post-form-actions">
-            <button type="button" class="btn-secondary" id="qt-parse-btn">자동 채우기</button>
-          </div>
-          <span class="hint" id="qt-parse-status"></span>
-        </div>
-        <div class="field-row">
-          <div class="field"><label>날짜</label><input id="qt-date" type="date" /></div>
-          <div class="field"><label>목사님 성함</label><input id="qt-pastor" type="text" placeholder="이기삼 목사" /></div>
-        </div>
-        <div class="field"><label>제목</label><input id="qt-title" type="text" placeholder="나의 도움이 어디서 올까" /></div>
-        <div class="field"><label>부제목 (선택, 메인화면 카드 이미지에만 표시)</label><input id="qt-subtitle" type="text" placeholder="급박한 순간에도 감정보다 믿음으로 반응하는 사람" /></div>
-        <div class="field"><label>말씀 구절 위치</label><input id="qt-verseRef" type="text" placeholder="시편 121편 1-2절" /></div>
-        <div class="field"><label>말씀 본문</label><textarea id="qt-verseText" rows="3" placeholder="내가 산을 향하여 눈을 들리라..."></textarea></div>
-        <div class="field"><label>묵상 나눔</label><textarea id="qt-body" rows="6" placeholder="오늘 말씀은..."></textarea></div>
-        <div class="field-checkbox">
-          <label><input type="checkbox" id="qt-schedule-push-check" /> 등록 후 알림 예약하기</label>
-        </div>
-        <div class="field" id="qt-schedule-push-time-field" style="display:none;">
-          <label>알림 발송 시각</label>
-          <input type="datetime-local" id="qt-schedule-push-time" />
-        </div>
-        <div class="post-form-actions">
-          <button class="btn-primary" id="add-qt-btn">큐티 등록</button>
-          <button class="btn-secondary" id="cancel-qt-edit-btn" hidden>취소</button>
-        </div>
-        <span class="save-status" id="qt-save-status"></span>
-      </div>
-
-      <div class="card">
-        <h3>큐티 목록</h3>
-        <div id="qt-list" class="post-list"></div>
-      </div>
-    </section>
-
-    <!-- 말씀 퀴즈 -->
-    <section class="panel" id="panel-quiz">
-      <h2>말씀 퀴즈</h2>
-      <p class="panel-desc">
-        매주 성경 본문을 붙여넣으면 빈칸 채우기 퀴즈로 자동 변환됩니다. 빈칸으로 만들 단어는
-        괄호로 감싸주세요. 예: <code>그러므로 여호와의 (말씀)에 내가 이 족속에게 (재앙)을 계획하나니</code>
-      </p>
-
-      <div class="card">
-        <h3 id="quiz-form-title">새 퀴즈 등록</h3>
-        <div class="field">
-          <label>본문 출처 (예: 미가 2:3-5)</label>
-          <input type="text" id="quiz-reference-input" placeholder="미가 2:3-5" />
-        </div>
-        <div class="field">
-          <label>주차 표시 (선택, 비워두면 오늘 날짜로 자동 표시)</label>
-          <input type="text" id="quiz-week-input" placeholder="예: 2026년 8월 3주" />
-        </div>
-        <div class="field">
-          <label>본문 붙여넣기 (한 줄에 절 번호 + 내용, 빈칸은 괄호로)</label>
-          <textarea id="quiz-paste-input" rows="8" placeholder="3 그러므로 여호와의 (말씀)에 내가 이 족속에게 (재앙)을 계획하나니 너희의 목이 이에서 벗어나지 못할 것이요 또한 (교만)하게 다니지 못할 것이라 이는 재앙의 때임이라 하셨느니라
-4 그 때에 너희를 조롱하는 (시)를 지으며 슬픈 (노래)를 불러 이르기를..."></textarea>
-        </div>
-        <button type="button" class="btn-secondary" id="quiz-preview-btn">미리보기</button>
-        <div id="quiz-preview-box" style="display:none; margin-top:14px; padding:16px; background:#fafbfc; border:1px solid var(--line); border-radius:6px;"></div>
-        <div class="field-checkbox" style="margin-top:16px;">
-          <label><input type="checkbox" id="quiz-schedule-push-check" /> 등록 후 알림 예약하기</label>
-        </div>
-        <div class="field" id="quiz-schedule-push-time-field" style="display:none;">
-          <label>알림 발송 시각</label>
-          <input type="datetime-local" id="quiz-schedule-push-time" />
-        </div>
-        <div style="margin-top:16px;">
-          <button type="button" class="btn-primary" id="quiz-register-btn" style="width:auto; padding:11px 22px;">이번 주 퀴즈로 등록</button>
-          <button type="button" class="btn-secondary" id="quiz-cancel-edit-btn" hidden>취소</button>
-          <span class="save-status" id="quiz-save-status"></span>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>등록된 퀴즈 목록</h3>
-        <button class="btn-secondary" id="quiz-list-refresh-btn" type="button">새로고침</button>
-        <div id="quiz-admin-list" class="post-list" style="margin-top:14px;"></div>
-      </div>
-
-      <div class="card">
-        <h3>참여 통계</h3>
-        <div class="field">
-          <label>퀴즈 선택</label>
-          <select id="quiz-stats-select"><option value="">등록된 퀴즈가 없습니다</option></select>
-        </div>
-        <div id="quiz-stats-summary"></div>
-        <div id="quiz-stats-list" style="margin-top:16px;"></div>
-      </div>
-    </section>
-
-    <!-- 찬양 -->
-    <section class="panel" id="panel-praise">
-      <h2>찬양</h2>
-      <p class="panel-desc">함께 듣고 싶은 찬양 유튜브 영상을 등록해두면, 홈페이지 '찬양' 섹션에 목록으로 노출됩니다.</p>
-
-      <div class="card">
-        <h3 id="praise-form-title">새 찬양 등록</h3>
-        <div class="field"><label>제목</label><input id="praise-title" type="text" placeholder="주 은혜임을" /></div>
-        <div class="field"><label>부른이 (선택)</label><input id="praise-singer" type="text" placeholder="어노인팅" /></div>
-        <div class="field">
-          <label>유튜브 주소</label>
-          <input id="praise-youtubeUrl" type="text" placeholder="https://www.youtube.com/watch?v=..." />
-          <p class="hint" style="margin-top:6px;">유튜브에서 영상 공유 → 링크 복사한 걸 그대로 붙여넣으면 됩니다.</p>
-        </div>
-        <div class="field">
-          <label>컨셉 (여러 개 선택 가능)</label>
-          <div id="praise-category-checks" class="permission-checks"></div>
-        </div>
-        <div class="post-form-actions">
-          <button class="btn-primary" id="add-praise-btn">찬양 등록</button>
-          <button class="btn-secondary" id="cancel-praise-edit-btn" hidden>취소</button>
-        </div>
-        <span class="save-status" id="praise-save-status"></span>
-      </div>
-
-      <div class="card">
-        <h3>찬양 컨셉 관리</h3>
-        <p class="hint" style="margin-top:0;">
-          "경배와 찬양", "잔잔한 묵상곡" 처럼 자유롭게 만들고 지울 수 있습니다.
-          홈페이지에서는 곡이 하나라도 있는 컨셉만 필터 버튼으로 보여줍니다.
-        </p>
-        <div id="praise-category-list" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;"></div>
-        <div class="menu-add-row">
-          <input type="text" id="praise-category-new-input" placeholder="새 컨셉 이름 (예: 청년부 찬양)" maxlength="20" />
-          <button class="btn-secondary" id="praise-category-add-btn">추가</button>
-        </div>
-      </div>
-
-      <div class="card">
-        <h3>찬양 목록</h3>
-        <div id="praise-list" class="post-list"></div>
-      </div>
-    </section>
-
-    <!-- 선교사역 -->
-    <section class="panel" id="panel-missions">
-      <h2>선교사역</h2>
-      <p class="panel-desc">선교 섹션 배경 사진, 선교사님 소개 카드 3개, 동역자(기관·개인) 정보를 관리합니다. 섹션 제목은 '기본 정보' 메뉴에서 수정합니다.</p>
-
-      <div class="card">
-        <h3>선교 섹션 배경 사진</h3>
-        <p class="hint" style="margin-top:0;">
-          다른 섹션과 동일한 방식이에요. 새 사진을 올리거나 이미 등록된 사진도
-          아래 미리보기를 클릭해서 중심 위치를 다시 잡을 수 있고, 확대 슬라이더로 원하는 만큼
-          크롭할 수 있어요.
-        </p>
-        <div class="field">
-          <label>배경 사진 (교체하려면 다시 선택)</label>
-          <input type="file" id="s-missionsImageFile" accept="image/*" />
-        </div>
-        <div class="field">
-          <label>미리보기 — 클릭해서 위치 다시 잡기</label>
-          <div id="s-missionsBgPreviewWrap" style="position:relative; width:100%; max-width:480px; height:220px; border-radius:10px; overflow:hidden; background:#0d1526; display:none; cursor:crosshair;">
-            <img id="s-missionsBgPreviewImg" style="position:absolute; inset:0; width:100%; height:100%; object-fit:cover;" alt="" />
-            <div id="s-missionsBgFocalMarker" style="position:absolute; width:22px; height:22px; border:2px solid #fff; border-radius:50%; box-shadow:0 0 0 2px rgba(0,0,0,0.5); transform:translate(-50%,-50%); left:50%; top:50%; pointer-events:none;"></div>
-          </div>
-          <p class="hint" id="s-missionsBgEmptyHint" style="margin-top:6px;">아직 등록된 사진이 없습니다.</p>
-        </div>
-        <div class="field">
-          <label>확대 (<span id="s-missionsZoomValue">100</span>%)</label>
-          <input type="range" id="s-missionsZoom" min="100" max="200" value="100" style="width:100%; max-width:480px;" />
-        </div>
-        <button type="button" id="s-missionsBgSaveBtn" class="btn-primary" style="margin-top:8px;">선교 배경 저장</button>
-        <p class="hint" id="s-missionsBgStatus" style="margin-top:6px;"></p>
-      </div>
-
-      <div class="card">
-        <h3>선교사님 소개 카드</h3>
-        <p class="hint" style="margin-top:0;">
-          홈페이지에 나라명 → 사진 → 이름 → 사역 내용 순서로 나오는 세로형 카드예요.
-          몇 개든 추가할 수 있고, 3개 넘게 등록하면 홈페이지에서 화살표로 넘겨볼 수 있어요.
-        </p>
-        <div id="mission-cards-admin"></div>
-        <button type="button" id="mission-card-add-btn" class="btn-secondary" style="margin-top:8px;">카드 추가</button>
-        <button type="button" id="mission-cards-save-btn" class="btn-primary" style="margin-top:8px;">선교사님 카드 저장</button>
-        <span class="save-status" id="mission-cards-save-status"></span>
-      </div>
-
-      <div class="card">
-        <h3 id="partner-form-title">동역자 추가</h3>
-        <div class="field-row">
-          <div class="field"><label>이름 / 기관명</label><input id="pt-name" type="text" placeholder="한마음선교회 또는 홍길동 집사" /></div>
-          <div class="field"><label>동역 시작일</label><input id="pt-startDate" type="date" /></div>
-        </div>
-        <div class="field"><label>소개 문구 (선택)</label><input id="pt-note" type="text" placeholder="꾸준히 함께해주고 계신 동역자입니다" /></div>
-        <div class="field">
-          <label>사진 (선택)</label>
-          <input type="file" id="pt-imageFile" accept="image/*" />
-          <img class="preview" id="pt-imagePreview" />
-        </div>
-        <div class="post-form-actions">
-          <button class="btn-primary" id="add-partner-btn">동역자 등록</button>
-          <button class="btn-secondary" id="cancel-partner-edit-btn" hidden>취소</button>
-        </div>
-        <span class="save-status" id="partner-save-status"></span>
-      </div>
-
-      <div class="card">
-        <h3>동역자 목록</h3>
-        <p class="hint" style="margin-top:0;">홈페이지에는 이 순서대로 표시되며, D-day는 동역 시작일 기준으로 매일 자동 계산됩니다.</p>
-        <div id="partner-list" class="post-list"></div>
-      </div>
-    </section>
-
-    <!-- 통계 -->
-    <section class="panel" id="panel-stats">
-      <h2>통계</h2>
-      <p class="panel-desc">홈페이지 방문 수와 콘텐츠별 클릭 현황을 확인할 수 있습니다.</p>
-
-      <div class="card">
-        <h3>방문 수</h3>
-        <div class="stats-cards" id="stats-summary-cards"></div>
-      </div>
-
-      <div class="card">
-        <h3>기기별 방문 현황 (최근 7일)</h3>
-        <div class="stats-cards" id="stats-device-cards"></div>
-      </div>
-
-      <div class="card">
-        <h3>인기 콘텐츠 클릭 (최근 7일)</h3>
-        <div id="stats-click-list" class="stats-bar-list"></div>
-      </div>
-
-      <div class="card">
-        <h3>페이지별 조회수 (최근 7일)</h3>
-        <div id="stats-page-list" class="stats-bar-list"></div>
-      </div>
-
-      <div class="card">
-        <h3>가장 많이 본 설교 (최근 30일)</h3>
-        <div id="stats-sermon-list" class="stats-bar-list"></div>
-      </div>
-
-      <div class="card">
-        <h3>가장 많이 들은 찬양 (최근 30일)</h3>
-        <div id="stats-praise-list" class="stats-bar-list"></div>
-      </div>
-
-      <div class="card">
-        <h3>인기 찬양 컨셉 (최근 30일)</h3>
-        <div id="stats-praise-category-list" class="stats-bar-list"></div>
-      </div>
-
-      <div class="card">
-        <h3>가장 많이 본 큐티 (최근 30일)</h3>
-        <div id="stats-qt-list" class="stats-bar-list"></div>
-      </div>
-
-      <div class="card">
-        <h3>가장 많이 본 소식·친교 게시글 (최근 30일)</h3>
-        <div id="stats-board-list" class="stats-bar-list"></div>
-      </div>
-
-      <div class="card">
-        <h3>페이지별 평균 체류시간 (최근 7일)</h3>
-        <p class="hint" style="margin-top:0;">막대 길이는 방문 횟수를, 괄호 안 숫자는 평균 머문 시간을 뜻합니다.</p>
-        <div id="stats-timespent-list" class="stats-bar-list"></div>
-      </div>
-    </section>
-
-    <!-- 기부금 영수증 신청 -->
-    <section class="panel" id="panel-receipts">
-      <h2>기부금 영수증 신청</h2>
-      <p class="panel-desc">홈페이지 '헌금 안내'에서 성도님들이 신청한 내역입니다. 확인 후 개별 연락하시고, 처리가 끝나면 목록에서 삭제해주세요.</p>
-      <div class="card">
-        <div id="receipt-list" class="post-list"></div>
-      </div>
-    </section>
-
-    <!-- 푸시 알림 -->
-    <section class="panel" id="panel-push">
-      <h2>푸시 알림</h2>
-      <p class="panel-desc">
-        홈 화면에 사이트를 추가하고 알림을 허용한 방문자에게 알림을 보냅니다. 새 설교·큐티·소식이
-        올라왔을 때 직접 눌러서 보내주세요 (자동으로는 발송되지 않아요).
-      </p>
-
-      <div class="card">
-        <h3>자주 쓰는 문구</h3>
-        <p class="hint" style="margin-top:0;">클릭하면 아래 입력칸에 바로 채워집니다.</p>
-        <div id="push-template-chips" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px;"></div>
-      </div>
-
-      <div class="card">
-        <div class="field">
-          <label>알림 제목</label>
-          <input type="text" id="push-title-input" placeholder="예: 새로운 설교 영상이 올라왔어요" maxlength="60" />
-        </div>
-        <div class="field">
-          <label>알림 내용 (선택)</label>
-          <input type="text" id="push-body-input" placeholder="예: 이번 주 말씀을 확인해보세요" maxlength="120" />
-        </div>
-        <div class="field">
-          <label>알림을 누르면 이동할 위치 (선택, 비워두면 홈으로)</label>
-          <input type="text" id="push-url-input" placeholder="예: /#sermons, /quiz.html" />
-        </div>
-        <button type="button" class="btn-primary" id="push-send-btn" style="width:auto; padding:11px 22px;">알림 보내기</button>
-        <button type="button" class="btn-secondary" id="push-save-template-btn">이 문구 저장</button>
-        <span class="save-status" id="push-send-status"></span>
-      </div>
-
-      <div class="card">
-        <h3>예약된 알림</h3>
-        <p class="hint" style="margin-top:0;">
-          큐티·말씀 퀴즈 등록 화면에서 "알림 예약하기"를 체크하면 여기에 나타납니다.
-          아직 안 보낸 예약은 취소할 수 있어요.
-        </p>
-        <button class="btn-secondary" id="push-scheduled-refresh-btn" type="button">새로고침</button>
-        <div id="push-scheduled-list" class="post-list" style="margin-top:14px;"></div>
-      </div>
-    </section>
-
-    <!-- 설교 영상 (유튜브) -->
-    <section class="panel" id="panel-sermons">
-      <h2>설교 영상 (유튜브 자동 업데이트)</h2>
-      <p class="panel-desc">
-        교회 유튜브 채널ID를 서버 환경변수(YOUTUBE_CHANNEL_ID)에 등록하면,
-        매일 지정된 시간에 자동으로 최신 설교 영상을 가져옵니다.
-        아래 버튼으로 지금 바로 새로고침할 수도 있습니다.
-      </p>
-      <div class="card">
-        <h3>수동 새로고침</h3>
-        <div class="field"><label>유튜브 채널ID (비워두면 서버 기본값 사용)</label><input id="yt-channelId" type="text" placeholder="UCxxxxxxxxxxxxxxxxxxxxxx" /></div>
-        <button class="btn-primary" id="refresh-sermons-btn">지금 새로고침</button>
-        <span class="save-status" id="sermon-refresh-status"></span>
-        <p class="hint">※ 채널ID는 유튜브 채널의 '정보' 페이지에서 확인할 수 있습니다 (UC로 시작하는 문자열).</p>
-      </div>
-      <div class="card">
-        <h3>사용할 사진 직접 고르기</h3>
-        <p class="hint" style="margin-top:0;">
-          평소엔 영상마다 자동으로 사진이 골라지는데(같은 영상이면 항상 같은 사진), 특정 사진으로
-          고정해서 쓰고 싶으시면 아래에서 골라주세요. "자동 선택"으로 두면 다시 자동 방식으로 돌아갑니다.
-        </p>
-        <div class="field">
-          <label>사용할 사진</label>
-          <select id="sermon-photo-override-select"><option value="">자동 선택</option></select>
-        </div>
-        <button class="btn-primary" id="sermon-photo-override-save-btn" style="width:auto; padding:11px 22px;">저장</button>
-        <span class="save-status" id="sermon-photo-override-status"></span>
-      </div>
-      <div class="card">
-        <h3>설교 카드 이미지 다시 만들기</h3>
-        <p class="hint" style="margin-top:0;">
-          설교 카드(목사님 사진+제목이 합성된 이미지)는 한 번 만들면 저장해뒀다가 재사용합니다.
-          디자인을 바꿨거나, 예전에 이상하게 만들어진 카드가 있다면 아래 버튼으로 전부 지우고
-          새로 만들게 할 수 있습니다. (다음에 홈페이지를 열 때 자동으로 다시 생성됩니다)
-        </p>
-        <button class="btn-secondary" id="clear-sermon-posters-btn">모든 설교 카드 이미지 다시 만들기</button>
-        <span class="save-status" id="sermon-posters-clear-status"></span>
-      </div>
-      <div class="card">
-        <h3>설교 테마 관리</h3>
-        <p class="hint" style="margin-top:0;">
-          "주일설교", "수요예배" 처럼 자유롭게 만들고 지울 수 있습니다.
-          아래 영상 목록에서 각 영상에 테마를 체크해두면, 홈페이지에서 테마별로 걸러볼 수 있어요.
-        </p>
-        <div id="sermon-category-list" style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;"></div>
-        <div class="menu-add-row">
-          <input type="text" id="sermon-category-new-input" placeholder="새 테마 이름 (예: 청년부 집회)" maxlength="20" />
-          <button class="btn-secondary" id="sermon-category-add-btn">추가</button>
-        </div>
-      </div>
-      <div class="card">
-        <h3>현재 캐시된 영상 목록</h3>
-        <p id="sermon-last-updated" class="hint"></p>
-        <div id="sermon-preview-list" class="sermon-preview-list"></div>
-      </div>
-    </section>
-
-    <!-- 계정 관리 -->
-    <section class="panel" id="panel-account">
-      <h2>계정 관리</h2>
-      <p class="panel-desc">내 비밀번호를 변경하거나, 메인 관리자인 경우 부관리자 계정과 권한을 관리할 수 있습니다.</p>
-
-      <div class="card">
-        <h3>내 비밀번호 변경</h3>
-        <div class="field"><label>현재 비밀번호</label><input id="pw-current" type="password" autocomplete="current-password" /></div>
-        <div class="field"><label>새 비밀번호 (6자 이상)</label><input id="pw-new" type="password" autocomplete="new-password" /></div>
-        <div class="field"><label>새 비밀번호 확인</label><input id="pw-confirm" type="password" autocomplete="new-password" /></div>
-        <button class="btn-primary" id="save-password-btn">비밀번호 변경</button>
-        <span class="save-status" id="password-save-status"></span>
-      </div>
-
-      <div class="card" id="account-add-card" hidden>
-        <h3>부관리자 계정 추가</h3>
-        <div class="field-row">
-          <div class="field"><label>아이디</label><input id="acc-username" type="text" autocomplete="off" /></div>
-          <div class="field"><label>비밀번호 (6자 이상)</label><input id="acc-password" type="password" autocomplete="new-password" /></div>
-        </div>
-        <div class="field">
-          <label>권한 범위</label>
-          <div class="permission-checks">
-            <label><input type="checkbox" id="acc-perm-site" /> 기본 정보</label>
-            <label><input type="checkbox" id="acc-perm-menu" /> 메뉴 관리</label>
-            <label><input type="checkbox" id="acc-perm-posts" /> 소식·친교 게시판</label>
-            <label><input type="checkbox" id="acc-perm-sermons" /> 설교 영상</label>
-            <label><input type="checkbox" id="acc-perm-qt" /> 오늘의 큐티</label>
-            <label><input type="checkbox" id="acc-perm-missions" /> 선교사역</label>
-            <label><input type="checkbox" id="acc-perm-stats" /> 통계</label>
-            <label><input type="checkbox" id="acc-perm-receipts" /> 영수증 신청</label>
+          <div class="qt-archive-toggle-wrap">
+            <button class="qt-archive-toggle" id="qt-archive-toggle">지난 큐티 보기</button>
           </div>
         </div>
-        <button class="btn-primary" id="add-account-btn">계정 추가</button>
-        <span class="save-status" id="account-add-status"></span>
+
+        <a href="/quiz.html" class="quiz-teaser-card reveal" id="quiz-teaser-card" style="display:none;">
+          <strong>말씀 퀴즈</strong>
+          <span class="quiz-teaser-sub">성경 톺아보기</span>
+          <span class="quiz-teaser-arrow">참여하기 →</span>
+        </a>
+      </div>
+    </div>
+  </section>
+  <section class="section" id="missions">
+    <img class="missions-bg-img" id="missions-bg-img" alt="" />
+    <div class="missions-bg-overlay"></div>
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">MISSIONS</span>
+        <h2 id="missions-title">선교와 섬김</h2>
+        <p class="missions-verse" id="missions-verse"></p>
+        <p id="missions-subtitle"></p>
       </div>
 
-      <div class="card" id="account-list-card" hidden>
-        <h3>전체 관리자 계정</h3>
-        <div id="account-list" class="account-list"></div>
-      </div>
-    </section>
+      <div class="missions-layout">
+        <div class="mission-cards-wrap reveal">
+          <div class="mission-cards-head">
+            <div>
+              <span class="eyebrow-sm">MISSIONARIES</span>
+              <h3>선교지 선교사역</h3>
+            </div>
+            <div class="missions-partners-nav">
+              <button type="button" class="icon-btn-round" id="mission-cards-prev" aria-label="이전 선교사님">‹</button>
+              <button type="button" class="icon-btn-round" id="mission-cards-next" aria-label="다음 선교사님">›</button>
+            </div>
+          </div>
+          <div class="mission-cards-row" id="mission-cards-row"></div>
+          <div class="mission-cards-dots" id="mission-cards-page"></div>
+        </div>
 
-  </main>
+        <div class="missions-partners reveal">
+          <div class="missions-partners-head">
+            <div>
+              <span class="eyebrow-sm">PARTNERS</span>
+              <h3 id="partners-title">동역해주시는 분들</h3>
+            </div>
+            <div class="missions-partners-nav">
+              <button type="button" class="icon-btn-round" id="partners-prev" aria-label="이전 동역자">‹</button>
+              <button type="button" class="icon-btn-round" id="partners-next" aria-label="다음 동역자">›</button>
+            </div>
+          </div>
+          <div id="partners-list"></div>
+          <p class="missions-partners-page" id="partners-page"></p>
+        </div>
+      </div>
+    </div>
+  </section>
+  <section class="section" id="offering-prayer-section" style="background:var(--ivory-dim);">
+    <div class="container">
+      <div class="offering-prayer-grid" id="offering-prayer-grid">
+
+        <div class="offering-prayer-col reveal" id="offering" style="display:none;">
+          <span class="eyebrow">OFFERING</span>
+          <h2>온라인 헌금 안내</h2>
+          <div class="offering-card">
+            <p class="offering-account-line" id="offering-account-line">
+              <span id="offering-bank"></span> <span id="offering-account"></span>
+            </p>
+            <p class="offering-holder-line">
+              예금주 <strong id="offering-holder"></strong>
+            </p>
+            <p class="offering-note" id="offering-note"></p>
+            <div class="offering-receipt-cta">
+              <a href="/receipt.html" class="btn-gold">기부금 영수증 신청 →</a>
+            </div>
+          </div>
+        </div>
+
+        <div class="offering-prayer-col reveal reveal-delay-2" id="prayer-teaser-col">
+          <span class="eyebrow">PRAYER REQUEST</span>
+          <h2>기도 요청</h2>
+          <div class="prayer-teaser-card">
+            <p>함께 기도할 제목을 나눠주세요.<br />비밀글로 남기면 목회자만 확인할 수 있어요.</p>
+            <a href="/prayer.html" class="btn btn--navy">기도 요청 작성하기 →</a>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </section>
+
+
+  <!-- CONTACT -->
+  <section class="section" id="contact">
+    <div class="container">
+      <div class="section-head reveal">
+        <span class="eyebrow">CONTACT</span>
+        <h2>오시는 길</h2>
+      </div>
+      <div class="contact-grid reveal">
+        <dl class="contact-info">
+          <dt>주소</dt><dd id="contact-address"></dd>
+          <dd class="contact-address-note" id="contact-address-note" style="display:none;"></dd>
+          <dt>전화</dt><dd id="contact-phone"></dd>
+          <dt>온라인 문의</dt><dd><a href="/inquiry.html" class="btn btn--navy btn--sm">온라인 문의하기 →</a></dd>
+        </dl>
+        <div class="map-box" id="map-box">
+          <div class="map-placeholder">지도가 아직 등록되지 않았습니다</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-top">
+      <span class="footer-brand" id="footer-brand"></span>
+      <div class="footer-sns" id="footer-sns"></div>
+    </div>
+    <p>&copy; <span id="footer-year"></span> <span id="footer-brand-2"></span>. All rights reserved. &nbsp;·&nbsp; <a href="/privacy.html" style="color:inherit;">개인정보처리방침</a></p>
+  </div>
+</footer>
+
+<!-- 영상 재생 모달 -->
+<div class="video-modal" id="video-modal">
+  <div class="video-modal-inner" id="video-modal-inner">
+    <button class="video-modal-close" id="video-modal-close">닫기</button>
+    <div id="video-modal-frame"></div>
+  </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/quill/1.3.7/quill.min.js"></script>
-<script src="/js/font-catalog.js"></script>
+<!-- 첨부파일(주보 등) 미리보기 모달 -->
+<div class="file-modal" id="file-modal">
+  <div class="file-modal-inner">
+    <div class="file-modal-head">
+      <span id="file-modal-name"></span>
+      <div class="file-modal-actions">
+        <a id="file-modal-download" href="#" download target="_blank" rel="noopener">다운로드</a>
+        <button class="file-modal-close" id="file-modal-close">닫기</button>
+      </div>
+    </div>
+    <div id="file-modal-frame"></div>
+  </div>
+</div>
+
+<!-- 게시글 상세보기 모달 -->
+<div class="post-modal" id="post-modal">
+  <div class="post-modal-inner">
+    <div class="post-modal-sticky-head">
+      <h3 id="post-modal-title"></h3>
+    </div>
+    <div class="post-modal-scroll" id="post-modal-scroll">
+      <div class="post-modal-head">
+        <span class="badge" id="post-modal-badge"></span>
+        <span class="date" id="post-modal-date"></span>
+      </div>
+      <img class="post-modal-image" id="post-modal-image" alt="" />
+      <div class="post-modal-content" id="post-modal-content"></div>
+      <div class="post-modal-attachments" id="post-modal-attachments"></div>
+    </div>
+    <div class="post-modal-footer">
+      <button class="post-modal-close" id="post-modal-close">닫기</button>
+    </div>
+  </div>
+</div>
+
+<div class="post-modal" id="qt-archive-wrap">
+  <div class="post-modal-inner">
+    <div class="post-modal-sticky-head">
+      <h3>지난 큐티</h3>
+    </div>
+    <div class="post-modal-scroll">
+      <div class="qt-archive-grid" id="qt-archive-grid"></div>
+    </div>
+    <div class="post-modal-footer">
+      <button class="post-modal-close" id="qt-archive-close">닫기</button>
+    </div>
+  </div>
+</div>
+
+<div class="post-modal" id="mission-modal">
+  <div class="post-modal-inner">
+    <div class="post-modal-sticky-head">
+      <h3 id="mission-modal-name"></h3>
+    </div>
+    <div class="post-modal-scroll" id="mission-modal-scroll">
+      <div class="post-modal-head">
+        <span class="badge" id="mission-modal-country"></span>
+      </div>
+      <img class="post-modal-image" id="mission-modal-photo" alt="" style="border-radius:50%; width:120px; height:120px; object-fit:cover; margin:0 auto 16px;" />
+      <div class="post-modal-content" id="mission-modal-content"></div>
+      <div class="mission-modal-gallery" id="mission-modal-gallery"></div>
+      <div class="mission-modal-prayer" id="mission-modal-prayer-wrap" style="display:none;">
+        <h4>기도제목</h4>
+        <p id="mission-modal-prayer"></p>
+      </div>
+    </div>
+    <div class="post-modal-footer">
+      <button class="post-modal-close" id="mission-modal-close">닫기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 사진 확대 보기 (파일명·다운로드 없이 사진만 화면에 맞게 크게 보여주는 전용 창) -->
+<div class="image-lightbox" id="image-lightbox">
+  <button class="image-lightbox-close" id="image-lightbox-close">닫기</button>
+  <img id="image-lightbox-img" alt="" />
+</div>
+
+<!-- 푸시 알림 허용 안내 배너 (지원 기기에서만, JS가 필요할 때 보여줌) -->
+<div id="push-prompt" class="push-prompt" style="display:none;">
+  <span>🔔 새 설교·큐티·소식을 알림으로 받아보시겠어요?</span>
+  <div class="push-prompt-actions">
+    <button type="button" id="push-allow-btn" class="btn btn--gold btn--sm">알림 받기</button>
+    <button type="button" id="push-dismiss-btn" class="push-prompt-close" aria-label="닫기">✕</button>
+  </div>
+</div>
+
+<!-- 오른쪽 하단 확장형 플로팅 버튼 (큐티 / 밴드 / 섬김안내 / 소식·친교) -->
+<div class="quick-fab-wrap" id="quick-fab-wrap">
+  <div class="quick-fab-menu" id="quick-fab-menu">
+    <button type="button" class="quick-fab-item" id="quick-fab-top">
+      <span class="quick-fab-item-label">맨 위로</span>
+      <span class="quick-fab-item-icon">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M5 15l7-7 7 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+    </button>
+    <a href="#board" class="quick-fab-item" id="quick-fab-board">
+      <span class="quick-fab-item-label">소식 · 친교</span>
+      <span class="quick-fab-item-icon">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4 5h16v11H7l-3 3V5z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+    </a>
+    <button type="button" class="quick-fab-item" id="quick-fab-ministry" style="display:none;">
+      <span class="quick-fab-item-label">섬김안내</span>
+      <span class="quick-fab-item-icon">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zM4 21a8 8 0 0116 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+    </button>
+    <a href="#" id="quick-fab-band" class="quick-fab-item" target="_blank" rel="noopener" style="display:none;">
+      <span class="quick-fab-item-label">밴드에서 소통해요</span>
+      <span class="quick-fab-item-icon quick-fab-item-icon--band">BAND</span>
+    </a>
+    <a href="#qt" class="quick-fab-item" id="quick-fab-qt">
+      <span class="quick-fab-item-label">오늘의 큐티</span>
+      <span class="quick-fab-item-icon">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20V2H6.5A2.5 2.5 0 004 4.5v15z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </span>
+    </a>
+  </div>
+  <button type="button" class="quick-fab-toggle" id="quick-fab-toggle" aria-label="빠른 메뉴 열기">
+    <svg class="quick-fab-toggle-icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v18M6 9h12" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+  </button>
+</div>
+<div class="ministry-duty-modal" id="ministry-duty-modal">
+  <div class="ministry-duty-modal-inner">
+    <button type="button" class="ministry-duty-modal-close" id="ministry-duty-modal-close" aria-label="닫기">✕</button>
+    <h3 id="ministry-duty-title">이번 주 섬김 안내</h3>
+    <div class="ministry-duty-section">
+      <h4 id="ministry-duty-worship-label">예배 위원</h4>
+      <p id="ministry-duty-worship">등록된 내용이 없습니다.</p>
+    </div>
+    <div class="ministry-duty-section">
+      <h4 id="ministry-duty-meal-label">주일 식사 봉사 당번</h4>
+      <p id="ministry-duty-meal">등록된 내용이 없습니다.</p>
+    </div>
+  </div>
+</div>
+
+<div id="mini-player" class="mini-player" style="display:none;">
+  <div class="mini-player-video" id="mini-player-video" role="button" aria-label="크게/작게 보기">
+    <div id="mini-player-yt-mount"></div>
+  </div>
+  <div class="mini-player-info">
+    <p class="mini-player-title" id="mini-player-title"></p>
+  </div>
+  <div class="mini-player-controls">
+    <button type="button" id="mini-player-prev" aria-label="이전 곡">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg>
+    </button>
+    <button type="button" id="mini-player-playpause" aria-label="재생/일시정지">
+      <svg id="mini-player-play-icon" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+      <svg id="mini-player-pause-icon" viewBox="0 0 24 24" fill="currentColor" style="display:none;"><path d="M6 5h4v14H6zm8 0h4v14h-4z"/></svg>
+    </button>
+    <button type="button" id="mini-player-next" aria-label="다음 곡">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M16 6h2v12h-2zm-9.5 6L15 18V6z"/></svg>
+    </button>
+    <button type="button" id="mini-player-expand" aria-label="크게 보기">
+      <svg id="mini-player-expand-icon" viewBox="0 0 24 24" fill="none"><path d="M18 15l-6-6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </button>
+    <button type="button" id="mini-player-close" aria-label="닫기">
+      <svg viewBox="0 0 24 24" fill="currentColor"><path d="M18.3 5.71L12 12l6.3 6.29-1.42 1.42L10.59 13.4l-6.3 6.3-1.42-1.42L9.17 12 2.87 5.71 4.29 4.29l6.3 6.3 6.29-6.3z"/></svg>
+    </button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
 <script src="/js/countries.js"></script>
-<script src="/admin/js/admin.js?v=27"></script>
-<script src="/admin/js/service-background-admin.js?v=9"></script>
-<script src="/admin/js/richtext-about-admin.js?v=2"></script>
-
+<script src="/js/font-catalog.js"></script>
+<script src="/js/main.js?v=73"></script>
 </body>
 </html>
