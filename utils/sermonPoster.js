@@ -334,10 +334,10 @@ async function generateSermonPoster({
     // 사진 확대 비율은 항상 컨셉A 캔버스(H=675) 기준으로 계산합니다 — 오늘 처음
     // 만들었을 때 잘 나왔던(안 잘렸던) 바로 그 방식입니다. 컨셉B 캔버스가 세로로
     // 늘어난 건 사진 크기가 아니라 여백 배치에만 씁니다.
-    const targetH = Math.round(H * (isThemeB ? 1.14 : 1.06));
+    const targetH = Math.round(H * (isThemeB ? 1.26 : 1.06));
     // 컨셉B는 확대 비율을 올린 만큼, 원본 사진이 정사각형에 가까운 비율이라 가로도 같이
     // 커져서 오른쪽으로 넘칠 수 있습니다. 가로 최대치를 같이 줘서(비율은 유지) 안에 맞춥니다.
-    const targetMaxW = isThemeB ? Math.round(canvasPhotoW * 1.35) : undefined;
+    const targetMaxW = isThemeB ? Math.round(canvasPhotoW * 1.5) : undefined;
     const cutoutBuf = await sharp(photoBuffer)
       .resize({ height: targetH, width: targetMaxW, fit: 'inside', withoutEnlargement: false })
       .ensureAlpha()
