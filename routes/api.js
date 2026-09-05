@@ -5,7 +5,7 @@ const path = require('path');
 const { readData, writeData, makeId } = require('../utils/db');
 const { getCachedSermons } = require('../utils/youtube');
 const { buildAndCacheSermonPoster, pregenerateMissingSermonPosters, pickSermonPhotoSource } = require('../utils/sermonPoster');
-const { VAPID_PUBLIC_KEY, saveSubscription, removeSubscription } = require('../utils/push');
+const { VAPID_PUBLIC_KEY, saveSubscription, removeSubscription, sendTest } = require('../utils/push');
 
 const uploadsDir = path.join(__dirname, '..', 'public', 'uploads');
 
@@ -21,6 +21,21 @@ router.post('/push/subscribe', async (req, res) => {
       return res.status(400).json({ error: '잘못된 구독 정보입니다.' });
     }
     await saveSubscription(subscription);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 지금 이 기기(브라우저)로만 테스트 알림을 보냅니다. "알림이 안 온다"는 문의를
+// 받았을 때, 그 사람의 기기에서 직접 눌러보게 해서 원인을 좁히기 위한 용도입니다.
+router.post('/push/test', async (req, res) => {
+  try {
+    const subscription = req.body;
+    if (!subscription || !subscription.endpoint) {
+      return res.status(400).json({ error: '잘못된 구독 정보입니다.' });
+    }
+    await sendTest(subscription, { title: '테스트 알림', body: '이 알림이 보이면 정상적으로 작동하고 있는 거예요 🎉' });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -46,9 +61,11 @@ router.get('/sermon-poster/:videoId', async (req, res) => {
     const rawTitle = String(req.query.title || '').slice(0, 200);
     const idxRaw = Number(req.query.idx);
     const videoIndex = Number.isInteger(idxRaw) && idxRaw >= 0 ? idxRaw : null;
+    const theme = req.query.theme === 'b' ? 'b' : 'a';
+    const cacheKey = theme === 'b' ? `${videoId}_b` : videoId;
 
     const posters = (await readData('sermonPosters')) || {};
-    const cached = posters[videoId];
+    const cached = posters[cacheKey];
     // 이 주소(래퍼) 자체는 브라우저가 마음대로 오래 캐싱하지 않도록 항상 no-cache로 표시합니다.
     // 실제 이미지 파일은 재생성될 때마다 고유한 파일명으로 저장되므로, 그 주소는 안전하게
     // 오래 캐싱돼도 됩니다. (예전엔 여기서 이미지를 직접 보내면서 1년짜리 캐시를 걸어버려서,
@@ -59,7 +76,7 @@ router.get('/sermon-poster/:videoId', async (req, res) => {
       return res.redirect(cached.url);
     }
 
-    const { url } = await buildAndCacheSermonPoster({ videoId, rawTitle, videoIndex, uploadsDir });
+    const { url } = await buildAndCacheSermonPoster({ videoId, rawTitle, videoIndex, uploadsDir, theme });
     return res.redirect(url);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -119,18 +136,8 @@ router.get('/posts/:id', async (req, res) => {
 router.get('/sermons', async (req, res) => {
   try {
     const data = await getCachedSermons();
-    let archive = [];
-    try {
-      archive = (await readData('sermonsArchive')) || [];
-    } catch (archiveErr) {
-      archive = []; // 보관함을 못 읽어도 최신 목록은 정상적으로 내려줘야 함
-    }
-    const existingIds = new Set((data.videos || []).map((v) => v.videoId));
-    const archiveOnly = archive.filter((v) => !existingIds.has(v.videoId));
-    // 보관함 영상은 항상 최신 목록 "뒤"에 붙여서, 전체보기의 최신순/히어로 선정에는 영향을 주지 않습니다.
-    const merged = { ...data, videos: [...(data.videos || []), ...archiveOnly] };
-    res.json(merged);
-    if (merged && Array.isArray(merged.videos)) pregenerateMissingSermonPosters(merged.videos, uploadsDir);
+    res.json(data);
+    if (data && Array.isArray(data.videos)) pregenerateMissingSermonPosters(data.videos, uploadsDir);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
