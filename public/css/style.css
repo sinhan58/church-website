@@ -542,6 +542,9 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   width: 100%;
 }
 .about-body p { color: #4a4942; white-space: pre-line; word-break: keep-all; }
+@media (min-width: 861px) {
+  html.theme-b .about-body p { font-size: 1.15rem; line-height: 1.75; }
+}
 .pastor-box {
   margin-top: 28px;
   padding: 22px 24px;
@@ -551,6 +554,9 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
 }
 .pastor-box .name { font-weight: 700; color: var(--navy-deep); margin-bottom: 6px; }
 .pastor-box p:not(.name) { white-space: pre-line; word-break: keep-all; }
+@media (min-width: 861px) {
+  html.theme-b .pastor-box p:not(.name) { font-size: 1.15rem; line-height: 1.75; }
+}
 
 /* ---------------- Service Times ---------------- */
 .service-grid {
