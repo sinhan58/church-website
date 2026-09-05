@@ -768,7 +768,7 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
 /* ---------------- 설교 섹션: 합성된 히어로 이미지 + 지난 설교 목록 ---------------- */
 .sermon-layout {
   display: grid;
-  grid-template-columns: 61% 39%; /* 메인 설교 영역 추가 확대, 지난 설교 목록 1cm 추가 축소 */
+  grid-template-columns: calc(61% - 12px) calc(39% - 12px); /* gap(24px)까지 감안해서 정확히 100%에 맞춤 */
   gap: 24px;
   margin-top: 8px;
 }
