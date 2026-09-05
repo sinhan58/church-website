@@ -245,9 +245,7 @@ function buildPanelSvg() {
 // ---- 컨셉B 전용 배경 패널 (캔버스 크기만 W_B/H_B로 다름, 나머지는 동일한 디자인) ----
 function buildPanelSvgB() {
   return `
-  <svg width="${W_B}" height="${H_B}" xmlns="http://www.w3.org/2000/svg">
-    <rect width="${W_B}" height="${H_B}" fill="${NAVY}"/>
-  </svg>`;
+  <svg width="${W_B}" height="${H_B}" xmlns="http://www.w3.org/2000/svg"></svg>`;
 }
 
 /**
@@ -382,6 +380,11 @@ async function buildAndCacheSermonPoster({ videoId, rawTitle, videoIndex, upload
   const extraPhotoUrls = Array.isArray(site.sermonCardPhotos) ? site.sermonCardPhotos : [];
   const photoOverride = site.sermonPhotoOverride || '';
 
+  // 컨셉B는 배경을 투명하게 둬서 뒤에 있는 섹션 배경 사진이 비쳐야 하는데, JPG는 투명을
+  // 지원하지 않아서 PNG로 만듭니다. 컨셉A(JPG)는 예전 그대로 유지합니다.
+  const isThemeB = theme === 'b';
+  const format = isThemeB ? 'png' : 'jpeg';
+
   const buffer = await generateSermonPoster({
     videoId,
     rawTitle,
@@ -390,14 +393,16 @@ async function buildAndCacheSermonPoster({ videoId, rawTitle, videoIndex, upload
     churchName,
     videoIndex,
     photoOverride,
-    format: 'jpeg',
+    format,
     theme
   });
 
   // 컨셉B 이미지는 파일명/캐시 키에 '-b'를 붙여서, 컨셉A 이미지와 절대 서로 덮어쓰지 않게 합니다.
-  const cacheKey = theme === 'b' ? `${videoId}_b` : videoId;
-  const filename = `sermon-poster-${videoId}${theme === 'b' ? '-b' : ''}-${Date.now()}.jpg`;
-  const url = await saveUploadedFile(buffer, filename, 'image/jpeg', uploadsDir);
+  const cacheKey = isThemeB ? `${videoId}_b` : videoId;
+  const ext = isThemeB ? 'png' : 'jpg';
+  const mime = isThemeB ? 'image/png' : 'image/jpeg';
+  const filename = `sermon-poster-${videoId}${isThemeB ? '-b' : ''}-${Date.now()}.${ext}`;
+  const url = await saveUploadedFile(buffer, filename, mime, uploadsDir);
 
   const posters = (await readData('sermonPosters')) || {};
   posters[cacheKey] = { url, title: rawTitle, createdAt: new Date().toISOString() };
