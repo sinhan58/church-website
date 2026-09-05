@@ -166,7 +166,7 @@ function buildTextSvg({ title, verseRef, pastorName, churchName }) {
 // 원본(buildTextSvg)과 로직 흐름은 같지만, 좌표·크기 값들만 컨셉B의 넓어진 캔버스(W_B/H_B)에
 // 맞게 다시 잡았습니다. 원본 함수는 이 함수와 완전히 독립적이라 서로 영향을 주지 않습니다.
 function buildTextSvgB({ title, verseRef, pastorName, churchName }) {
-  const textX = 40; // 컨셉A(56)보다 왼쪽으로 — 큰 글씨가 들어갈 공간을 넉넉하게 확보
+  const textX = 16; // 왼쪽 여백을 더 줄임 (기존 40에서 약 2cm 더 왼쪽으로)
   const textMaxWidth = W_B - PHOTO_W_B - textX - 40;
 
   let titleFontSize = 66;
@@ -180,10 +180,13 @@ function buildTextSvgB({ title, verseRef, pastorName, churchName }) {
   }
 
   const labelY = 72;
-  const labelSvg = `<text x="${textX}" y="${labelY}" font-size="23" font-family="${FONT_FAMILY}" font-weight="700" fill="${GOLD}" letter-spacing="2">주일 설교</text>
-    <rect x="${textX}" y="${labelY + 16}" width="52" height="4" fill="${GOLD}"/>`;
+  const labelSvg = `<text x="${textX}" y="${labelY}" font-size="23" font-family="${FONT_FAMILY}" font-weight="700" fill="${GOLD}" letter-spacing="2">주일 예배 설교</text>
+    <rect x="${textX}" y="${labelY + 16}" width="76" height="4" fill="${GOLD}"/>`;
 
-  let y = H_B / 2 - ((titleLines.length - 1) * lineHeight) / 2 - 20;
+  // 제목~목사님 성함까지 전체 텍스트 블록을 약 1.2cm(45px) 위로 올려서, 목사님 성함이
+  // 캔버스(그리고 실제 카드 박스) 하단 밖으로 밀려나 잘리지 않게 여유를 둡니다.
+  const BLOCK_SHIFT_UP = 45;
+  let y = H_B / 2 - ((titleLines.length - 1) * lineHeight) / 2 - 20 - BLOCK_SHIFT_UP;
   let titleTspans = '';
   for (const line of titleLines) {
     titleTspans += `<text x="${textX}" y="${y}" font-size="${titleFontSize}" font-family="${FONT_FAMILY}" font-weight="900" fill="${WHITE}">${escapeXml(line)}</text>`;
@@ -325,10 +328,10 @@ async function generateSermonPoster({
   if (photoBuffer) {
     // 오려낸 인물 사진은 자르지 않고, 세로 기준으로만 맞춰서 전체가 다 보이게 합니다
     // (사람 실루엣은 사각형이 아니라서, cover로 자르면 머리나 팔이 잘릴 수 있습니다).
-    // 사진 확대 비율은 항상 컨셉A 캔버스(H) 기준으로 계산합니다 — 컨셉B의 캔버스가 세로로
-    // 늘어났다고 사진 자체가 덩달아 커지면, 오히려 옆으로 넘쳐서 잘리는 문제가 생깁니다.
-    // (컨셉B는 늘어난 세로 공간을 사진이 아니라 여백/배치 조정에 씁니다.)
-    const targetH = Math.round(H * 1.06); // 조금 더 확대 — 항상 원본(675) 기준
+    // 컨셉B는 캔버스가 늘어난 만큼 사진도 더 크게 키웁니다(사진 하단이 캔버스 맨
+    // 아래에 딱 붙도록). 이전에 "잘린다"고 느끼셨던 원인은 사실 이 계산이 아니라
+    // CSS 쪽에서 이미지를 아래로 밀어내던 값 때문이었고, 그건 별도로 고쳤습니다.
+    const targetH = Math.round(canvasH * (isThemeB ? 1.0 : 1.06));
     const cutoutBuf = await sharp(photoBuffer)
       .resize({ height: targetH, fit: 'inside', withoutEnlargement: false })
       .ensureAlpha()
