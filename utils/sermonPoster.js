@@ -369,7 +369,7 @@ async function generateSermonPoster({
 
     // 사진 영역(오른쪽) 안에서 가운데 정렬 후 왼쪽으로 살짝(약 1.5cm) 이동, 바닥에 붙입니다.
     const zoneLeft = canvasW - canvasPhotoW;
-    const SHIFT_LEFT = isThemeB ? 0 : 133; // 컨셉B는 오른쪽으로 최대한 붙게
+    const SHIFT_LEFT = isThemeB ? 80 : 133; // 왼쪽으로 이동
     let left = Math.round(zoneLeft + canvasPhotoW / 2 - cutoutW / 2) - SHIFT_LEFT;
     left = Math.max(left, zoneLeft - 170); // 너무 왼쪽으로 가지 않도록
     const rightSlack = isThemeB ? 80 : 10;
