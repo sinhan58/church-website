@@ -107,6 +107,13 @@ h1, h2, h3, h4 {
   word-break: keep-all;
   text-wrap: balance;
 }
+@media (min-width: 861px) {
+  /* 컨셉B 전용: 화면 폭이 넓어진 만큼(1600px), 주요 섹션 제목들도 존재감 있게 키웁니다 */
+  html.theme-b .section-head h2,
+  html.theme-b #about-greeting {
+    font-size: 2.3rem;
+  }
+}
 
 p { text-wrap: pretty; }
 
