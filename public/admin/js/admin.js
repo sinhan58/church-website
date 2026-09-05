@@ -1023,11 +1023,33 @@
     $('#' + previewId).style.fontFamily = family;
   }
 
+  // 컨셉A/B 각각의 글꼴 값을 따로 기억해둡니다. 처음엔 폼에 A값이 표시되고,
+  // 탭을 누르면 지금 폼에 있는 값을 그 시점 컨셉에 저장해두고, 다른 컨셉 값으로 바꿔치기합니다.
+  let fontConceptState = { a: { headingFont: 'noto-serif-kr', bodyFont: 'pretendard' }, b: null };
+  let activeFontConcept = 'a';
+
   function setupFontPickers() {
     populateFontSelect($('#s-headingFont'));
     populateFontSelect($('#s-bodyFont'));
     $('#s-headingFont').addEventListener('change', () => updateFontPreview('s-headingFont', 's-headingFont-preview'));
     $('#s-bodyFont').addEventListener('change', () => updateFontPreview('s-bodyFont', 's-bodyFont-preview'));
+
+    $$('.font-concept-tab').forEach((tab) => {
+      tab.addEventListener('click', () => {
+        // 지금 폼에 보이는 값을 현재(전환 전) 컨셉에 저장해둡니다
+        fontConceptState[activeFontConcept] = {
+          headingFont: $('#s-headingFont').value,
+          bodyFont: $('#s-bodyFont').value
+        };
+        activeFontConcept = tab.dataset.concept;
+        $$('.font-concept-tab').forEach((t) => t.classList.toggle('active', t === tab));
+        const target = fontConceptState[activeFontConcept] || fontConceptState.a;
+        $('#s-headingFont').value = target.headingFont;
+        $('#s-bodyFont').value = target.bodyFont;
+        updateFontPreview('s-headingFont', 's-headingFont-preview');
+        updateFontPreview('s-bodyFont', 's-bodyFont-preview');
+      });
+    });
   }
 
   async function loadSiteIntoForm() {
@@ -1035,8 +1057,20 @@
     const s = currentSite;
     $('#s-churchName').value = s.churchName || '';
 
-    $('#s-headingFont').value = s.design?.headingFont || 'noto-serif-kr';
-    $('#s-bodyFont').value = s.design?.bodyFont || 'pretendard';
+    fontConceptState.a = {
+      headingFont: s.design?.themeA?.headingFont || s.design?.headingFont || 'noto-serif-kr',
+      bodyFont: s.design?.themeA?.bodyFont || s.design?.bodyFont || 'pretendard'
+    };
+    // 컨셉B 글꼴이 아직 한 번도 저장 안 됐으면, 컨셉A와 똑같은 값으로 시작합니다
+    // (색상 컨셉B를 처음 만들 때와 같은 방식 — 나중에 원하시면 따로 바꿀 수 있어요)
+    fontConceptState.b = {
+      headingFont: s.design?.themeB?.headingFont || fontConceptState.a.headingFont,
+      bodyFont: s.design?.themeB?.bodyFont || fontConceptState.a.bodyFont
+    };
+    activeFontConcept = 'a';
+    $$('.font-concept-tab').forEach((t) => t.classList.toggle('active', t.dataset.concept === 'a'));
+    $('#s-headingFont').value = fontConceptState.a.headingFont;
+    $('#s-bodyFont').value = fontConceptState.a.bodyFont;
     updateFontPreview('s-headingFont', 's-headingFont-preview');
     updateFontPreview('s-bodyFont', 's-bodyFont-preview');
     $('#s-heroVerse').value = s.hero?.verse || '';
@@ -1190,10 +1224,20 @@
         churchName: $('#s-churchName').value.trim(),
         sermonsIntro: $('#s-sermonsIntro').value.trim(),
         sermonCardPhotos: sermonCardPhotos,
-        design: {
-          headingFont: $('#s-headingFont').value,
-          bodyFont: $('#s-bodyFont').value
-        },
+        design: (() => {
+          // 저장 시점에 폼에 보이는 값은 activeFontConcept 것이므로, 먼저 반영해둡니다
+          fontConceptState[activeFontConcept] = {
+            headingFont: $('#s-headingFont').value,
+            bodyFont: $('#s-bodyFont').value
+          };
+          return {
+            // 예전 버전과의 호환을 위해, 컨셉A 값을 기존 자리(headingFont/bodyFont)에도 같이 저장합니다
+            headingFont: fontConceptState.a.headingFont,
+            bodyFont: fontConceptState.a.bodyFont,
+            themeA: fontConceptState.a,
+            themeB: fontConceptState.b
+          };
+        })(),
         hero: {
           verse: $('#s-heroVerse').value.trim(),
           verseRef: $('#s-heroVerseRef').value.trim(),
