@@ -337,9 +337,43 @@ async function generateSermonPoster({
     // 컨셉B만: 원본 사진 실측 결과, 사람이 전체 캔버스의 가로 67%·세로 64%만 차지하고
     // 나머지는 흰 여백이었습니다. 이 여백을 먼저 잘라내면(trim), 같은 폭 안에서
     // 사람만 훨씬 크게 보여줄 수 있어서 "커지면 옆으로 넘친다"는 문제 자체가 줄어듭니다.
+    // 다만 trim은 바깥쪽 테두리만 잘라낼 뿐, 사진 안쪽(팔과 몸 사이 등)에 남아있는
+    // 흰 배경까지 지우진 못합니다. 그래서 흰색에 가까운 픽셀을 투명하게 바꿔주는데,
+    // 단순히 "흰색이면 무조건 투명"하게 하면 셔츠의 흰 줄무늬 같은 옷 안의 흰색까지
+    // 같이 지워져서 팔에 구멍이 생기는 문제가 있었습니다. 그래서 가장자리에서부터
+    // 서로 이어진(연결된) 흰 영역만 배경으로 간주해서 지우고, 옷 안에 뚝 떨어진
+    // 흰색 부분은 배경과 안 이어져 있으니 그대로 남깁니다.
     let sourceForResize = photoBuffer;
     if (isThemeB) {
-      sourceForResize = await sharp(photoBuffer).trim().toBuffer();
+      const trimmed = await sharp(photoBuffer).trim().ensureAlpha().raw().toBuffer({ resolveWithObject: true });
+      const { data, info } = trimmed;
+      const { width, height, channels } = info;
+      const WHITE_THRESHOLD = 235;
+      const isWhite = (x, y) => {
+        const idx = (y * width + x) * channels;
+        return data[idx] >= WHITE_THRESHOLD && data[idx + 1] >= WHITE_THRESHOLD && data[idx + 2] >= WHITE_THRESHOLD;
+      };
+      const visited = new Uint8Array(width * height);
+      const stack = [];
+      // 네 가장자리의 흰 픽셀들을 시작점으로 등록
+      for (let x = 0; x < width; x++) {
+        if (isWhite(x, 0)) stack.push([x, 0]);
+        if (isWhite(x, height - 1)) stack.push([x, height - 1]);
+      }
+      for (let y = 0; y < height; y++) {
+        if (isWhite(0, y)) stack.push([0, y]);
+        if (isWhite(width - 1, y)) stack.push([width - 1, y]);
+      }
+      while (stack.length) {
+        const [x, y] = stack.pop();
+        const vIdx = y * width + x;
+        if (x < 0 || y < 0 || x >= width || y >= height || visited[vIdx]) continue;
+        if (!isWhite(x, y)) continue;
+        visited[vIdx] = 1;
+        data[(y * width + x) * channels + 3] = 0; // 배경과 이어진 흰 픽셀만 투명 처리
+        stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
+      }
+      sourceForResize = await sharp(data, { raw: info }).png().toBuffer();
     }
     const targetH = Math.round(H * (isThemeB ? 1.16 : 1.06)); // 배율 완화
     const cutoutBuf = await sharp(sourceForResize)
