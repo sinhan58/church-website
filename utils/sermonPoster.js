@@ -246,22 +246,7 @@ function buildPanelSvg() {
 function buildPanelSvgB() {
   return `
   <svg width="${W_B}" height="${H_B}" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <radialGradient id="tealGlowB" cx="15%" cy="10%" r="65%">
-        <stop offset="0%" stop-color="#0f8f9a" stop-opacity="0.5"/>
-        <stop offset="100%" stop-color="#0f8f9a" stop-opacity="0"/>
-      </radialGradient>
-      <radialGradient id="wineGlowB" cx="90%" cy="95%" r="55%">
-        <stop offset="0%" stop-color="#7a1f3d" stop-opacity="0.5"/>
-        <stop offset="100%" stop-color="#7a1f3d" stop-opacity="0"/>
-      </radialGradient>
-      <filter id="colorBlurB"><feGaussianBlur stdDeviation="60"/></filter>
-    </defs>
     <rect width="${W_B}" height="${H_B}" fill="${NAVY}"/>
-    <g filter="url(#colorBlurB)">
-      <rect width="${W_B}" height="${H_B}" fill="url(#tealGlowB)"/>
-      <rect width="${W_B}" height="${H_B}" fill="url(#wineGlowB)"/>
-    </g>
   </svg>`;
 }
 
@@ -342,7 +327,10 @@ async function generateSermonPoster({
   if (photoBuffer) {
     // 오려낸 인물 사진은 자르지 않고, 세로 기준으로만 맞춰서 전체가 다 보이게 합니다
     // (사람 실루엣은 사각형이 아니라서, cover로 자르면 머리나 팔이 잘릴 수 있습니다).
-    const targetH = Math.round(canvasH * 1.06); // 조금 더 확대
+    // 사진 확대 비율은 항상 컨셉A 캔버스(H) 기준으로 계산합니다 — 컨셉B의 캔버스가 세로로
+    // 늘어났다고 사진 자체가 덩달아 커지면, 오히려 옆으로 넘쳐서 잘리는 문제가 생깁니다.
+    // (컨셉B는 늘어난 세로 공간을 사진이 아니라 여백/배치 조정에 씁니다.)
+    const targetH = Math.round(H * 1.06); // 조금 더 확대 — 항상 원본(675) 기준
     const cutoutBuf = await sharp(photoBuffer)
       .resize({ height: targetH, fit: 'inside', withoutEnlargement: false })
       .ensureAlpha()
