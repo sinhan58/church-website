@@ -851,6 +851,15 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   padding-bottom: 8px;
   border-bottom: 3px solid var(--gold);
 }
+/* 컨셉B 전용 포스터 이미지는 라벨·교회명·목사님 성함이 이미 이미지 안에 다 포함되어
+   있어서, 이 CSS 오버레이들을 그대로 두면 같은 내용이 이미지와 겹쳐 보입니다.
+   그래서 컨셉B의 PC 화면에서만 이 두 오버레이를 숨깁니다 (모바일은 항상 예전 그대로). */
+@media (min-width: 861px) {
+  html.theme-b .sermon-hero-label,
+  html.theme-b .sermon-hero-band {
+    display: none;
+  }
+}
 @media (max-width: 900px) {
   /* 기본(PC) 규칙보다 뒤에 있어야 실제로 이깁니다 */
   .sermon-hero-band { height: calc(30px + 4mm); font-size: 13.5px; letter-spacing: 1.2px; }
