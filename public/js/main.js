@@ -926,7 +926,8 @@
       card.innerHTML = `<div class="sermon-empty" style="height:100%; display:flex; align-items:center; justify-content:center;">이 테마의 설교가 아직 없어요.</div>`;
       return;
     }
-    const posterUrl = `/api/sermon-poster/${encodeURIComponent(hero.videoId)}?title=${encodeURIComponent(hero.title || '')}`;
+    const isThemeB = document.documentElement.classList.contains('theme-b');
+    const posterUrl = `/api/sermon-poster/${encodeURIComponent(hero.videoId)}?title=${encodeURIComponent(hero.title || '')}${isThemeB ? '&theme=b' : ''}`;
     card.innerHTML = `
       <img src="${posterUrl}" alt="${escapeHtml(hero.title || '')}" onerror="this.onerror=null;this.src='${escapeHtml(hero.thumbnail)}';" />
       <div class="sermon-hero-label">주일 예배 설교</div>
@@ -2504,7 +2505,11 @@
   // 큐티(#qt)보다 위쪽 섹션(사이트정보·메뉴·설교·찬양·게시판·큐티)의 데이터만 스크롤
   // 위치 계산에 영향을 줍니다. 아래쪽 섹션(선교·퀴즈)은 화면 공개를 굳이 기다릴
   // 필요가 없어서, 느린 네트워크에서도 화면이 빨리 뜨도록 따로 분리해 불러옵니다.
-  const dataReadyForScroll = Promise.all([loadSite(), loadMenu(), loadSermons(), loadPraises(), loadBoard(), loadQT()])
+  // loadSite()가 먼저 끝나야 <html>에 theme-b 클래스가 확정되고, 그 다음에 설교 등을
+  // 불러와야 설교 히어로 이미지가 처음부터 정확한 컨셉(A/B)으로 요청됩니다. (동시에 실행하면
+  // 어느 쪽이 먼저 끝날지 몰라, 첫 화면에서만 컨셉이 잘못 표시될 위험이 있었습니다)
+  const dataReadyForScroll = loadSite()
+    .then(() => Promise.all([loadMenu(), loadSermons(), loadPraises(), loadBoard(), loadQT()]))
     .catch((err) => {
       console.error('콘텐츠를 불러오는 중 오류가 발생했습니다:', err);
     });
