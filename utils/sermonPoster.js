@@ -341,7 +341,7 @@ async function generateSermonPoster({
     if (isThemeB) {
       sourceForResize = await sharp(photoBuffer).trim().toBuffer();
     }
-    const targetH = Math.round(H * (isThemeB ? 1.32 : 1.06)); // trim 적용 후에도 세로 여백이 안 커지도록 배율 유지
+    const targetH = Math.round(H * (isThemeB ? 1.16 : 1.06)); // 배율 완화
     const cutoutBuf = await sharp(sourceForResize)
       .resize({ height: targetH, fit: 'inside', withoutEnlargement: false })
       .ensureAlpha()
