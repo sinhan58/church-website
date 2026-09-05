@@ -334,8 +334,15 @@ async function generateSermonPoster({
     // 사진 확대 비율은 항상 컨셉A 캔버스(H=675) 기준으로 계산합니다 — 오늘 처음
     // 만들었을 때 잘 나왔던(안 잘렸던) 바로 그 방식입니다. 컨셉B 캔버스가 세로로
     // 늘어난 건 사진 크기가 아니라 여백 배치에만 씁니다.
-    const targetH = Math.round(H * (isThemeB ? 1.32 : 1.06)); // 컨셉B만 더 키움
-    const cutoutBuf = await sharp(photoBuffer)
+    // 컨셉B만: 원본 사진 실측 결과, 사람이 전체 캔버스의 가로 67%·세로 64%만 차지하고
+    // 나머지는 흰 여백이었습니다. 이 여백을 먼저 잘라내면(trim), 같은 폭 안에서
+    // 사람만 훨씬 크게 보여줄 수 있어서 "커지면 옆으로 넘친다"는 문제 자체가 줄어듭니다.
+    let sourceForResize = photoBuffer;
+    if (isThemeB) {
+      sourceForResize = await sharp(photoBuffer).trim().toBuffer();
+    }
+    const targetH = Math.round(H * (isThemeB ? 1.06 : 1.06)); // trim으로 이미 커져서, 배율은 안전하게
+    const cutoutBuf = await sharp(sourceForResize)
       .resize({ height: targetH, fit: 'inside', withoutEnlargement: false })
       .ensureAlpha()
       .png()
