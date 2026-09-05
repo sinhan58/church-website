@@ -166,7 +166,7 @@ function buildTextSvg({ title, verseRef, pastorName, churchName }) {
 // 원본(buildTextSvg)과 로직 흐름은 같지만, 좌표·크기 값들만 컨셉B의 넓어진 캔버스(W_B/H_B)에
 // 맞게 다시 잡았습니다. 원본 함수는 이 함수와 완전히 독립적이라 서로 영향을 주지 않습니다.
 function buildTextSvgB({ title, verseRef, pastorName, churchName }) {
-  const textX = 16; // 왼쪽 여백을 더 줄임 (기존 40에서 약 2cm 더 왼쪽으로)
+  const textX = 4; // 왼쪽 여백을 한 번 더 줄임
   const textMaxWidth = W_B - PHOTO_W_B - textX - 40;
 
   let titleFontSize = 66;
@@ -331,7 +331,10 @@ async function generateSermonPoster({
     // 컨셉B는 캔버스가 늘어난 만큼 사진도 더 크게 키웁니다(사진 하단이 캔버스 맨
     // 아래에 딱 붙도록). 이전에 "잘린다"고 느끼셨던 원인은 사실 이 계산이 아니라
     // CSS 쪽에서 이미지를 아래로 밀어내던 값 때문이었고, 그건 별도로 고쳤습니다.
-    const targetH = Math.round(canvasH * (isThemeB ? 1.0 : 1.06));
+    // 사진 확대 비율은 항상 컨셉A 캔버스(H=675) 기준으로 계산합니다 — 오늘 처음
+    // 만들었을 때 잘 나왔던(안 잘렸던) 바로 그 방식입니다. 컨셉B 캔버스가 세로로
+    // 늘어난 건 사진 크기가 아니라 여백 배치에만 씁니다.
+    const targetH = Math.round(H * 1.06);
     const cutoutBuf = await sharp(photoBuffer)
       .resize({ height: targetH, fit: 'inside', withoutEnlargement: false })
       .ensureAlpha()
