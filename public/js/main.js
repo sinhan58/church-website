@@ -926,7 +926,7 @@
       card.innerHTML = `<div class="sermon-empty" style="height:100%; display:flex; align-items:center; justify-content:center;">이 테마의 설교가 아직 없어요.</div>`;
       return;
     }
-    const isThemeB = document.documentElement.classList.contains('theme-b');
+    const isThemeB = document.documentElement.classList.contains('theme-b') && window.matchMedia('(min-width: 861px)').matches;
     const posterUrl = `/api/sermon-poster/${encodeURIComponent(hero.videoId)}?title=${encodeURIComponent(hero.title || '')}${isThemeB ? '&theme=b' : ''}`;
     card.innerHTML = `
       <img src="${posterUrl}" alt="${escapeHtml(hero.title || '')}" onerror="this.onerror=null;this.src='${escapeHtml(hero.thumbnail)}';" />
