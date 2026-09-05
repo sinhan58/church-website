@@ -72,7 +72,10 @@ router.get('/sermon-poster/:videoId', async (req, res) => {
     // 서버에서 새로 만들어도 브라우저가 계속 예전 이미지를 쓰는 문제가 있었습니다)
     res.set('Cache-Control', 'no-cache');
 
-    if (cached && cached.title === rawTitle && cached.url) {
+    // 컨셉B는 지금 한창 디자인을 다듬는 중이라, 캐시를 아예 쓰지 않고 매번 새로 만듭니다.
+    // (제목이 안 바뀌면 캐시를 그대로 쓰는 방식이라, 코드를 고쳐도 옛날 이미지가 계속
+    // 재사용되는 혼란이 있었습니다. 컨셉B 디자인이 안정되면 다시 캐시를 쓰도록 되돌립니다.)
+    if (theme !== 'b' && cached && cached.title === rawTitle && cached.url) {
       return res.redirect(cached.url);
     }
 
