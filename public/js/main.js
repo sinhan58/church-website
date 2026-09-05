@@ -15,6 +15,20 @@
       .replace(/>/g, '&gt;');
   }
 
+  // 예배 카드의 이름("온 세대가 함께 드리는 주일예배" 등)에서, 실제 예배 이름
+  // (주일예배/수요예배/금요기도회/새벽기도회) 앞부분만 정확히 줄바꿈해줍니다.
+  // 자연스러운 줄바꿈에 맡기면 "수요예배"가 "수"+"요예배"처럼 단어 중간에서
+  // 어색하게 잘릴 수 있어서, 의도한 지점에서만 <br>을 넣어줍니다.
+  function insertServiceNameBreak(name) {
+    const escaped = escapeHtml(name || '');
+    const keywords = ['주일예배', '수요예배', '금요기도회', '새벽기도회'];
+    for (const kw of keywords) {
+      const idx = escaped.indexOf(kw);
+      if (idx > 0) return escaped.slice(0, idx) + '<br>' + escaped.slice(idx);
+    }
+    return escaped;
+  }
+
   // 관리자 페이지 리치 텍스트 에디터(Quill)에서 저장된 HTML을 안전하게 렌더링하기 위한
   // 화이트리스트 방식 정제 함수. 허용된 태그/속성만 남기고 나머지(script, on* 이벤트,
   // 위험한 style 속성 등)는 전부 제거합니다.
@@ -405,7 +419,7 @@
         <div class="service-card reveal reveal-delay-${(i % 6) + 1}">
           <div class="service-card-shape"></div>
           <div class="service-card-content${s.bold ? ' is-bold' : ''} service-card-content--${s.fontSize || 'md'}">
-            <div class="name">${escapeHtml(s.name)}</div>
+            <div class="name">${insertServiceNameBreak(s.name)}</div>
             <div class="time">${escapeHtml(s.time)}</div>
             ${s.description ? `<div class="desc">${escapeHtml(s.description)}</div>` : ''}
           </div>
@@ -439,7 +453,7 @@
         <div class="service-card">
           <div class="service-card-shape"></div>
           <div class="service-card-content${s.bold ? ' is-bold' : ''} service-card-content--${s.fontSize || 'md'}">
-            <div class="name">${escapeHtml(s.name)}</div>
+            <div class="name">${insertServiceNameBreak(s.name)}</div>
             <div class="time">${escapeHtml(s.time)}</div>
             ${s.description ? `<div class="desc">${escapeHtml(s.description)}</div>` : ''}
           </div>
