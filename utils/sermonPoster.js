@@ -166,7 +166,7 @@ function buildTextSvg({ title, verseRef, pastorName, churchName }) {
 // 원본(buildTextSvg)과 로직 흐름은 같지만, 좌표·크기 값들만 컨셉B의 넓어진 캔버스(W_B/H_B)에
 // 맞게 다시 잡았습니다. 원본 함수는 이 함수와 완전히 독립적이라 서로 영향을 주지 않습니다.
 function buildTextSvgB({ title, verseRef, pastorName, churchName }) {
-  const textX = 4; // 왼쪽 여백을 한 번 더 줄임
+  const textX = 0; // 가능한 한계까지 왼쪽으로
   const textMaxWidth = W_B - PHOTO_W_B - textX - 40;
 
   let titleFontSize = 66;
@@ -334,7 +334,7 @@ async function generateSermonPoster({
     // 사진 확대 비율은 항상 컨셉A 캔버스(H=675) 기준으로 계산합니다 — 오늘 처음
     // 만들었을 때 잘 나왔던(안 잘렸던) 바로 그 방식입니다. 컨셉B 캔버스가 세로로
     // 늘어난 건 사진 크기가 아니라 여백 배치에만 씁니다.
-    const targetH = Math.round(H * 1.06);
+    const targetH = Math.round(H * (isThemeB ? 1.14 : 1.06));
     const cutoutBuf = await sharp(photoBuffer)
       .resize({ height: targetH, fit: 'inside', withoutEnlargement: false })
       .ensureAlpha()
