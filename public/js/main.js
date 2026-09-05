@@ -338,13 +338,19 @@
   async function loadSite() {
     const site = await getJSON('/api/site');
 
-    document.documentElement.classList.toggle('theme-b', site.theme === 'b');
+    const isThemeB = site.theme === 'b';
+    document.documentElement.classList.toggle('theme-b', isThemeB);
 
     if (site.design) {
-      window.ensureGoogleFont && window.ensureGoogleFont(site.design.headingFont);
-      window.ensureGoogleFont && window.ensureGoogleFont(site.design.bodyFont);
-      const headingFamily = window.getFontFamily(site.design.headingFont, "'Noto Serif KR', serif");
-      const bodyFamily = window.getFontFamily(site.design.bodyFont, "'Pretendard', 'Noto Sans KR', sans-serif");
+      // 컨셉B가 활성화되어 있으면 site.design.themeB를, 아니면 themeA(또는 예전 방식 호환용
+      // headingFont/bodyFont)를 사용합니다.
+      const activeFontSet = isThemeB
+        ? (site.design.themeB || site.design.themeA || site.design)
+        : (site.design.themeA || site.design);
+      window.ensureGoogleFont && window.ensureGoogleFont(activeFontSet.headingFont);
+      window.ensureGoogleFont && window.ensureGoogleFont(activeFontSet.bodyFont);
+      const headingFamily = window.getFontFamily(activeFontSet.headingFont, "'Noto Serif KR', serif");
+      const bodyFamily = window.getFontFamily(activeFontSet.bodyFont, "'Pretendard', 'Noto Sans KR', sans-serif");
       document.documentElement.style.setProperty('--font-heading', headingFamily);
       document.documentElement.style.setProperty('--font-body', bodyFamily);
     }
