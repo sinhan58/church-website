@@ -64,6 +64,11 @@ html.theme-b {
 }
 
 html { scroll-behavior: smooth; }
+@media (min-width: 861px) {
+  /* 컨셉B 전용: 화면 폭이 넓어진 만큼(1600px), 글씨도 전반적으로 살짝 키웁니다.
+     rem 단위로 되어있는 사이트 전체 글씨 크기가 이 값 하나로 비례해서 커집니다. */
+  html.theme-b { font-size: 17px; }
+}
 
 body {
   margin: 0;
