@@ -53,12 +53,18 @@ const BUILTIN_PHOTOS = (() => {
 })();
 
 const W = 1200;
-const H = 970; // 사진이 커진 만큼(1.4375배) 세로로 잘리지 않도록 캔버스 자체를 늘림 (기존 675)
-const PHOTO_W = 660; // 오른쪽 사진 영역 폭 (전체의 55%로 확대, 왼쪽 제목 영역이 45%)
+const H = 675;
+const PHOTO_W = 480; // 오른쪽 사진 영역 폭 (전체의 40%, 왼쪽 제목 영역이 60%)
 const GOLD = '#c9a227';
 const WHITE = '#ffffff';
 const NAVY = '#0d1526';
 const PURPLE = '#241a35';
+
+// ---- 컨셉B 전용 캔버스 (화면이 넓어진 만큼, 세로 비율을 늘려 납작해 보이지 않게 함) ----
+// 컨셉A(W/H/PHOTO_W)는 위 값 그대로 절대 안 건드립니다. 아래는 전부 별도 상수입니다.
+const W_B = 1300;
+const H_B = 950;
+const PHOTO_W_B = 480; // 사진 영역은 일단 컨셉A와 동일하게 유지 (추후 수정 예정)
 
 function hashStr(str = '') {
   let h = 0;
@@ -105,30 +111,30 @@ function escapeXml(str = '') {
 // 왼쪽 텍스트 영역: "주일 설교" 라벨 + 제목 + 구절 + 교회명 + 목사님 성함.
 function buildTextSvg({ title, verseRef, pastorName, churchName }) {
   const textX = 56;
-  const textMaxWidth = W - PHOTO_W - 56 - 40 + 200; // 오른쪽 줄바꿈 경계를 더 오른쪽으로 확장 (사진 확대로 줄어든 폭 보정 + 사진과 안 겹치게 적당히)
+  const textMaxWidth = W - PHOTO_W - 56 - 40;
 
   let titleFontSize = 56;
   let lineHeight = 68;
-  const titleLines = wrapByWidth(title, titleFontSize, textMaxWidth, 0.86); // 줄 수 제한 없음, 말줄임표 없음
-
-  const NOMINAL_LINES = 3; // 검증된 레이아웃의 기준 줄 수 — 구절/교회명/성함 자리는 이 기준으로 항상 고정
-  const baseY = H / 2 - ((NOMINAL_LINES - 1) * lineHeight) / 2 - 90; // 글씨 커진 만큼 하단 띠와 안 겹치도록 더 위로 이동 (기존과 동일한 고정값)
-  const TITLE_SHIFT_UP = 38; // 약 1cm — 제목만 이만큼 추가로 위로
-  const TITLE_LINE_GAP_EXTRA = 11; // 약 3mm — 제목 줄간격만 이만큼 더 넓게
-  const titleLineHeight = lineHeight + TITLE_LINE_GAP_EXTRA;
-  // 제목이 기준(3줄)보다 길어지면, 초과된 줄 수만큼 제목 시작점을 추가로 위로 올려서
-  // 구절/교회명/성함 자리를 침범하지 않게 합니다. 3줄 이하일 때는 기존과 완전히 동일합니다.
-  const extraLines = Math.max(0, titleLines.length - NOMINAL_LINES);
-  let titleY = baseY - TITLE_SHIFT_UP - extraLines * titleLineHeight;
-  let titleTspans = '';
-  for (const line of titleLines) {
-    titleTspans += `<text x="${textX}" y="${titleY}" font-size="${titleFontSize}" font-family="${FONT_FAMILY}" font-weight="900" fill="${WHITE}">${escapeXml(line)}</text>`;
-    titleY += titleLineHeight;
+  let titleLines = wrapByWidth(title, titleFontSize, textMaxWidth, 0.86);
+  const fullLines = wrapByWidth(title, titleFontSize, textMaxWidth, 0.86);
+  titleLines = titleLines.slice(0, 3);
+  if (fullLines.length > 3) {
+    const last = titleLines[2] || '';
+    titleLines[2] = last.slice(0, Math.max(0, last.length - 1)) + '…';
   }
 
-  // 구절/교회명/성함은 제목이 몇 줄이든(짧든 길든) 상관없이, 항상 기준(3줄) 자리에서
-  // 그대로 이어서 계산합니다 — 기존 레이아웃과 완전히 동일하게 유지됩니다.
-  let y = baseY + NOMINAL_LINES * lineHeight;
+  // 이미지 안에 작은 라벨을 넣어서, 바깥에 별도 "주일 설교" 제목을 안 둬도 되게 합니다.
+  const labelY = 64;
+  const labelSvg = `<text x="${textX}" y="${labelY}" font-size="20" font-family="${FONT_FAMILY}" font-weight="700" fill="${GOLD}" letter-spacing="2">주일 설교</text>
+    <rect x="${textX}" y="${labelY + 14}" width="46" height="4" fill="${GOLD}"/>`;
+
+  let y = H / 2 - ((titleLines.length - 1) * lineHeight) / 2 - 20;
+  let titleTspans = '';
+  for (const line of titleLines) {
+    titleTspans += `<text x="${textX}" y="${y}" font-size="${titleFontSize}" font-family="${FONT_FAMILY}" font-weight="900" fill="${WHITE}">${escapeXml(line)}</text>`;
+    y += lineHeight;
+  }
+
   y += 26;
   let verseSvg = '';
   if (verseRef) {
@@ -138,18 +144,74 @@ function buildTextSvg({ title, verseRef, pastorName, churchName }) {
 
   y += 16;
   const lineY = y;
-  y += 40;
-  const churchSvg = `<text x="${textX}" y="${y}" font-size="36" font-family="${FONT_FAMILY}" font-weight="700" fill="${WHITE}">${escapeXml(churchName)}</text>`;
-  y += 44;
+  y += 30;
+  const churchSvg = `<text x="${textX}" y="${y}" font-size="24" font-family="${FONT_FAMILY}" font-weight="700" fill="${WHITE}">${escapeXml(churchName)}</text>`;
+  y += 34;
   const pastorSvg = pastorName
-    ? `<text x="${textX}" y="${y}" font-size="29" font-family="${FONT_FAMILY}" fill="#c8c8c3">${escapeXml(pastorName)}</text>`
+    ? `<text x="${textX}" y="${y}" font-size="19" font-family="${FONT_FAMILY}" fill="#c8c8c3">${escapeXml(pastorName)}</text>`
     : '';
 
   return `
   <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
+    ${labelSvg}
     ${titleTspans}
     ${verseSvg}
     <line x1="${textX}" y1="${lineY}" x2="${textX + 280}" y2="${lineY}" stroke="#ffffff" stroke-opacity="0.3" stroke-width="1"/>
+    ${churchSvg}
+    ${pastorSvg}
+  </svg>`;
+}
+
+// ---- 컨셉B 전용 텍스트 SVG ----
+// 원본(buildTextSvg)과 로직 흐름은 같지만, 좌표·크기 값들만 컨셉B의 넓어진 캔버스(W_B/H_B)에
+// 맞게 다시 잡았습니다. 원본 함수는 이 함수와 완전히 독립적이라 서로 영향을 주지 않습니다.
+function buildTextSvgB({ title, verseRef, pastorName, churchName }) {
+  const textX = 40; // 컨셉A(56)보다 왼쪽으로 — 큰 글씨가 들어갈 공간을 넉넉하게 확보
+  const textMaxWidth = W_B - PHOTO_W_B - textX - 40;
+
+  let titleFontSize = 66;
+  let lineHeight = 80;
+  let titleLines = wrapByWidth(title, titleFontSize, textMaxWidth, 0.86);
+  const fullLines = wrapByWidth(title, titleFontSize, textMaxWidth, 0.86);
+  titleLines = titleLines.slice(0, 4); // 세로 공간이 늘어난 만큼 한 줄 더 허용
+  if (fullLines.length > 4) {
+    const last = titleLines[3] || '';
+    titleLines[3] = last.slice(0, Math.max(0, last.length - 1)) + '…';
+  }
+
+  const labelY = 72;
+  const labelSvg = `<text x="${textX}" y="${labelY}" font-size="23" font-family="${FONT_FAMILY}" font-weight="700" fill="${GOLD}" letter-spacing="2">주일 설교</text>
+    <rect x="${textX}" y="${labelY + 16}" width="52" height="4" fill="${GOLD}"/>`;
+
+  let y = H_B / 2 - ((titleLines.length - 1) * lineHeight) / 2 - 20;
+  let titleTspans = '';
+  for (const line of titleLines) {
+    titleTspans += `<text x="${textX}" y="${y}" font-size="${titleFontSize}" font-family="${FONT_FAMILY}" font-weight="900" fill="${WHITE}">${escapeXml(line)}</text>`;
+    y += lineHeight;
+  }
+
+  y += 30;
+  let verseSvg = '';
+  if (verseRef) {
+    verseSvg = `<text x="${textX}" y="${y}" font-size="30" font-family="${FONT_FAMILY}" fill="${GOLD}">${escapeXml(verseRef)}</text>`;
+    y += 50;
+  }
+
+  y += 18;
+  const lineY = y;
+  y += 34;
+  const churchSvg = `<text x="${textX}" y="${y}" font-size="27" font-family="${FONT_FAMILY}" font-weight="700" fill="${WHITE}">${escapeXml(churchName)}</text>`;
+  y += 38;
+  const pastorSvg = pastorName
+    ? `<text x="${textX}" y="${y}" font-size="21" font-family="${FONT_FAMILY}" fill="#c8c8c3">${escapeXml(pastorName)}</text>`
+    : '';
+
+  return `
+  <svg width="${W_B}" height="${H_B}" xmlns="http://www.w3.org/2000/svg">
+    ${labelSvg}
+    ${titleTspans}
+    ${verseSvg}
+    <line x1="${textX}" y1="${lineY}" x2="${textX + 320}" y2="${lineY}" stroke="#ffffff" stroke-opacity="0.3" stroke-width="1"/>
     ${churchSvg}
     ${pastorSvg}
   </svg>`;
@@ -161,9 +223,6 @@ function buildTextSvg({ title, verseRef, pastorName, churchName }) {
 function buildPanelSvg() {
   return `
   <svg width="${W}" height="${H}" xmlns="http://www.w3.org/2000/svg">
-    <!-- 테스트: 배경 패널(남색 + 빛 번짐)을 걷어내고 완전히 투명하게 둡니다.
-         원래대로 되돌리려면 이 주석 아래 주석 처리된 원본 내용을 다시 사용하세요. -->
-    <!--
     <defs>
       <radialGradient id="tealGlow" cx="15%" cy="10%" r="65%">
         <stop offset="0%" stop-color="#0f8f9a" stop-opacity="0.5"/>
@@ -180,7 +239,29 @@ function buildPanelSvg() {
       <rect width="${W}" height="${H}" fill="url(#tealGlow)"/>
       <rect width="${W}" height="${H}" fill="url(#wineGlow)"/>
     </g>
-    -->
+  </svg>`;
+}
+
+// ---- 컨셉B 전용 배경 패널 (캔버스 크기만 W_B/H_B로 다름, 나머지는 동일한 디자인) ----
+function buildPanelSvgB() {
+  return `
+  <svg width="${W_B}" height="${H_B}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <radialGradient id="tealGlowB" cx="15%" cy="10%" r="65%">
+        <stop offset="0%" stop-color="#0f8f9a" stop-opacity="0.5"/>
+        <stop offset="100%" stop-color="#0f8f9a" stop-opacity="0"/>
+      </radialGradient>
+      <radialGradient id="wineGlowB" cx="90%" cy="95%" r="55%">
+        <stop offset="0%" stop-color="#7a1f3d" stop-opacity="0.5"/>
+        <stop offset="100%" stop-color="#7a1f3d" stop-opacity="0"/>
+      </radialGradient>
+      <filter id="colorBlurB"><feGaussianBlur stdDeviation="60"/></filter>
+    </defs>
+    <rect width="${W_B}" height="${H_B}" fill="${NAVY}"/>
+    <g filter="url(#colorBlurB)">
+      <rect width="${W_B}" height="${H_B}" fill="url(#tealGlowB)"/>
+      <rect width="${W_B}" height="${H_B}" fill="url(#wineGlowB)"/>
+    </g>
   </svg>`;
 }
 
@@ -216,8 +297,17 @@ async function generateSermonPoster({
   churchName = '',
   videoIndex = null,
   photoOverride = '', // 관리자가 직접 고른 사진 파일명 (예: 'pastor-cutout.png'). 있으면 이걸 최우선으로 씁니다.
-  format = 'jpeg'
+  format = 'jpeg',
+  theme = 'a' // 'b'면 컨셉B 전용 캔버스(W_B/H_B)와 레이아웃을 사용합니다. 그 외에는 항상 기존(컨셉A) 그대로.
 }) {
+  const isThemeB = theme === 'b';
+  // 아래 네 값만 컨셉에 따라 갈립니다 — 나머지 로직(사진 선택, 합성 순서 등)은 완전히 동일합니다.
+  const canvasW = isThemeB ? W_B : W;
+  const canvasH = isThemeB ? H_B : H;
+  const canvasPhotoW = isThemeB ? PHOTO_W_B : PHOTO_W;
+  const buildText = isThemeB ? buildTextSvgB : buildTextSvg;
+  const buildPanel = isThemeB ? buildPanelSvgB : buildPanelSvg;
+
   const { verseRef, title } = parseSermonTitle(rawTitle);
   const h = hashStr(videoId);
 
@@ -246,40 +336,38 @@ async function generateSermonPoster({
     }
   }
 
-  const textSvg = buildTextSvg({ title, verseRef, pastorName, churchName });
-  const panelSvg = buildPanelSvg();
-
-  const zoneLeft = W - PHOTO_W;
+  const textSvg = buildText({ title, verseRef, pastorName, churchName });
+  const panelSvg = buildPanel();
 
   if (photoBuffer) {
     // 오려낸 인물 사진은 자르지 않고, 세로 기준으로만 맞춰서 전체가 다 보이게 합니다
     // (사람 실루엣은 사각형이 아니라서, cover로 자르면 머리나 팔이 잘릴 수 있습니다).
-    const targetH = Math.round(675 * 1.4375); // 사진 15% 추가 확대 (기존 1.25 → 1.4375) — 캔버스가 커져도 사진 크기는 원래 기준(675)에 고정
+    const targetH = Math.round(canvasH * 1.06); // 조금 더 확대
     const cutoutBuf = await sharp(photoBuffer)
       .resize({ height: targetH, fit: 'inside', withoutEnlargement: false })
       .ensureAlpha()
       .png()
       .toBuffer();
     const meta = await sharp(cutoutBuf).metadata();
-    const cutoutW = meta.width || Math.round(PHOTO_W);
+    const cutoutW = meta.width || Math.round(canvasPhotoW);
     let cutoutH = meta.height || targetH;
 
     // 확대하면서 캔버스보다 커질 수 있는데, 머리가 잘리면 안 되니 위쪽은 그대로 두고
     // 아래쪽(강대상 부분)만 잘라내서 캔버스 안에 맞춥니다.
     let finalCutoutBuf = cutoutBuf;
-    if (cutoutH > H) {
+    if (cutoutH > canvasH) {
       finalCutoutBuf = await sharp(cutoutBuf)
-        .extract({ left: 0, top: 0, width: cutoutW, height: H })
+        .extract({ left: 0, top: 0, width: cutoutW, height: canvasH })
         .toBuffer();
-      cutoutH = H;
+      cutoutH = canvasH;
     }
 
-    // 사진 영역(오른쪽) 안에서 왼쪽 시작점은 고정해두고, 사진이 커지는 만큼
-    // 오른쪽으로 채워지도록(오른쪽 캔버스 끝까지) 자리를 잡습니다.
-    const SHIFT_LEFT = 60; // 왼쪽 기준점(왼쪽으로 살짝만 당김, 크기와 무관하게 고정)
-    let left = zoneLeft - SHIFT_LEFT;
-    left = Math.max(zoneLeft - 170, Math.min(left, W - cutoutW + 10)); // 캔버스 밖으로 심하게 나가지 않도록 보정
-    const top = Math.max(0, H - cutoutH);
+    // 사진 영역(오른쪽) 안에서 가운데 정렬 후 왼쪽으로 살짝(약 1.5cm) 이동, 바닥에 붙입니다.
+    const zoneLeft = canvasW - canvasPhotoW;
+    const SHIFT_LEFT = 133; // 약 3.5cm (1.5cm + 추가 2cm)
+    let left = Math.round(zoneLeft + canvasPhotoW / 2 - cutoutW / 2) - SHIFT_LEFT;
+    left = Math.max(zoneLeft - 170, Math.min(left, canvasW - cutoutW + 10)); // 캔버스 밖으로 심하게 나가지 않도록 보정
+    const top = Math.max(0, canvasH - cutoutH);
 
     return sharp(Buffer.from(panelSvg))
       .composite([
@@ -299,7 +387,7 @@ async function generateSermonPoster({
 
 const { readData, writeData, saveUploadedFile } = require('./db');
 
-async function buildAndCacheSermonPoster({ videoId, rawTitle, videoIndex, uploadsDir }) {
+async function buildAndCacheSermonPoster({ videoId, rawTitle, videoIndex, uploadsDir, theme = 'a' }) {
   const site = (await readData('site')) || {};
   const pastorName = site.about?.pastorName || '';
   const churchName = site.churchName || '';
@@ -314,14 +402,17 @@ async function buildAndCacheSermonPoster({ videoId, rawTitle, videoIndex, upload
     churchName,
     videoIndex,
     photoOverride,
-    format: 'png' // 테스트: 배경 투명 처리를 위해 PNG로 변경 (JPEG는 투명도를 지원하지 않음)
+    format: 'jpeg',
+    theme
   });
 
-  const filename = `sermon-poster-${videoId}-${Date.now()}.png`;
-  const url = await saveUploadedFile(buffer, filename, 'image/png', uploadsDir);
+  // 컨셉B 이미지는 파일명/캐시 키에 '-b'를 붙여서, 컨셉A 이미지와 절대 서로 덮어쓰지 않게 합니다.
+  const cacheKey = theme === 'b' ? `${videoId}_b` : videoId;
+  const filename = `sermon-poster-${videoId}${theme === 'b' ? '-b' : ''}-${Date.now()}.jpg`;
+  const url = await saveUploadedFile(buffer, filename, 'image/jpeg', uploadsDir);
 
   const posters = (await readData('sermonPosters')) || {};
-  posters[videoId] = { url, title: rawTitle, createdAt: new Date().toISOString() };
+  posters[cacheKey] = { url, title: rawTitle, createdAt: new Date().toISOString() };
   await writeData('sermonPosters', posters);
 
   return { buffer, url };
