@@ -375,7 +375,7 @@ async function generateSermonPoster({
       }
       sourceForResize = await sharp(data, { raw: info }).png().toBuffer();
     }
-    const targetH = Math.round(H * (isThemeB ? 1.16 : 1.06)); // 배율 완화
+    const targetH = Math.round(H * (isThemeB ? 1.08 : 1.06)); // 배율 축소
     const cutoutBuf = await sharp(sourceForResize)
       .resize({ height: targetH, fit: 'inside', withoutEnlargement: false })
       .ensureAlpha()
