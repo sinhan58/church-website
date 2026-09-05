@@ -334,7 +334,7 @@ async function generateSermonPoster({
     // 사진 확대 비율은 항상 컨셉A 캔버스(H=675) 기준으로 계산합니다 — 오늘 처음
     // 만들었을 때 잘 나왔던(안 잘렸던) 바로 그 방식입니다. 컨셉B 캔버스가 세로로
     // 늘어난 건 사진 크기가 아니라 여백 배치에만 씁니다.
-    const targetH = Math.round(H * (isThemeB ? 1.22 : 1.06)); // 컨셉B만 더 키움
+    const targetH = Math.round(H * (isThemeB ? 1.32 : 1.06)); // 컨셉B만 더 키움
     const cutoutBuf = await sharp(photoBuffer)
       .resize({ height: targetH, fit: 'inside', withoutEnlargement: false })
       .ensureAlpha()
@@ -356,7 +356,7 @@ async function generateSermonPoster({
 
     // 사진 영역(오른쪽) 안에서 가운데 정렬 후 왼쪽으로 살짝(약 1.5cm) 이동, 바닥에 붙입니다.
     const zoneLeft = canvasW - canvasPhotoW;
-    const SHIFT_LEFT = 133; // 약 3.5cm (1.5cm + 추가 2cm)
+    const SHIFT_LEFT = isThemeB ? 60 : 133; // 컨셉B는 오른쪽으로 더 붙게 이동량을 줄임
     let left = Math.round(zoneLeft + canvasPhotoW / 2 - cutoutW / 2) - SHIFT_LEFT;
     left = Math.max(left, zoneLeft - 170); // 너무 왼쪽으로 가지 않도록
     left = Math.min(left, canvasW - cutoutW + 10); // 그 다음, 오른쪽으로 넘치지 않도록 (이 제한이 최종적으로 이깁니다)
