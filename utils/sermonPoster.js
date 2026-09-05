@@ -345,37 +345,9 @@ async function generateSermonPoster({
     // 흰색 부분은 배경과 안 이어져 있으니 그대로 남깁니다.
     let sourceForResize = photoBuffer;
     if (isThemeB) {
-      const trimmed = await sharp(photoBuffer).trim().ensureAlpha().raw().toBuffer({ resolveWithObject: true });
-      const { data, info } = trimmed;
-      const { width, height, channels } = info;
-      const WHITE_THRESHOLD = 235;
-      const isWhite = (x, y) => {
-        const idx = (y * width + x) * channels;
-        return data[idx] >= WHITE_THRESHOLD && data[idx + 1] >= WHITE_THRESHOLD && data[idx + 2] >= WHITE_THRESHOLD;
-      };
-      const visited = new Uint8Array(width * height);
-      const stack = [];
-      // 네 가장자리의 흰 픽셀들을 시작점으로 등록
-      for (let x = 0; x < width; x++) {
-        if (isWhite(x, 0)) stack.push([x, 0]);
-        if (isWhite(x, height - 1)) stack.push([x, height - 1]);
-      }
-      for (let y = 0; y < height; y++) {
-        if (isWhite(0, y)) stack.push([0, y]);
-        if (isWhite(width - 1, y)) stack.push([width - 1, y]);
-      }
-      while (stack.length) {
-        const [x, y] = stack.pop();
-        const vIdx = y * width + x;
-        if (x < 0 || y < 0 || x >= width || y >= height || visited[vIdx]) continue;
-        if (!isWhite(x, y)) continue;
-        visited[vIdx] = 1;
-        data[(y * width + x) * channels + 3] = 0; // 배경과 이어진 흰 픽셀만 투명 처리
-        stack.push([x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]);
-      }
-      sourceForResize = await sharp(data, { raw: info }).png().toBuffer();
+      sourceForResize = await sharp(photoBuffer).trim().toBuffer();
     }
-    const targetH = Math.round(H * (isThemeB ? 1.08 : 1.06)); // 배율 축소
+    const targetH = Math.round(H * (isThemeB ? 1.0 : 1.06)); // 배율 축소
     const cutoutBuf = await sharp(sourceForResize)
       .resize({ height: targetH, fit: 'inside', withoutEnlargement: false })
       .ensureAlpha()
