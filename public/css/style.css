@@ -813,6 +813,11 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
      밀려나 잘립니다. 컨셉B에서는 이동 없이 그대로 둡니다. */
   html.theme-b .sermon-hero-card img { transform: translateY(0); }
   html.theme-b .sermon-hero-card:hover img { transform: translateY(0); }
+  /* 창 폭에 따라 카드 박스의 가로세로 비율이 계속 바뀌는데, 가운데 정렬(50%)이면
+     박스가 넓어질수록 이미지 왼쪽에 빈 여백이 생겨서 제목 위치가 창 크기마다
+     달라져 보입니다. 왼쪽 정렬(0%)로 바꾸면 빈 여백이 항상 오른쪽(사진 쪽)에만
+     생겨서, 제목은 창 크기와 상관없이 항상 박스 왼쪽 끝에 고정됩니다. */
+  html.theme-b .sermon-hero-card img { object-position: 0% 0%; }
 }
 .sermon-hero-card:hover { transform: translateY(-6px); box-shadow: 0 16px 40px rgba(0,0,0,0.45), 0 0 0 1px rgba(228,200,118,0.35); }
 .sermon-hero-card .sermon-hero-play {
