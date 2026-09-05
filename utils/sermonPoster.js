@@ -347,7 +347,7 @@ async function generateSermonPoster({
     if (isThemeB) {
       sourceForResize = await sharp(photoBuffer).trim().toBuffer();
     }
-    const targetH = Math.round((isThemeB ? canvasH * 0.6 : H * 1.06)); // 컨셉B 많이 축소
+    const targetH = Math.round((isThemeB ? canvasH * 0.85 : H * 1.06)); // 컨셉B 확대
     const cutoutBuf = await sharp(sourceForResize)
       .resize({ height: targetH, fit: 'inside', withoutEnlargement: false })
       .ensureAlpha()
@@ -369,7 +369,7 @@ async function generateSermonPoster({
 
     // 사진 영역(오른쪽) 안에서 가운데 정렬 후 왼쪽으로 살짝(약 1.5cm) 이동, 바닥에 붙입니다.
     const zoneLeft = canvasW - canvasPhotoW;
-    const SHIFT_LEFT = isThemeB ? 80 : 133; // 왼쪽으로 이동
+    const SHIFT_LEFT = isThemeB ? 20 : 133; // 오른쪽으로 커지도록 이동량 줄임
     let left = Math.round(zoneLeft + canvasPhotoW / 2 - cutoutW / 2) - SHIFT_LEFT;
     left = Math.max(left, zoneLeft - 170); // 너무 왼쪽으로 가지 않도록
     const rightSlack = isThemeB ? 80 : 10;
