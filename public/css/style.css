@@ -852,11 +852,10 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   border-bottom: 3px solid var(--gold);
 }
 /* 컨셉B 전용 포스터 이미지는 라벨·교회명·목사님 성함이 이미 이미지 안에 다 포함되어
-   있어서, 이 CSS 오버레이들을 그대로 두면 같은 내용이 이미지와 겹쳐 보입니다.
-   그래서 컨셉B의 PC 화면에서만 이 두 오버레이를 숨깁니다 (모바일은 항상 예전 그대로). */
+   있어서, 이 CSS 오버레이를 그대로 두면 같은 내용이 이미지와 겹쳐 보입니다.
+   그래서 컨셉B의 PC 화면에서만 라벨만 숨깁니다 (아래쪽 띠는 살려달라는 요청으로 유지, 모바일은 항상 예전 그대로). */
 @media (min-width: 861px) {
-  html.theme-b .sermon-hero-label,
-  html.theme-b .sermon-hero-band {
+  html.theme-b .sermon-hero-label {
     display: none;
   }
 }
