@@ -681,6 +681,65 @@ router.put('/qt-bg-pool', requirePermission('qt'), async (req, res) => {
   }
 });
 
+// ---------- 목회 칼럼 관리 ----------
+// "오늘의 큐티" 옆 카드 하나로 노출되는 목회 칼럼입니다. 제목/말씀 구절은 그 주의
+// 최신 설교 영상 제목에서 자동으로 뽑아오고(관리자가 자동 채우기 버튼을 누르면),
+// 본문(칼럼 내용)은 관리자가 직접 붙여넣거나 입력합니다.
+router.get('/column', async (req, res) => {
+  try {
+    const columns = (await readData('columns')) || [];
+    res.json([...columns].sort((a, b) => new Date(b.date) - new Date(a.date)));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/column', requirePermission('qt'), async (req, res) => {
+  try {
+    const columns = (await readData('columns')) || [];
+    const item = {
+      id: makeId('column'),
+      date: req.body.date || new Date().toISOString().slice(0, 10),
+      title: req.body.title || '',
+      verseRef: req.body.verseRef || '',
+      body: req.body.body || '',
+      pastor: req.body.pastor || '',
+      createdAt: new Date().toISOString()
+    };
+    columns.unshift(item);
+    await writeData('columns', columns);
+    res.json(item);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.put('/column/:id', requirePermission('qt'), async (req, res) => {
+  try {
+    const columns = (await readData('columns')) || [];
+    const idx = columns.findIndex((c) => c.id === req.params.id);
+    if (idx === -1) return res.status(404).json({ error: '칼럼을 찾을 수 없습니다.' });
+    const { id, createdAt, ...editable } = req.body;
+    columns[idx] = { ...columns[idx], ...editable };
+    await writeData('columns', columns);
+    res.json(columns[idx]);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.delete('/column/:id', requirePermission('qt'), async (req, res) => {
+  try {
+    const columns = (await readData('columns')) || [];
+    const filtered = columns.filter((c) => c.id !== req.params.id);
+    await writeData('columns', filtered);
+    await cancelScheduledPushesFor('column', req.params.id);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 // 유튜브 URL이나 영상ID를 그대로 받아서 11자리 영상ID만 뽑아냅니다.
 function extractYoutubeId(input = '') {
   const s = String(input).trim();
