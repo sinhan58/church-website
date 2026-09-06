@@ -349,8 +349,10 @@
   }
 
   let serviceAutoScrollStop = null;
+  let currentSiteData = null; // 다른 함수(설교 히어로 등)에서 교회명/목사님 성함 등을 참조하기 위해 저장
   async function loadSite() {
     const site = await getJSON('/api/site');
+    currentSiteData = site;
 
     const isThemeB = site.theme === 'b';
     document.documentElement.classList.toggle('theme-b', isThemeB);
@@ -919,6 +921,17 @@
     return pool[0] || null;
   }
 
+  // sermonPoster.js의 parseSermonTitle과 동일한 로직 — "주일예배 20260830 사도행전..."
+  // 형태에서 날짜/머리말을 떼어내고 성경구절과 본 제목을 분리합니다.
+  function parseSermonTitleClient(raw = '') {
+    let t = raw.replace(/주일예배/g, '');
+    t = t.replace(/\b\d{8}\b/g, '').trim().replace(/^[-_·\s]+|[-_·\s]+$/g, '');
+    t = t.replace(/\s{2,}/g, ' ');
+    const m = t.match(/^([가-힣]+\s?\d+장\s?\d+(?:[~\-]\d+)?절(?:,\s?\d+(?:[~\-]\d+)?절)*)\s*(.*)$/);
+    if (m) return { verseRef: m[1].trim(), title: m[2].trim() || t };
+    return { verseRef: '', title: t };
+  }
+
   function renderSermonHero() {
     const card = $('#sermon-hero-card');
     const hero = currentHeroVideo();
@@ -927,14 +940,37 @@
       return;
     }
     const isThemeB = document.documentElement.classList.contains('theme-b') && window.matchMedia('(min-width: 861px)').matches;
-    const posterUrl = `/api/sermon-poster/${encodeURIComponent(hero.videoId)}?title=${encodeURIComponent(hero.title || '')}${isThemeB ? '&theme=b' : ''}`;
-    card.innerHTML = `
-      <img src="${posterUrl}" alt="${escapeHtml(hero.title || '')}" onerror="this.onerror=null;this.src='${escapeHtml(hero.thumbnail)}';" />
-      <div class="sermon-hero-label">주일 예배 설교</div>
-      <span class="sermon-hero-play" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.5 7.5v9l8-4.5-8-4.5z"/></svg>
-      </span>
-      <div class="sermon-hero-band">MULDAEN DONGSAN CHURCH</div>`;
+
+    if (isThemeB) {
+      // 컨셉B: 서버에서 이미지를 합성하지 않고, 사진은 배경으로 깔고 글씨는 CSS로 얹습니다.
+      // (화면 표시 전용이라 공유 미리보기가 필요 없어서, 훨씬 빠르고 위치 조정도 쉬운 이 방식을 씁니다)
+      const { verseRef, title } = parseSermonTitleClient(hero.title || '');
+      const churchName = (currentSiteData && currentSiteData.churchName) || '';
+      const pastorName = (currentSiteData && currentSiteData.about && currentSiteData.about.pastorName) || '';
+      card.innerHTML = `
+        <div class="sermon-hero-b-photo" style="background-image:url('/api/sermon-photo')"></div>
+        <div class="sermon-hero-b-text">
+          <div class="sermon-hero-b-label">주일 예배 설교</div>
+          <h3 class="sermon-hero-b-title">${escapeHtml(title)}</h3>
+          ${verseRef ? `<p class="sermon-hero-b-verse">${escapeHtml(verseRef)}</p>` : ''}
+          <div class="sermon-hero-b-line"></div>
+          <p class="sermon-hero-b-church">${escapeHtml(churchName)}</p>
+          ${pastorName ? `<p class="sermon-hero-b-pastor">${escapeHtml(pastorName)}</p>` : ''}
+        </div>
+        <span class="sermon-hero-play" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.5 7.5v9l8-4.5-8-4.5z"/></svg>
+        </span>
+        <div class="sermon-hero-band">MULDAEN DONGSAN CHURCH</div>`;
+    } else {
+      const posterUrl = `/api/sermon-poster/${encodeURIComponent(hero.videoId)}?title=${encodeURIComponent(hero.title || '')}`;
+      card.innerHTML = `
+        <img src="${posterUrl}" alt="${escapeHtml(hero.title || '')}" onerror="this.onerror=null;this.src='${escapeHtml(hero.thumbnail)}';" />
+        <div class="sermon-hero-label">주일 예배 설교</div>
+        <span class="sermon-hero-play" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.5 7.5v9l8-4.5-8-4.5z"/></svg>
+        </span>
+        <div class="sermon-hero-band">MULDAEN DONGSAN CHURCH</div>`;
+    }
     card.dataset.videoId = hero.videoId;
     card.onclick = () => {
       track('click', {
