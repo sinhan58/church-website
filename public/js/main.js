@@ -961,6 +961,17 @@
           <svg viewBox="0 0 24 24" fill="currentColor"><path d="M9.5 7.5v9l8-4.5-8-4.5z"/></svg>
         </span>
         <div class="sermon-hero-band">MULDAEN DONGSAN CHURCH</div>`;
+
+      // 제목이 길어서 4줄 이상으로 줄바꿈되면, 원래 "한 줄 아래에서 시작"하던 여백을
+      // 없애서 그만큼 위로 올려줍니다 — 그래야 늘어난 줄 수만큼 아래 내용이 밀려나도
+      // 카드 안에 다 들어갑니다.
+      requestAnimationFrame(() => {
+        const titleEl = card.querySelector('.sermon-hero-b-title');
+        if (!titleEl) return;
+        const lineHeightPx = parseFloat(getComputedStyle(titleEl).lineHeight);
+        const lineCount = Math.round(titleEl.offsetHeight / lineHeightPx);
+        titleEl.classList.toggle('sermon-hero-b-title--tall', lineCount >= 4);
+      });
     } else {
       const posterUrl = `/api/sermon-poster/${encodeURIComponent(hero.videoId)}?title=${encodeURIComponent(hero.title || '')}`;
       card.innerHTML = `
