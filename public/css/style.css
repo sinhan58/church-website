@@ -881,6 +881,9 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   margin: 2.73rem 0 36px; /* 제목 한 줄 높이만큼 아래로 시작 */
   word-break: keep-all;
 }
+.sermon-hero-b-title--tall {
+  margin-top: 0; /* 4줄 이상이면 여백 없이 위에서부터 시작 (그래야 4줄이 다 들어감) */
+}
 .sermon-hero-b-verse {
   color: var(--gold);
   font-size: 1.15rem;
