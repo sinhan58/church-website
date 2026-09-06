@@ -372,7 +372,7 @@ async function generateSermonPoster({
     const SHIFT_LEFT = isThemeB ? 20 : 133; // 오른쪽으로 커지도록 이동량 줄임
     let left = Math.round(zoneLeft + canvasPhotoW / 2 - cutoutW / 2) - SHIFT_LEFT;
     left = Math.max(left, zoneLeft - 170); // 너무 왼쪽으로 가지 않도록
-    const rightSlack = isThemeB ? 80 : 10;
+    const rightSlack = isThemeB ? 0 : 10;
     left = Math.min(left, canvasW - cutoutW + rightSlack); // 그 다음, 오른쪽으로 넘치지 않도록 (이 제한이 최종적으로 이깁니다)
     const top = Math.max(0, canvasH - cutoutH);
 
@@ -457,5 +457,6 @@ module.exports = {
   buildAndCacheSermonPoster,
   pregenerateMissingSermonPosters,
   listBuiltinPhotoFilenames,
-  pickSermonPhotoSource
+  pickSermonPhotoSource,
+  getBuiltinPhotoPaths: () => BUILTIN_PHOTOS
 };
