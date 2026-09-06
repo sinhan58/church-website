@@ -178,6 +178,14 @@ app.get(['/admin', '/admin/'], (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'admin', 'index.html'));
 });
 
+// 안전장치: 로그인 폼은 자바스크립트(fetch)로만 제출되어야 하는데, 어떤 이유로든
+// (스크립트 로딩 지연, 브라우저 확장 프로그램 등) 브라우저가 그 폼을 그대로 제출해버리면
+// "Cannot POST /admin/" 이라는 낯선 에러 화면이 떠버립니다. 그런 경우에도 에러 대신
+// 그냥 관리자 로그인 화면으로 다시 보내줘서, 다시 로그인을 시도할 수 있게 합니다.
+app.post(['/admin', '/admin/'], (req, res) => {
+  res.redirect('/admin');
+});
+
 // 그 외 경로는 메인 홈페이지로 (마찬가지로 글씨체를 미리 반영해서 보냅니다)
 app.get('*', async (req, res, next) => {
   try {
