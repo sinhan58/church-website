@@ -174,7 +174,13 @@ app.use('/api', apiRoutes);
 app.use('/api/admin', adminRoutes);
 
 // 관리자 화면 진입점 (SPA 형태로 로그인/대시보드를 admin.js에서 분기)
+// 이 페이지는 로그인 폼의 자바스크립트 동작이 항상 최신 상태여야 하는 페이지라서,
+// sw.js와 같은 방식으로 브라우저/CDN(Cloudflare 등)이 예전 버전을 캐싱해두고
+// 계속 보여주는 일이 없도록 캐싱을 아예 막아둡니다.
 app.get(['/admin', '/admin/'], (req, res) => {
+  res.set('Cache-Control', 'no-store, no-cache, must-revalidate, proxy-revalidate');
+  res.set('Pragma', 'no-cache');
+  res.set('Expires', '0');
   res.sendFile(path.join(__dirname, 'public', 'admin', 'index.html'));
 });
 
