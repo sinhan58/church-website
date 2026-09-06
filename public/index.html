@@ -72,7 +72,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link class="gfont-link" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;600;700&display=block" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
-<link rel="stylesheet" href="/css/style.css?v=163" />
+<link rel="stylesheet" href="/css/style.css?v=164" />
 <meta property="og:title" content="물댄동산교회 - 오산시 중앙동" />
 <meta property="og:description" content="경기도 오산시 중앙동 대동다숲(오색시장 인근)에 위치한 물댄동산교회입니다. 담임목사 이기삼." />
 <meta property="og:image" content="https://muldaen.com/uploads/0001.png" />
@@ -256,13 +256,19 @@
           </div>
         </div>
 
-        <!-- 컨셉B 전용: 큐티 카드와 말씀 퀴즈 사이 빈 공간에 카드형 버튼 두 개 -->
+        <!-- 컨셉B 전용: 큐티 카드와 말씀 퀴즈 사이 빈 공간에 카드형 버튼 세 개 -->
         <div class="qt-quiz-middle">
           <button type="button" class="qt-mid-card qt-mid-card--archive" id="qt-archive-toggle-b">
             <span class="qt-mid-card-icon">
               <svg viewBox="0 0 24 24" fill="none"><path d="M12 8v5l3 3M21 12a9 9 0 11-9-9 9 9 0 019 9z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </span>
             <span class="qt-mid-card-label">지난 큐티<br>보기</span>
+          </button>
+          <button type="button" class="qt-mid-card qt-mid-card--column" id="qt-column-card" style="display:none;">
+            <span class="qt-mid-card-icon">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20V2H6.5A2.5 2.5 0 004 4.5v15z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span class="qt-mid-card-label">목회 칼럼<br>보기</span>
           </button>
           <button type="button" class="qt-mid-card qt-mid-card--notify" id="qt-notify-card">
             <span class="qt-mid-card-icon">
@@ -450,6 +456,24 @@
   </div>
 </div>
 
+<div class="post-modal" id="column-modal">
+  <div class="post-modal-inner">
+    <div class="post-modal-sticky-head">
+      <h3 id="column-modal-title"></h3>
+    </div>
+    <div class="post-modal-scroll" id="column-modal-scroll">
+      <div class="post-modal-head">
+        <span class="badge" id="column-modal-verseref"></span>
+        <span class="date" id="column-modal-date"></span>
+      </div>
+      <div class="post-modal-content" id="column-modal-content"></div>
+    </div>
+    <div class="post-modal-footer">
+      <button class="post-modal-close" id="column-modal-close">닫기</button>
+    </div>
+  </div>
+</div>
+
 <div class="post-modal" id="mission-modal">
   <div class="post-modal-inner">
     <div class="post-modal-sticky-head">
@@ -570,6 +594,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
 <script src="/js/countries.js"></script>
 <script src="/js/font-catalog.js"></script>
-<script src="/js/main.js?v=79"></script>
+<script src="/js/main.js?v=80"></script>
 </body>
 </html>
