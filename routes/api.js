@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const path = require('path');
+const fs = require('fs');
 const { readData, writeData, makeId } = require('../utils/db');
 const { getCachedSermons } = require('../utils/youtube');
 const { buildAndCacheSermonPoster, pregenerateMissingSermonPosters, pickSermonPhotoSource } = require('../utils/sermonPoster');
@@ -57,12 +58,13 @@ router.post('/push/unsubscribe', async (req, res) => {
 // 합성하는 무거운 작업 없이 사진+글씨를 CSS로 얹는 훨씬 빠른 방식을 씁니다.
 router.get('/sermon-photo', (req, res) => {
   try {
-    const { listBuiltinPhotoFilenames } = require('../utils/sermonPoster');
-    const filenames = listBuiltinPhotoFilenames();
-    if (!filenames.length) return res.status(404).end();
-    const photoDir = path.join(__dirname, '..', 'utils', 'assets', 'sermon-card-photos');
+    const { getBuiltinPhotoPaths } = require('../utils/sermonPoster');
+    const photoPaths = getBuiltinPhotoPaths();
+    if (!photoPaths.length) return res.status(404).end();
+    const buffer = fs.readFileSync(photoPaths[0]);
     res.set('Cache-Control', 'public, max-age=86400');
-    res.sendFile(path.join(photoDir, filenames[0]));
+    res.set('Content-Type', 'image/jpeg');
+    res.send(buffer);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
