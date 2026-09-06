@@ -847,7 +847,7 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   position: absolute;
   right: 0; top: 0; bottom: 0;
   width: 62%;
-  background-size: 140%; /* cover(100%)보다 더 확대해서 사람 자체가 커 보이게 */
+  background-size: 115%; /* 살짝만 확대 */
   background-position: top center;
 }
 .sermon-hero-b-text {
