@@ -856,7 +856,7 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   width: 52%;
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start; /* "주일 예배 설교"를 상단에 고정 */
   padding: 40px 32px;
   box-sizing: border-box;
   z-index: 1;
@@ -867,7 +867,7 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   font-size: 1.05rem;
   letter-spacing: 2px;
   padding-bottom: 8px;
-  margin-bottom: 24px;
+  margin-bottom: 48px;
   border-bottom: 3px solid var(--gold);
   display: inline-block;
   width: fit-content;
@@ -878,13 +878,13 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   font-weight: 900;
   font-size: 2.1rem;
   line-height: 1.3;
-  margin: 0 0 20px;
+  margin: 0 0 36px;
   word-break: keep-all;
 }
 .sermon-hero-b-verse {
   color: var(--gold);
   font-size: 1.15rem;
-  margin: 0 0 24px;
+  margin: 0 0 48px;
 }
 .sermon-hero-b-line {
   width: 220px;
