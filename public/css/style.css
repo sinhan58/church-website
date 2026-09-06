@@ -2646,6 +2646,64 @@ html.theme-b .qt-quiz-layout {
   margin: 0 auto;
 }
 @media (min-width: 861px) {
+  html.theme-b .qt-quiz-layout {
+    grid-template-columns: 1fr 160px 420px; /* 중간에 카드형 버튼 두 개가 들어갈 칸 추가 */
+  }
+  /* 컨셉B는 아래쪽 텍스트 버튼("지난 큐티 보기") 대신 카드형을 쓰므로 예전 것은 숨김 */
+  html.theme-b .qt-archive-toggle-wrap { display: none; }
+  /* 텍스트 버튼이 없어진 만큼, 큐티 카드 자체를 좀 더 키움 */
+  html.theme-b .qt-stage { min-height: 560px; }
+}
+.qt-quiz-middle {
+  display: none; /* 컨셉A/모바일에서는 안 보임 */
+}
+@media (min-width: 861px) {
+  html.theme-b .qt-quiz-middle {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 16px;
+    height: 100%;
+  }
+}
+.qt-mid-card {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  cursor: pointer;
+  padding: 16px 8px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  text-align: center;
+}
+.qt-mid-card:hover { transform: translateY(-3px); box-shadow: 0 14px 30px rgba(13,21,38,0.14); }
+.qt-mid-card-icon {
+  width: 40px; height: 40px;
+  border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--ivory-dim);
+  color: var(--gold-deep);
+}
+.qt-mid-card--notify.subscribed .qt-mid-card-icon { background: var(--gold); color: #fff; }
+.qt-mid-card-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.4;
+}
+.qt-mid-card-status {
+  font-size: 0.72rem;
+  color: var(--muted);
+}
+.qt-mid-card--notify.subscribed .qt-mid-card-status { color: var(--gold-deep); font-weight: 600; }
+
+@media (min-width: 861px) {
   .qt-quiz-layout {
     grid-template-columns: 1fr 420px; /* 오른쪽 퀴즈 칸을 오늘의 큐티 카드와 같은 폭으로 */
     align-items: stretch; /* 세로 높이도 큐티 카드에 맞춰 늘어나도록 */
