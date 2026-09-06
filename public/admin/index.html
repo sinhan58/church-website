@@ -559,6 +559,39 @@
         <h3>큐티 목록</h3>
         <div id="qt-list" class="post-list"></div>
       </div>
+
+      <div class="card">
+        <h3 id="column-form-title">새 칼럼 작성</h3>
+        <p class="hint" style="margin-top:0;">
+          홈페이지 '오늘의 큐티' 옆 카드형 버튼으로 노출되는 목회 칼럼입니다. 제목과 말씀 구절은
+          이번 주 최신 설교 영상 제목에서 자동으로 채울 수 있고, 칼럼 본문은 직접 입력하거나
+          붙여넣어주세요.
+        </p>
+        <div class="field">
+          <label>최신 설교 영상에서 제목·말씀 구절 자동 채우기</label>
+          <div class="post-form-actions">
+            <button type="button" class="btn-secondary" id="column-autofill-btn">자동 채우기</button>
+          </div>
+          <span class="hint" id="column-autofill-status"></span>
+        </div>
+        <div class="field-row">
+          <div class="field"><label>날짜</label><input id="column-date" type="date" /></div>
+          <div class="field"><label>목사님 성함</label><input id="column-pastor" type="text" placeholder="이기삼 목사" /></div>
+        </div>
+        <div class="field"><label>제목</label><input id="column-title" type="text" placeholder="칼럼 제목" /></div>
+        <div class="field"><label>말씀 구절 위치</label><input id="column-verseRef" type="text" placeholder="시편 121편 1-2절" /></div>
+        <div class="field"><label>칼럼 본문</label><textarea id="column-body" rows="8" placeholder="칼럼 내용을 붙여넣거나 직접 입력하세요."></textarea></div>
+        <div class="post-form-actions">
+          <button class="btn-primary" id="add-column-btn">칼럼 등록</button>
+          <button class="btn-secondary" id="cancel-column-edit-btn" hidden>취소</button>
+        </div>
+        <span class="save-status" id="column-save-status"></span>
+      </div>
+
+      <div class="card">
+        <h3>칼럼 목록</h3>
+        <div id="column-list" class="post-list"></div>
+      </div>
     </section>
 
     <!-- 말씀 퀴즈 -->
@@ -949,6 +982,7 @@
 <script src="/admin/js/admin.js?v=27"></script>
 <script src="/admin/js/service-background-admin.js?v=9"></script>
 <script src="/admin/js/richtext-about-admin.js?v=2"></script>
+<script src="/admin/js/column-admin.js?v=1"></script>
 
 </body>
 </html>
