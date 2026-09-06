@@ -2009,6 +2009,15 @@
       archiveWrap.classList.add('open');
       lockScroll();
     });
+    // 컨셉B 전용 카드형 버튼도 똑같이 지난 큐티 보기를 엽니다.
+    const archiveToggleB = $('#qt-archive-toggle-b');
+    if (archiveToggleB) {
+      archiveToggleB.addEventListener('click', () => {
+        renderArchiveGrid();
+        archiveWrap.classList.add('open');
+        lockScroll();
+      });
+    }
 
     function closeArchive() {
       archiveWrap.classList.remove('open');
@@ -2428,7 +2437,10 @@
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('/sw.js')
-        .then((reg) => setupPushPrompt(reg))
+        .then((reg) => {
+          setupPushPrompt(reg);
+          setupQtNotifyCard(reg);
+        })
         .catch(() => {});
     });
   }
@@ -2484,6 +2496,67 @@
         localStorage.setItem('push-prompt-dismissed', '1');
       } catch (err) {
         banner.style.display = 'none';
+      }
+    });
+  }
+
+  // ---------------- 컨셉B: 큐티 알림 구독 카드 (상태 표시 + 클릭 시 구독) ----------------
+  async function setupQtNotifyCard(registration) {
+    const cardBtn = $('#qt-notify-card');
+    if (!cardBtn) return;
+    const labelEl = $('#qt-notify-card-label');
+    const statusEl = $('#qt-notify-card-status');
+    if (!('PushManager' in window) || !('Notification' in window)) {
+      cardBtn.style.display = 'none';
+      return;
+    }
+
+    async function refresh() {
+      if (Notification.permission === 'denied') {
+        cardBtn.classList.remove('subscribed');
+        labelEl.innerHTML = '큐티 알림<br>차단됨';
+        statusEl.textContent = '설정에서 허용 필요';
+        return;
+      }
+      const existing = await registration.pushManager.getSubscription();
+      if (existing) {
+        cardBtn.classList.add('subscribed');
+        labelEl.innerHTML = '큐티 알림<br>받는 중';
+        statusEl.textContent = '✓ 구독 중';
+      } else {
+        cardBtn.classList.remove('subscribed');
+        labelEl.innerHTML = '큐티 알림<br>받기';
+        statusEl.textContent = '';
+      }
+    }
+
+    await refresh();
+
+    cardBtn.addEventListener('click', async () => {
+      if (Notification.permission === 'denied') {
+        alert('알림이 브라우저에서 차단되어 있어요.\n\n주소창 왼쪽의 자물쇠(또는 사이트 정보) 아이콘을 누르신 뒤, "알림"을 찾아 "허용"으로 바꾸고 새로고침해주세요.');
+        return;
+      }
+      const existing = await registration.pushManager.getSubscription();
+      if (existing) return; // 이미 구독 중이면 상태 표시만 하고 별도 동작 없음
+      try {
+        const permission = await Notification.requestPermission();
+        if (permission !== 'granted') return;
+        const { publicKey } = await getJSON('/api/push/vapid-public-key');
+        if (!publicKey) return;
+        const subscription = await registration.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlBase64ToUint8Array(publicKey)
+        });
+        await fetch('/api/push/subscribe', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(subscription)
+        });
+        localStorage.setItem('push-prompt-dismissed', '1');
+        await refresh();
+      } catch (err) {
+        // 실패해도 조용히 그대로 둡니다 (다시 눌러서 재시도 가능)
       }
     });
   }
