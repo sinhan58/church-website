@@ -190,6 +190,23 @@ router.post('/qt/:id/amen', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ---------- 목회 칼럼 (공개) ----------
+router.get('/column', async (req, res) => {
+  try {
+    const columns = (await readData('columns')) || [];
+    res.json([...columns].sort((a, b) => new Date(b.date) - new Date(a.date)));
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+router.get('/column/:id', async (req, res) => {
+  try {
+    const columns = (await readData('columns')) || [];
+    const item = columns.find((c) => c.id === req.params.id);
+    if (!item) return res.status(404).json({ error: '칼럼을 찾을 수 없습니다.' });
+    res.json(item);
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
 router.post('/track', async (req, res) => {
   try {
     const { type, path: trackPath, label, itemType, itemId, itemTitle, seconds, device } = req.body;
