@@ -921,7 +921,7 @@
     return pool[0] || null;
   }
 
-  // sermonPoster.js의 parseSermonTitle과 동일한 로직 — "주일예배 20260830 사도행전..."
+  // sermonPoster.js의 parseSermonTitle과 동일한 로직 — "주일예배 20260830 사도행전...
   // 형태에서 날짜/머리말을 떼어내고 성경구절과 본 제목을 분리합니다.
   function parseSermonTitleClient(raw = '') {
     let t = raw.replace(/주일예배/g, '');
@@ -2031,6 +2031,56 @@
     });
   }
 
+  // ---------------- 목회 칼럼 (컨셉B: 오늘의 큐티 옆 카드형 버튼) ----------------
+  let latestColumn = null;
+
+  function openColumnModal() {
+    if (!latestColumn) return;
+    $('#column-modal-title').textContent = latestColumn.title || '';
+    const verseRefEl = $('#column-modal-verseref');
+    if (verseRefEl) {
+      verseRefEl.textContent = latestColumn.verseRef || '';
+      verseRefEl.style.display = latestColumn.verseRef ? '' : 'none';
+    }
+    $('#column-modal-date').textContent = formatQtDate(latestColumn.date || '');
+    $('#column-modal-content').innerHTML = escapeHtml(latestColumn.body || '').replace(/\n/g, '<br>');
+    $('#column-modal').classList.add('open');
+    lockScroll();
+  }
+  function closeColumnModal() {
+    $('#column-modal').classList.remove('open');
+    unlockScroll();
+  }
+  $('#column-modal-close')?.addEventListener('click', closeColumnModal);
+  $('#column-modal')?.addEventListener('click', (e) => {
+    if (e.target.id === 'column-modal') closeColumnModal();
+  });
+
+  async function loadColumn() {
+    const card = $('#qt-column-card');
+    if (!card) return;
+    try {
+      const list = await getJSON('/api/column');
+      if (!list || list.length === 0) {
+        card.style.display = 'none';
+        return;
+      }
+      latestColumn = list[0];
+      card.style.display = '';
+      card.addEventListener('click', () => {
+        track('click', {
+          label: 'qt_column_card',
+          itemType: 'column',
+          itemId: latestColumn.id,
+          itemTitle: latestColumn.title || ''
+        });
+        openColumnModal();
+      });
+    } catch (err) {
+      card.style.display = 'none';
+    }
+  }
+
   // ---------------- 선교사역 (세계지도 + 동역자의 섬김) ----------------
   function daysSince(dateStr) {
     if (!dateStr) return null;
@@ -2643,8 +2693,8 @@
     window.__pendingScrollHash = null;
   });
 
-  Promise.all([loadMissions(), loadQuizTeaser()]).catch((err) => {
-    console.error('선교/퀴즈 콘텐츠를 불러오는 중 오류가 발생했습니다:', err);
+  Promise.all([loadMissions(), loadQuizTeaser(), loadColumn()]).catch((err) => {
+    console.error('선교/퀴즈/칼럼 콘텐츠를 불러오는 중 오류가 발생했습니다:', err);
   });
 
   // ---------------- 뒤로가기 시 스크롤 위치 직접 복원 ----------------
