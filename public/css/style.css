@@ -842,6 +842,68 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
 .sermon-hero-card .sermon-hero-play-text { display: none; } /* PC에서는 아이콘만, 글자는 숨김 */
 .sermon-hero-card:hover .sermon-hero-play { transform: scale(1.08); background: var(--gold); }
 
+/* ---- 컨셉B 전용: 설교 히어로를 사진 배경 + CSS 텍스트로 (서버 이미지 합성 없음) ---- */
+.sermon-hero-b-photo {
+  position: absolute;
+  right: 0; top: 0; bottom: 0;
+  width: 55%;
+  background-size: cover;
+  background-position: top center;
+}
+.sermon-hero-b-text {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 52%;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 40px 32px;
+  box-sizing: border-box;
+  z-index: 1;
+}
+.sermon-hero-b-label {
+  color: var(--gold);
+  font-weight: 700;
+  font-size: 1.05rem;
+  letter-spacing: 2px;
+  padding-bottom: 8px;
+  margin-bottom: 24px;
+  border-bottom: 3px solid var(--gold);
+  display: inline-block;
+  width: fit-content;
+}
+.sermon-hero-b-title {
+  color: #fff;
+  font-family: var(--font-heading);
+  font-weight: 900;
+  font-size: 2.1rem;
+  line-height: 1.3;
+  margin: 0 0 20px;
+  word-break: keep-all;
+}
+.sermon-hero-b-verse {
+  color: var(--gold);
+  font-size: 1.15rem;
+  margin: 0 0 24px;
+}
+.sermon-hero-b-line {
+  width: 220px;
+  height: 1px;
+  background: rgba(255,255,255,0.3);
+  margin-bottom: 18px;
+}
+.sermon-hero-b-church {
+  color: #fff;
+  font-weight: 700;
+  font-size: 1.05rem;
+  margin: 0 0 6px;
+}
+.sermon-hero-b-pastor {
+  color: #c8c8c3;
+  font-size: 0.85rem;
+  margin: 0;
+}
+
 .sermon-hero-band {
   position: absolute;
   left: 0;
