@@ -52,6 +52,22 @@ router.post('/push/unsubscribe', async (req, res) => {
   }
 });
 
+// 컨셉B 전용: 가공(리사이즈·합성) 없이 목사님 사진 원본을 그대로 서빙합니다.
+// 화면에 보여주는 용도라 공유 미리보기 이미지가 필요 없어서, 서버에서 이미지를
+// 합성하는 무거운 작업 없이 사진+글씨를 CSS로 얹는 훨씬 빠른 방식을 씁니다.
+router.get('/sermon-photo', (req, res) => {
+  try {
+    const { listBuiltinPhotoFilenames } = require('../utils/sermonPoster');
+    const filenames = listBuiltinPhotoFilenames();
+    if (!filenames.length) return res.status(404).end();
+    const photoDir = path.join(__dirname, '..', 'utils', 'assets', 'sermon-card-photos');
+    res.set('Cache-Control', 'public, max-age=86400');
+    res.sendFile(path.join(photoDir, filenames[0]));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/sermon-poster/:videoId', async (req, res) => {
   try {
     const { videoId } = req.params;
