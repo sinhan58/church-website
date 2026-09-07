@@ -1819,6 +1819,22 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
 
 .receipt-page-section { padding: 64px 0 96px; }
 .receipt-page-container { max-width: 560px; }
+/* ---- 컨셉B 전용, PC에서만: 새로 뜨는 보조 페이지들(기도요청/문의/영수증신청/
+   말씀퀴즈/개인정보처리방침/새가족 메시지) 상단 여백 보정 ----
+   컨셉B는 PC에서 헤더의 교회명 글씨가 커져서(1.9rem) 헤더 자체 높이가
+   본문 상단 여백(64px)보다 살짝 더 커집니다. 그래서 각 페이지 맨 위 문구
+   (예: "PRAYER REQUEST", "WELCOME")가 투명한 헤더 줄에 살짝 걸려 보이던
+   문제를, 본문을 살짝 더 아래로 내려서 해결합니다. (모바일은 헤더가 더
+   얇아서 겹치지 않으므로 그대로 둡니다) */
+@media (min-width: 861px) {
+  html.theme-b .receipt-page-section,
+  html.theme-b .policy-section,
+  html.theme-b .quiz-page-section,
+  html.theme-b .nf-section,
+  html.theme-b .qt-detail-section {
+    padding-top: 84px;
+  }
+}
 .receipt-info-list { margin: 0 0 14px; padding-left: 20px; font-size: 0.88rem; line-height: 1.9; color: var(--ink); }
 .receipt-privacy-note { font-size: 0.82rem; line-height: 1.7; color: var(--muted); margin: 0; }
 
