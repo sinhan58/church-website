@@ -939,7 +939,10 @@
       card.innerHTML = `<div class="sermon-empty" style="height:100%; display:flex; align-items:center; justify-content:center;">이 테마의 설교가 아직 없어요.</div>`;
       return;
     }
-    const isThemeB = document.documentElement.classList.contains('theme-b') && window.matchMedia('(min-width: 861px)').matches;
+    // 컨셉B는 이제 모바일도 PC와 완전히 같은 마크업(사진 배경 + CSS 텍스트)을 씁니다.
+    // 화면 폭 조건을 없애고 테마만으로 분기합니다 — 화면별 배치 차이는 style.css의
+    // 모바일 전용 규칙(.sermon-hero-b-*)에서 처리합니다.
+    const isThemeB = document.documentElement.classList.contains('theme-b');
 
     if (isThemeB) {
       // 컨셉B: 서버에서 이미지를 합성하지 않고, 사진은 배경으로 깔고 글씨는 CSS로 얹습니다.
