@@ -49,6 +49,11 @@ function renderQtDetailPage({ site, item, prev, next, siteUrl, cameFromHome }) {
   // 관리자가 '기본 정보 > 글꼴 설정'에서 고른 글씨체를 반영합니다. (홈페이지와 같은 공용 모듈 사용)
   const { styleTag: fontStyleTag, extraLinks: extraFontLinks } = getFontStyleAndLinks(site.design || {});
 
+  // 홈페이지가 컨셉B로 설정되어 있으면, 이 페이지도 처음 그려질 때부터 같은 미스트
+  // 헤더로 뜨도록 <html>에 class="theme-b"를 서버에서 미리 심어 보냅니다. (클라이언트에서
+  // 나중에 알아내 붙이면 그 사이 예전 남색 헤더가 잠깐 보였다가 바뀌는 깜빡임이 생깁니다)
+  const htmlClassAttr = site.theme === 'b' ? ' class="theme-b"' : '';
+
   const navHtml = `
     <div class="qt-detail-nav">
       ${prev ? `<a href="/qt/${prev.id}">← ${escapeHtml(formatDateLabel(prev.date))} 큐티</a>` : '<span></span>'}
@@ -56,7 +61,7 @@ function renderQtDetailPage({ site, item, prev, next, siteUrl, cameFromHome }) {
     </div>`;
 
   return `<!DOCTYPE html>
-<html lang="ko">
+<html lang="ko"${htmlClassAttr}>
 <head>
 <meta charset="UTF-8" />
 <script>if ('scrollRestoration' in history) { history.scrollRestoration = 'manual'; }</script>
