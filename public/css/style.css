@@ -989,51 +989,44 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
    예전에는 모바일만 서버에서 사진+글씨를 합성하는 옛날 방식을 그대로 썼는데, PC 개편
    (서버 합성 폐기 → CSS 배경 + HTML 텍스트) 내용을 모바일에도 동일하게 반영합니다.
    main.js도 함께 수정해서, 이제 컨셉B는 화면 크기와 상관없이 항상 이 마크업을 씁니다.
-   레이아웃만 화면 폭에 맞게 다시 잡습니다: PC는 사진(오른쪽 62%)+텍스트(왼쪽 52%)를
-   좌우로 나란히 배치하지만, 모바일은 폭이 좁아 그렇게 나누면 제목이 너무 여러 줄로
-   쪼개지므로, 사진을 카드 전체에 꽉 채우고 글씨는 사진 하단에 그라데이션과 함께
-   얹는 방식으로 바꿉니다(유튜브 썸네일 위 캡션과 비슷한 형태). */
+   처음에는 사진을 카드 전체에 꽉 채우고 글씨를 하단에 얹는 방식으로 만들었는데,
+   그러면 사진이 화면 폭 전체로 늘어나면서 흐릿해지고 인물 위치도 가운데로 쏠려서,
+   PC와 같은 "오른쪽 사진 + 왼쪽 글씨" 좌우 배치를 그대로 두고 크기·간격만 모바일에
+   맞게 줄이는 방식으로 다시 잡았습니다. */
 @media (max-width: 900px) {
   .sermon-hero-b-photo {
-    left: 0;
-    width: 100%;
+    width: 58%; /* PC(62%)와 비슷한 비율로, 화면 전체로 늘어나 흐릿해지지 않도록 */
     background-size: cover;
-    background-position: top center;
+    background-position: center top; /* 인물이 사진 오른쪽 칸 안에서 잘리지 않게 중앙 기준 */
   }
   .sermon-hero-b-text {
-    left: 0;
-    width: 100%;
-    top: auto;
-    bottom: calc(30px + 4mm); /* 하단 영문 밴드 바로 위까지 */
-    justify-content: flex-end; /* 내용이 늘어나면 위쪽으로 자라도록 */
-    padding: 20px 18px 16px;
-    background: linear-gradient(180deg, rgba(13,21,38,0) 0%, rgba(13,21,38,0.72) 55%, rgba(13,21,38,0.92) 100%);
+    width: 50%;
+    padding: 18px 14px;
   }
   .sermon-hero-b-label {
-    font-size: 0.75rem;
-    letter-spacing: 1.2px;
-    padding-bottom: 4px;
-    margin-bottom: 12px;
+    font-size: 0.68rem;
+    letter-spacing: 1px;
+    padding-bottom: 3px;
+    margin-bottom: 14px;
     border-bottom-width: 2px;
   }
   .sermon-hero-b-title {
-    font-size: 1.2rem;
-    line-height: 1.35;
-    margin: 0 0 8px; /* PC용 "한 줄 아래에서 시작" 여백은 모바일에서는 필요 없음 */
+    font-size: 1.02rem;
+    line-height: 1.32;
+    margin: 1.6rem 0 10px; /* PC보다 좁은 칸이라 "한 줄 아래 시작" 여백도 줄임 */
   }
+  /* 제목이 4줄 이상일 때(JS가 자동 판단) 위 여백을 없애는 규칙 — 위 margin 한 줄
+     선언과 특이도가 같아서 순서상 묻힐 수 있어, 두 클래스를 합쳐 확실히 이기게 합니다. */
+  .sermon-hero-b-title.sermon-hero-b-title--tall { margin-top: 0; }
   .sermon-hero-b-verse {
-    font-size: 0.88rem;
-    margin: 0 0 10px;
+    font-size: 0.72rem;
+    margin: 0 0 14px;
   }
-  .sermon-hero-b-line { width: 80px; margin-bottom: 8px; }
-  .sermon-hero-b-church { font-size: 0.85rem; margin: 0 0 2px; }
-  .sermon-hero-b-pastor { font-size: 0.72rem; }
-
-  /* 위 공용 모바일 재생 버튼 위치(하단 근처)는 옛날 방식 전용이라, 컨셉B는 새로
-     생긴 하단 텍스트 캡션과 겹치지 않도록 사진 위쪽 구석으로 옮깁니다. */
-  html.theme-b .sermon-hero-card .sermon-hero-play {
-    top: 16px; right: 14px; bottom: auto;
-  }
+  .sermon-hero-b-line { width: 60px; margin-bottom: 10px; }
+  .sermon-hero-b-church { font-size: 0.72rem; margin: 0 0 2px; }
+  .sermon-hero-b-pastor { font-size: 0.64rem; }
+  /* 재생 버튼은 위 공용 모바일 규칙(사진 우측 하단, 하단 띠와 안 겹치는 자리)을
+     그대로 씁니다 — PC의 "사진 우측 하단" 배치와 같은 자리라 별도 override가 필요 없습니다. */
 }
 
 .sermon-list-wrap {
