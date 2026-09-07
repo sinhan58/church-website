@@ -16,7 +16,17 @@ function createStaticPageRenderer(relativePublicPath) {
     const { styleTag, extraLinks } = getFontStyleAndLinks(site?.design || {});
     // 본문 <link class="gfont-link" ...> 바로 다음 자리에 표시해둔 위치에 스타일 태그를 심고,
     // 추가로 필요한 구글 폰트가 있으면 그 앞에 <link>도 같이 끼워 넣습니다.
-    return template.replace('<!--FONT_STYLE_TAG-->', `${extraLinks}\n${styleTag}`);
+    let html = template.replace('<!--FONT_STYLE_TAG-->', `${extraLinks}\n${styleTag}`);
+
+    // 홈페이지가 컨셉B로 설정되어 있으면, 이 페이지들도 처음 그려질 때부터 같은
+    // 미스트 헤더(옅은 반투명 + 흐림)로 뜨도록 서버에서 미리 class="theme-b"를
+    // 심어 보냅니다. 클라이언트 JS가 나중에 fetch로 알아내 붙이는 방식은 그 사이
+    // 잠깐 예전 남색 헤더가 보였다가 바뀌는 깜빡임이 생기기 때문에, 처음 응답
+    // 시점부터 서버가 확정해서 보냅니다.
+    if (site && site.theme === 'b') {
+      html = html.replace('<html lang="ko">', '<html lang="ko" class="theme-b">');
+    }
+    return html;
   };
 }
 
