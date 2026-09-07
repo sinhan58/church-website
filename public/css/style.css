@@ -997,7 +997,7 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   .sermon-hero-b-photo {
     width: 58%; /* PC(62%)와 비슷한 비율로, 화면 전체로 늘어나 흐릿해지지 않도록 */
     background-size: cover;
-    background-position: center top; /* 인물이 사진 오른쪽 칸 안에서 잘리지 않게 중앙 기준 */
+    background-position: center top 14px; /* 인물이 사진 오른쪽 칸 안에서 잘리지 않게 중앙 기준, 살짝 아래로 */
   }
   .sermon-hero-b-text {
     width: 50%;
