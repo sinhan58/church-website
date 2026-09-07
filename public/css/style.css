@@ -2630,8 +2630,8 @@ body.has-mini-player .quick-fab-wrap { bottom: calc(20px + 68px); }
 }
 .quick-fab-item-icon svg { width: 20px; height: 20px; }
 .quick-fab-item-icon--band {
-  background: #00c73c;
-  color: #fff;
+  /* 예전엔 밴드 고유 초록색(#00c73c)을 썼는데, 다른 버튼들과 색이 안 맞아서
+     흰 배경 + 남색 글씨로 통일합니다 (다른 아이콘과 동일한 스타일). */
   font-size: 0.6rem;
   font-weight: 800;
   letter-spacing: -0.02em;
