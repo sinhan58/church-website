@@ -358,6 +358,16 @@
         <div class="field"><label>네이버 밴드 URL</label><input id="s-snsBand" type="text" placeholder="https://www.band.us/band/1444664" /></div>
       </div>
 
+      <div class="card">
+        <h3>새가족 메시지 — 복음 메시지 ('교회가 되십시오' 페이지)</h3>
+        <p class="hint" style="margin-top:0;">새가족 안내 페이지의 '교회가 되십시오' 버튼을 누르면 열리는 별도 페이지입니다. 아직 믿지 않는 분들께 전할 복음 메시지를 자유롭게 글과 이미지로 구성해주세요. 이 카드는 아래 '기본 정보 저장'과 별도로, 카드 안의 저장 버튼으로만 저장됩니다.</p>
+        <div id="gospel-content-quill" style="background:#fff; min-height:320px;"></div>
+        <div style="margin-top:12px; display:flex; align-items:center; gap:10px;">
+          <button class="btn-primary" id="gospel-content-save-btn" type="button">복음 메시지 저장</button>
+          <span class="save-status" id="gospel-content-save-status"></span>
+        </div>
+      </div>
+
       <button class="btn-primary" id="save-site-btn">기본 정보 저장</button>
       <span class="save-status" id="site-save-status"></span>
     </section>
@@ -983,6 +993,7 @@
 <script src="/admin/js/admin.js?v=29"></script>
 <script src="/admin/js/richtext-about-admin.js?v=2"></script>
 <script src="/admin/js/column-admin.js?v=1"></script>
+<script src="/admin/js/gospel-content-admin.js?v=1"></script>
 
 </body>
 </html>
