@@ -2850,10 +2850,10 @@ body.has-mini-player .quick-fab-wrap { bottom: calc(20px + 68px); }
   position: relative;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  align-items: stretch;
+  justify-content: space-between;
   text-align: center;
-  gap: 8px;
+  gap: 14px;
   min-height: 300px;
   background: url('/images/quiz-card-bg.jpg') center/cover no-repeat, var(--navy-deep);
   border-radius: var(--radius);
@@ -2863,15 +2863,18 @@ body.has-mini-player .quick-fab-wrap { bottom: calc(20px + 68px); }
   overflow: hidden;
   transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.15s ease;
 }
-/* 사진 위에서도 글자가 잘 보이도록, 사진과 글자 사이에 어두운 막을 하나 깔아둡니다 */
+/* 사진이 예전보다 또렷하게 보이도록 전체적으로는 필터를 옅게 뺐습니다. 다만 글자가
+   올라가는 위·아래 구간(제목, 하단 참여자 기록)은 사진이 밝을 때도 또렷이 읽히도록
+   최소한의 그라데이션은 남겨뒀습니다. */
 .quiz-teaser-card::before {
   content: '';
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(13,21,38,0.55) 0%, rgba(13,21,38,0.75) 100%);
+  background: linear-gradient(180deg, rgba(13,21,38,0.28) 0%, rgba(13,21,38,0.12) 30%, rgba(13,21,38,0.18) 60%, rgba(13,21,38,0.58) 100%);
 }
 .quiz-teaser-card > * { position: relative; z-index: 1; }
 .quiz-teaser-card:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(13,21,38,0.25); }
+.quiz-teaser-top { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
 .quiz-teaser-card strong { font-family: var(--font-heading); font-size: 1.15rem; line-height: 1.4; text-shadow: 0 1px 3px rgba(0,0,0,0.7), 0 2px 10px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.3); }
 .quiz-teaser-sub { color: #f0ebdf; font-size: 0.85rem; line-height: 1.5; text-shadow: 0 1px 3px rgba(0,0,0,0.7), 0 2px 10px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.3); }
 .quiz-teaser-arrow {
@@ -2883,6 +2886,32 @@ body.has-mini-player .quick-fab-wrap { bottom: calc(20px + 68px); }
   padding: 8px 16px;
   border-radius: 999px;
 }
+
+/* 카드 하단의 '이번 주 참여 TOP 3' — 사진 위에 얹히는 부분이라, 흰 글씨 +
+   그림자로 큐티/칼럼 상세 페이지의 사진 배경 처리와 같은 방식으로 가독성을 확보합니다. */
+.quiz-teaser-leaderboard {
+  text-align: left;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255,255,255,0.25);
+}
+.quiz-teaser-leaderboard-label {
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.8);
+  margin: 0 0 6px;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+}
+.quiz-teaser-leaderboard-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.8rem;
+  padding: 3px 0;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.4);
+}
+.quiz-teaser-leaderboard-row .rank { width: 16px; text-align: center; font-weight: 700; color: var(--gold-soft); }
+.quiz-teaser-leaderboard-row .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.quiz-teaser-leaderboard-row .score { font-weight: 700; }
 
 /* ---------------- 푸시 알림 허용 안내 배너 ---------------- */
 .push-prompt {
