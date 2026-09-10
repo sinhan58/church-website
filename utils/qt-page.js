@@ -115,7 +115,7 @@ function renderQtDetailPage({ site, item, prev, next, siteUrl, cameFromHome }) {
 <link class="gfont-link" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;600;700&display=block" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
 ${extraFontLinks}
-<link rel="stylesheet" href="/css/style.css?v=110" />
+<link rel="stylesheet" href="/css/style.css?v=174" />
 ${fontStyleTag}
 
 <!-- PWA: 홈 화면에 추가했을 때 앱처럼 보이도록 하는 설정 -->
@@ -137,6 +137,8 @@ ${fontStyleTag}
 <main class="page-enter">
   <section class="section qt-detail-section">
     <div class="container qt-detail-container">
+
+      ${item.bgImage ? `<img class="qt-detail-hero-image" src="${escapeHtml(item.bgImage)}" alt="${escapeHtml(item.title || '')}" />` : ''}
 
       <div class="qt-detail-head">
         <span class="qt-badge">오늘의 큐티</span>
