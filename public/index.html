@@ -72,7 +72,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link class="gfont-link" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;600;700&display=block" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
-<link rel="stylesheet" href="/css/style.css?v=172" />
+<link rel="stylesheet" href="/css/style.css?v=173" />
 <meta property="og:title" content="물댄동산교회 - 오산시 중앙동" />
 <meta property="og:description" content="경기도 오산시 중앙동 대동다숲(오색시장 인근)에 위치한 물댄동산교회입니다. 담임목사 이기삼." />
 <meta property="og:image" content="https://muldaen.com/uploads/0001.png" />
@@ -253,6 +253,10 @@
           </div>
           <div class="qt-archive-toggle-wrap">
             <button class="qt-archive-toggle" id="qt-archive-toggle">지난 큐티 보기</button>
+            <span class="qt-toggle-divider" id="qt-notify-divider" aria-hidden="true">·</span>
+            <button type="button" class="qt-archive-toggle qt-notify-btn" id="qt-notify-btn-mobile">
+              <span id="qt-notify-btn-mobile-label">큐티 알림 받기</span>
+            </button>
           </div>
         </div>
 
@@ -277,8 +281,9 @@
         <button type="button" class="qt-card qt-card--today qt-card--column" id="qt-column-card">
           <div class="qt-card-badges">
             <span class="qt-badge">이번주 칼럼</span>
+            <span class="qt-badge qt-badge--archive" id="qt-column-pastor" style="display:none;"></span>
           </div>
-          <div class="qt-card-photo">
+          <div class="qt-card-photo" id="qt-column-photo">
             <h3 class="qt-card-title"><span class="qt-title-chevron">「</span><span id="qt-column-title"></span><span class="qt-title-chevron">」</span></h3>
             <p class="qt-card-photo-verseref" id="qt-column-verseref" style="display:none;"></p>
           </div>
@@ -609,6 +614,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
 <script src="/js/countries.js"></script>
 <script src="/js/font-catalog.js"></script>
-<script src="/js/main.js?v=82"></script>
+<script src="/js/main.js?v=83"></script>
 </body>
 </html>
