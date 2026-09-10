@@ -2058,6 +2058,17 @@
       verseRefEl.style.display = latestColumn.verseRef ? '' : 'none';
     }
     $('#column-modal-date').textContent = formatQtDate(latestColumn.date || '');
+    const colImgEl = $('#column-modal-image');
+    if (colImgEl) {
+      if (latestColumn.bgImage) {
+        colImgEl.src = latestColumn.bgImage;
+        colImgEl.alt = latestColumn.title || '';
+        colImgEl.onclick = () => openImageLightbox(latestColumn.bgImage, latestColumn.title || '');
+      } else {
+        colImgEl.removeAttribute('src');
+        colImgEl.onclick = null;
+      }
+    }
     $('#column-modal-content').innerHTML = escapeHtml(latestColumn.body || '').replace(/\n/g, '<br>');
     $('#column-modal').classList.add('open');
     lockScroll();
