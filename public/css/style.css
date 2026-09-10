@@ -2914,9 +2914,10 @@ a:focus-visible, button:focus-visible {
 }
 
 /* ---------------- 스크롤 등장 애니메이션 ----------------
-   카드/섹션이 화면에 스크롤되어 들어오면 서서히 나타나고, 화면 밖으로 나가면 다시
-   사라졌다가, 스크롤을 다시 내리면 또 나타납니다(반복). main.js의 IntersectionObserver가
-   .reveal 요소에 .is-visible을 추가/제거하는 방식으로 이 효과를 켜고 끕니다. */
+   카드/섹션이 화면에 스크롤되어 들어오면 서서히 나타나고, 그 뒤로는 계속 보이는 상태로
+   고정됩니다(반복 재생 안 함 — 모바일 주소창이 접혔다 펼쳐지며 화면 경계에서 애니메이션이
+   끊임없이 재생되던 문제 때문에 한 번만 재생하도록 고정했습니다). main.js의
+   IntersectionObserver가 .reveal 요소에 .is-visible을 한 번 추가하고 관찰을 끝냅니다. */
 .reveal {
   opacity: 0;
   transform: translateY(28px);
