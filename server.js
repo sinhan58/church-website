@@ -17,6 +17,7 @@ const renderReceiptPage = createStaticPageRenderer('receipt.html');
 const renderQuizPage = createStaticPageRenderer('quiz.html');
 const renderPrivacyPage = createStaticPageRenderer('privacy.html');
 const renderNewFamilyPage = createStaticPageRenderer('new-family.html');
+const renderGospelPage = createStaticPageRenderer('gospel.html');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -157,6 +158,14 @@ app.get('/new-family.html', async (req, res, next) => {
   try {
     const site = await readData('site');
     res.send(renderNewFamilyPage({ site: site || {} }));
+  } catch (err) {
+    next(err);
+  }
+});
+app.get('/gospel.html', async (req, res, next) => {
+  try {
+    const site = await readData('site');
+    res.send(renderGospelPage({ site: site || {} }));
   } catch (err) {
     next(err);
   }
