@@ -2069,6 +2069,17 @@
         return;
       }
       latestColumn = list[0];
+      const titleEl = $('#qt-column-title');
+      const verseRefEl = $('#qt-column-verseref');
+      const metaEl = $('#qt-column-meta');
+      if (titleEl) titleEl.textContent = latestColumn.title || '';
+      if (verseRefEl) {
+        verseRefEl.textContent = latestColumn.verseRef || '';
+        verseRefEl.style.display = latestColumn.verseRef ? '' : 'none';
+      }
+      if (metaEl) {
+        metaEl.textContent = `${latestColumn.pastor || ''}${latestColumn.pastor ? ' · ' : ''}${formatQtDate(latestColumn.date || '')}`;
+      }
       card.style.display = '';
       card.addEventListener('click', () => {
         track('click', {
