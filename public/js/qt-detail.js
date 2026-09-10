@@ -15,14 +15,17 @@
   track('pageview', { path: location.pathname });
 
   // 아멘 개수에 따라 뱃지 단계를 정합니다. (숫자는 절대 노출하지 않고, 문구/아이콘만 바뀝니다)
+  // 하트 색상은 단계와 상관없이 항상 빨강으로 통일합니다(예전엔 단계별로 색이 달라서
+  // 1단계가 노랑이라 잘 안 보인다는 의견이 있었습니다). 단계가 올라갈수록 하트 개수가
+  // 늘어나고 심장박동 애니메이션이 더 빨라지는 것으로 '더 뜨거워지는' 느낌을 줍니다.
   function getQtAmenTier(amen) {
     const n = amen || 0;
     if (n <= 0) return null;
-    if (n === 1) return { level: 1, icon: '🙏', label: '첫 아멘이 도착했어요', hearts: 3, color: '#f4a6c1' };
-    if (n <= 5) return { level: 2, icon: '💛', label: '은혜를 나누고 있어요', hearts: 5, color: '#f07a9e' };
-    if (n <= 9) return { level: 3, icon: '✨', label: '은혜가 번지고 있어요', hearts: 7, color: '#ea4c78' };
-    if (n <= 14) return { level: 4, icon: '🔥', label: '뜨거운 은혜의 시간', hearts: 9, color: '#e8482f' };
-    return { level: 5, icon: '🎉', label: '전교인 큐티 참여 완료', hearts: 12, color: '#d61f1f' };
+    if (n === 1) return { level: 1, icon: '🙏', label: '첫 아멘이 도착했어요', hearts: 3, color: '#e8382f' };
+    if (n <= 5) return { level: 2, icon: '💛', label: '은혜를 나누고 있어요', hearts: 5, color: '#e8382f' };
+    if (n <= 9) return { level: 3, icon: '✨', label: '은혜가 번지고 있어요', hearts: 7, color: '#e8382f' };
+    if (n <= 14) return { level: 4, icon: '🔥', label: '뜨거운 은혜의 시간', hearts: 9, color: '#e8382f' };
+    return { level: 5, icon: '🎉', label: '전교인 큐티 참여 완료', hearts: 12, color: '#e8382f' };
   }
 
   function updateAmenBadge(amen) {
@@ -135,7 +138,7 @@
     }
 
     function playPopEffect(amen) {
-      const tier = getQtAmenTier(amen) || { hearts: 5, color: '#f07a9e' };
+      const tier = getQtAmenTier(amen) || { hearts: 5, color: '#e8382f' };
       amenBtn.classList.remove('pop');
       void amenBtn.offsetWidth; // 리플레이를 위해 강제로 리플로우
       amenBtn.classList.add('pop');
