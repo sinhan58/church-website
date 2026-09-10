@@ -22,7 +22,7 @@ function formatDateLabel(dateStr = '') {
 // 목회 칼럼 상세 페이지 전체 HTML을 문자열로 만들어 돌려줍니다. 큐티 상세 페이지와
 // 똑같이, 검색엔진이 자바스크립트 실행 없이도 칼럼 내용을 그대로 읽을 수 있도록
 // 서버에서 직접 렌더링합니다(고유 URL + OG태그 + canonical → 포털 노출·링크 공유 가능).
-function renderColumnDetailPage({ site, item, prev, next, siteUrl }) {
+function renderColumnDetailPage({ site, item, prev, next, siteUrl, cameFromHome }) {
   const churchName = site.churchName || '교회';
   const pastor = item.pastor || site.about?.pastorName || '';
   const pageTitle = `${item.title || '목회 칼럼'} | ${churchName} 목회 칼럼`;
@@ -143,7 +143,7 @@ ${fontStyleTag}
           data-url="${pageUrl}">
           공유
         </button>
-        <a href="/#qt" class="qt-home-btn">홈으로</a>
+        <a href="/" class="qt-home-btn" id="column-home-btn"${cameFromHome ? ' data-back="1"' : ''}>홈으로</a>
       </div>
 
       ${navHtml}
@@ -158,7 +158,7 @@ ${fontStyleTag}
   </div>
 </footer>
 
-<script src="/js/column-detail.js?v=1"></script>
+<script src="/js/column-detail.js?v=2"></script>
 </body>
 </html>`;
 }
