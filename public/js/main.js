@@ -2046,41 +2046,11 @@
     });
   }
 
-  // ---------------- 목회 칼럼 (컨셉B: 오늘의 큐티 옆 카드형 버튼) ----------------
+  // ---------------- 목회 칼럼 (컨셉B: 오늘의 큐티 옆 카드) ----------------
+  // 칼럼도 큐티처럼 /column/아이디 라는 고유 페이지로 열립니다(서버에서 직접 렌더링 —
+  // 검색엔진 노출 + 링크 공유 가능). 그래서 여기서는 카드에 내용을 채우고 링크 주소만
+  // 걸어주면 되고, 팝업을 직접 열고 닫는 로직은 필요 없습니다.
   let latestColumn = null;
-
-  function openColumnModal() {
-    if (!latestColumn) return;
-    $('#column-modal-title').textContent = latestColumn.title || '';
-    const verseRefEl = $('#column-modal-verseref');
-    if (verseRefEl) {
-      verseRefEl.textContent = latestColumn.verseRef || '';
-      verseRefEl.style.display = latestColumn.verseRef ? '' : 'none';
-    }
-    $('#column-modal-date').textContent = formatQtDate(latestColumn.date || '');
-    const colImgEl = $('#column-modal-image');
-    if (colImgEl) {
-      if (latestColumn.bgImage) {
-        colImgEl.src = latestColumn.bgImage;
-        colImgEl.alt = latestColumn.title || '';
-        colImgEl.onclick = () => openImageLightbox(latestColumn.bgImage, latestColumn.title || '');
-      } else {
-        colImgEl.removeAttribute('src');
-        colImgEl.onclick = null;
-      }
-    }
-    $('#column-modal-content').innerHTML = escapeHtml(latestColumn.body || '').replace(/\n/g, '<br>');
-    $('#column-modal').classList.add('open');
-    lockScroll();
-  }
-  function closeColumnModal() {
-    $('#column-modal').classList.remove('open');
-    unlockScroll();
-  }
-  $('#column-modal-close')?.addEventListener('click', closeColumnModal);
-  $('#column-modal')?.addEventListener('click', (e) => {
-    if (e.target.id === 'column-modal') closeColumnModal();
-  });
 
   async function loadColumn() {
     const card = $('#qt-column-card');
@@ -2118,6 +2088,7 @@
       if (metaEl) {
         metaEl.textContent = formatQtDate(latestColumn.date || '');
       }
+      card.href = `/column/${latestColumn.id}`;
       card.style.display = '';
       card.addEventListener('click', () => {
         track('click', {
@@ -2126,7 +2097,6 @@
           itemId: latestColumn.id,
           itemTitle: latestColumn.title || ''
         });
-        openColumnModal();
       });
     } catch (err) {
       card.style.display = 'none';
