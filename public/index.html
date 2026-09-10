@@ -72,7 +72,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link class="gfont-link" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;600;700&display=block" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
-<link rel="stylesheet" href="/css/style.css?v=171" />
+<link rel="stylesheet" href="/css/style.css?v=172" />
 <meta property="og:title" content="물댄동산교회 - 오산시 중앙동" />
 <meta property="og:description" content="경기도 오산시 중앙동 대동다숲(오색시장 인근)에 위치한 물댄동산교회입니다. 담임목사 이기삼." />
 <meta property="og:image" content="https://muldaen.com/uploads/0001.png" />
@@ -256,20 +256,8 @@
           </div>
         </div>
 
-        <!-- 컨셉B 전용: 큐티 카드와 말씀 퀴즈 사이 빈 공간에 카드형 버튼 세 개 -->
+        <!-- 컨셉B 전용: 큐티 카드 오른쪽 카드형 버튼 두 개 (위: 큐티 알림, 아래: 지난 큐티 보기) -->
         <div class="qt-quiz-middle">
-          <button type="button" class="qt-mid-card qt-mid-card--archive" id="qt-archive-toggle-b">
-            <span class="qt-mid-card-icon">
-              <svg viewBox="0 0 24 24" fill="none"><path d="M12 8v5l3 3M21 12a9 9 0 11-9-9 9 9 0 019 9z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </span>
-            <span class="qt-mid-card-label">지난 큐티<br>보기</span>
-          </button>
-          <button type="button" class="qt-mid-card qt-mid-card--column" id="qt-column-card" style="display:none;">
-            <span class="qt-mid-card-icon">
-              <svg viewBox="0 0 24 24" fill="none"><path d="M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20V2H6.5A2.5 2.5 0 004 4.5v15z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </span>
-            <span class="qt-mid-card-label">목회 칼럼<br>보기</span>
-          </button>
           <button type="button" class="qt-mid-card qt-mid-card--notify" id="qt-notify-card">
             <span class="qt-mid-card-icon">
               <svg viewBox="0 0 24 24" fill="none"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -277,7 +265,28 @@
             <span class="qt-mid-card-label" id="qt-notify-card-label">큐티 알림<br>받기</span>
             <span class="qt-mid-card-status" id="qt-notify-card-status"></span>
           </button>
+          <button type="button" class="qt-mid-card qt-mid-card--archive" id="qt-archive-toggle-b">
+            <span class="qt-mid-card-icon">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M12 8v5l3 3M21 12a9 9 0 11-9-9 9 9 0 019 9z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span class="qt-mid-card-label">지난 큐티<br>보기</span>
+          </button>
         </div>
+
+        <!-- 컨셉B 전용: 목회 칼럼을 큐티 카드와 같은 모양의 카드로 노출 (아멘/읽어보세요 문구 없음) -->
+        <button type="button" class="qt-card qt-card--today qt-card--column" id="qt-column-card">
+          <div class="qt-card-badges">
+            <span class="qt-badge">이번주 칼럼</span>
+          </div>
+          <div class="qt-card-photo">
+            <h3 class="qt-card-title"><span class="qt-title-chevron">「</span><span id="qt-column-title"></span><span class="qt-title-chevron">」</span></h3>
+            <p class="qt-card-photo-verseref" id="qt-column-verseref" style="display:none;"></p>
+          </div>
+          <div class="qt-card-foot">
+            <span id="qt-column-meta"></span>
+            <span>전체 보기 →</span>
+          </div>
+        </button>
 
         <a href="/quiz.html" class="quiz-teaser-card reveal" id="quiz-teaser-card" style="display:none;">
           <strong>말씀 퀴즈</strong>
@@ -600,6 +609,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
 <script src="/js/countries.js"></script>
 <script src="/js/font-catalog.js"></script>
-<script src="/js/main.js?v=81"></script>
+<script src="/js/main.js?v=82"></script>
 </body>
 </html>
