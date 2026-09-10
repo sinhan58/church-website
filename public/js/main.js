@@ -2088,7 +2088,7 @@
       if (metaEl) {
         metaEl.textContent = formatQtDate(latestColumn.date || '');
       }
-      card.href = `/column/${latestColumn.id}`;
+      card.href = `/column/${latestColumn.id}?from=home`;
       card.style.display = '';
       card.addEventListener('click', () => {
         track('click', {
