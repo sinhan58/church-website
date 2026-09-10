@@ -590,6 +590,11 @@
         </div>
         <div class="field"><label>제목</label><input id="column-title" type="text" placeholder="칼럼 제목" /></div>
         <div class="field"><label>말씀 구절 위치</label><input id="column-verseRef" type="text" placeholder="시편 121편 1-2절" /></div>
+        <div class="field">
+          <label>사진 (선택, 카드 배경으로 표시됨 — 큐티 카드와 같은 스타일)</label>
+          <input type="file" id="column-imageFile" accept="image/*" />
+          <img class="preview" id="column-imagePreview" />
+        </div>
         <div class="field"><label>칼럼 본문</label><textarea id="column-body" rows="8" placeholder="칼럼 내용을 붙여넣거나 직접 입력하세요."></textarea></div>
         <div class="post-form-actions">
           <button class="btn-primary" id="add-column-btn">칼럼 등록</button>
@@ -992,7 +997,7 @@
 <script src="/admin/js/service-background-admin.js?v=9"></script>
 <script src="/admin/js/admin.js?v=29"></script>
 <script src="/admin/js/richtext-about-admin.js?v=2"></script>
-<script src="/admin/js/column-admin.js?v=1"></script>
+<script src="/admin/js/column-admin.js?v=2"></script>
 <script src="/admin/js/gospel-content-admin.js?v=1"></script>
 
 </body>
