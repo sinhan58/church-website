@@ -1831,7 +1831,8 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   html.theme-b .policy-section,
   html.theme-b .quiz-page-section,
   html.theme-b .nf-section,
-  html.theme-b .qt-detail-section {
+  html.theme-b .qt-detail-section,
+  html.theme-b .gospel-section {
     padding-top: 84px;
   }
 }
