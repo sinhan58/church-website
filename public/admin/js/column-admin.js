@@ -13,6 +13,8 @@
   const titleInput = $('#column-title');
   const verseRefInput = $('#column-verseRef');
   const bodyInput = $('#column-body');
+  const imageFileInput = $('#column-imageFile');
+  const imagePreview = $('#column-imagePreview');
   const autofillBtn = $('#column-autofill-btn');
   const autofillStatus = $('#column-autofill-status');
   const saveBtn = $('#add-column-btn');
@@ -43,6 +45,38 @@
       .replace(/>/g, '&gt;');
   }
 
+  // 사진을 고르면 바로 업로드해두고(/api/admin/upload), 저장 버튼을 누를 때는
+  // 이미 끝난 업로드 결과(URL)만 붙여서 보냅니다. (다른 화면들의 이미지 필드와 같은 방식)
+  if (imageFileInput) {
+    imageFileInput.addEventListener('change', () => {
+      const file = imageFileInput.files && imageFileInput.files[0];
+      imageFileInput.dataset.uploadedUrl = '';
+      if (!file) {
+        if (imagePreview) imagePreview.src = '';
+        return;
+      }
+      if (imagePreview) imagePreview.src = URL.createObjectURL(file);
+      const form = new FormData();
+      form.append('image', file);
+      imageFileInput._uploadPromise = fetch('/api/admin/upload', { method: 'POST', body: form, credentials: 'include' })
+        .then(async (res) => {
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.error || '이미지 업로드 실패');
+          imageFileInput.dataset.uploadedUrl = data.url || '';
+        })
+        .catch((err) => {
+          setSaveStatus('사진 업로드 실패: ' + err.message, true);
+        });
+    });
+  }
+
+  // 저장을 눌렀을 때 방금 고른 사진의 업로드가 아직 끝나지 않았다면 끝날 때까지 기다립니다.
+  async function waitForPendingImageUpload() {
+    if (imageFileInput && imageFileInput._uploadPromise) {
+      await imageFileInput._uploadPromise;
+    }
+  }
+
   // main.js의 parseSermonTitleClient / 서버 sermonPoster.js의 parseSermonTitle과
   // 동일한 규칙 — "주일예배 20260830 사도행전 3장 1-10절 ..." 같은 제목에서
   // 날짜·머리말을 떼고 성경구절과 본 제목을 분리합니다.
@@ -62,6 +96,11 @@
     titleInput.value = '';
     verseRefInput.value = '';
     bodyInput.value = '';
+    if (imageFileInput) {
+      imageFileInput.value = '';
+      imageFileInput.dataset.uploadedUrl = '';
+    }
+    if (imagePreview) imagePreview.src = '';
     formTitle.textContent = '새 칼럼 작성';
     saveBtn.textContent = '칼럼 등록';
     if (cancelBtn) cancelBtn.hidden = true;
@@ -128,6 +167,11 @@
           titleInput.value = item.title || '';
           verseRefInput.value = item.verseRef || '';
           bodyInput.value = item.body || '';
+          if (imageFileInput) {
+            imageFileInput.value = '';
+            imageFileInput.dataset.uploadedUrl = item.bgImage || '';
+          }
+          if (imagePreview) imagePreview.src = item.bgImage || '';
           formTitle.textContent = '칼럼 수정';
           saveBtn.textContent = '수정 완료';
           if (cancelBtn) cancelBtn.hidden = false;
@@ -165,12 +209,14 @@
       return;
     }
     setSaveStatus('저장 중...', false);
+    await waitForPendingImageUpload();
     const payload = {
       date: dateInput.value || new Date().toISOString().slice(0, 10),
       pastor: pastorInput.value.trim(),
       title: titleInput.value.trim(),
       verseRef: verseRefInput.value.trim(),
-      body: bodyInput.value.trim()
+      body: bodyInput.value.trim(),
+      bgImage: (imageFileInput && imageFileInput.dataset.uploadedUrl) || ''
     };
     try {
       const url = editingId ? `/api/admin/column/${editingId}` : '/api/admin/column';
