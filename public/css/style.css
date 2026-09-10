@@ -2360,18 +2360,29 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
 
 .qt-empty { text-align: center; color: var(--ivory-dim); padding: 40px 0; position: relative; }
 
-.qt-archive-toggle-wrap { text-align: center; margin-top: 20px; }
+.qt-archive-toggle-wrap {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin-top: 20px;
+}
 @media (min-width: 861px) {
   .qt-quiz-main .qt-archive-toggle-wrap { max-width: 420px; margin-left: 0; margin-right: 0; }
 }
 .qt-archive-toggle {
   background: none;
   border: none;
+  font: inherit;
   font-size: 0.86rem;
   color: var(--muted);
   padding: 6px 10px;
+  cursor: pointer;
 }
 .qt-archive-toggle:hover { color: var(--navy-deep); }
+.qt-toggle-divider { color: var(--line); font-size: 0.8rem; }
+.qt-archive-toggle.qt-notify-btn.subscribed { color: var(--gold-deep); font-weight: 700; }
 
 
 /* 지난 큐티 팝업 — 게시판 상세보기 모달(.post-modal)을 그대로 재사용합니다.
