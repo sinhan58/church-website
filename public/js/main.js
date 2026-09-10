@@ -71,26 +71,22 @@
   }
 
   // ---------------- 스크롤 등장 애니메이션 ----------------
-  // 화면에 들어오면 나타나고, 화면 밖으로 나가면 사라졌다가, 다시 스크롤해서
-  // 들어오면 또 나타나도록 반복합니다 (한 번 보고 나면 계속 그대로 두지 않음).
-  // 단, 찬양 카드(.praise-card)와 게시판 카드(.board-card)는 화면 경계를 넘나들 때마다
-  // 애니메이션이 재생되면서 스크롤 중 흔들리거나(찬양) 마지막 카드가 스르륵 사라지는
-  // 것처럼 보이는 문제(게시판)가 있어, 한 번 나타난 뒤에는 고정합니다.
-  const REVEAL_ONCE_CLASSES = ['praise-card', 'board-card', 'board-list', 'service-card'];
+  // 화면에 들어오면 한 번 부드럽게 나타나고, 그 뒤로는 계속 보이는 상태로 고정합니다.
+  // (예전에는 화면 밖으로 나가면 사라졌다가 다시 스크롤하면 또 나타나도록 반복시켰는데,
+  //  모바일에서 주소창이 스크롤에 따라 접혔다 펼쳐지며 화면 높이가 미세하게 계속 바뀌다
+  //  보니, 요소가 화면 위쪽 경계에 걸쳐있을 때 '보임/안 보임' 판정이 아주 짧은 간격으로
+  //  왔다갔다하면서 애니메이션이 끊임없이 재생되는 버그가 있었습니다. 찬양/게시판/예배시간
+  //  카드는 같은 이유로 이미 '한 번만 재생'으로 고정해뒀었는데, 이번에 전체 .reveal
+  //  요소를 전부 이 방식으로 통일해서 문제를 근본적으로 없앴습니다.)
   const revealObserver =
     'IntersectionObserver' in window
       ? new IntersectionObserver(
           (entries) => {
             entries.forEach((entry) => {
-              const isRevealOnce = REVEAL_ONCE_CLASSES.some((cls) => entry.target.classList.contains(cls));
-              if (isRevealOnce) {
-                if (entry.isIntersecting) {
-                  entry.target.classList.add('is-visible');
-                  revealObserver.unobserve(entry.target);
-                }
-                return;
+              if (entry.isIntersecting) {
+                entry.target.classList.add('is-visible');
+                revealObserver.unobserve(entry.target);
               }
-              entry.target.classList.toggle('is-visible', entry.isIntersecting);
             });
           },
           { threshold: 0.12, rootMargin: '0px 0px -40px 0px' }
