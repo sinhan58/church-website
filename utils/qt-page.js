@@ -60,6 +60,12 @@ function renderQtDetailPage({ site, item, prev, next, siteUrl, cameFromHome }) {
       ${next ? `<a href="/qt/${next.id}">${escapeHtml(formatDateLabel(next.date))} 큐티 →</a>` : '<span></span>'}
     </div>`;
 
+  // 사진을 등록해둔 큐티는 제목·말씀 구간을 그 사진을 배경으로 크게 보여주고(카드 목록의
+  // 사진 카드와 같은 느낌), 본문 이하는 원래대로 흰 바탕에 편하게 읽히게 둡니다. 사진이
+  // 없으면 이 래퍼는 그냥 투명한 div라 예전 모습 그대로입니다.
+  const heroClass = item.bgImage ? 'qt-detail-hero qt-detail-hero--photo' : 'qt-detail-hero';
+  const heroStyle = item.bgImage ? ` style="--qt-hero-bg: url('${escapeHtml(item.bgImage)}')"` : '';
+
   return `<!DOCTYPE html>
 <html lang="ko"${htmlClassAttr}>
 <head>
@@ -115,7 +121,7 @@ function renderQtDetailPage({ site, item, prev, next, siteUrl, cameFromHome }) {
 <link class="gfont-link" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;600;700&display=block" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
 ${extraFontLinks}
-<link rel="stylesheet" href="/css/style.css?v=174" />
+<link rel="stylesheet" href="/css/style.css?v=175" />
 ${fontStyleTag}
 
 <!-- PWA: 홈 화면에 추가했을 때 앱처럼 보이도록 하는 설정 -->
@@ -138,22 +144,22 @@ ${fontStyleTag}
   <section class="section qt-detail-section">
     <div class="container qt-detail-container">
 
-      ${item.bgImage ? `<img class="qt-detail-hero-image" src="${escapeHtml(item.bgImage)}" alt="${escapeHtml(item.title || '')}" />` : ''}
+      <div class="${heroClass}"${heroStyle}>
+        <div class="qt-detail-head">
+          <span class="qt-badge">오늘의 큐티</span>
+          <p class="qt-detail-meta">${escapeHtml(formatDateLabel(item.date))}${pastor ? ` · ${escapeHtml(pastor)}` : ''}</p>
+          <h1 class="qt-detail-title">${escapeHtml(item.title || '')}</h1>
+        </div>
 
-      <div class="qt-detail-head">
-        <span class="qt-badge">오늘의 큐티</span>
-        <p class="qt-detail-meta">${escapeHtml(formatDateLabel(item.date))}${pastor ? ` · ${escapeHtml(pastor)}` : ''}</p>
-        <h1 class="qt-detail-title">${escapeHtml(item.title || '')}</h1>
+        ${
+          item.verseText
+            ? `<div class="qt-verse-card">
+                <p class="qt-verse-text">${nl2br(item.verseText)}</p>
+                ${item.verseRef ? `<p class="qt-verse-ref">${escapeHtml(item.verseRef)}</p>` : ''}
+              </div>`
+            : ''
+        }
       </div>
-
-      ${
-        item.verseText
-          ? `<div class="qt-verse-card">
-              <p class="qt-verse-text">${nl2br(item.verseText)}</p>
-              ${item.verseRef ? `<p class="qt-verse-ref">${escapeHtml(item.verseRef)}</p>` : ''}
-            </div>`
-          : ''
-      }
 
       ${item.body ? `<div class="qt-detail-body">${nl2br(item.body)}</div>` : ''}
 
