@@ -118,7 +118,22 @@ app.get('/column/:id', async (req, res, next) => {
     const idx = list.findIndex((c) => c.id === req.params.id);
     const prev = list[idx + 1] || null; // 더 과거
     const nextItem = idx > 0 ? list[idx - 1] : null; // 더 최근
-    res.send(renderColumnDetailPage({ site: site || {}, item, prev, next: nextItem, siteUrl: SITE_URL }));
+    // 큐티 상세 페이지와 똑같은 방식: 홈페이지 칼럼 카드를 눌러서 들어온 경우라면
+    // '홈으로' 버튼이 페이지를 새로 불러오지 않고 뒤로 가기로(스크롤 위치까지) 돌아갑니다.
+    let cameFromHome = req.query.from === 'home';
+    if (!cameFromHome) {
+      try {
+        const ref = req.headers.referer || req.headers.referrer;
+        if (ref) {
+          const refUrl = new URL(ref);
+          const siteOrigin = new URL(SITE_URL).origin;
+          cameFromHome = refUrl.origin === siteOrigin && refUrl.pathname === '/';
+        }
+      } catch (e) {
+        cameFromHome = false;
+      }
+    }
+    res.send(renderColumnDetailPage({ site: site || {}, item, prev, next: nextItem, siteUrl: SITE_URL, cameFromHome }));
   } catch (err) {
     next(err);
   }
