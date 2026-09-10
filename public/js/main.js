@@ -2671,7 +2671,7 @@
         // 이번 주 퀴즈에 참여한 분들의 기록(상위 5명, 점수 기준)을 카드 사진 하단에
         // 함께 보여줍니다. 순위표 페이지(quiz.html)에서 이미 쓰고 있는 것과 같은
         // 데이터를 그대로 가져다 씁니다. 점수는 관리자 페이지에서 확인할 수 있으니,
-        // 여기서는 숫자 대신 '참 잘했어요' 도장으로 표시합니다.
+        // 여기서는 숫자 대신 '참 잘했어요' 흰색 배지로 표시합니다(이름과 같은 흰색 톤).
         if (boardEl) {
           try {
             const lbRes = await fetch(`/api/quiz/${data.id}/leaderboard`);
@@ -2686,7 +2686,7 @@
                     <div class="quiz-teaser-leaderboard-row">
                       <span class="rank">${i + 1}</span>
                       <span class="name">${escapeHtml(p.name)}</span>
-                      <span class="quiz-stamp">참 잘했어요!</span>
+                      <span class="quiz-stamp">참 잘했어요</span>
                     </div>`
                   )
                   .join('')}`;
