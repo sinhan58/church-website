@@ -2760,11 +2760,22 @@
       } catch (err) {}
     }
     if (!isBackNavigation) return;
-    try {
-      const savedY = sessionStorage.getItem('homeScrollY');
-      if (savedY !== null) {
-        window.scrollTo(0, Number(savedY));
-      }
-    } catch (err) {}
+
+    function restoreScroll() {
+      try {
+        const savedY = sessionStorage.getItem('homeScrollY');
+        if (savedY !== null) {
+          window.scrollTo(0, Number(savedY));
+        }
+      } catch (err) {}
+    }
+
+    // 큐티 상세 페이지에서 '아멘'을 누르고 돌아온 경우, 캐시(bfcache)에서 그대로
+    // 복원되면 큐티 카드의 하트 뱃지가 누르기 전 상태로 그대로 보입니다. 뒤로가기로
+    // 돌아올 때마다 큐티 목록을 새로 불러와서 하트 상태가 바로 반영되게 합니다.
+    // 카드 내용이 새로 그려지며 높이가 살짝 바뀔 수 있어서, 스크롤 복원은 그 다음에 합니다.
+    loadQT()
+      .catch(() => {})
+      .finally(restoreScroll);
   });
 })();
