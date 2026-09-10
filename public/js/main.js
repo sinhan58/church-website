@@ -2659,6 +2659,7 @@
   // 보이지 않도록 기본은 숨김 상태로 시작해서, 있을 때만 드러냅니다)
   async function loadQuizTeaser() {
     const card = $('#quiz-teaser-card');
+    const boardEl = $('#quiz-teaser-leaderboard');
     if (!card) return;
     try {
       const res = await fetch('/api/quiz/current');
@@ -2666,6 +2667,35 @@
       if (data) {
         card.style.display = '';
         observeReveals(card.parentElement);
+
+        // 이번 주 퀴즈에 참여한 분들의 기록(상위 3명)을 카드 사진 하단에 함께 보여줍니다.
+        // 순위표 페이지(quiz.html)에서 이미 쓰고 있는 것과 같은 데이터를 그대로 가져다 씁니다.
+        if (boardEl) {
+          try {
+            const lbRes = await fetch(`/api/quiz/${data.id}/leaderboard`);
+            const list = await lbRes.json();
+            if (list && list.length > 0) {
+              const top = list.slice(0, 3);
+              boardEl.innerHTML = `
+                <p class="quiz-teaser-leaderboard-label">이번 주 참여 TOP ${top.length}</p>
+                ${top
+                  .map(
+                    (p, i) => `
+                    <div class="quiz-teaser-leaderboard-row">
+                      <span class="rank">${i + 1}</span>
+                      <span class="name">${escapeHtml(p.name)}</span>
+                      <span class="score">${p.score}점</span>
+                    </div>`
+                  )
+                  .join('')}`;
+              boardEl.style.display = '';
+            } else {
+              boardEl.style.display = 'none';
+            }
+          } catch (err) {
+            boardEl.style.display = 'none';
+          }
+        }
       }
     } catch (err) {
       // 실패해도 조용히 숨긴 채로 둡니다.
