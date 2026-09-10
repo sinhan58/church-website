@@ -1931,13 +1931,25 @@
     const trackEl = $('#qt-carousel-track');
     const navPrev = $('#qt-nav-prev');
     const navNext = $('#qt-nav-next');
-    const toggleWrap = $('.qt-archive-toggle-wrap');
+    // '지난 큐티 보기' 버튼 자체만 필요할 때 숨깁니다 (같은 줄의 '큐티 알림 받기'
+    // 버튼은 지난 큐티 유무와 상관없이 계속 눌러서 구독할 수 있어야 하므로,
+    // 감싸는 .qt-archive-toggle-wrap 전체는 더 이상 숨기지 않습니다).
+    const archiveToggleBtn = $('#qt-archive-toggle');
+    const notifyDivider = $('#qt-notify-divider');
+    function hideArchiveToggle() {
+      if (archiveToggleBtn) archiveToggleBtn.style.display = 'none';
+      if (notifyDivider) notifyDivider.style.display = 'none';
+    }
+    function showArchiveToggle() {
+      if (archiveToggleBtn) archiveToggleBtn.style.display = '';
+      if (notifyDivider) notifyDivider.style.display = '';
+    }
 
     if (!list || list.length === 0) {
       trackEl.innerHTML = `<p class="qt-empty">아직 등록된 큐티가 없습니다.</p>`;
       navPrev.style.display = 'none';
       navNext.style.display = 'none';
-      toggleWrap.style.display = 'none';
+      hideArchiveToggle();
       return;
     }
 
@@ -1988,10 +2000,10 @@
     navNext.style.display = 'none';
 
     if (rest.length === 0) {
-      toggleWrap.style.display = 'none';
+      hideArchiveToggle();
       return;
     }
-    toggleWrap.style.display = '';
+    showArchiveToggle();
 
     const archiveWrap = $('#qt-archive-wrap');
     const archiveGrid = $('#qt-archive-grid');
@@ -2072,13 +2084,28 @@
       const titleEl = $('#qt-column-title');
       const verseRefEl = $('#qt-column-verseref');
       const metaEl = $('#qt-column-meta');
+      const photoEl = $('#qt-column-photo');
+      const pastorEl = $('#qt-column-pastor');
       if (titleEl) titleEl.textContent = latestColumn.title || '';
       if (verseRefEl) {
         verseRefEl.textContent = latestColumn.verseRef || '';
         verseRefEl.style.display = latestColumn.verseRef ? '' : 'none';
       }
+      if (photoEl) {
+        // 사진을 안 넣었으면 커스텀 속성 자체를 지워서, 큐티 카드와 똑같은 기본
+        // 남색 그라디언트(CSS var() 기본값)로 자연스럽게 보이게 합니다.
+        if (latestColumn.bgImage) {
+          photoEl.style.setProperty('--qt-photo-bg', `url('${latestColumn.bgImage}')`);
+        } else {
+          photoEl.style.removeProperty('--qt-photo-bg');
+        }
+      }
+      if (pastorEl) {
+        pastorEl.textContent = latestColumn.pastor || '';
+        pastorEl.style.display = latestColumn.pastor ? '' : 'none';
+      }
       if (metaEl) {
-        metaEl.textContent = `${latestColumn.pastor || ''}${latestColumn.pastor ? ' · ' : ''}${formatQtDate(latestColumn.date || '')}`;
+        metaEl.textContent = formatQtDate(latestColumn.date || '');
       }
       card.style.display = '';
       card.addEventListener('click', () => {
@@ -2564,39 +2591,60 @@
     });
   }
 
-  // ---------------- 컨셉B: 큐티 알림 구독 카드 (상태 표시 + 클릭 시 구독) ----------------
+  // ---------------- 큐티 알림 구독 버튼 (상태 표시 + 클릭 시 구독) ----------------
+  // 컨셉B PC 화면의 카드형 버튼과, 모바일/컨셉A에 새로 추가한 텍스트 버튼 두 곳에서
+  // 똑같은 동작을 하도록 대상 버튼을 배열로 모아 한꺼번에 처리합니다.
   async function setupQtNotifyCard(registration) {
+    const targets = [];
     const cardBtn = $('#qt-notify-card');
-    if (!cardBtn) return;
-    const labelEl = $('#qt-notify-card-label');
-    const statusEl = $('#qt-notify-card-status');
+    if (cardBtn) {
+      targets.push({
+        btn: cardBtn,
+        labelEl: $('#qt-notify-card-label'),
+        statusEl: $('#qt-notify-card-status'),
+        labels: { default: '큐티 알림<br>받기', subscribed: '큐티 알림<br>받는 중', denied: '큐티 알림<br>차단됨' }
+      });
+    }
+    const mobileBtn = $('#qt-notify-btn-mobile');
+    if (mobileBtn) {
+      targets.push({
+        btn: mobileBtn,
+        labelEl: $('#qt-notify-btn-mobile-label'),
+        statusEl: null,
+        labels: { default: '큐티 알림 받기', subscribed: '큐티 알림 받는 중', denied: '큐티 알림 차단됨' }
+      });
+    }
+    if (!targets.length) return;
     if (!('PushManager' in window) || !('Notification' in window)) {
-      cardBtn.style.display = 'none';
+      targets.forEach(({ btn }) => { btn.style.display = 'none'; });
+      const dividerEl = $('#qt-notify-divider');
+      if (dividerEl) dividerEl.style.display = 'none';
       return;
     }
 
     async function refresh() {
-      if (Notification.permission === 'denied') {
-        cardBtn.classList.remove('subscribed');
-        labelEl.innerHTML = '큐티 알림<br>차단됨';
-        statusEl.textContent = '설정에서 허용 필요';
-        return;
-      }
-      const existing = await registration.pushManager.getSubscription();
-      if (existing) {
-        cardBtn.classList.add('subscribed');
-        labelEl.innerHTML = '큐티 알림<br>받는 중';
-        statusEl.textContent = '✓ 구독 중';
-      } else {
-        cardBtn.classList.remove('subscribed');
-        labelEl.innerHTML = '큐티 알림<br>받기';
-        statusEl.textContent = '';
-      }
+      const denied = Notification.permission === 'denied';
+      const existing = denied ? null : await registration.pushManager.getSubscription();
+      targets.forEach(({ btn, labelEl, statusEl, labels }) => {
+        if (denied) {
+          btn.classList.remove('subscribed');
+          if (labelEl) labelEl.innerHTML = labels.denied;
+          if (statusEl) statusEl.textContent = '설정에서 허용 필요';
+        } else if (existing) {
+          btn.classList.add('subscribed');
+          if (labelEl) labelEl.innerHTML = labels.subscribed;
+          if (statusEl) statusEl.textContent = '✓ 구독 중';
+        } else {
+          btn.classList.remove('subscribed');
+          if (labelEl) labelEl.innerHTML = labels.default;
+          if (statusEl) statusEl.textContent = '';
+        }
+      });
     }
 
     await refresh();
 
-    cardBtn.addEventListener('click', async () => {
+    async function handleClick() {
       if (Notification.permission === 'denied') {
         alert('알림이 브라우저에서 차단되어 있어요.\n\n주소창 왼쪽의 자물쇠(또는 사이트 정보) 아이콘을 누르신 뒤, "알림"을 찾아 "허용"으로 바꾸고 새로고침해주세요.');
         return;
@@ -2622,7 +2670,9 @@
       } catch (err) {
         // 실패해도 조용히 그대로 둡니다 (다시 눌러서 재시도 가능)
       }
-    });
+    }
+
+    targets.forEach(({ btn }) => btn.addEventListener('click', handleClick));
   }
 
   // ---------------- 초기 로드 ----------------
