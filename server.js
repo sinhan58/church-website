@@ -9,6 +9,7 @@ const adminRoutes = require('./routes/admin');
 const { updateSermonsCache } = require('./utils/youtube');
 const { readData } = require('./utils/db');
 const { renderQtDetailPage } = require('./utils/qt-page');
+const { renderColumnDetailPage } = require('./utils/column-page');
 const { renderIndexPage } = require('./utils/render-index');
 const { createStaticPageRenderer } = require('./utils/render-static-page');
 const renderPrayerPage = createStaticPageRenderer('prayer.html');
@@ -47,15 +48,19 @@ app.use(
 // 사이트 주소 (환경변수로 지정, 없으면 배포 주소로 기본값)
 const SITE_URL = process.env.SITE_URL || 'https://muldaen.com';
 
-// 사이트맵 (홈 + 큐티 상세 페이지들을 매 요청마다 최신 목록으로 반영)
+// 사이트맵 (홈 + 큐티/칼럼 상세 페이지들을 매 요청마다 최신 목록으로 반영)
 app.get('/sitemap.xml', async (req, res) => {
   try {
-    const qt = (await readData('qt')) || [];
+    const [qt, columns] = await Promise.all([readData('qt'), readData('columns')]);
     const urls = [
       `<url><loc>${SITE_URL}/</loc><changefreq>daily</changefreq><priority>1.0</priority></url>`,
-      ...qt.map(
+      ...(qt || []).map(
         (q) =>
           `<url><loc>${SITE_URL}/qt/${q.id}</loc><changefreq>never</changefreq><priority>0.6</priority></url>`
+      ),
+      ...(columns || []).map(
+        (c) =>
+          `<url><loc>${SITE_URL}/column/${c.id}</loc><changefreq>never</changefreq><priority>0.6</priority></url>`
       )
     ];
     res.type('application/xml');
@@ -97,6 +102,23 @@ app.get('/qt/:id', async (req, res, next) => {
       }
     }
     res.send(renderQtDetailPage({ site: site || {}, item, prev, next: nextItem, siteUrl: SITE_URL, cameFromHome }));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// 목회 칼럼 상세 페이지 (큐티 상세 페이지와 같은 이유로 서버에서 직접 렌더링 — 검색엔진
+// 색인 + 카카오톡 등 링크 공유 시 미리보기 카드 지원)
+app.get('/column/:id', async (req, res, next) => {
+  try {
+    const [site, columnList] = await Promise.all([readData('site'), readData('columns')]);
+    const list = (columnList || []).sort((a, b) => new Date(b.date) - new Date(a.date));
+    const item = list.find((c) => c.id === req.params.id);
+    if (!item) return next(); // 없으면 기존 SPA 폴백(홈)으로
+    const idx = list.findIndex((c) => c.id === req.params.id);
+    const prev = list[idx + 1] || null; // 더 과거
+    const nextItem = idx > 0 ? list[idx - 1] : null; // 더 최근
+    res.send(renderColumnDetailPage({ site: site || {}, item, prev, next: nextItem, siteUrl: SITE_URL }));
   } catch (err) {
     next(err);
   }
