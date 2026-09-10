@@ -704,6 +704,7 @@ router.post('/column', requirePermission('qt'), async (req, res) => {
       verseRef: req.body.verseRef || '',
       body: req.body.body || '',
       pastor: req.body.pastor || '',
+      bgImage: req.body.bgImage || '',
       createdAt: new Date().toISOString()
     };
     columns.unshift(item);
