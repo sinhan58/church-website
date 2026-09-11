@@ -517,6 +517,8 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
 .btn:active { transform: scale(0.97); transition: transform 0.1s ease, filter 0.15s ease; }
 .btn--gold { background: var(--gold); color: var(--navy-deep); }
 .btn--gold:hover { box-shadow: 0 8px 20px rgba(201,162,39,0.35); }
+.btn--gold-fill { background: var(--gold-deep); color: #fff; }
+.btn--gold-fill:hover { box-shadow: 0 8px 20px rgba(143,107,23,0.4); }
 .btn--outline { border-color: rgba(255,255,255,0.5); color: #fff; }
 .btn--outline:hover { background: rgba(255,255,255,0.1); }
 .btn--navy { background: var(--navy-deep); color: #fff; }
@@ -530,24 +532,28 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   font-size: 0.75rem;
   letter-spacing: 0.15em;
   z-index: 2;
+  padding-bottom: 24px;
 }
+.scroll-cue::before,
 .scroll-cue::after {
   content: '';
-  display: block;
-  width: 1px; height: 36px;
-  background: rgba(255,255,255,0.5);
-  margin: 8px auto 0;
+  position: absolute;
+  left: 50%;
+  width: 11px; height: 11px;
+  border-right: 2px solid rgba(255,255,255,0.85);
+  border-bottom: 2px solid rgba(255,255,255,0.85);
   /* 끝없이 반복하지 않고 4번만 움직인 뒤 멈춥니다. "아래로 스크롤하세요"라는 힌트는
      처음 몇 초만 보여도 충분하고, 계속 움직이는 요소가 있으면 배터리도 더 쓰고
      화면 밝기 전환 같은 시스템 처리와 겹칠 때 버벅임의 원인이 될 수 있습니다. */
-  animation: scrollLine 1.8s ease 4;
+  animation: scrollChevron 1.8s ease 4;
   animation-fill-mode: forwards;
 }
-@keyframes scrollLine {
-  0% { transform: scaleY(0); transform-origin: top; opacity: 0; }
-  40% { transform: scaleY(1); transform-origin: top; opacity: 1; }
-  60% { transform: scaleY(1); transform-origin: bottom; opacity: 1; }
-  100% { transform: scaleY(0); transform-origin: bottom; opacity: 0; }
+.scroll-cue::before { top: 18px; }
+.scroll-cue::after { top: 26px; animation-delay: 0.25s; }
+@keyframes scrollChevron {
+  0% { opacity: 0; transform: translateX(-50%) rotate(45deg) translate(0, 0); }
+  50% { opacity: 1; transform: translateX(-50%) rotate(45deg) translate(4px, 4px); }
+  100% { opacity: 0; transform: translateX(-50%) rotate(45deg) translate(8px, 8px); }
 }
 
 /* ---------------- About ---------------- */
@@ -612,10 +618,10 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
 }
 .service-card .time {
   font-family: var(--font-heading);
-  font-size: 1rem;
+  font-size: 1.1rem;
   font-weight: 600;
   color: var(--gold-soft);
-  margin: 10px 0 6px;
+  margin: 16px 0 6px;
   white-space: pre-line;
   word-break: keep-all;
 }
@@ -637,7 +643,7 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   /* 컨셉B 전용: 화면 폭이 넓어진 만큼, 예배명/시간 글씨도 존재감 있게 키웁니다.
      예배명 줄바꿈은 이제 JS에서 정확한 지점에 <br>을 넣어주므로, 여기서는
      글씨 크기만 조정합니다. */
-  html.theme-b .service-card .time { font-size: 1.3rem; }
+  html.theme-b .service-card .time { font-size: 1.45rem; margin-top: 18px; }
   html.theme-b .service-card .name {
     font-size: 1.9rem;
   }
@@ -2161,10 +2167,10 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
     word-break: keep-all;
   }
   .service-card .time {
-    font-size: 1.1rem;
+    font-size: 1.25rem;
     font-weight: 600;
     color: var(--gold-soft);
-    margin: 0 0 6px;
+    margin: 10px 0 6px;
   }
   .service-card .desc { font-size: 0.85rem; }
   .service-card:not(:last-child)::after { display: none; } /* 대각선 구분선은 PC 전용 */
@@ -2928,7 +2934,7 @@ body.has-mini-player .quick-fab-wrap { bottom: calc(20px + 68px); }
   color: #fff;
   text-shadow: 0 1px 3px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.4);
 }
-.quiz-teaser-leaderboard-row .rank { width: 16px; text-align: center; font-weight: 700; color: var(--gold-soft); }
+.quiz-teaser-leaderboard-row .rank { width: 16px; text-align: center; font-weight: 700; color: #fff; }
 .quiz-teaser-leaderboard-row .name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 /* '참 잘했어요' 배지 — 새로운 강조색(빨강/골드)을 더하지 않고, 같은 줄의 이름처럼
    흰색 알약 모양으로 통일했습니다. 배경이 불투명한 흰색이라 사진이 밝든 어둡든
