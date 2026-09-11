@@ -102,7 +102,7 @@ function renderQtDetailPage({ site, item, prev, next, siteUrl, cameFromHome }) {
 
   Promise.race([
     ready,
-    new Promise(function (resolve) { setTimeout(resolve, 800); })
+    new Promise(function (resolve) { setTimeout(resolve, 1200); })
   ]).then(reveal);
 
   setTimeout(reveal, 1500);
@@ -119,10 +119,11 @@ function renderQtDetailPage({ site, item, prev, next, siteUrl, cameFromHome }) {
 <meta property="og:type" content="article" />
 <meta property="og:locale" content="ko_KR" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link class="gfont-link" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;600;700&display=block" rel="stylesheet">
 <link class="gfont-link" rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
 ${extraFontLinks}
-<link rel="stylesheet" href="/css/style.css?v=181" />
+<link rel="stylesheet" href="/css/style.css?v=182" />
 ${fontStyleTag}
 
 <!-- PWA: 홈 화면에 추가했을 때 앱처럼 보이도록 하는 설정 -->
