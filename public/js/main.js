@@ -533,14 +533,6 @@
     }
   }
 
-  // ---------------- 메뉴 ----------------
-  async function loadMenu() {
-    const menu = await getJSON('/api/menu');
-    const html = menu.map((m) => `<a href="${escapeHtml(m.link)}">${escapeHtml(m.label)}</a>`).join('');
-    $('#nav-desktop').innerHTML = html;
-    $('#nav-mobile').innerHTML = html;
-  }
-
   // ---------------- 설교 영상 ----------------
   function formatDate(iso) {
     if (!iso) return '';
@@ -2745,14 +2737,18 @@
     // (해시 값 자체는 아래의 보정 스크롤을 위해 아직 지우지 않습니다)
   };
 
-  // 큐티(#qt)보다 위쪽 섹션(사이트정보·메뉴·설교·찬양·게시판·큐티)의 데이터만 스크롤
+  // 큐티(#qt)보다 위쪽 섹션(사이트정보·설교·찬양·게시판·큐티)의 데이터만 스크롤
   // 위치 계산에 영향을 줍니다. 아래쪽 섹션(선교·퀴즈)은 화면 공개를 굳이 기다릴
   // 필요가 없어서, 느린 네트워크에서도 화면이 빨리 뜨도록 따로 분리해 불러옵니다.
+  // (메뉴는 서버가 페이지를 만들 때 이미 <nav>에 채워서 보내므로 — utils/render-index.js —
+  // 여기서 다시 불러올 필요가 없습니다. 예전에는 여기서도 한 번 더 채웠는데, 이미 있는
+  // 내용을 통째로 지웠다가 다시 그리는 과정에서 PC 화면 상단 메뉴가 순간적으로 깜빡이는
+  // 원인이 되고 있어서 없앴습니다.)
   // loadSite()가 먼저 끝나야 <html>에 theme-b 클래스가 확정되고, 그 다음에 설교 등을
   // 불러와야 설교 히어로 이미지가 처음부터 정확한 컨셉(A/B)으로 요청됩니다. (동시에 실행하면
   // 어느 쪽이 먼저 끝날지 몰라, 첫 화면에서만 컨셉이 잘못 표시될 위험이 있었습니다)
   const dataReadyForScroll = loadSite()
-    .then(() => Promise.all([loadMenu(), loadSermons(), loadPraises(), loadBoard(), loadQT()]))
+    .then(() => Promise.all([loadSermons(), loadPraises(), loadBoard(), loadQT()]))
     .catch((err) => {
       console.error('콘텐츠를 불러오는 중 오류가 발생했습니다:', err);
     });
