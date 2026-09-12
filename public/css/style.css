@@ -449,6 +449,17 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   transition: opacity 0.8s ease;
 }
 .hero-bg-photo.is-visible { opacity: 1; }
+/* PC에서 히어로를 벗어나며 스크롤할 때 배경을 한 번 더 어둡게 깔아주는 레이어.
+   기본은 투명(0)이고, main.js가 스크롤 위치에 따라 이 값을 점점 키워서
+   글씨가 작아지며 사라지는 동안 배경도 함께 어두워지도록 합니다. */
+.hero-extra-overlay {
+  position: absolute;
+  inset: 0;
+  background: #0d1526;
+  opacity: 0;
+  z-index: 1;
+  pointer-events: none;
+}
 .hero-inner {
   position: relative;
   z-index: 2;
