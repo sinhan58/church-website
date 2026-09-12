@@ -149,6 +149,7 @@
     const reduceMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
 
     function resetStyles() {
+      heroEl.style.visibility = '';
       heroInner.style.transform = '';
       heroInner.style.opacity = '';
       if (heroExtraOverlay) heroExtraOverlay.style.opacity = '';
@@ -165,6 +166,11 @@
       }
       const heroHeight = heroEl.offsetHeight || window.innerHeight;
       const heroProgress = Math.min(Math.max(window.scrollY / heroHeight, 0), 1);
+      // 히어로는 PC에서 position:fixed로 화면에 고정되어 있어서, 교회소개가 다 덮고
+      // 지나간 뒤(heroProgress가 1에 도달)에도 그대로 두면 이후 모든 섹션 뒤에
+      // 영원히 깔려서 비쳐 보이는 문제가 생깁니다. 다 덮인 뒤에는 완전히 숨기고,
+      // 다시 위로 스크롤해서 전환 구간으로 돌아오면 다시 보이게 합니다.
+      heroEl.style.visibility = heroProgress >= 1 ? 'hidden' : '';
       heroInner.style.transform = `scale(${1 - 0.12 * heroProgress})`;
       heroInner.style.opacity = String(1 - heroProgress);
       if (heroExtraOverlay) heroExtraOverlay.style.opacity = String(heroProgress * 0.5);
