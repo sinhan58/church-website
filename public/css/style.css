@@ -517,8 +517,8 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
 .btn:active { transform: scale(0.97); transition: transform 0.1s ease, filter 0.15s ease; }
 .btn--gold { background: var(--gold); color: var(--navy-deep); }
 .btn--gold:hover { box-shadow: 0 8px 20px rgba(201,162,39,0.35); }
-.btn--gold-fill { background: var(--gold-deep); color: #fff; }
-.btn--gold-fill:hover { box-shadow: 0 8px 20px rgba(143,107,23,0.4); }
+.btn--gold-fill { background: var(--gold); color: #fff; border-radius: 999px; }
+.btn--gold-fill:hover { box-shadow: 0 8px 20px rgba(201,162,39,0.35); }
 .btn--outline { border-color: rgba(255,255,255,0.5); color: #fff; }
 .btn--outline:hover { background: rgba(255,255,255,0.1); }
 .btn--navy { background: var(--navy-deep); color: #fff; }
@@ -1863,7 +1863,7 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
 .btn-gold {
   align-self: flex-start;
   background: var(--gold);
-  color: var(--navy-deep);
+  color: #fff;
   border: none;
   border-radius: 999px;
   padding: 10px 24px;
