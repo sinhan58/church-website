@@ -179,11 +179,13 @@
         const rect = aboutSection.getBoundingClientRect();
         const vh = window.innerHeight;
         const aboutProgress = Math.min(Math.max((vh - rect.top) / vh, 0), 1);
-        // 사진은 느리게, 글씨는 조금 더 빠르게 올라오도록 이동 거리를 다르게 둡니다.
-        aboutImageWrap.style.transform = `translateY(${(1 - aboutProgress) * 50}px)`;
-        aboutImageWrap.style.opacity = String(0.4 + aboutProgress * 0.6);
-        aboutTextWrap.style.transform = `translateY(${(1 - aboutProgress) * 85}px)`;
-        aboutTextWrap.style.opacity = String(0.4 + aboutProgress * 0.6);
+        // 사진과 글씨가 서로 다른 속도로 떠오르는 게 눈에 띄도록 이동 거리·투명도 폭을
+        // 넉넉하게 줍니다(사진 160px, 글씨 260px — 글씨 쪽이 더 먼 거리를 이동하는 만큼
+        // 체감상 더 빠르게 따라붙는 느낌을 줍니다).
+        aboutImageWrap.style.transform = `translateY(${(1 - aboutProgress) * 160}px)`;
+        aboutImageWrap.style.opacity = String(0.15 + aboutProgress * 0.85);
+        aboutTextWrap.style.transform = `translateY(${(1 - aboutProgress) * 260}px)`;
+        aboutTextWrap.style.opacity = String(0.15 + aboutProgress * 0.85);
       }
     }
 
