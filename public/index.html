@@ -73,7 +73,7 @@
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link class="gfont-link" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;600;700&display=block" rel="stylesheet">
 <link class="gfont-link" rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
-<link rel="stylesheet" href="/css/style.css?v=191" />
+<link rel="stylesheet" href="/css/style.css?v=192" />
 <meta property="og:title" content="물댄동산교회 - 오산시 중앙동" />
 <meta property="og:description" content="경기도 오산시 중앙동 대동다숲(오색시장 인근)에 위치한 물댄동산교회입니다. 담임목사 이기삼." />
 <meta property="og:image" content="https://muldaen.com/uploads/0001.png" />
@@ -113,6 +113,7 @@
   <section class="hero" id="home">
     <div class="hero-bg-photo" id="hero-bg-photo-a"></div>
     <div class="hero-bg-photo" id="hero-bg-photo-b"></div>
+    <div class="hero-extra-overlay" aria-hidden="true"></div>
     <div class="hero-inner">
       <div class="verse-card">
         <p class="verse-text" id="hero-verse">너는 물댄동산 같겠고
@@ -130,15 +131,19 @@
   <!-- ABOUT -->
   <section class="section" id="about">
     <div class="container about-grid">
-      <img id="about-image" class="reveal" src="/uploads/about-default.svg" alt="교회 사진" />
-      <div class="about-body reveal reveal-delay-2">
-        <span class="eyebrow">ABOUT US</span>
-        <h2 id="about-greeting">교회 소개</h2>
-        <div id="about-body-text"></div>
-        <p id="about-history" style="color:var(--muted); font-size:0.92rem; white-space:pre-line;"></p>
-        <div class="pastor-box">
-          <p class="name" id="pastor-name"></p>
-          <p id="pastor-message"></p>
+      <div id="about-image-wrap">
+        <img id="about-image" class="reveal" src="/uploads/about-default.svg" alt="교회 사진" />
+      </div>
+      <div id="about-text-wrap">
+        <div class="about-body reveal reveal-delay-2">
+          <span class="eyebrow">ABOUT US</span>
+          <h2 id="about-greeting">교회 소개</h2>
+          <div id="about-body-text"></div>
+          <p id="about-history" style="color:var(--muted); font-size:0.92rem; white-space:pre-line;"></p>
+          <div class="pastor-box">
+            <p class="name" id="pastor-name"></p>
+            <p id="pastor-message"></p>
+          </div>
         </div>
       </div>
     </div>
