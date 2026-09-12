@@ -29,6 +29,32 @@
     return escaped;
   }
 
+  // 대문(히어로) 성경구절: 관리자가 줄바꿈(\n)으로 나눠둔 줄 중 하나가 유독 길면, 작은
+  // 화면(~400px 이하, style.css의 .verse-break-sm 참고)에서만 보이는 줄바꿈을 어절 단위로
+  // 균형 잡힌 지점에 하나 더 끼워 넣어 3줄로 보이게 합니다. 그보다 넓은 화면에서는 이
+  // 줄바꿈이 숨겨져서 원래대로 한 줄에 다 보입니다. 어절 길이를 기준으로 지점을 찾기
+  // 때문에 나중에 구절이 바뀌어도 같은 방식으로 자동 적용됩니다.
+  function buildHeroVerseHtml(text) {
+    const lines = String(text || '').split('\n');
+    return lines
+      .map((line) => {
+        const words = line.split(' ').filter(Boolean);
+        const totalLen = words.reduce((sum, w) => sum + w.length, 0);
+        if (words.length < 2 || totalLen <= 10) return escapeHtml(line);
+        let splitIdx = 1;
+        let bestDiff = Infinity;
+        for (let i = 1; i < words.length; i++) {
+          const acc = words.slice(0, i).reduce((sum, w) => sum + w.length, 0);
+          const diff = Math.abs(acc - totalLen / 2);
+          if (diff <= bestDiff) { bestDiff = diff; splitIdx = i; }
+        }
+        const firstHalf = escapeHtml(words.slice(0, splitIdx).join(' '));
+        const secondHalf = escapeHtml(words.slice(splitIdx).join(' '));
+        return `${firstHalf}<br class="verse-break-sm">${secondHalf}`;
+      })
+      .join('<br>');
+  }
+
   // 관리자 페이지 리치 텍스트 에디터(Quill)에서 저장된 HTML을 안전하게 렌더링하기 위한
   // 화이트리스트 방식 정제 함수. 허용된 태그/속성만 남기고 나머지(script, on* 이벤트,
   // 위험한 style 속성 등)는 전부 제거합니다.
@@ -377,7 +403,7 @@
     $('#footer-year').textContent = new Date().getFullYear();
 
     if (site.hero) {
-      $('#hero-verse').textContent = site.hero.verse || '';
+      $('#hero-verse').innerHTML = buildHeroVerseHtml(site.hero.verse);
       $('#hero-verse-ref').textContent = site.hero.verseRef || '';
       $('#hero-subtitle').innerHTML = escapeHtml(site.hero.subtitle || '').replace(/\n/g, '<br>');
       $('.hero').classList.toggle('hero--no-overlay', site.hero.overlayEnabled === false);
