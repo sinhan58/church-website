@@ -131,6 +131,72 @@
     });
   }
 
+  // ---------------- 히어로 → 교회소개 스크롤 전환 연출 (PC 전용, 실험적) ----------------
+  // 스크롤해서 히어로를 벗어날 때 글씨가 살짝 작아지며 사라지고 배경이 한 번 더 어두워지고,
+  // 교회소개의 사진·글씨는 서로 다른 속도로 올라오게 해서 입체감을 줍니다. 화면이 좁은
+  // 모바일에서는 부담스러울 수 있어 PC(861px 이상)에서만 켜고, 사용자가 기기에서
+  // '동작 줄이기(prefers-reduced-motion)'를 켜둔 경우에는 아예 움직이지 않습니다.
+  function setupHeroAboutTransition() {
+    const heroEl = $('.hero');
+    const heroInner = $('.hero-inner');
+    const heroExtraOverlay = $('.hero-extra-overlay');
+    const aboutSection = $('#about');
+    const aboutImageWrap = $('#about-image-wrap');
+    const aboutTextWrap = $('#about-text-wrap');
+    if (!heroEl || !heroInner || !aboutSection) return;
+
+    const pcQuery = window.matchMedia('(min-width: 861px)');
+    const reduceMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    function resetStyles() {
+      heroInner.style.transform = '';
+      heroInner.style.opacity = '';
+      if (heroExtraOverlay) heroExtraOverlay.style.opacity = '';
+      if (aboutImageWrap) { aboutImageWrap.style.transform = ''; aboutImageWrap.style.opacity = ''; }
+      if (aboutTextWrap) { aboutTextWrap.style.transform = ''; aboutTextWrap.style.opacity = ''; }
+    }
+
+    let ticking = false;
+    function update() {
+      ticking = false;
+      if (!pcQuery.matches || reduceMotionQuery.matches) {
+        resetStyles();
+        return;
+      }
+      const heroHeight = heroEl.offsetHeight || window.innerHeight;
+      const heroProgress = Math.min(Math.max(window.scrollY / heroHeight, 0), 1);
+      heroInner.style.transform = `scale(${1 - 0.12 * heroProgress})`;
+      heroInner.style.opacity = String(1 - heroProgress);
+      if (heroExtraOverlay) heroExtraOverlay.style.opacity = String(heroProgress * 0.5);
+
+      if (aboutImageWrap && aboutTextWrap) {
+        const rect = aboutSection.getBoundingClientRect();
+        const vh = window.innerHeight;
+        const aboutProgress = Math.min(Math.max((vh - rect.top) / vh, 0), 1);
+        // 사진은 느리게, 글씨는 조금 더 빠르게 올라오도록 이동 거리를 다르게 둡니다.
+        aboutImageWrap.style.transform = `translateY(${(1 - aboutProgress) * 50}px)`;
+        aboutImageWrap.style.opacity = String(0.4 + aboutProgress * 0.6);
+        aboutTextWrap.style.transform = `translateY(${(1 - aboutProgress) * 85}px)`;
+        aboutTextWrap.style.opacity = String(0.4 + aboutProgress * 0.6);
+      }
+    }
+
+    function onScroll() {
+      if (!ticking) {
+        window.requestAnimationFrame(update);
+        ticking = true;
+      }
+    }
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    window.addEventListener('resize', onScroll);
+    if (pcQuery.addEventListener) {
+      pcQuery.addEventListener('change', onScroll);
+      reduceMotionQuery.addEventListener('change', onScroll);
+    }
+    update();
+  }
+
   function renderMap(contact) {
     const box = $('#map-box');
     if (!box) return;
@@ -2672,6 +2738,7 @@
 
   // ---------------- 초기 로드 ----------------
   observeReveals();
+  setupHeroAboutTransition();
   // ---------------- 말씀 퀴즈 티저 카드 ----------------
   // 관리자가 이번 주 퀴즈를 등록해뒀을 때만 카드가 보이게 합니다. (없으면 빈 링크가
   // 보이지 않도록 기본은 숨김 상태로 시작해서, 있을 때만 드러냅니다)
