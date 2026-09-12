@@ -460,6 +460,33 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   z-index: 1;
   pointer-events: none;
 }
+/* PC 전용: 교회소개 섹션이 커튼처럼 히어로 위로 덮으며 올라오는 효과.
+   히어로를 화면에 고정(position:fixed)해두고, 원래 히어로가 차지하던 자리는
+   .hero-pin-spacer가 대신 채워서 문서 흐름이 밀리지 않게 합니다.
+   모바일에서는 스페이서를 감춰서(height:0) 기존처럼 히어로가 평범하게 흘러갑니다. */
+.hero-pin-spacer { display: none; }
+@media (min-width: 861px) {
+  .hero {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    height: 100svh;
+    z-index: 1;
+  }
+  .hero-pin-spacer {
+    display: block;
+    height: 100vh;
+    height: 100svh;
+  }
+  #about {
+    position: relative;
+    z-index: 2;
+    background: var(--ivory);
+    box-shadow: 0 -32px 56px rgba(15, 21, 38, 0.18);
+  }
+}
 .hero-inner {
   position: relative;
   z-index: 2;
