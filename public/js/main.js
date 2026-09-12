@@ -141,9 +141,11 @@
     const heroInner = $('.hero-inner');
     const heroExtraOverlay = $('.hero-extra-overlay');
     const aboutSection = $('#about');
-    const aboutImageWrap = $('#about-image-wrap');
-    const aboutTextWrap = $('#about-text-wrap');
     if (!heroEl || !heroInner || !aboutSection) return;
+    // 교회소개 사진·글씨의 등장 움직임은 더 이상 스크롤 거리에 실시간으로 붙이지 않고
+    // (수백px에 걸쳐 천천히 바뀌니 체감이 거의 안 됨), style.css의
+    // #about-image-wrap.reveal / #about-text-wrap.reveal 쪽에서 화면에 들어오는 순간
+    // 정해진 시간 안에 또렷하게 움직이도록 처리합니다. 여기서는 히어로 쪽만 다룹니다.
 
     const pcQuery = window.matchMedia('(min-width: 861px)');
     const reduceMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -153,8 +155,6 @@
       heroInner.style.transform = '';
       heroInner.style.opacity = '';
       if (heroExtraOverlay) heroExtraOverlay.style.opacity = '';
-      if (aboutImageWrap) { aboutImageWrap.style.transform = ''; aboutImageWrap.style.opacity = ''; }
-      if (aboutTextWrap) { aboutTextWrap.style.transform = ''; aboutTextWrap.style.opacity = ''; }
     }
 
     let ticking = false;
@@ -174,19 +174,6 @@
       heroInner.style.transform = `scale(${1 - 0.12 * heroProgress})`;
       heroInner.style.opacity = String(1 - heroProgress);
       if (heroExtraOverlay) heroExtraOverlay.style.opacity = String(heroProgress * 0.5);
-
-      if (aboutImageWrap && aboutTextWrap) {
-        const rect = aboutSection.getBoundingClientRect();
-        const vh = window.innerHeight;
-        const aboutProgress = Math.min(Math.max((vh - rect.top) / vh, 0), 1);
-        // 사진과 글씨가 서로 다른 속도로 떠오르는 게 눈에 띄도록 이동 거리·투명도 폭을
-        // 넉넉하게 줍니다(사진 160px, 글씨 260px — 글씨 쪽이 더 먼 거리를 이동하는 만큼
-        // 체감상 더 빠르게 따라붙는 느낌을 줍니다).
-        aboutImageWrap.style.transform = `translateY(${(1 - aboutProgress) * 160}px)`;
-        aboutImageWrap.style.opacity = String(0.15 + aboutProgress * 0.85);
-        aboutTextWrap.style.transform = `translateY(${(1 - aboutProgress) * 260}px)`;
-        aboutTextWrap.style.opacity = String(0.15 + aboutProgress * 0.85);
-      }
     }
 
     function onScroll() {
