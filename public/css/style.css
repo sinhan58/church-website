@@ -474,6 +474,7 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
 .verse-card .verse-text {
   font-family: var(--font-heading);
   font-size: clamp(1.35rem, 3vw, 1.85rem);
+  font-weight: 700;
   line-height: 1.6;
   color: #fff;
   margin-bottom: 10px;
@@ -495,14 +496,23 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
 }
 .hero-subtitle {
   color: #d7d9e4;
-  font-size: 1.05rem;
+  font-size: 0.98rem;
+  font-weight: 700;
   margin-bottom: 36px;
   text-shadow: 0 1px 3px rgba(0,0,0,0.7), 0 2px 12px rgba(0,0,0,0.5), 0 0 24px rgba(0,0,0,0.3);
 }
 @media (min-width: 861px) {
-  html.theme-b .hero-subtitle { font-size: 1.3rem; }
+  html.theme-b .hero-subtitle { font-size: 1.2rem; }
 }
 .hero-cta { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+
+/* 버튼/링크 끝에 붙는 겹화살괄호(») — 본문 글씨보다 작게 찍혀 보이지 않도록
+   글씨 크기 기준으로 살짝 키워서 씁니다(em 단위라 어디 붙어도 비율이 맞습니다). */
+.dbl-chevron {
+  display: inline-block;
+  font-size: 1.15em;
+  vertical-align: -0.05em;
+}
 
 .btn {
   display: inline-block;
@@ -621,7 +631,7 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   font-size: 1.1rem;
   font-weight: 600;
   color: var(--gold-soft);
-  margin: 16px 0 6px;
+  margin: 22px 0 6px;
   white-space: pre-line;
   word-break: keep-all;
 }
@@ -643,7 +653,7 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   /* 컨셉B 전용: 화면 폭이 넓어진 만큼, 예배명/시간 글씨도 존재감 있게 키웁니다.
      예배명 줄바꿈은 이제 JS에서 정확한 지점에 <br>을 넣어주므로, 여기서는
      글씨 크기만 조정합니다. */
-  html.theme-b .service-card .time { font-size: 1.45rem; margin-top: 18px; }
+  html.theme-b .service-card .time { font-size: 1.45rem; margin-top: 24px; }
   html.theme-b .service-card .name {
     font-size: 1.9rem;
   }
@@ -877,13 +887,14 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   z-index: 1;
 }
 .sermon-hero-b-label {
-  color: var(--gold);
+  color: #fff;
+  background: var(--gold);
   font-weight: 700;
   font-size: 1.05rem;
   letter-spacing: 2px;
-  padding-bottom: 8px;
+  padding: 8px 20px;
   margin-bottom: 48px;
-  border-bottom: 3px solid var(--gold);
+  border-radius: 999px;
   display: inline-block;
   width: fit-content;
 }
@@ -900,7 +911,7 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   margin-top: 0; /* 4줄 이상이면 여백 없이 위에서부터 시작 (그래야 4줄이 다 들어감) */
 }
 .sermon-hero-b-verse {
-  color: var(--gold);
+  color: #fff;
   font-size: 1.15rem;
   margin: 0 0 48px;
 }
@@ -1012,9 +1023,8 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   .sermon-hero-b-label {
     font-size: 0.68rem;
     letter-spacing: 1px;
-    padding-bottom: 3px;
+    padding: 5px 12px;
     margin-bottom: 14px;
-    border-bottom-width: 2px;
   }
   .sermon-hero-b-title {
     font-size: 1.02rem;
@@ -2170,7 +2180,7 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
     font-size: 1.25rem;
     font-weight: 600;
     color: var(--gold-soft);
-    margin: 10px 0 6px;
+    margin: 16px 0 6px;
   }
   .service-card .desc { font-size: 0.85rem; }
   .service-card:not(:last-child)::after { display: none; } /* 대각선 구분선은 PC 전용 */
@@ -2233,8 +2243,8 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   display: inline-block;
   font-size: 0.72rem;
   font-weight: 700;
-  color: var(--navy-deep);
-  background: var(--gold-soft);
+  color: #fff;
+  background: var(--gold);
   border-radius: 999px;
   padding: 4px 12px;
   margin-bottom: 14px;
@@ -2904,7 +2914,7 @@ body.has-mini-player .quick-fab-wrap { bottom: calc(20px + 68px); }
   margin-top: 8px;
   font-size: 0.82rem;
   font-weight: 700;
-  color: var(--navy-deep);
+  color: #fff;
   background: var(--gold);
   padding: 8px 16px;
   border-radius: 999px;
