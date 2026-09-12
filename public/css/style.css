@@ -503,14 +503,14 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
 }
 .hero-subtitle {
   color: #ffffff;
-  font-size: 0.98rem;
+  font-size: 1.15rem;
   font-weight: 700;
   margin-bottom: 36px;
   word-break: keep-all;
   text-shadow: 0 1px 3px rgba(0,0,0,0.7), 0 2px 12px rgba(0,0,0,0.5), 0 0 24px rgba(0,0,0,0.3);
 }
 @media (min-width: 861px) {
-  html.theme-b .hero-subtitle { font-size: 1.2rem; }
+  html.theme-b .hero-subtitle { font-size: 1.4rem; }
 }
 .hero-cta { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
 
