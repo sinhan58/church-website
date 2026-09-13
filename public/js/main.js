@@ -192,6 +192,74 @@
     update();
   }
 
+  // 교회소개 섹션 상단의 배경 교차 타이포그래피(영문 교회명 / 한글 환영 문구가
+  // 서로 반대 방향으로 스쳐 지나가는 장식 효과). GSAP(ScrollTrigger)의 scrub
+  // 옵션이 만드는 부드러운 움직임을 그대로 쓰되, 모바일은 공간이 좁아 이 요소
+  // 자체를 CSS에서 숨기므로, 라이브러리도 PC 폭일 때만 CDN에서 불러옵니다
+  // (모바일 사용자는 GSAP를 아예 내려받지 않습니다).
+  function setupAboutCrossingTypography() {
+    const leftEl = $('#about-bg-left');
+    const rightEl = $('#about-bg-right');
+    const aboutSection = $('#about');
+    if (!leftEl || !rightEl || !aboutSection) return;
+
+    const pcQuery = window.matchMedia('(min-width: 861px)');
+    const reduceMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    if (!pcQuery.matches || reduceMotionQuery.matches) return;
+
+    function loadScript(src) {
+      return new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = src;
+        s.onload = resolve;
+        s.onerror = reject;
+        document.head.appendChild(s);
+      });
+    }
+
+    async function init() {
+      try {
+        if (!window.gsap) {
+          await loadScript('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js');
+        }
+        if (!window.ScrollTrigger) {
+          await loadScript('https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js');
+        }
+      } catch (err) {
+        return; // CDN 로드 실패 시 조용히 포기 (장식 효과라 핵심 기능엔 영향 없음)
+      }
+      if (!window.gsap || !window.ScrollTrigger) return;
+
+      gsap.registerPlugin(ScrollTrigger);
+
+      gsap.to(leftEl, {
+        xPercent: 25,
+        ease: 'none',
+        scrollTrigger: {
+          trigger: aboutSection,
+          start: 'top bottom',
+          end: 'bottom top',
+          scrub: 1.5
+        }
+      });
+      gsap.fromTo(rightEl,
+        { xPercent: 15 },
+        {
+          xPercent: -10,
+          ease: 'none',
+          scrollTrigger: {
+            trigger: aboutSection,
+            start: 'top bottom',
+            end: 'bottom top',
+            scrub: 1.5
+          }
+        }
+      );
+    }
+
+    init();
+  }
+
   function renderMap(contact) {
     const box = $('#map-box');
     if (!box) return;
@@ -2734,6 +2802,7 @@
   // ---------------- 초기 로드 ----------------
   observeReveals();
   setupHeroAboutTransition();
+  setupAboutCrossingTypography();
   // ---------------- 말씀 퀴즈 티저 카드 ----------------
   // 관리자가 이번 주 퀴즈를 등록해뒀을 때만 카드가 보이게 합니다. (없으면 빈 링크가
   // 보이지 않도록 기본은 숨김 상태로 시작해서, 있을 때만 드러냅니다)
