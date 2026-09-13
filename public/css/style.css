@@ -485,6 +485,7 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
     z-index: 2;
     background: var(--ivory);
     box-shadow: 0 -32px 56px rgba(15, 21, 38, 0.18);
+    overflow: hidden;
   }
 }
 .hero-inner {
@@ -613,6 +614,32 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
 }
 
 /* ---------------- About ---------------- */
+/* 교회소개 섹션 상단 배경 교차 타이포그래피 (PC 전용). 영문 교회명과 한글 환영
+   문구가 서로 반대 방향으로 스쳐 지나가는 장식용 텍스트로, main.js의
+   setupAboutCrossingTypography()가 GSAP(ScrollTrigger)을 PC 폭에서만 불러와
+   움직임을 붙여줍니다. 모바일에서는 공간이 부족해 아예 숨깁니다. */
+.about-bg-type-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0 0 44px;
+  pointer-events: none;
+  user-select: none;
+}
+.about-bg-type {
+  font-size: clamp(40px, 6vw, 130px);
+  font-weight: 900;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: var(--navy-deep);
+  opacity: 0.09;
+  line-height: 1;
+  will-change: transform;
+}
+.about-bg-type--right { align-self: flex-end; }
+@media (max-width: 860px) {
+  .about-bg-type-wrap { display: none; }
+}
 .about-grid {
   display: grid;
   grid-template-columns: 0.9fr 1.1fr;
