@@ -55,6 +55,40 @@
       .join('<br>');
   }
 
+  // 대문(히어로) 부제목: "가정이 교회 되고, 매일이 주일 되고, 일상이 예배가 되는 교회!"처럼
+  // 쉼표로 이어진 문장은 작은 화면에서 자연스러운 지점(쉼표) 대신 아무 데서나 줄바꿈되면
+  // 어색해 보입니다. 작은 화면(~860px 이하, style.css의 .hero-subtitle-break-sm 참고)에서만
+  // 쉼표 뒤마다 줄을 바꿔 보여주고, 그보다 넓은 화면에서는 이 줄바꿈을 숨겨 원래대로
+  // 한 줄(또는 관리자가 입력한 줄바꿈 그대로)로 보이게 합니다. 쉼표가 없는 문장은 히어로
+  // 성경구절과 같은 방식(어절 단위 균형 분할)으로 처리합니다.
+  function buildHeroSubtitleHtml(text) {
+    const lines = String(text || '').split('\n');
+    return lines
+      .map((line) => {
+        if (!line.trim()) return escapeHtml(line);
+        const commaParts = line.split(/,\s*/).filter(Boolean);
+        if (commaParts.length > 1) {
+          return commaParts
+            .map((part, i) => escapeHtml(i < commaParts.length - 1 ? `${part},` : part))
+            .join('<br class="hero-subtitle-break-sm">');
+        }
+        const words = line.split(' ').filter(Boolean);
+        const totalLen = words.reduce((sum, w) => sum + w.length, 0);
+        if (words.length < 2 || totalLen <= 10) return escapeHtml(line);
+        let splitIdx = 1;
+        let bestDiff = Infinity;
+        for (let i = 1; i < words.length; i++) {
+          const acc = words.slice(0, i).reduce((sum, w) => sum + w.length, 0);
+          const diff = Math.abs(acc - totalLen / 2);
+          if (diff <= bestDiff) { bestDiff = diff; splitIdx = i; }
+        }
+        const firstHalf = escapeHtml(words.slice(0, splitIdx).join(' '));
+        const secondHalf = escapeHtml(words.slice(splitIdx).join(' '));
+        return `${firstHalf}<br class="hero-subtitle-break-sm">${secondHalf}`;
+      })
+      .join('<br>');
+  }
+
   // 관리자 페이지 리치 텍스트 에디터(Quill)에서 저장된 HTML을 안전하게 렌더링하기 위한
   // 화이트리스트 방식 정제 함수. 허용된 태그/속성만 남기고 나머지(script, on* 이벤트,
   // 위험한 style 속성 등)는 전부 제거합니다.
@@ -534,7 +568,7 @@
     if (site.hero) {
       $('#hero-verse').innerHTML = buildHeroVerseHtml(site.hero.verse);
       $('#hero-verse-ref').textContent = site.hero.verseRef || '';
-      $('#hero-subtitle').innerHTML = escapeHtml(site.hero.subtitle || '').replace(/\n/g, '<br>');
+      $('#hero-subtitle').innerHTML = buildHeroSubtitleHtml(site.hero.subtitle);
       $('.hero').classList.toggle('hero--no-overlay', site.hero.overlayEnabled === false);
       if (Array.isArray(site.hero.backgroundImages) && site.hero.backgroundImages.length) {
         startHeroSlideshow(site.hero.backgroundImages);
