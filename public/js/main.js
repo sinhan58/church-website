@@ -78,7 +78,12 @@
       const frag = document.createDocumentFragment();
       parts.forEach((part, i) => {
         const isLast = i === parts.length - 1;
-        frag.appendChild(document.createTextNode(isLast ? part : `${part},`));
+        // 쉼표 뒤 공백은 정규식이 삼켜버리므로 다시 붙여줍니다. PC처럼 <br>이 숨겨진
+        // 화면에서는 이 공백이 있어야 "…되고, 매일이…"처럼 원래 문장 그대로 이어져
+        // 보입니다(공백을 안 붙이면 "…되고,매일이…"로 붙어버려 text-wrap:balance가
+        // 엉뚱한 지점에서 줄을 바꾸는 원인이 됩니다). 모바일은 바로 뒤에 줄바꿈이
+        // 오므로 이 공백이 있어도 화면엔 표시되지 않습니다.
+        frag.appendChild(document.createTextNode(isLast ? part : `${part}, `));
         if (!isLast) {
           const br = document.createElement('br');
           br.className = 'comma-break-sm';
