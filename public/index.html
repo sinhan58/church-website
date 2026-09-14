@@ -73,7 +73,7 @@
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link class="gfont-link" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;600;700&display=block" rel="stylesheet">
 <link class="gfont-link" rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
-<link rel="stylesheet" href="/css/style.css?v=201" />
+<link rel="stylesheet" href="/css/style.css?v=202" />
 <meta property="og:title" content="물댄동산교회 - 오산시 중앙동" />
 <meta property="og:description" content="경기도 오산시 중앙동 대동다숲(오색시장 인근)에 위치한 물댄동산교회입니다. 담임목사 이기삼." />
 <meta property="og:image" content="https://muldaen.com/uploads/0001.png" />
@@ -300,9 +300,16 @@
             <button class="qt-carousel-nav qt-carousel-nav--next" id="qt-nav-next" aria-label="다음 큐티 보기">&#8250;</button>
           </div>
           <div class="qt-archive-toggle-wrap">
-            <button class="qt-archive-toggle" id="qt-archive-toggle">지난 큐티 보기</button>
-            <span class="qt-toggle-divider" id="qt-notify-divider" aria-hidden="true">·</span>
-            <button type="button" class="qt-archive-toggle qt-notify-btn" id="qt-notify-btn-mobile">
+            <button type="button" class="qt-pill-btn qt-pill-btn--archive" id="qt-archive-toggle">
+              <span class="qt-pill-btn-icon">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M12 8v5l3 3M21 12a9 9 0 11-9-9 9 9 0 019 9z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </span>
+              <span>지난 큐티 보기</span>
+            </button>
+            <button type="button" class="qt-pill-btn qt-pill-btn--notify" id="qt-notify-btn-mobile">
+              <span class="qt-pill-btn-icon">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </span>
               <span id="qt-notify-btn-mobile-label">큐티 알림 받기</span>
             </button>
           </div>
@@ -636,6 +643,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
 <script src="/js/countries.js"></script>
 <script src="/js/font-catalog.js"></script>
-<script src="/js/main.js?v=98"></script>
+<script src="/js/main.js?v=99"></script>
 </body>
 </html>
