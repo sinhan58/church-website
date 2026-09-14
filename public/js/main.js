@@ -165,11 +165,10 @@
     });
   }
 
-  // ---------------- 히어로 → 교회소개 스크롤 전환 연출 (PC 전용, 실험적) ----------------
+  // ---------------- 히어로 → 교회소개 스크롤 전환 연출 (PC/모바일 공통) ----------------
   // 스크롤해서 히어로를 벗어날 때 글씨가 살짝 작아지며 사라지고 배경이 한 번 더 어두워지고,
-  // 교회소개의 사진·글씨는 서로 다른 속도로 올라오게 해서 입체감을 줍니다. 화면이 좁은
-  // 모바일에서는 부담스러울 수 있어 PC(861px 이상)에서만 켜고, 사용자가 기기에서
-  // '동작 줄이기(prefers-reduced-motion)'를 켜둔 경우에는 아예 움직이지 않습니다.
+  // 교회소개가 그 위로 덮으며 올라옵니다. 사용자가 기기에서 '동작 줄이기
+  // (prefers-reduced-motion)'를 켜둔 경우에는 아예 움직이지 않습니다.
   function setupHeroAboutTransition() {
     const heroEl = $('.hero');
     const heroInner = $('.hero-inner');
@@ -181,7 +180,6 @@
     // #about-image-wrap.reveal / #about-text-wrap.reveal 쪽에서 화면에 들어오는 순간
     // 정해진 시간 안에 또렷하게 움직이도록 처리합니다. 여기서는 히어로 쪽만 다룹니다.
 
-    const pcQuery = window.matchMedia('(min-width: 861px)');
     const reduceMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
 
     function resetStyles() {
@@ -194,13 +192,13 @@
     let ticking = false;
     function update() {
       ticking = false;
-      if (!pcQuery.matches || reduceMotionQuery.matches) {
+      if (reduceMotionQuery.matches) {
         resetStyles();
         return;
       }
       const heroHeight = heroEl.offsetHeight || window.innerHeight;
       const heroProgress = Math.min(Math.max(window.scrollY / heroHeight, 0), 1);
-      // 히어로는 PC에서 position:fixed로 화면에 고정되어 있어서, 교회소개가 다 덮고
+      // 히어로는 position:fixed로 화면에 고정되어 있어서, 교회소개가 다 덮고
       // 지나간 뒤(heroProgress가 1에 도달)에도 그대로 두면 이후 모든 섹션 뒤에
       // 영원히 깔려서 비쳐 보이는 문제가 생깁니다. 다 덮인 뒤에는 완전히 숨기고,
       // 다시 위로 스크롤해서 전환 구간으로 돌아오면 다시 보이게 합니다.
@@ -219,8 +217,7 @@
 
     window.addEventListener('scroll', onScroll, { passive: true });
     window.addEventListener('resize', onScroll);
-    if (pcQuery.addEventListener) {
-      pcQuery.addEventListener('change', onScroll);
+    if (reduceMotionQuery.addEventListener) {
       reduceMotionQuery.addEventListener('change', onScroll);
     }
     update();
