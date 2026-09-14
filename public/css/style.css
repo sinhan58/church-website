@@ -515,7 +515,10 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
 }
 .verse-card .verse-text {
   font-family: var(--font-heading);
-  font-size: clamp(1.35rem, 3vw, 1.85rem);
+  /* 모바일 기준 크기를 1.35rem → 1.6rem으로 키웠습니다. 375px(아이폰13미니 등) 폭에서
+     실제로 렌더링해 확인한 결과, 3줄 균형이 깨지지 않고 가로로 넘치지도 않는 안전한
+     범위(375px 기준 약 1.75rem까지 여유)입니다. */
+  font-size: clamp(1.6rem, 3vw, 1.85rem);
   font-weight: 700;
   line-height: 1.6;
   color: #fff;
