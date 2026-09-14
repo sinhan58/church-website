@@ -2103,12 +2103,12 @@
       const tier = isToday ? getQtAmenTier(q.amen) : null;
       const readPrompt = formatVerseRefForRead(q.verseRef);
       return `
-      <a class="qt-card ${isToday ? 'qt-card--today' : 'qt-card--archive-mini'}" href="/qt/${q.id}?from=home" data-id="${q.id}" data-title="${escapeHtml(q.title || '')}">
+      <a class="qt-card ${isToday ? 'qt-card--today' : 'qt-card--archive-mini'}" href="/qt/${q.id}?from=home" data-id="${q.id}" data-title="${escapeHtml(q.title || '')}"${q.bgImage ? ` style="--qt-photo-bg: url('${escapeHtml(q.bgImage)}')"` : ''}>
         <div class="qt-card-badges">
           <span class="qt-badge${isToday ? '' : ' qt-badge--archive'}">${isToday ? '오늘의 큐티' : formatQtDate(q.date)}</span>
           ${tier ? `<span class="qt-amen-badge qt-amen-badge--lv${tier.level}"><span class="qt-amen-badge-heart">♥</span> ${tier.label}</span>` : ''}
         </div>
-        <div class="qt-card-photo"${q.bgImage ? ` style="--qt-photo-bg: url('${escapeHtml(q.bgImage)}')"` : ''}>
+        <div class="qt-card-photo">
           <h3 class="qt-card-title"><span class="qt-title-chevron">「</span>${escapeHtml(q.title || '')}<span class="qt-title-chevron">」</span></h3>
           ${q.subtitle ? `<p class="qt-card-subtitle">${escapeHtml(q.subtitle)}</p>` : ''}
           ${q.verseRef ? `<p class="qt-card-photo-verseref">${escapeHtml(q.verseRef)}</p>` : ''}
@@ -2208,21 +2208,20 @@
       const titleEl = $('#qt-column-title');
       const verseRefEl = $('#qt-column-verseref');
       const metaEl = $('#qt-column-meta');
-      const photoEl = $('#qt-column-photo');
       const pastorEl = $('#qt-column-pastor');
       if (titleEl) titleEl.textContent = latestColumn.title || '';
       if (verseRefEl) {
         verseRefEl.textContent = latestColumn.verseRef || '';
         verseRefEl.style.display = latestColumn.verseRef ? '' : 'none';
       }
-      if (photoEl) {
-        // 사진을 안 넣었으면 커스텀 속성 자체를 지워서, 큐티 카드와 똑같은 기본
-        // 남색 그라디언트(CSS var() 기본값)로 자연스럽게 보이게 합니다.
-        if (latestColumn.bgImage) {
-          photoEl.style.setProperty('--qt-photo-bg', `url('${latestColumn.bgImage}')`);
-        } else {
-          photoEl.style.removeProperty('--qt-photo-bg');
-        }
+      // 사진을 안 넣었으면 커스텀 속성 자체를 지워서, 큐티 카드와 똑같은 기본
+      // 남색 그라디언트(CSS var() 기본값)로 자연스럽게 보이게 합니다. 카드 전체가
+      // 사진으로 채워지는 방식이라, 사진 div가 아니라 카드(#qt-column-card) 자체에
+      // 이 값을 심어야 배지·제목·하단 정보에도 배경이 똑같이 깔립니다.
+      if (latestColumn.bgImage) {
+        card.style.setProperty('--qt-photo-bg', `url('${latestColumn.bgImage}')`);
+      } else {
+        card.style.removeProperty('--qt-photo-bg');
       }
       if (pastorEl) {
         pastorEl.textContent = latestColumn.pastor || '';
