@@ -2053,15 +2053,6 @@
     return { level: 5, icon: '🎉', label: '전교인 큐티 참여 완료' };
   }
 
-  // "사사기 21:16-18" 같은 구절 표기를 "사사기 21장 16-18절"처럼 안내 문구용으로 바꿔줍니다.
-  function formatVerseRefForRead(verseRef) {
-    if (!verseRef) return '';
-    const m = verseRef.trim().match(/^(.+?)\s*(\d+)\s*[:：]\s*(.+)$/);
-    if (!m) return verseRef.trim();
-    const [, book, chapter, verse] = m;
-    return `${book.trim()} ${chapter}장 ${verse.trim()}절`;
-  }
-
   function formatQtDate(dateStr = '') {
     const d = new Date(dateStr);
     if (isNaN(d)) return dateStr;
@@ -2101,7 +2092,6 @@
     // 오늘 카드든 지난 큐티 카드든 똑같은 구조로 만듭니다 (그리드에서는 CSS로 축소해서 보여줍니다).
     function buildQtCardHtml(q, { isToday }) {
       const tier = isToday ? getQtAmenTier(q.amen) : null;
-      const readPrompt = formatVerseRefForRead(q.verseRef);
       return `
       <a class="qt-card ${isToday ? 'qt-card--today' : 'qt-card--archive-mini'}" href="/qt/${q.id}?from=home" data-id="${q.id}" data-title="${escapeHtml(q.title || '')}"${q.bgImage ? ` style="--qt-photo-bg: url('${escapeHtml(q.bgImage)}')"` : ''}>
         <div class="qt-card-badges">
@@ -2113,7 +2103,6 @@
           ${q.subtitle ? `<p class="qt-card-subtitle">${escapeHtml(q.subtitle)}</p>` : ''}
           ${q.verseRef ? `<p class="qt-card-photo-verseref">${escapeHtml(q.verseRef)}</p>` : ''}
         </div>
-        ${readPrompt ? `<p class="qt-card-read-prompt">${escapeHtml(readPrompt)} 말씀을 읽어 보세요</p>` : ''}
         <div class="qt-card-foot">
           <span>${escapeHtml(q.pastor || '')}${q.pastor ? ' · ' : ''}${formatQtDate(q.date)}</span>
           <span>전체 보기 <span class="dbl-chevron">&raquo;</span></span>
@@ -2208,7 +2197,6 @@
       const titleEl = $('#qt-column-title');
       const verseRefEl = $('#qt-column-verseref');
       const metaEl = $('#qt-column-meta');
-      const pastorEl = $('#qt-column-pastor');
       if (titleEl) titleEl.textContent = latestColumn.title || '';
       if (verseRefEl) {
         verseRefEl.textContent = latestColumn.verseRef || '';
@@ -2222,10 +2210,6 @@
         card.style.setProperty('--qt-photo-bg', `url('${latestColumn.bgImage}')`);
       } else {
         card.style.removeProperty('--qt-photo-bg');
-      }
-      if (pastorEl) {
-        pastorEl.textContent = latestColumn.pastor || '';
-        pastorEl.style.display = latestColumn.pastor ? '' : 'none';
       }
       if (metaEl) {
         metaEl.textContent = formatQtDate(latestColumn.date || '');
@@ -2721,11 +2705,13 @@
     const targets = [];
     const cardBtn = $('#qt-notify-card');
     if (cardBtn) {
+      // 카드형 버튼에서 알약 모양 버튼으로 바뀌면서 한 줄짜리 문구로 바뀌었습니다
+      // (예전엔 "큐티 알림<br>받기"처럼 두 줄로 꺾어서 넣었습니다).
       targets.push({
         btn: cardBtn,
         labelEl: $('#qt-notify-card-label'),
-        statusEl: $('#qt-notify-card-status'),
-        labels: { default: '큐티 알림<br>받기', subscribed: '큐티 알림<br>받는 중', denied: '큐티 알림<br>차단됨' }
+        statusEl: null,
+        labels: { default: '큐티 알림 받기', subscribed: '큐티 알림 받는 중', denied: '큐티 알림 차단됨' }
       });
     }
     const mobileBtn = $('#qt-notify-btn-mobile');
