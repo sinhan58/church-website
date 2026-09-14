@@ -256,19 +256,23 @@
   //   방식도 써봤지만, 다시 2그룹 방식으로 되돌렸습니다.)
   //   #about-bg-left는 align-self가 stretch라 래퍼 폭(≈화면 폭) 전체를 차지하고,
   //   #about-bg-right는 flex-end라 자기 글자 폭만큼만 차지하며 화면 오른쪽에 붙어
-  //   있습니다. 그래서 xPercent 이동 폭(50)은 "요소 자기 폭의 50%"라 실제로는 화면의
-  //   절반 가까이 이동하는 큰 움직임입니다 — 예전에 0→50 / 30→-20으로 두니 교회소개가
-  //   화면 위쪽까지 스크롤됐을 때(애니메이션이 끝나가는 지점) 텍스트가 화면 오른쪽/왼쪽
-  //   바깥으로 너무 많이 빠져나가 잘려 보였습니다. 그래서 이동 폭(delta=50, 속도)은
-  //   그대로 두고, 시작 위치만 왼쪽으로 당겨서 "끝나는 지점(위로 다 올라왔을 때)"이
-  //   각 요소의 원래 위치(xPercent 0, 화면에 딱 맞게 걸쳐 있는 자리)에서 끝나도록
-  //   맞췄습니다. 시작 지점(아래에서 올라오는 중)은 그만큼 화면보다 왼쪽/오른쪽으로
-  //   더 벗어난 채로 시작하는데, 이때는 아직 화면 아래에서 올라오는 중이라 문제되지
-  //   않습니다.
+  //   있습니다. 그래서 xPercent 이동 폭은 "요소 자기 폭의 %"라 실제로는 화면의 상당
+  //   부분을 이동하는 큰 움직임입니다.
+  //   중요: 트리거 구간(start~end)을 교회소개 "섹션 전체"(#about, 위에서 아래까지)로
+  //   잡으면, 이 장식 띠는 섹션 맨 위쪽에만 있는데 진행률(progress)은 섹션 전체
+  //   스크롤 거리를 기준으로 계산되기 때문에, 띠가 화면 맨 위에 걸리는 시점에는
+  //   아직 progress가 한참 낮아 xPercent가 "끝(0, 제자리)"에 훨씬 못 미친 채라
+  //   글자가 덜 들어온 채로 보이는 문제가 있었습니다(화면에 보이는 시점과 애니메이션이
+  //   끝나는 시점이 서로 어긋남). 그래서 모바일은 트리거를 섹션 전체가 아니라
+  //   이 띠 자신(.about-bg-type-wrap)으로 두고, end를 'top top'(띠의 맨 위가 화면
+  //   맨 위에 닿는 순간)으로 맞춰서, 띠가 화면 위쪽에 다다르는 바로 그 순간에
+  //   정확히 xPercent 0(제자리)이 되도록 했습니다. PC는 기존 트리거(섹션 전체)를
+  //   그대로 둡니다.
   function setupAboutCrossingTypography() {
     const leftEl = $('#about-bg-left');
     const rightEl = $('#about-bg-right');
     const aboutSection = $('#about');
+    const bgWrap = $('.about-bg-type-wrap');
     if (!leftEl || !rightEl || !aboutSection) return;
 
     const reduceMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
@@ -299,17 +303,18 @@
 
       gsap.registerPlugin(ScrollTrigger);
 
-      function scrollSlide(target, fromXPercent, toXPercent) {
+      function scrollSlide(target, fromXPercent, toXPercent, triggerOpts) {
         if (!target) return;
+        const opts = triggerOpts || { trigger: aboutSection, start: 'top bottom', end: 'bottom top' };
         gsap.fromTo(target,
           { xPercent: fromXPercent },
           {
             xPercent: toXPercent,
             ease: 'none',
             scrollTrigger: {
-              trigger: aboutSection,
-              start: 'top bottom',
-              end: 'bottom top',
+              trigger: opts.trigger,
+              start: opts.start,
+              end: opts.end,
               scrub: 1.5
             }
           }
@@ -320,16 +325,21 @@
 
       if (isMobile) {
         // 모바일: 영문 두 줄 / 한글 두 줄 덩어리가 각각 통째로 반대 방향으로 스쳐
-        // 지나갑니다. 끝나는 지점(0)은 각 요소의 원래 제자리라 교회소개가 화면
-        // 위쪽까지 올라왔을 때 화면 밖으로 잘리지 않습니다. 시작 지점은 반대쪽으로
-        // 당겨서(아래에서 올라오는 동안) 스쳐 지나가는 느낌을 주는데, 화면 상단에
-        // 다다랐을 때도 아직 글자가 다 안 나타나 보여서 실제 렌더링된 글자 폭
-        // 기준으로 2.5글자 정도 화면 쪽으로 당겨뒀습니다(영문 -31, 한글 26). 이후
-        // "조금 더 빠르게" 요청으로 이동 폭을 1.2배 늘렸습니다(영문 -37, 한글 31).
-        scrollSlide(leftEl, -37, 0);
-        scrollSlide(rightEl, 31, 0);
+        // 지나갑니다. 트리거를 띠 자신(bgWrap)으로 잡고 end를 'top top'으로 둬서,
+        // 띠가 화면 맨 위에 닿는 순간 정확히 xPercent 0(각 요소의 원래 제자리)이
+        // 되도록 했습니다 — 그 순간엔 화면 밖으로 잘리지 않고 글자가 다 들어와
+        // 있습니다. 시작 지점은 반대쪽으로 당겨서(아래에서 올라오는 동안) 스쳐
+        // 지나가는 느낌을 주는데, 실제 렌더링된 글자 폭 기준으로 2.5글자 정도만
+        // 화면 쪽으로 당겨뒀습니다(영문 -31, 한글 26; 이후 "조금 더 빠르게"
+        // 요청으로 1.2배 늘려 영문 -37, 한글 31).
+        const mobileTrigger = bgWrap
+          ? { trigger: bgWrap, start: 'top bottom', end: 'top top' }
+          : null;
+        scrollSlide(leftEl, -37, 0, mobileTrigger);
+        scrollSlide(rightEl, 31, 0, mobileTrigger);
       } else {
-        // PC: 예전 그대로, 영문/한글 덩어리 전체가 서로 반대 방향으로 이동합니다.
+        // PC: 예전 그대로, 영문/한글 덩어리 전체가 서로 반대 방향으로, 교회소개
+        // 섹션 전체를 트리거 구간으로 삼아 이동합니다(변경 없음).
         scrollSlide(leftEl, 0, 25);
         scrollSlide(rightEl, 15, -10);
       }
