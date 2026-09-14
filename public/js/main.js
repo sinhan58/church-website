@@ -55,38 +55,38 @@
       .join('<br>');
   }
 
-  // 대문(히어로) 부제목: "가정이 교회 되고, 매일이 주일 되고, 일상이 예배가 되는 교회!"처럼
-  // 쉼표로 이어진 문장은 작은 화면에서 자연스러운 지점(쉼표) 대신 아무 데서나 줄바꿈되면
-  // 어색해 보입니다. 작은 화면(~860px 이하, style.css의 .hero-subtitle-break-sm 참고)에서만
-  // 쉼표 뒤마다 줄을 바꿔 보여주고, 그보다 넓은 화면에서는 이 줄바꿈을 숨겨 원래대로
-  // 한 줄(또는 관리자가 입력한 줄바꿈 그대로)로 보이게 합니다. 쉼표가 없는 문장은 히어로
-  // 성경구절과 같은 방식(어절 단위 균형 분할)으로 처리합니다.
-  function buildHeroSubtitleHtml(text) {
-    const lines = String(text || '').split('\n');
-    return lines
-      .map((line) => {
-        if (!line.trim()) return escapeHtml(line);
-        const commaParts = line.split(/,\s*/).filter(Boolean);
-        if (commaParts.length > 1) {
-          return commaParts
-            .map((part, i) => escapeHtml(i < commaParts.length - 1 ? `${part},` : part))
-            .join('<br class="hero-subtitle-break-sm">');
+  // 교회소개 본문(#about-body-text)처럼 관리자가 리치 텍스트 에디터로 입력한 HTML 안에는
+  // "가정이 교회 되고, 매일이 주일 되고, 일상이 예배가 되는 교회!"같이 쉼표로 길게 이어진
+  // 문장이 있을 수 있습니다. 작은 화면에서 이런 문장이 자연스러운 지점(쉼표) 대신 아무 데서나
+  // 줄바꿈되면 어색해 보여서, 작은 화면(~860px 이하, style.css의 .comma-break-sm 참고)에서만
+  // 쉼표 뒤마다 줄을 바꿔 보여줍니다. 그보다 넓은 화면에서는 이 줄바꿈을 숨겨 원래대로 이어져
+  // 보이게 합니다. 문자열을 통째로 다시 만들지 않고 텍스트 노드만 찾아 바꾸기 때문에, 굵게/
+  // 링크 같은 서식 태그 구조는 그대로 남습니다.
+  function insertCommaBreaksInRichText(container) {
+    if (!container) return;
+    const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
+    const targets = [];
+    let node;
+    while ((node = walker.nextNode())) {
+      if (node.data.includes(',') && node.data.replace(/\s/g, '').length > 10) {
+        targets.push(node);
+      }
+    }
+    targets.forEach((textNode) => {
+      const parts = textNode.data.split(/,\s*/).filter((p) => p.length);
+      if (parts.length < 2) return;
+      const frag = document.createDocumentFragment();
+      parts.forEach((part, i) => {
+        const isLast = i === parts.length - 1;
+        frag.appendChild(document.createTextNode(isLast ? part : `${part},`));
+        if (!isLast) {
+          const br = document.createElement('br');
+          br.className = 'comma-break-sm';
+          frag.appendChild(br);
         }
-        const words = line.split(' ').filter(Boolean);
-        const totalLen = words.reduce((sum, w) => sum + w.length, 0);
-        if (words.length < 2 || totalLen <= 10) return escapeHtml(line);
-        let splitIdx = 1;
-        let bestDiff = Infinity;
-        for (let i = 1; i < words.length; i++) {
-          const acc = words.slice(0, i).reduce((sum, w) => sum + w.length, 0);
-          const diff = Math.abs(acc - totalLen / 2);
-          if (diff <= bestDiff) { bestDiff = diff; splitIdx = i; }
-        }
-        const firstHalf = escapeHtml(words.slice(0, splitIdx).join(' '));
-        const secondHalf = escapeHtml(words.slice(splitIdx).join(' '));
-        return `${firstHalf}<br class="hero-subtitle-break-sm">${secondHalf}`;
-      })
-      .join('<br>');
+      });
+      textNode.parentNode.replaceChild(frag, textNode);
+    });
   }
 
   // 관리자 페이지 리치 텍스트 에디터(Quill)에서 저장된 HTML을 안전하게 렌더링하기 위한
@@ -228,18 +228,16 @@
 
   // 교회소개 섹션 상단의 배경 교차 타이포그래피(영문 교회명 / 한글 환영 문구가
   // 서로 반대 방향으로 스쳐 지나가는 장식 효과). GSAP(ScrollTrigger)의 scrub
-  // 옵션이 만드는 부드러운 움직임을 그대로 쓰되, 모바일은 공간이 좁아 이 요소
-  // 자체를 CSS에서 숨기므로, 라이브러리도 PC 폭일 때만 CDN에서 불러옵니다
-  // (모바일 사용자는 GSAP를 아예 내려받지 않습니다).
+  // 옵션이 만드는 부드러운 움직임을 그대로 쓰며, PC/모바일 화면 모두에서 불러옵니다
+  // (모션을 줄이도록 설정한 기기에서는 장식 효과이므로 건너뜁니다).
   function setupAboutCrossingTypography() {
     const leftEl = $('#about-bg-left');
     const rightEl = $('#about-bg-right');
     const aboutSection = $('#about');
     if (!leftEl || !rightEl || !aboutSection) return;
 
-    const pcQuery = window.matchMedia('(min-width: 861px)');
     const reduceMotionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
-    if (!pcQuery.matches || reduceMotionQuery.matches) return;
+    if (reduceMotionQuery.matches) return;
 
     function loadScript(src) {
       return new Promise((resolve, reject) => {
@@ -568,7 +566,7 @@
     if (site.hero) {
       $('#hero-verse').innerHTML = buildHeroVerseHtml(site.hero.verse);
       $('#hero-verse-ref').textContent = site.hero.verseRef || '';
-      $('#hero-subtitle').innerHTML = buildHeroSubtitleHtml(site.hero.subtitle);
+      $('#hero-subtitle').innerHTML = escapeHtml(site.hero.subtitle || '').replace(/\n/g, '<br>');
       $('.hero').classList.toggle('hero--no-overlay', site.hero.overlayEnabled === false);
       if (Array.isArray(site.hero.backgroundImages) && site.hero.backgroundImages.length) {
         startHeroSlideshow(site.hero.backgroundImages);
@@ -581,6 +579,7 @@
     if (site.about) {
       $('#about-greeting').textContent = site.about.greeting || site.about.title || '교회 소개';
       $('#about-body-text').innerHTML = sanitizeRichText(site.about.body || '');
+      insertCommaBreaksInRichText($('#about-body-text'));
       $('#about-history').textContent = site.about.history || '';
       $('#pastor-name').textContent = site.about.pastorName || '';
       $('#pastor-message').textContent = site.about.pastorMessage || '';
