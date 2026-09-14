@@ -148,6 +148,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 .board-card:active,
 .qt-card:active,
 .qt-archive-card:active,
+.qt-mid-card:active,
 .attachment-item:active,
 .quiz-teaser-card:active,
 .kakao-map-preview:active,
@@ -2885,19 +2886,18 @@ body.has-mini-player .quick-fab-wrap { bottom: calc(20px + 68px); }
 }
 @media (min-width: 861px) {
   html.theme-b .qt-quiz-layout {
-    /* 예전에는 그리드 전체에 max-width:1280px를 씌워서(컨테이너 1600px보다 좁게)
-       큐티 카드와 퀴즈 박스 사이가 너무 안 벌어지게 했는데, 그러면 이 섹션만
-       다른 섹션들(.container 그대로 사용)보다 폭이 좁아 보이는 문제가 있었습니다.
-       그래서 전체 폭은 다른 섹션과 똑같이 컨테이너 끝까지 채우고, 대신 큐티 카드
-       (420px) + 카드형 버튼(160px) + 이번주 칼럼 카드(420px) 칸은 원래 크기
-       그대로 고정한 뒤, 남는 공간은 퀴즈 박스 앞의 칸(여백)이 흡수하도록 해서
-       카드 바로 옆에 어색한 빈틈이 생기지 않게 합니다. */
-    grid-template-columns: 420px 160px 420px minmax(24px, 1fr) 420px;
+    /* 예전에는 이번주 칼럼 카드와 말씀 퀴즈 카드 사이에 minmax(24px, 1fr) 칸을 따로
+       둬서 화면이 넓어질수록 그 사이 빈틈이 한없이 벌어지는 문제가 있었습니다.
+       (넓은 화면일수록 카드 두 개가 뚝 떨어져 보임) 이제는 남는 폭을 흡수하는
+       칸을 없애고, 카드형 버튼(알림/지난 큐티) 칸을 160px→210px로 넓혀서 그
+       공간을 실제로 쓰게 했습니다. 화면이 컨테이너보다 넓게 남으면 그 여백은
+       카드들 "사이"가 아니라 전체 그리드 오른쪽 바깥으로 자연스럽게 빠집니다. */
+    grid-template-columns: 420px 210px 420px 420px;
   }
   html.theme-b .qt-quiz-main { grid-column: 1; }
   html.theme-b .qt-quiz-middle { grid-column: 2; }
   html.theme-b .qt-card--column { display: block; grid-column: 3; }
-  html.theme-b .quiz-teaser-card { grid-column: 5; }
+  html.theme-b .quiz-teaser-card { grid-column: 4; }
   /* 컨셉B는 아래쪽 텍스트 버튼("지난 큐티 보기") 대신 카드형을 쓰므로 예전 것은 숨김 */
   html.theme-b .qt-archive-toggle-wrap { display: none; }
   /* 텍스트 버튼이 없어진 만큼, 큐티 카드 자체를 좀 더 키움 */
@@ -2924,22 +2924,46 @@ body.has-mini-player .quick-fab-wrap { bottom: calc(20px + 68px); }
   gap: 10px;
   background: #fff;
   border: 1px solid var(--line);
+  border-top: 3px solid var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   cursor: pointer;
-  padding: 16px 8px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  padding: 18px 10px;
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.15s ease, background 0.2s ease, border-color 0.2s ease;
   text-align: center;
 }
 .qt-mid-card:hover { transform: translateY(-3px); box-shadow: 0 14px 30px rgba(13,21,38,0.14); }
+/* 알림/지난 큐티 두 버튼을 색으로 구분해서, 흰 박스 두 개가 똑같이 밋밋해 보이지
+   않도록 합니다. 알림=골드(사이트 포인트색), 지난 큐티=티얼(네이비 계열 보조색)로
+   나눠서 평소에는 옅은 톤으로 은은하게, 마우스를 올리면 진하게 반응하도록 했습니다. */
+.qt-mid-card--notify {
+  background: #fffdf7;
+  border-top-color: var(--gold-soft);
+}
+.qt-mid-card--notify:hover {
+  background: #fff8e8;
+  border-color: var(--gold);
+}
+.qt-mid-card--archive {
+  background: #f7fbfb;
+  border-top-color: var(--navy-soft);
+}
+.qt-mid-card--archive:hover {
+  background: #eef7f7;
+  border-color: var(--navy-soft);
+}
 .qt-mid-card-icon {
-  width: 40px; height: 40px;
+  width: 42px; height: 42px;
   border-radius: 50%;
   display: flex; align-items: center; justify-content: center;
   background: var(--ivory-dim);
   color: var(--gold-deep);
+  transition: background 0.2s ease, color 0.2s ease;
 }
+.qt-mid-card--notify:hover .qt-mid-card-icon,
 .qt-mid-card--notify.subscribed .qt-mid-card-icon { background: var(--gold); color: #fff; }
+.qt-mid-card--archive .qt-mid-card-icon { color: var(--navy-soft); }
+.qt-mid-card--archive:hover .qt-mid-card-icon { background: var(--navy-soft); color: #fff; }
 .qt-mid-card-label {
   font-size: 0.85rem;
   font-weight: 700;
