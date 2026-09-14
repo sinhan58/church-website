@@ -649,17 +649,20 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
 }
 .about-bg-type--right { align-self: flex-end; }
 @media (max-width: 860px) {
-  .about-bg-type-wrap { margin: 0 0 24px; }
+  .about-bg-type-wrap { margin: 0 0 24px; gap: 0; }
   /* 모바일 화면에서는 '텍스트 쇼' 효과가 한 줄로는 눈에 잘 안 띄어서, 영문/한글 각 문구를
      의미 단위로 2줄씩(총 4줄) 나눠 보여줍니다(PC는 그대로 한 줄). 여기 text-align은 각
      줄이 스크롤 전 "시작 위치"일 뿐이고, 실제 스크롤에 따른 이동(오른쪽/왼쪽, 얼마나)은
      main.js의 setupAboutCrossingTypography()가 줄마다(#about-bg-line-l1/l2/r1/r2)
-     따로 GSAP 애니메이션을 걸어 각자 다른 방향으로 움직이게 합니다. */
+     따로 GSAP 애니메이션을 걸어 각자 다른 방향으로 움직이게 합니다(네 줄 모두 같은 속도).
+     줄 간격은 원래 그룹(영문/한글) 사이에만 wrap의 gap(14px)이 있고 그룹 안 두 줄
+     사이는 붙어 있었는데, 4줄 모두 간격이 똑같아 보이도록 wrap의 gap은 0으로 두고
+     대신 각 줄에 margin-bottom을 똑같이 줍니다(그룹의 마지막 줄인 r2는 제외). */
   .about-bg-line { display: block; }
-  .about-bg-line--l1 { text-align: left; }  /* 1행: 왼쪽 정렬로 시작 */
-  .about-bg-line--l2 { text-align: right; } /* 2행: 오른쪽 정렬로 시작 */
-  .about-bg-line--r1 { text-align: left; }  /* 3행: 왼쪽 정렬로 시작 */
-  .about-bg-line--r2 { text-align: right; } /* 4행: 오른쪽 정렬이 기준, JS에서 살짝 왼쪽으로 당겨 시작 */
+  .about-bg-line--l1 { text-align: left; margin-bottom: 14px; }  /* 1행: 왼쪽 정렬로 시작 */
+  .about-bg-line--l2 { text-align: right; margin-bottom: 14px; } /* 2행: 오른쪽 정렬로 시작 */
+  .about-bg-line--r1 { text-align: left; margin-bottom: 14px; }  /* 3행: 왼쪽 정렬로 시작 */
+  .about-bg-line--r2 { text-align: right; }                      /* 4행: 오른쪽 정렬로 시작 */
 }
 .about-grid {
   display: grid;
