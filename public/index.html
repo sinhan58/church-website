@@ -73,7 +73,7 @@
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link class="gfont-link" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;600;700&display=block" rel="stylesheet">
 <link class="gfont-link" rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
-<link rel="stylesheet" href="/css/style.css?v=197" />
+<link rel="stylesheet" href="/css/style.css?v=198" />
 <meta property="og:title" content="물댄동산교회 - 오산시 중앙동" />
 <meta property="og:description" content="경기도 오산시 중앙동 대동다숲(오색시장 인근)에 위치한 물댄동산교회입니다. 담임목사 이기삼." />
 <meta property="og:image" content="https://muldaen.com/uploads/0001.png" />
@@ -240,10 +240,30 @@
   </section>
   <section class="qt-section" id="qt">
     <div class="container">
-      <div class="section-head reveal">
-        <span class="eyebrow">TODAY'S QT</span>
-        <h2>오늘의 큐티</h2>
-        <p>담임목사님의 매일 아침 묵상을 함께 나눠요</p>
+      <div class="qt-section-head-row">
+        <div class="section-head reveal">
+          <span class="eyebrow">TODAY'S QT</span>
+          <h2>오늘의 큐티</h2>
+          <p>담임목사님의 매일 아침 묵상을 함께 나눠요</p>
+        </div>
+        <!-- 컨셉B 전용: 예전엔 큐티 카드 옆에 카드형 버튼 두 개가 따로 칸을 차지하고
+             있었는데, 그만큼 카드들이 좁아지는 문제가 있었습니다. 알약 모양의 작은
+             버튼으로 바꿔서 안내 문구 오른쪽 끝으로 옮기고, 비워진 칸은 카드를 키우는
+             데 씁니다. -->
+        <div class="qt-section-head-actions">
+          <button type="button" class="qt-pill-btn qt-pill-btn--notify" id="qt-notify-card">
+            <span class="qt-pill-btn-icon">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span id="qt-notify-card-label">큐티 알림 받기</span>
+          </button>
+          <button type="button" class="qt-pill-btn qt-pill-btn--archive" id="qt-archive-toggle-b">
+            <span class="qt-pill-btn-icon">
+              <svg viewBox="0 0 24 24" fill="none"><path d="M12 8v5l3 3M21 12a9 9 0 11-9-9 9 9 0 019 9z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span>지난 큐티 보기</span>
+          </button>
+        </div>
       </div>
 
       <div class="qt-quiz-layout">
@@ -270,28 +290,10 @@
           </div>
         </div>
 
-        <!-- 컨셉B 전용: 큐티 카드 오른쪽 카드형 버튼 두 개 (위: 큐티 알림, 아래: 지난 큐티 보기) -->
-        <div class="qt-quiz-middle">
-          <button type="button" class="qt-mid-card qt-mid-card--notify" id="qt-notify-card">
-            <span class="qt-mid-card-icon">
-              <svg viewBox="0 0 24 24" fill="none"><path d="M18 8a6 6 0 00-12 0c0 7-3 9-3 9h18s-3-2-3-9M13.73 21a2 2 0 01-3.46 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </span>
-            <span class="qt-mid-card-label" id="qt-notify-card-label">큐티 알림<br>받기</span>
-            <span class="qt-mid-card-status" id="qt-notify-card-status"></span>
-          </button>
-          <button type="button" class="qt-mid-card qt-mid-card--archive" id="qt-archive-toggle-b">
-            <span class="qt-mid-card-icon">
-              <svg viewBox="0 0 24 24" fill="none"><path d="M12 8v5l3 3M21 12a9 9 0 11-9-9 9 9 0 019 9z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            </span>
-            <span class="qt-mid-card-label">지난 큐티<br>보기</span>
-          </button>
-        </div>
-
         <!-- 컨셉B 전용: 목회 칼럼을 큐티 카드와 같은 모양의 카드로 노출 (아멘/읽어보세요 문구 없음) -->
         <a href="#" class="qt-card qt-card--today qt-card--column" id="qt-column-card">
           <div class="qt-card-badges">
             <span class="qt-badge">이번주 칼럼</span>
-            <span class="qt-badge qt-badge--archive" id="qt-column-pastor" style="display:none;"></span>
           </div>
           <div class="qt-card-photo" id="qt-column-photo">
             <h3 class="qt-card-title"><span class="qt-title-chevron">「</span><span id="qt-column-title"></span><span class="qt-title-chevron">」</span></h3>
@@ -303,10 +305,16 @@
           </div>
         </a>
 
+        <!-- 배지 위치를 다른 두 카드(오늘의 큐티/이번주 칼럼)와 통일: 왼쪽 위에
+             "이번주 성경" 배지, 가운데에 "말씀 퀴즈 참여하기" 문구. 예전에 문구 아래
+             따로 있던 "참여하기" 알약 버튼은 없앴습니다(문구 자체에 참여하기를 담음). -->
         <a href="/quiz.html" class="quiz-teaser-card reveal" id="quiz-teaser-card" style="display:none;">
+          <div class="qt-card-badges">
+            <span class="qt-badge">이번주 성경</span>
+          </div>
           <div class="quiz-teaser-top">
-            <strong>말씀 퀴즈</strong>
-            <span class="quiz-teaser-arrow">참여하기 <span class="dbl-chevron">&raquo;</span></span>
+            <strong class="quiz-teaser-title">말씀 퀴즈</strong>
+            <span class="quiz-teaser-cta">참여하기</span>
           </div>
           <!-- 이번 주 퀴즈 참여자 기록(상위 3명)을 이미지 하단에 함께 보여줍니다.
                참여자가 없으면 JS가 이 영역을 숨겨서 빈 줄이 보이지 않게 합니다. -->
@@ -610,6 +618,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
 <script src="/js/countries.js"></script>
 <script src="/js/font-catalog.js"></script>
-<script src="/js/main.js?v=97"></script>
+<script src="/js/main.js?v=98"></script>
 </body>
 </html>
