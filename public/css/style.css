@@ -554,11 +554,12 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
 @media (min-width: 861px) {
   html.theme-b .hero-subtitle { font-size: 1.4rem; }
 }
-/* 모바일 화면(860px 이하)에서만 히어로 부제목의 쉼표(또는 어절 균형) 줄바꿈을 보여줍니다
-   (main.js의 buildHeroSubtitleHtml 참고). PC 화면에서는 숨겨서 원래대로 보이게 둡니다. */
-.hero-subtitle-break-sm { display: none; }
+/* 모바일 화면(860px 이하)에서만 쉼표로 길게 이어진 문장에 줄바꿈을 보여줍니다
+   (main.js의 insertCommaBreaksInRichText 참고, 교회소개 본문 등 여러 곳에서 재사용).
+   PC 화면에서는 숨겨서 원래대로 이어져 보이게 둡니다. */
+.comma-break-sm { display: none; }
 @media (max-width: 860px) {
-  .hero-subtitle-break-sm { display: inline; }
+  .comma-break-sm { display: inline; }
 }
 .hero-cta { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
 
@@ -623,15 +624,17 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
 }
 
 /* ---------------- About ---------------- */
-/* 교회소개 섹션 상단 배경 교차 타이포그래피 (PC 전용). 영문 교회명과 한글 환영
-   문구가 서로 반대 방향으로 스쳐 지나가는 장식용 텍스트로, main.js의
-   setupAboutCrossingTypography()가 GSAP(ScrollTrigger)을 PC 폭에서만 불러와
-   움직임을 붙여줍니다. 모바일에서는 공간이 부족해 아예 숨깁니다. */
+/* 교회소개 섹션 상단 배경 교차 타이포그래피. 영문 교회명과 한글 환영 문구가 서로
+   반대 방향으로 스쳐 지나가는 장식용 텍스트로, main.js의 setupAboutCrossingTypography()가
+   GSAP(ScrollTrigger)로 PC/모바일 화면 모두에서 움직임을 붙여줍니다. 글씨 자체가 화면
+   폭보다 넓어서(white-space:nowrap) 옆으로 스쳐 지나가는 효과인데, 그만큼 좌우로 넘치는
+   부분을 잘라내야 가로 스크롤이 생기지 않으므로 래퍼에 overflow:hidden을 둡니다. */
 .about-bg-type-wrap {
   display: flex;
   flex-direction: column;
   gap: 14px;
   margin: 0 0 44px;
+  overflow: hidden;
   pointer-events: none;
   user-select: none;
 }
@@ -647,7 +650,7 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
 }
 .about-bg-type--right { align-self: flex-end; }
 @media (max-width: 860px) {
-  .about-bg-type-wrap { display: none; }
+  .about-bg-type-wrap { margin: 0 0 24px; }
 }
 .about-grid {
   display: grid;
