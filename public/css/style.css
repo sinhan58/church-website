@@ -650,6 +650,17 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
 .about-bg-type--right { align-self: flex-end; }
 @media (max-width: 860px) {
   .about-bg-type-wrap { margin: 0 0 24px; }
+  /* 모바일 화면에서는 '텍스트 쇼' 효과가 한 줄로는 눈에 잘 안 띄어서, 영문/한글 각 문구를
+     의미 단위로 2줄씩 나눠 보여줍니다(PC는 그대로 한 줄). 같은 문구 안에서도 줄마다
+     정렬을 다르게 둬서(왼쪽 시작→오른쪽 시작 등) 교차하는 느낌을 살립니다. 실제로
+     오른쪽/왼쪽으로 스치듯 움직이는 방향은 main.js의 GSAP 애니메이션이 #about-bg-left(영문,
+     오른쪽 이동) / #about-bg-right(한글, 왼쪽 이동) 요소 전체를 통째로 옮기는 방식이라
+     한 문구 안의 줄들은 항상 같은 방향으로 함께 움직입니다. */
+  .about-bg-line { display: block; }
+  .about-bg-line--l1 { text-align: left; }
+  .about-bg-line--l2 { text-align: right; }
+  .about-bg-line--r1,
+  .about-bg-line--r2 { text-align: right; }
 }
 .about-grid {
   display: grid;
