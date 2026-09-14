@@ -148,7 +148,7 @@ button:not(:disabled):active { transform: scale(0.97); transition: transform 0.1
 .board-card:active,
 .qt-card:active,
 .qt-archive-card:active,
-.qt-mid-card:active,
+.qt-pill-btn:active,
 .attachment-item:active,
 .quiz-teaser-card:active,
 .kakao-map-preview:active,
@@ -2374,7 +2374,7 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
 .qt-card--today {
   padding: 0;
   overflow: hidden;
-  width: min(420px, 100%);
+  width: min(498px, 100%);
   box-shadow: none;
 }
 @media (min-width: 861px) {
@@ -2453,14 +2453,6 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   margin: 20px 0 0;
   text-shadow: 0 1px 3px rgba(0,0,0,0.7), 0 2px 10px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.3);
 }
-.qt-card-read-prompt {
-  margin: 18px 20px 0;
-  font-size: 0.92rem;
-  font-weight: 600;
-  color: var(--navy-deep);
-  text-align: center;
-  word-break: keep-all;
-}
 .qt-card--today .qt-card-foot,
 .qt-card--archive-mini .qt-card-foot { margin: 16px 20px 0; padding: 12px 0 20px; }
 
@@ -2472,8 +2464,13 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
 .qt-card--today {
   display: flex;
   flex-direction: column;
-  padding: 20px 20px 18px;
-  min-height: 480px;
+  /* 예전엔 하단 정보(qt-card-foot)만 margin-top:auto로 맨 아래에 붙이는 방식이라,
+     제목/부제목/성경구절이 전부 위쪽에 몰리고 카드 아래쪽에만 빈 공간이 크게
+     남았습니다. justify-content:space-between으로 바꿔서 뱃지·본문 내용·하단
+     정보가 카드 높이에 비율 있게 고르게 퍼지도록 했습니다. */
+  justify-content: space-between;
+  padding: 26px 22px 20px;
+  min-height: 660px;
   background: var(--qt-photo-bg, linear-gradient(160deg, var(--navy-deep), var(--navy-soft))) center/cover no-repeat;
   box-shadow: var(--shadow);
 }
@@ -2496,13 +2493,8 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   display: block;
 }
 .qt-card--today .qt-card-photo::before { content: none; }
-.qt-card--today .qt-card-read-prompt {
-  margin: 12px 0 0;
-  color: rgba(255,255,255,0.92);
-  text-shadow: 0 1px 3px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.4);
-}
 .qt-card--today .qt-card-foot {
-  margin: auto 0 0;
+  margin: 0;
   padding: 12px 0 0;
   border-top: 1px solid rgba(255,255,255,0.3);
   color: rgba(255,255,255,0.92);
@@ -2932,97 +2924,23 @@ body.has-mini-player .quick-fab-wrap { bottom: calc(20px + 68px); }
 }
 @media (min-width: 861px) {
   html.theme-b .qt-quiz-layout {
-    /* 예전에는 이번주 칼럼 카드와 말씀 퀴즈 카드 사이에 minmax(24px, 1fr) 칸을 따로
-       둬서 화면이 넓어질수록 그 사이 빈틈이 한없이 벌어지는 문제가 있었습니다.
-       (넓은 화면일수록 카드 두 개가 뚝 떨어져 보임) 이제는 남는 폭을 흡수하는
-       칸을 없애고, 카드형 버튼(알림/지난 큐티) 칸을 160px→210px로 넓혀서 그
-       공간을 실제로 쓰게 했습니다. 화면이 컨테이너보다 넓게 남으면 그 여백은
-       카드들 "사이"가 아니라 전체 그리드 오른쪽 바깥으로 자연스럽게 빠집니다. */
-    grid-template-columns: 420px 210px 420px 420px;
+    /* 예전엔 카드형 버튼(알림/지난 큐티) 칸이 따로 210px를 차지하고 있었는데, 그
+       버튼들을 위쪽 안내 문구 옆 알약 버튼으로 옮기면서 그 칸을 없앴습니다. 대신
+       비워진 만큼을 카드 세 장(오늘의 큐티/이번주 칼럼/말씀 퀴즈)에 고르게 나눠줘서
+       카드 자체가 더 커졌습니다(420px → 498px). */
+    grid-template-columns: 498px 498px 498px;
   }
   html.theme-b .qt-quiz-main { grid-column: 1; }
-  html.theme-b .qt-quiz-middle { grid-column: 2; }
-  /* display:flex — .qt-card--today가 flex-column 레이아웃(하단 정보를 margin-top:auto로
-     카드 맨 아래에 붙이는 방식)을 쓰므로, 칼럼 카드도 block이 아니라 flex여야 합니다. */
-  html.theme-b .qt-card--column { display: flex; grid-column: 3; }
-  html.theme-b .quiz-teaser-card { grid-column: 4; }
-  /* 컨셉B는 아래쪽 텍스트 버튼("지난 큐티 보기") 대신 카드형을 쓰므로 예전 것은 숨김 */
+  /* display:flex — .qt-card--today가 flex-column 레이아웃(뱃지·내용·하단 정보를
+     justify-content:space-between으로 비율 있게 나눠 배치하는 방식)을 쓰므로, 칼럼
+     카드도 block이 아니라 flex여야 합니다. */
+  html.theme-b .qt-card--column { display: flex; grid-column: 2; }
+  html.theme-b .quiz-teaser-card { grid-column: 3; }
+  /* 컨셉B는 아래쪽 텍스트 버튼("지난 큐티 보기") 대신 위쪽 알약 버튼을 쓰므로 예전 것은 숨김 */
   html.theme-b .qt-archive-toggle-wrap { display: none; }
-  /* 텍스트 버튼이 없어진 만큼, 큐티 카드 자체를 좀 더 키움 */
-  html.theme-b .qt-stage { min-height: 560px; }
+  /* 카드가 커진 만큼 큐티 카드가 담기는 무대도 같이 키움 */
+  html.theme-b .qt-stage { min-height: 660px; }
 }
-.qt-quiz-middle {
-  display: none; /* 컨셉A/모바일에서는 안 보임 */
-}
-@media (min-width: 861px) {
-  html.theme-b .qt-quiz-middle {
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 16px;
-    height: 100%;
-  }
-}
-.qt-mid-card {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  background: #fff;
-  border: 1px solid var(--line);
-  border-top: 3px solid var(--line);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  cursor: pointer;
-  padding: 18px 10px;
-  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.15s ease, background 0.2s ease, border-color 0.2s ease;
-  text-align: center;
-}
-.qt-mid-card:hover { transform: translateY(-3px); box-shadow: 0 14px 30px rgba(13,21,38,0.14); }
-/* 알림/지난 큐티 두 버튼을 색으로 구분해서, 흰 박스 두 개가 똑같이 밋밋해 보이지
-   않도록 합니다. 알림=골드(사이트 포인트색), 지난 큐티=티얼(네이비 계열 보조색)로
-   나눠서 평소에는 옅은 톤으로 은은하게, 마우스를 올리면 진하게 반응하도록 했습니다. */
-.qt-mid-card--notify {
-  background: #fffdf7;
-  border-top-color: var(--gold-soft);
-}
-.qt-mid-card--notify:hover {
-  background: #fff8e8;
-  border-color: var(--gold);
-}
-.qt-mid-card--archive {
-  background: #f7fbfb;
-  border-top-color: var(--navy-soft);
-}
-.qt-mid-card--archive:hover {
-  background: #eef7f7;
-  border-color: var(--navy-soft);
-}
-.qt-mid-card-icon {
-  width: 42px; height: 42px;
-  border-radius: 50%;
-  display: flex; align-items: center; justify-content: center;
-  background: var(--ivory-dim);
-  color: var(--gold-deep);
-  transition: background 0.2s ease, color 0.2s ease;
-}
-.qt-mid-card--notify:hover .qt-mid-card-icon,
-.qt-mid-card--notify.subscribed .qt-mid-card-icon { background: var(--gold); color: #fff; }
-.qt-mid-card--archive .qt-mid-card-icon { color: var(--navy-soft); }
-.qt-mid-card--archive:hover .qt-mid-card-icon { background: var(--navy-soft); color: #fff; }
-.qt-mid-card-label {
-  font-size: 0.85rem;
-  font-weight: 700;
-  color: var(--ink);
-  line-height: 1.4;
-}
-.qt-mid-card-status {
-  font-size: 0.72rem;
-  color: var(--muted);
-}
-.qt-mid-card--notify.subscribed .qt-mid-card-status { color: var(--gold-deep); font-weight: 600; }
 
 /* 목회 칼럼 카드 — 큐티 카드(.qt-card--today)와 똑같은 모양을 쓰는 링크(<a>)입니다.
    컨셉A/모바일에서는 항상 숨기고(컨셉B PC 전용 기능), 표시 여부는 위 미디어쿼리 +
@@ -3030,6 +2948,69 @@ body.has-mini-player .quick-fab-wrap { bottom: calc(20px + 68px); }
 .qt-card--column {
   display: none;
 }
+
+/* ---- 큐티 섹션 안내문구 + 알약 버튼 (컨셉B PC 전용) ----
+   예전엔 "큐티 알림 받기 / 지난 큐티 보기" 버튼이 카드형으로 큐티 카드 옆 칸을
+   따로 차지했습니다. 이제는 작은 알약 버튼으로 바꿔 안내 문구("담임목사님의...")
+   오른쪽 끝에 배치합니다 — 제목 영역은 그대로 가운데 정렬을 유지하고, 버튼만
+   문구 줄과 같은 높이에서 오른쪽 끝에 얹히도록 절대 위치를 씁니다. */
+.qt-section-head-actions { display: none; }
+@media (min-width: 861px) {
+  /* 절대 위치 대신 flex를 쓰는 이유: 화면이 그리 넓지 않은 PC(예: 노트북 861~1300px대)
+     에서는 가운데 정렬된 640px 문구 박스와 오른쪽 버튼이 겹칠 수 있습니다. flex로
+     문구 쪽에 남는 폭을 정직하게 나눠주면, 폭이 좁아질 때 문구가 줄바꿈되며 버튼과
+     절대 겹치지 않습니다. */
+  html.theme-b .qt-section-head-row {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 24px;
+  }
+  html.theme-b .qt-section-head-row .section-head {
+    text-align: left;
+    max-width: none;
+    margin: 0;
+    flex: 1;
+    min-width: 0;
+  }
+  html.theme-b .qt-section-head-actions {
+    display: flex;
+    gap: 10px;
+    flex-shrink: 0;
+    padding-bottom: 4px;
+  }
+}
+.qt-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  background: #fff;
+  border: 1px solid var(--line);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--ink);
+  cursor: pointer;
+  box-shadow: var(--shadow);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.15s ease, background 0.2s ease, border-color 0.2s ease, color 0.2s ease;
+}
+.qt-pill-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 22px rgba(13,21,38,0.14); }
+.qt-pill-btn-icon {
+  display: flex;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+}
+.qt-pill-btn-icon svg { width: 100%; height: 100%; }
+/* 알림=골드(사이트 포인트색), 지난 큐티=티얼(네이비 계열 보조색)로 나눠서 평소에는
+   옅은 톤으로, 마우스를 올리면 진하게 반응하도록 했습니다(예전 카드형 버튼과 같은 배색). */
+.qt-pill-btn--notify { color: var(--gold-deep); border-color: var(--gold-soft); }
+.qt-pill-btn--notify:hover,
+.qt-pill-btn--notify.subscribed { background: var(--gold); border-color: var(--gold); color: #fff; }
+.qt-pill-btn--archive { color: var(--navy-soft); border-color: var(--navy-soft); }
+.qt-pill-btn--archive:hover { background: var(--navy-soft); border-color: var(--navy-soft); color: #fff; }
 
 @media (min-width: 861px) {
   .qt-quiz-layout {
@@ -3052,6 +3033,9 @@ body.has-mini-player .quick-fab-wrap { bottom: calc(20px + 68px); }
   min-height: 300px;
   background: url('/images/quiz-card-bg.jpg') center/cover no-repeat, var(--navy-deep);
   border-radius: var(--radius);
+  /* 오늘의 큐티/이번주 칼럼 카드(.qt-card)와 같은 테두리 — 예전엔 이 카드만 테두리가
+     없어서 셋을 나란히 두면 미묘하게 달라 보였습니다. */
+  border: 1px solid var(--line);
   box-shadow: var(--shadow);
   padding: 28px 18px;
   color: #fff;
@@ -3069,16 +3053,24 @@ body.has-mini-player .quick-fab-wrap { bottom: calc(20px + 68px); }
 }
 .quiz-teaser-card > * { position: relative; z-index: 1; }
 .quiz-teaser-card:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(13,21,38,0.25); }
-.quiz-teaser-top { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 8px; }
-.quiz-teaser-card strong { font-family: var(--font-heading); font-size: 1.55rem; line-height: 1.4; text-shadow: 0 1px 3px rgba(0,0,0,0.7), 0 2px 10px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.3); }
-.quiz-teaser-arrow {
-  margin-top: 8px;
-  font-size: 0.82rem;
-  font-weight: 700;
-  color: #fff;
-  background: var(--gold);
-  padding: 8px 16px;
-  border-radius: 999px;
+/* 배지 위치를 오늘의 큐티/이번주 칼럼 카드와 통일(왼쪽 위). 카드 자체 padding(28px 18px)이
+   이미 여백을 주고 있으므로, 다른 카드에서 쓰는 .qt-card-badges의 자체 padding은 뺍니다. */
+.quiz-teaser-card .qt-card-badges { padding: 0; margin: 0 0 14px; }
+.quiz-teaser-top { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 6px; }
+/* 두 줄 문구 — "말씀 퀴즈"는 다른 두 카드의 제목(.qt-card-title)과 같은 1.5rem으로
+   맞추고, "참여하기"는 예전 문구 크기(1.55rem) 그대로 둬서 위압적이지 않게 안내하는
+   톤을 유지합니다. */
+.quiz-teaser-title {
+  font-family: var(--font-heading);
+  font-size: 1.5rem;
+  line-height: 1.3;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.7), 0 2px 10px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.3);
+}
+.quiz-teaser-cta {
+  font-family: var(--font-heading);
+  font-size: 1.55rem;
+  line-height: 1.4;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.7), 0 2px 10px rgba(0,0,0,0.5), 0 0 20px rgba(0,0,0,0.3);
 }
 
 /* 카드 하단의 '이번 주 참여 TOP 5' — 사진 위에 얹히는 부분이라, 흰 글씨 +
