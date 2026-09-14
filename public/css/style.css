@@ -2293,7 +2293,19 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: transform 0.2s ease;
 }
+/* 오늘의 큐티 카드는 캐러셀 뷰포트(.qt-stage)가 overflow:hidden이라, 카드 자체에
+   translateY(-4px) 호버를 주면 위로 들뜬 부분이 그대로 잘려서 다른 두 카드(칼럼·퀴즈)
+   처럼 튀어오르는 느낌이 나지 않았습니다. 카드 대신 캐러셀 뷰포트 전체를 들어올려서
+   잘리지 않게 하고, 카드 자체의 개별 호버 이동은 꺼둡니다(칼럼 카드는 이 래퍼가 없으므로
+   기존 .qt-card:hover 규칙이 그대로 적용되어 동일하게 -4px 튀어오릅니다). */
+/* .qt-stage는 등장 애니메이션용 .reveal.is-visible 클래스도 같이 달고 있는데,
+   그 규칙(transform: translateY(0))이 이 hover 규칙과 우선순위(특정도)가 같아서
+   스타일시트 뒤쪽에 있는 .reveal.is-visible이 이겨버려 호버 효과가 먹히지
+   않았습니다. 태그 선택자(div)를 붙여 특정도를 살짝 높여서 항상 이기게 했습니다. */
+div.qt-stage:hover { transform: translateY(-4px); }
+.qt-stage .qt-card--today:hover { transform: none; }
 @media (min-width: 861px) {
   /* PC에서는 큐티 카드를 왼쪽 정렬하기 위해, 이 부모의 가운데 정렬도 같이 풀어줍니다 */
   .qt-quiz-main .qt-stage { justify-content: flex-start; }
@@ -2473,6 +2485,13 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   min-height: 660px;
   background: var(--qt-photo-bg, linear-gradient(160deg, var(--navy-deep), var(--navy-soft))) center/cover no-repeat;
   box-shadow: var(--shadow);
+  /* 오늘의 큐티 카드는 캐러셀 바깥쪽(.qt-stage)이 border-radius:20px + overflow:hidden으로
+     모서리를 둥글게 잘라주고 있어서 이 카드만 유독 둥글어 보였습니다. 이번주 칼럼 카드는
+     같은 .qt-card--today 스타일을 쓰지만 캐러셀 바깥 래퍼가 없어서 기본 --radius(4px)
+     그대로 노출되어 거의 사각으로 보였던 것 — 카드 자체에 같은 20px을 직접 줘서
+     캐러셀 유무와 상관없이 항상 통일된 둥근 모서리가 나오게 했습니다. */
+  border-radius: 20px;
+  overflow: hidden;
 }
 .qt-card--today::before {
   content: '';
@@ -2952,32 +2971,41 @@ body.has-mini-player .quick-fab-wrap { bottom: calc(20px + 68px); }
 /* ---- 큐티 섹션 안내문구 + 알약 버튼 (컨셉B PC 전용) ----
    예전엔 "큐티 알림 받기 / 지난 큐티 보기" 버튼이 카드형으로 큐티 카드 옆 칸을
    따로 차지했습니다. 이제는 작은 알약 버튼으로 바꿔 안내 문구("담임목사님의...")
-   오른쪽 끝에 배치합니다 — 제목 영역은 그대로 가운데 정렬을 유지하고, 버튼만
-   문구 줄과 같은 높이에서 오른쪽 끝에 얹히도록 절대 위치를 씁니다. */
+   오른쪽 끝에 배치합니다. */
 .qt-section-head-actions { display: none; }
 @media (min-width: 861px) {
-  /* 절대 위치 대신 flex를 쓰는 이유: 화면이 그리 넓지 않은 PC(예: 노트북 861~1300px대)
-     에서는 가운데 정렬된 640px 문구 박스와 오른쪽 버튼이 겹칠 수 있습니다. flex로
-     문구 쪽에 남는 폭을 정직하게 나눠주면, 폭이 좁아질 때 문구가 줄바꿈되며 버튼과
-     절대 겹치지 않습니다. */
+  /* flex로 "남는 공간을 문구가 가져간다" 방식을 썼더니, 버튼이 오른쪽 자리를
+     차지한 만큼 문구가 실제로는 살짝 왼쪽으로 치우쳐 보였습니다(전체 줄 기준
+     가운데가 아니라 "버튼 뺀 나머지 공간" 기준 가운데였던 것). 1fr/1fr로 양쪽
+     여백을 맞추는 방법도 시도해봤지만, 그러면 이번엔 버튼 칸의 폭이 1fr로
+     강제로 줄어들어 노트북 폭(900px 안팎)에서 버튼 글자가 두 줄로 쪼개지는
+     문제가 생겼습니다. 그래서 안 보이는 "짝" 버튼(.qt-section-head-actions--mirror,
+     HTML에 실제 버튼과 똑같이 하나 더 있음)을 왼쪽 칸에 두는 방법을 씁니다 —
+     양쪽 칸 모두 auto(내용 크기 그대로)라서 버튼이 줄바꿈될 일이 없고, 내용이
+     완전히 똑같으니 폭도 항상 정확히 같아서 가운데 칸(제목)이 진짜 정중앙에 옵니다. */
   html.theme-b .qt-section-head-row {
-    display: flex;
-    align-items: flex-end;
-    justify-content: space-between;
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: end;
     gap: 24px;
   }
   html.theme-b .qt-section-head-row .section-head {
-    text-align: left;
+    grid-column: 2;
+    text-align: center;
     max-width: none;
     margin: 0;
-    flex: 1;
     min-width: 0;
   }
   html.theme-b .qt-section-head-actions {
+    grid-column: 3;
     display: flex;
     gap: 10px;
-    flex-shrink: 0;
     padding-bottom: 4px;
+  }
+  html.theme-b .qt-section-head-actions--mirror {
+    grid-column: 1;
+    visibility: hidden;
+    pointer-events: none;
   }
 }
 .qt-pill-btn {
@@ -3032,7 +3060,9 @@ body.has-mini-player .quick-fab-wrap { bottom: calc(20px + 68px); }
   gap: 14px;
   min-height: 300px;
   background: url('/images/quiz-card-bg.jpg') center/cover no-repeat, var(--navy-deep);
-  border-radius: var(--radius);
+  /* 오늘의 큐티 카드와 같은 20px 둥근 모서리로 통일(기존엔 기본 --radius(4px)라 다른
+     두 카드보다 훨씬 각져 보였습니다). */
+  border-radius: 20px;
   /* 오늘의 큐티/이번주 칼럼 카드(.qt-card)와 같은 테두리 — 예전엔 이 카드만 테두리가
      없어서 셋을 나란히 두면 미묘하게 달라 보였습니다. */
   border: 1px solid var(--line);
@@ -3052,7 +3082,9 @@ body.has-mini-player .quick-fab-wrap { bottom: calc(20px + 68px); }
   background: linear-gradient(180deg, rgba(13,21,38,0.28) 0%, rgba(13,21,38,0.12) 30%, rgba(13,21,38,0.18) 60%, rgba(13,21,38,0.58) 100%);
 }
 .quiz-teaser-card > * { position: relative; z-index: 1; }
-.quiz-teaser-card:hover { transform: translateY(-2px); box-shadow: 0 12px 26px rgba(13,21,38,0.25); }
+/* 퀴즈 카드도 등장 애니메이션용 .reveal.is-visible 클래스를 같이 달고 있어서 같은
+   이유로 호버가 씹혔습니다 — 태그 선택자(a)로 특정도를 높였습니다. */
+a.quiz-teaser-card:hover { transform: translateY(-4px); box-shadow: 0 10px 24px rgba(13,21,38,0.12); }
 /* 배지 위치를 오늘의 큐티/이번주 칼럼 카드와 통일(왼쪽 위). 카드 자체 padding(28px 18px)이
    이미 여백을 주고 있으므로, 다른 카드에서 쓰는 .qt-card-badges의 자체 padding은 뺍니다. */
 .quiz-teaser-card .qt-card-badges { padding: 0; margin: 0 0 14px; }
