@@ -57,12 +57,24 @@
 
   // 교회소개 본문(#about-body-text)처럼 관리자가 리치 텍스트 에디터로 입력한 HTML 안에는
   // "가정이 교회 되고, 매일이 주일 되고, 일상이 예배가 되는 교회!"같이 쉼표로 길게 이어진
-  // 문장이 있을 수 있습니다. 작은 화면에서 이런 문장이 자연스러운 지점(쉼표) 대신 아무 데서나
-  // 줄바꿈되면 어색해 보여서, 작은 화면(~860px 이하, style.css의 .comma-break-sm 참고)에서만
-  // 쉼표 뒤마다 줄을 바꿔 보여줍니다. 그보다 넓은 화면에서는 이 줄바꿈을 숨겨 원래대로 이어져
-  // 보이게 합니다. 문자열을 통째로 다시 만들지 않고 텍스트 노드만 찾아 바꾸기 때문에, 굵게/
-  // 링크 같은 서식 태그 구조는 그대로 남습니다.
-  function insertCommaBreaksInRichText(container) {
+  // 문장이 있을 수 있습니다. 이런 문장을 브라우저의 기본 줄바꿈(word-break:keep-all +
+  // text-wrap:balance)에 그대로 맡기면 쉼표 같은 의미 단위를 무시하고 글자 수 기준으로만
+  // 균형을 맞추기 때문에, "매일이 주일" / "되고, 일상이…"처럼 한 구절이 두 줄에 걸쳐
+  // 잘리는 등 문맥과 상관없는 지점에서 줄이 바뀌어 보일 수 있습니다(이 문제는 본문뿐 아니라
+  // PC 화면의 교회소개 제목에서도 원래부터 똑같이 있었습니다).
+  // alwaysVisible=false(기본값, 본문 등에 사용): 작은 화면(~860px 이하, style.css의
+  //   .comma-break-sm 참고)에서만 쉼표 뒤마다 줄을 바꿔 보여주고, 그보다 넓은 화면에서는
+  //   숨겨서 원래대로 이어져 보이게 합니다.
+  // alwaysVisible=true(교회소개 제목처럼 큰 화면에서도 쉼표 단위로 깔끔하게 끊어 보여주고
+  //   싶은 짧은 제목용): 쉼표가 3개 이상의 구절을 나눌 때, 마지막 쉼표 앞의 줄바꿈만 항상
+  //   보이고 그 앞의 줄바꿈들은 작은 화면(.comma-break-sm, ~860px 이하)에서만 보입니다.
+  //   그 결과 PC에서는 마지막 구절만 다음 줄로 내려가는 2줄("가정이 교회 되고, 매일이
+  //   주일 되고," / "일상이 예배가 되는 교회!")로, 모바일에서는 기존처럼 쉼표마다 다 나뉘는
+  //   3줄로 보입니다. 쉼표가 하나뿐이면(구절 2개) 그 자리의 줄바꿈이 곧 "마지막 쉼표"이므로
+  //   화면 크기와 무관하게 항상 보입니다.
+  // 문자열을 통째로 다시 만들지 않고 텍스트 노드만 찾아 바꾸기 때문에, 굵게/링크 같은
+  // 서식 태그 구조는 그대로 남습니다.
+  function insertCommaBreaksInRichText(container, alwaysVisible) {
     if (!container) return;
     const walker = document.createTreeWalker(container, NodeFilter.SHOW_TEXT);
     const targets = [];
@@ -76,17 +88,20 @@
       const parts = textNode.data.split(/,\s*/).filter((p) => p.length);
       if (parts.length < 2) return;
       const frag = document.createDocumentFragment();
+      const lastBreakIdx = parts.length - 2; // 마지막 구절 바로 앞의 줄바꿈 인덱스
       parts.forEach((part, i) => {
         const isLast = i === parts.length - 1;
-        // 쉼표 뒤 공백은 정규식이 삼켜버리므로 다시 붙여줍니다. PC처럼 <br>이 숨겨진
+        // 쉼표 뒤 공백은 정규식이 삼켜버리므로 다시 붙여줍니다. <br>이 숨겨진(모바일 전용)
         // 화면에서는 이 공백이 있어야 "…되고, 매일이…"처럼 원래 문장 그대로 이어져
         // 보입니다(공백을 안 붙이면 "…되고,매일이…"로 붙어버려 text-wrap:balance가
-        // 엉뚱한 지점에서 줄을 바꾸는 원인이 됩니다). 모바일은 바로 뒤에 줄바꿈이
-        // 오므로 이 공백이 있어도 화면엔 표시되지 않습니다.
+        // 엉뚱한 지점에서 줄을 바꾸는 원인이 됩니다). <br>이 항상 보이는 경우엔 바로
+        // 뒤에 줄바꿈이 오므로 이 공백이 있어도 화면엔 표시되지 않습니다.
         frag.appendChild(document.createTextNode(isLast ? part : `${part}, `));
         if (!isLast) {
           const br = document.createElement('br');
-          br.className = 'comma-break-sm';
+          // alwaysVisible이어도 마지막 쉼표 앞 줄바꿈이 아니면(구절이 3개 이상일 때)
+          // 큰 화면에서는 숨겨서, PC에서는 마지막 구절만 내려가는 2줄로 보이게 합니다.
+          if (!alwaysVisible || i !== lastBreakIdx) br.className = 'comma-break-sm';
           frag.appendChild(br);
         }
       });
@@ -580,7 +595,7 @@
 
     if (site.about) {
       $('#about-greeting').textContent = site.about.greeting || site.about.title || '교회 소개';
-      insertCommaBreaksInRichText($('#about-greeting'));
+      insertCommaBreaksInRichText($('#about-greeting'), true);
       $('#about-body-text').innerHTML = sanitizeRichText(site.about.body || '');
       insertCommaBreaksInRichText($('#about-body-text'));
       $('#about-history').textContent = site.about.history || '';
