@@ -575,6 +575,7 @@
 
     if (site.about) {
       $('#about-greeting').textContent = site.about.greeting || site.about.title || '교회 소개';
+      insertCommaBreaksInRichText($('#about-greeting'));
       $('#about-body-text').innerHTML = sanitizeRichText(site.about.body || '');
       insertCommaBreaksInRichText($('#about-body-text'));
       $('#about-history').textContent = site.about.history || '';
