@@ -247,9 +247,12 @@
   // 서로 반대 방향으로 스쳐 지나가는 장식 효과). GSAP(ScrollTrigger)의 scrub
   // 옵션이 만드는 부드러운 움직임을 그대로 쓰며, PC/모바일 화면 모두에서 불러옵니다
   // (모션을 줄이도록 설정한 기기에서는 장식 효과이므로 건너뜁니다).
-  // 모바일(~860px 이하)에서는 이동 속도가 밋밋하다는 피드백이 있어서, 같은 스크롤
-  // 구간(교회소개 섹션 전체) 동안 움직이는 거리(xPercent 폭)를 PC보다 더 크게 잡아
-  // 체감 속도를 높였습니다. PC는 기존 값 그대로입니다.
+  // PC: 예전처럼 영문 한 줄 / 한글 한 줄, 두 덩어리가 통째로 서로 반대 방향으로
+  //   스쳐 지나갑니다(#about-bg-left/#about-bg-right 전체를 옮김).
+  // 모바일(~860px 이하): style.css에서 각 문구를 2줄씩(총 4줄, #about-bg-line-l1/l2/r1/r2)
+  //   로 나눠 보여주는데, 요청에 따라 네 줄이 각각 다른 방향/폭으로 따로 움직입니다
+  //   (1행 왼쪽 시작→오른쪽 이동, 2행 오른쪽 시작→왼쪽 이동, 3행 왼쪽 시작→오른쪽 이동,
+  //   4행은 완전한 오른쪽 정렬 위치보다 살짝 왼쪽에서 시작해 왼쪽으로 더 이동).
   function setupAboutCrossingTypography() {
     const leftEl = $('#about-bg-left');
     const rightEl = $('#about-bg-right');
@@ -284,36 +287,36 @@
 
       gsap.registerPlugin(ScrollTrigger);
 
-      // 모바일 화면에서만 이동 폭을 1.6배로 넓혀 더 빠르게 스쳐 지나가 보이게 합니다.
-      const isMobile = window.matchMedia('(max-width: 860px)').matches;
-      const mobileSpeedUp = 1.6;
-      const leftXPercent = isMobile ? 25 * mobileSpeedUp : 25;
-      const rightStartXPercent = isMobile ? 15 * mobileSpeedUp : 15;
-      const rightEndXPercent = isMobile ? -10 * mobileSpeedUp : -10;
-
-      gsap.to(leftEl, {
-        xPercent: leftXPercent,
-        ease: 'none',
-        scrollTrigger: {
-          trigger: aboutSection,
-          start: 'top bottom',
-          end: 'bottom top',
-          scrub: 1.5
-        }
-      });
-      gsap.fromTo(rightEl,
-        { xPercent: rightStartXPercent },
-        {
-          xPercent: rightEndXPercent,
-          ease: 'none',
-          scrollTrigger: {
-            trigger: aboutSection,
-            start: 'top bottom',
-            end: 'bottom top',
-            scrub: 1.5
+      function scrollSlide(target, fromXPercent, toXPercent) {
+        if (!target) return;
+        gsap.fromTo(target,
+          { xPercent: fromXPercent },
+          {
+            xPercent: toXPercent,
+            ease: 'none',
+            scrollTrigger: {
+              trigger: aboutSection,
+              start: 'top bottom',
+              end: 'bottom top',
+              scrub: 1.5
+            }
           }
-        }
-      );
+        );
+      }
+
+      const isMobile = window.matchMedia('(max-width: 860px)').matches;
+
+      if (isMobile) {
+        // 모바일: 4줄이 각자 다른 방향/폭으로 스쳐 지나갑니다.
+        scrollSlide($('#about-bg-line-l1'), 0, 40);   // 1행: 왼쪽 정렬 시작 → 오른쪽 이동
+        scrollSlide($('#about-bg-line-l2'), 0, -40);  // 2행: 오른쪽 정렬 시작 → 왼쪽 이동
+        scrollSlide($('#about-bg-line-r1'), 0, 40);   // 3행: 왼쪽 정렬 시작 → 오른쪽 이동
+        scrollSlide($('#about-bg-line-r2'), -8, -40); // 4행: 오른쪽 정렬보다 살짝 왼쪽에서 시작 → 왼쪽 이동
+      } else {
+        // PC: 예전 그대로, 영문/한글 덩어리 전체가 서로 반대 방향으로 이동합니다.
+        scrollSlide(leftEl, 0, 25);
+        scrollSlide(rightEl, 15, -10);
+      }
     }
 
     init();
