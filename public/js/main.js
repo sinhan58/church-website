@@ -322,12 +322,12 @@
         // 모바일: 영문 두 줄 / 한글 두 줄 덩어리가 각각 통째로 반대 방향으로 스쳐
         // 지나갑니다. 끝나는 지점(0)은 각 요소의 원래 제자리라 교회소개가 화면
         // 위쪽까지 올라왔을 때 화면 밖으로 잘리지 않습니다. 시작 지점은 반대쪽으로
-        // 당겨서(아래에서 올라오는 동안) 스쳐 지나가는 느낌을 주는데, -50/50으로
-        // 두니 화면 상단에 다다랐을 때도 아직 글자가 다 안 나타나 보여서, 실제
-        // 렌더링된 글자 폭 기준으로 2.5글자 정도(영문 평균 28px, 한글 평균 37px)를
-        // 화면 쪽으로 당겨왔습니다: 영문은 50→31(약 19%p), 한글은 50→26(약 24%p).
-        scrollSlide(leftEl, -31, 0);
-        scrollSlide(rightEl, 26, 0);
+        // 당겨서(아래에서 올라오는 동안) 스쳐 지나가는 느낌을 주는데, 화면 상단에
+        // 다다랐을 때도 아직 글자가 다 안 나타나 보여서 실제 렌더링된 글자 폭
+        // 기준으로 2.5글자 정도 화면 쪽으로 당겨뒀습니다(영문 -31, 한글 26). 이후
+        // "조금 더 빠르게" 요청으로 이동 폭을 1.2배 늘렸습니다(영문 -37, 한글 31).
+        scrollSlide(leftEl, -37, 0);
+        scrollSlide(rightEl, 31, 0);
       } else {
         // PC: 예전 그대로, 영문/한글 덩어리 전체가 서로 반대 방향으로 이동합니다.
         scrollSlide(leftEl, 0, 25);
@@ -336,6 +336,32 @@
     }
 
     init();
+  }
+
+  // 모바일 '텍스트 쇼'의 영문 2행(CHURCH, 오른쪽 정렬)을 1행(MULDAEN DONGSAN, 왼쪽
+  // 정렬)의 실제 글자 끝에 맞춥니다. 2행은 원래 박스 전체 폭(화면 폭) 기준으로
+  // 오른쪽 정렬돼 있어서, 1행 글자가 실제로 그 폭을 다 채우지 못하면(폰트에 따라
+  // 너비가 달라짐) 두 줄의 끝이 서로 어긋나 보입니다. 그래서 1행의 실제 렌더링
+  // 너비를 재서 2행 박스 너비로 그대로 적용해, 2행이 항상 1행이 끝나는 지점에서
+  // 끝나도록 맞춥니다(폰트 로딩이 늦게 끝나는 경우를 대비해 로딩 완료 후 다시
+  // 재고, 화면 크기가 바뀔 때도 다시 잽니다).
+  function alignAboutBgLine2ToLine1() {
+    const l1 = $('#about-bg-line-l1');
+    const l2 = $('#about-bg-line-l2');
+    if (!l1 || !l2) return;
+
+    function apply() {
+      const range = document.createRange();
+      range.selectNodeContents(l1);
+      const width = range.getBoundingClientRect().width;
+      if (width > 0) l2.style.width = `${width}px`;
+    }
+
+    apply();
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(apply).catch(() => {});
+    }
+    window.addEventListener('resize', apply);
   }
 
   function renderMap(contact) {
@@ -2868,6 +2894,7 @@
   observeReveals();
   setupHeroAboutTransition();
   setupAboutCrossingTypography();
+  alignAboutBgLine2ToLine1();
   // ---------------- 말씀 퀴즈 티저 카드 ----------------
   // 관리자가 이번 주 퀴즈를 등록해뒀을 때만 카드가 보이게 합니다. (없으면 빈 링크가
   // 보이지 않도록 기본은 숨김 상태로 시작해서, 있을 때만 드러냅니다)
