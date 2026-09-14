@@ -554,6 +554,12 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
 @media (min-width: 861px) {
   html.theme-b .hero-subtitle { font-size: 1.4rem; }
 }
+/* 모바일 화면(860px 이하)에서만 히어로 부제목의 쉼표(또는 어절 균형) 줄바꿈을 보여줍니다
+   (main.js의 buildHeroSubtitleHtml 참고). PC 화면에서는 숨겨서 원래대로 보이게 둡니다. */
+.hero-subtitle-break-sm { display: none; }
+@media (max-width: 860px) {
+  .hero-subtitle-break-sm { display: inline; }
+}
 .hero-cta { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
 
 /* 버튼/링크 끝에 붙는 겹화살괄호(») — 본문 글씨보다 작게 찍혀 보이지 않도록
@@ -2495,6 +2501,12 @@ div.qt-stage:hover { transform: translateY(-4px); }
   border-radius: 20px;
   overflow: hidden;
 }
+@media (max-width: 860px) {
+  /* 모바일에서는 카드가 좁은 폭에 비해 지나치게 길어 보여서, 세로 길이를 PC 기준
+     (660px)의 2/3 수준으로 줄였습니다. 이번주 칼럼 카드도 같은 .qt-card--today
+     클래스를 쓰므로 이 값이 그대로 같이 적용되어 둘의 높이가 항상 통일됩니다. */
+  .qt-card--today { min-height: 440px; }
+}
 .qt-card--today::before {
   content: '';
   position: absolute;
@@ -2530,24 +2542,12 @@ div.qt-stage:hover { transform: translateY(-4px); }
   align-items: center;
   justify-content: center;
   flex-wrap: wrap;
-  gap: 2px;
+  gap: 10px;
   margin-top: 20px;
 }
 @media (min-width: 861px) {
   .qt-quiz-main .qt-archive-toggle-wrap { max-width: 420px; margin-left: 0; margin-right: 0; }
 }
-.qt-archive-toggle {
-  background: none;
-  border: none;
-  font: inherit;
-  font-size: 0.86rem;
-  color: var(--muted);
-  padding: 6px 10px;
-  cursor: pointer;
-}
-.qt-archive-toggle:hover { color: var(--navy-deep); }
-.qt-toggle-divider { color: var(--line); font-size: 0.8rem; }
-.qt-archive-toggle.qt-notify-btn.subscribed { color: var(--gold-deep); font-weight: 700; }
 
 
 /* 지난 큐티 팝업 — 게시판 상세보기 모달(.post-modal)을 그대로 재사용합니다.
@@ -2974,6 +2974,11 @@ body.has-mini-player .quick-fab-wrap { bottom: calc(20px + 68px); }
    JS(칼럼 유무)가 정합니다. */
 .qt-card--column {
   display: none;
+}
+@media (max-width: 860px) {
+  /* 예전엔 컨셉B PC 화면 전용이라 모바일에서는 아예 숨겼는데, 이제 오늘의 큐티
+     카드 아래에 같은 크기(위 440px 규칙)로 이어서 보여줍니다. */
+  html.theme-b .qt-card--column { display: flex; }
 }
 
 /* ---- 큐티 섹션 안내문구 + 알약 버튼 (컨셉B PC 전용) ----
