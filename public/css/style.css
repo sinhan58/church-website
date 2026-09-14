@@ -2464,6 +2464,52 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
 .qt-card--today .qt-card-foot,
 .qt-card--archive-mini .qt-card-foot { margin: 16px 20px 0; padding: 12px 0 20px; }
 
+/* ---- '오늘' 큐티 카드 + 이번주 칼럼 카드: 사진이 카드 전체를 채우는 방식
+   (말씀 퀴즈 카드와 같은 골격). 배지·제목·하단 정보를 전부 사진 위에 얹고, 위/아래로
+   갈수록 짙어지는 그라데이션을 깔아서 어떤 사진이 올라와도 글자가 읽히게 했습니다.
+   지난 큐티 목록(.qt-card--archive-mini)은 카드 여러 개를 한눈에 훑어봐야 하므로
+   예전처럼 사진이 카드 중간에 끼워진 모양을 그대로 둡니다(위 규칙들 그대로 적용). */
+.qt-card--today {
+  display: flex;
+  flex-direction: column;
+  padding: 20px 20px 18px;
+  min-height: 480px;
+  background: var(--qt-photo-bg, linear-gradient(160deg, var(--navy-deep), var(--navy-soft))) center/cover no-repeat;
+  box-shadow: var(--shadow);
+}
+.qt-card--today::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(13,21,38,0.45) 0%, rgba(13,21,38,0.08) 28%, rgba(13,21,38,0.15) 60%, rgba(13,21,38,0.72) 100%);
+}
+.qt-card--today > * { position: relative; z-index: 1; }
+.qt-card--today .qt-card-badges { padding: 0; margin: 0 0 14px; }
+.qt-card--today .qt-card-photo {
+  position: static;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border-radius: 0;
+  overflow: visible;
+  background: none;
+  display: block;
+}
+.qt-card--today .qt-card-photo::before { content: none; }
+.qt-card--today .qt-card-read-prompt {
+  margin: 12px 0 0;
+  color: rgba(255,255,255,0.92);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.4);
+}
+.qt-card--today .qt-card-foot {
+  margin: auto 0 0;
+  padding: 12px 0 0;
+  border-top: 1px solid rgba(255,255,255,0.3);
+  color: rgba(255,255,255,0.92);
+  text-shadow: 0 1px 3px rgba(0,0,0,0.6), 0 2px 8px rgba(0,0,0,0.4);
+}
+.qt-card--today .qt-card-foot span:last-child { color: #fff; font-weight: 700; }
+
 .qt-empty { text-align: center; color: var(--ivory-dim); padding: 40px 0; position: relative; }
 
 .qt-archive-toggle-wrap {
@@ -2896,7 +2942,9 @@ body.has-mini-player .quick-fab-wrap { bottom: calc(20px + 68px); }
   }
   html.theme-b .qt-quiz-main { grid-column: 1; }
   html.theme-b .qt-quiz-middle { grid-column: 2; }
-  html.theme-b .qt-card--column { display: block; grid-column: 3; }
+  /* display:flex — .qt-card--today가 flex-column 레이아웃(하단 정보를 margin-top:auto로
+     카드 맨 아래에 붙이는 방식)을 쓰므로, 칼럼 카드도 block이 아니라 flex여야 합니다. */
+  html.theme-b .qt-card--column { display: flex; grid-column: 3; }
   html.theme-b .quiz-teaser-card { grid-column: 4; }
   /* 컨셉B는 아래쪽 텍스트 버튼("지난 큐티 보기") 대신 카드형을 쓰므로 예전 것은 숨김 */
   html.theme-b .qt-archive-toggle-wrap { display: none; }
