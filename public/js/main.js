@@ -250,9 +250,9 @@
   // PC: 예전처럼 영문 한 줄 / 한글 한 줄, 두 덩어리가 통째로 서로 반대 방향으로
   //   스쳐 지나갑니다(#about-bg-left/#about-bg-right 전체를 옮김).
   // 모바일(~860px 이하): style.css에서 각 문구를 2줄씩(총 4줄, #about-bg-line-l1/l2/r1/r2)
-  //   로 나눠 보여주는데, 요청에 따라 네 줄이 각각 다른 방향/폭으로 따로 움직입니다
-  //   (1행 왼쪽 시작→오른쪽 이동, 2행 오른쪽 시작→왼쪽 이동, 3행 왼쪽 시작→오른쪽 이동,
-  //   4행은 완전한 오른쪽 정렬 위치보다 살짝 왼쪽에서 시작해 왼쪽으로 더 이동).
+  //   로 나눠 보여주는데, 네 줄이 각자 다른 방향으로 움직이되(1행 왼쪽 시작→오른쪽 이동,
+  //   2행 오른쪽 시작→왼쪽 이동, 3행 왼쪽 시작→오른쪽 이동, 4행 오른쪽 시작→왼쪽 이동)
+  //   이동 폭(xPercent)은 네 줄 모두 40으로 같아서 같은 속도로 스쳐 지나갑니다.
   function setupAboutCrossingTypography() {
     const leftEl = $('#about-bg-left');
     const rightEl = $('#about-bg-right');
@@ -307,11 +307,11 @@
       const isMobile = window.matchMedia('(max-width: 860px)').matches;
 
       if (isMobile) {
-        // 모바일: 4줄이 각자 다른 방향/폭으로 스쳐 지나갑니다.
+        // 모바일: 4줄이 각자 다른 방향으로, 모두 같은 폭(40)으로 스쳐 지나갑니다.
         scrollSlide($('#about-bg-line-l1'), 0, 40);   // 1행: 왼쪽 정렬 시작 → 오른쪽 이동
         scrollSlide($('#about-bg-line-l2'), 0, -40);  // 2행: 오른쪽 정렬 시작 → 왼쪽 이동
         scrollSlide($('#about-bg-line-r1'), 0, 40);   // 3행: 왼쪽 정렬 시작 → 오른쪽 이동
-        scrollSlide($('#about-bg-line-r2'), -8, -40); // 4행: 오른쪽 정렬보다 살짝 왼쪽에서 시작 → 왼쪽 이동
+        scrollSlide($('#about-bg-line-r2'), 0, -40);  // 4행: 오른쪽 정렬 시작 → 왼쪽 이동
       } else {
         // PC: 예전 그대로, 영문/한글 덩어리 전체가 서로 반대 방향으로 이동합니다.
         scrollSlide(leftEl, 0, 25);
