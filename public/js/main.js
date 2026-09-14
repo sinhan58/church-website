@@ -247,6 +247,9 @@
   // 서로 반대 방향으로 스쳐 지나가는 장식 효과). GSAP(ScrollTrigger)의 scrub
   // 옵션이 만드는 부드러운 움직임을 그대로 쓰며, PC/모바일 화면 모두에서 불러옵니다
   // (모션을 줄이도록 설정한 기기에서는 장식 효과이므로 건너뜁니다).
+  // 모바일(~860px 이하)에서는 이동 속도가 밋밋하다는 피드백이 있어서, 같은 스크롤
+  // 구간(교회소개 섹션 전체) 동안 움직이는 거리(xPercent 폭)를 PC보다 더 크게 잡아
+  // 체감 속도를 높였습니다. PC는 기존 값 그대로입니다.
   function setupAboutCrossingTypography() {
     const leftEl = $('#about-bg-left');
     const rightEl = $('#about-bg-right');
@@ -281,8 +284,15 @@
 
       gsap.registerPlugin(ScrollTrigger);
 
+      // 모바일 화면에서만 이동 폭을 1.6배로 넓혀 더 빠르게 스쳐 지나가 보이게 합니다.
+      const isMobile = window.matchMedia('(max-width: 860px)').matches;
+      const mobileSpeedUp = 1.6;
+      const leftXPercent = isMobile ? 25 * mobileSpeedUp : 25;
+      const rightStartXPercent = isMobile ? 15 * mobileSpeedUp : 15;
+      const rightEndXPercent = isMobile ? -10 * mobileSpeedUp : -10;
+
       gsap.to(leftEl, {
-        xPercent: 25,
+        xPercent: leftXPercent,
         ease: 'none',
         scrollTrigger: {
           trigger: aboutSection,
@@ -292,9 +302,9 @@
         }
       });
       gsap.fromTo(rightEl,
-        { xPercent: 15 },
+        { xPercent: rightStartXPercent },
         {
-          xPercent: -10,
+          xPercent: rightEndXPercent,
           ease: 'none',
           scrollTrigger: {
             trigger: aboutSection,
