@@ -50,7 +50,14 @@
         }
         const firstHalf = escapeHtml(words.slice(0, splitIdx).join(' '));
         const secondHalf = escapeHtml(words.slice(splitIdx).join(' '));
-        return `${firstHalf}<br class="verse-break-sm">${secondHalf}`;
+        // 버그 수정: 예전엔 앞/뒤 반쪽 사이에 공백 없이 <br class="verse-break-sm">만
+        // 넣었습니다. 모바일(860px 이하)에서는 이 br이 실제 줄바꿈으로 보여서 문제가
+        // 없었지만, PC에서는 CSS가 이 br을 통째로 숨기는데(display:none) 숨겨진 태그는
+        // 공백 역할을 전혀 하지 않아서 두 낱말이 띄어쓰기 없이 그대로 붙어버렸습니다
+        // (예: "아니하는 샘" → "아니하는샘"). 이제 br 앞에 진짜 공백 문자를 하나 넣어서,
+        // PC(=br 숨김)에서는 그 공백이 살아남아 띄어쓰기가 되고, 모바일(=br 보임)에서는
+        // 줄바꿈 직전의 공백이라 평소처럼 화면에 티 나지 않습니다.
+        return `${firstHalf} <br class="verse-break-sm">${secondHalf}`;
       })
       .join('<br>');
   }
@@ -341,10 +348,14 @@
         scrollSlide(leftEl, -39, 2, mobileTrigger);
         scrollSlide(rightEl, 33, -2, mobileTrigger);
       } else {
-        // PC: 예전 그대로, 영문/한글 덩어리 전체가 서로 반대 방향으로, 교회소개
-        // 섹션 전체를 트리거 구간으로 삼아 이동합니다(변경 없음).
+        // PC: 영문/한글 덩어리 전체가 서로 반대 방향으로, 교회소개 섹션 전체를
+        // 트리거 구간으로 삼아 이동합니다. 1열(영문, leftEl)은 변경 없음.
+        // 2열(한글, rightEl)만 "반 글자 사이즈 정도 더 보여지게" 요청으로 끝나는
+        // 지점을 더 왼쪽으로 늘렸습니다 — 실제 렌더링된 글자 폭 기준 반 글자
+        // (PC 폭 1400px 기준 약 42px ≈ 자기 폭의 3%p)만큼 더 지나가도록
+        // -10 → -13.
         scrollSlide(leftEl, 0, 25);
-        scrollSlide(rightEl, 15, -10);
+        scrollSlide(rightEl, 15, -13);
       }
     }
 
