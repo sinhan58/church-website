@@ -1,0 +1,18 @@
+{
+  "name": "물댄동산교회 관리자",
+  "short_name": "교회 관리자",
+  "description": "물댄동산교회 홈페이지 관리자 페이지",
+  "start_url": "/admin/",
+  "id": "/admin/",
+  "scope": "/admin/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#0d1526",
+  "theme_color": "#0d1526",
+  "lang": "ko",
+  "icons": [
+    { "src": "/icons/icon-192-v2.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-512-v2.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icons/icon-maskable-512-v2.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
