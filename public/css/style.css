@@ -2904,6 +2904,9 @@ body.has-mini-player .quick-fab-wrap { bottom: calc(20px + 68px); }
 .quick-fab-item-icon {
   width: 18px;
   height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   color: var(--navy-deep);
 }
 .quick-fab-item-icon svg { width: 18px; height: 18px; }
@@ -2915,6 +2918,7 @@ body.has-mini-player .quick-fab-wrap { bottom: calc(20px + 68px); }
   white-space: nowrap;
 }
 .quick-fab-item-icon--band {
+  width: auto;
   font-size: 0.55rem;
   font-weight: 800;
   letter-spacing: -0.02em;
@@ -2922,7 +2926,6 @@ body.has-mini-player .quick-fab-wrap { bottom: calc(20px + 68px); }
 
 @media (max-width: 560px) {
   .quick-fab-wrap { right: 14px; }
-}
 }
 
 .ministry-duty-modal {
