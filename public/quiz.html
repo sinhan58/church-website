@@ -30,7 +30,7 @@
   var ready = linksReady.then(function () { return fontsApiReady; });
   Promise.race([
     ready,
-    new Promise(function (resolve) { setTimeout(resolve, 800); })
+    new Promise(function (resolve) { setTimeout(resolve, 1200); })
   ]).then(reveal);
   setTimeout(reveal, 1500);
 })();
@@ -39,6 +39,7 @@
 <title>이번 주 말씀 퀴즈</title>
 <meta name="robots" content="noindex" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link class="gfont-link" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;600;700&display=block" rel="stylesheet">
 <link class="gfont-link" rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
 <link rel="stylesheet" href="/css/style.css" />
@@ -60,9 +61,12 @@
   .quiz-layout { display: grid; grid-template-columns: 1fr 260px; gap: 32px; align-items: start; }
   @media (max-width: 860px) { .quiz-layout { grid-template-columns: 1fr; } }
 
-  /* 예전에는 본문 읽기 단계에서 옆의 참여자 순위 칸을 통째로 숨겼는데, 그러면 퀴즈에
-     들어오자마자(아직 '문제 풀기 시작'을 누르기 전) 참여자 기록이 전혀 안 보인다는
-     문제가 있어서 없앴습니다. 이제 읽기 단계에서도 순위표가 항상 함께 보입니다. */
+  /* 빈칸 채우기(2단계)를 시작하면 오른쪽 참여자 순위 칸을 잠깐 숨기고 문제지를 화면
+     전체 폭으로 넓게 보여줍니다. 두 클래스를 같이 걸어 원래 .quiz-layout 규칙보다
+     확실히 우선 적용되게 했습니다. 본문 읽기(1단계)·결과(3단계)에서는 다시 순위표를
+     보여줍니다. */
+  .quiz-layout.quiz-layout--focus { grid-template-columns: 1fr; }
+  .quiz-layout--focus .quiz-side-card { display: none; }
 
   /* 페이지 내용이 화면보다 짧아도 하단 남색 푸터가 화면 맨 아래에 붙어있도록 고정합니다. */
   body { display: flex; flex-direction: column; min-height: 100vh; }
@@ -78,6 +82,20 @@
   }
   .quiz-ref { font-family: var(--font-heading); font-size: 1.3rem; color: var(--navy-deep); margin: 0 0 4px; }
   .quiz-week-label { color: var(--muted); font-size: 0.85rem; margin: 0 0 24px; }
+
+  /* 본문 읽기(1단계) 카드 상단: 왼쪽엔 본문 출처·주차, 오른쪽엔 텍스트 읽어주기 버튼 */
+  .quiz-card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 14px; }
+  .quiz-card-head .quiz-card-head-text { min-width: 0; }
+  .quiz-tts-btn {
+    flex-shrink: 0;
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 8px 14px; border: 1.5px solid var(--gold); border-radius: 999px;
+    background: #fff; color: #96780f; font-family: inherit; font-size: 0.85rem; font-weight: 600;
+    cursor: pointer; white-space: nowrap;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .quiz-tts-btn:hover { background: var(--ivory-dim); }
+  .quiz-tts-btn.playing { background: var(--gold); border-color: var(--gold); color: #fff; }
 
   .quiz-name-field {
     margin-bottom: 22px;
@@ -109,13 +127,20 @@
   .quiz-verse-ref { font-family: var(--font-heading); font-weight: 700; color: var(--navy-deep); font-size: 1.05rem; margin: 0 0 14px; }
 
   .quiz-verse-text { line-height: 2.6; font-size: 1.08rem; word-break: keep-all; color: var(--ink); margin-bottom: 22px; }
+  /* PC는 화면 폭에 여유가 있으니 글씨를 더 키우고 줄 간격도 한층 넓혀 가독성을 높입니다. */
+  @media (min-width: 861px) {
+    .quiz-verse-text { font-size: 1.25rem; line-height: 3; }
+    .quiz-choice-btn { font-size: 1rem; padding: 7px 16px; }
+  }
 
   .quiz-blank-choices {
     display: inline-flex;
     flex-wrap: wrap;
     gap: 6px;
-    margin: 4px 4px;
-    vertical-align: middle;
+    /* 위아래 여백을 없애고 vertical-align으로만 위치를 맞춰서, 빈칸이 낀 줄과 일반
+       텍스트만 있는 줄 사이의 줄 간격이 들쭉날쭉해 보이지 않게 했습니다. */
+    margin: 0 4px;
+    vertical-align: -6px;
   }
   .quiz-choice-btn {
     padding: 6px 14px;
@@ -136,8 +161,15 @@
   /* 선택 안 한 나머지 보기들은 채점 후 옅게 처리 */
   .quiz-blank-choices.locked .quiz-choice-btn:not(.selected) { opacity: 0.45; }
 
+  /* 모바일(터치 기기)에서는 border-color/background 전환 애니메이션이 첫 탭에는
+     반영이 늦고 다음 항목을 선택할 때야 이전 항목 배경이 채워지는 현상이 있었습니다.
+     터치 기기에서는 전환 효과 없이 즉시 색이 채워지도록 transition을 꺼서 해결합니다. */
+  @media (hover: none) {
+    .quiz-choice-btn { transition: none; }
+  }
+
   .quiz-blank-retry-row {
-    display: flex; gap: 8px;
+    display: flex; gap: 8px; justify-content: center;
   }
   .quiz-blank-retry-row button {
     font-size: 0.82rem; padding: 8px 16px; border-radius: 999px; border: 1px solid var(--line);
@@ -159,7 +191,7 @@
   }
   .quiz-hint-box.open { display: block; }
 
-  .quiz-verse-feedback { font-size: 0.88rem; margin-bottom: 16px; min-height: 1.2em; }
+  .quiz-verse-feedback { font-size: 1.35rem; font-weight: 700; margin-bottom: 16px; min-height: 1.2em; text-align: center; }
   .quiz-verse-feedback.ok { color: #2f6d3a; }
   .quiz-verse-feedback.retry { color: var(--gold-deep); }
 
@@ -188,6 +220,7 @@
   .quiz-empty { color: var(--muted); font-size: 0.88rem; }
 
   .quiz-btn-row { display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px; }
+  .quiz-btn-row--center { justify-content: center; }
 </style>
 </head>
 <body>
@@ -209,7 +242,7 @@
         <p>먼저 말씀을 천천히 읽어보시고, 준비되시면 빈칸 채우기에 도전해보세요.</p>
       </div>
 
-      <div class="quiz-layout">
+      <div class="quiz-layout" id="quiz-layout">
         <div id="quiz-main">
           <div class="quiz-card">
             <p class="quiz-empty">불러오는 중...</p>
