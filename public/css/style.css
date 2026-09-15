@@ -351,7 +351,15 @@ html.theme-b .nav-desktop a {
   letter-spacing: -0.01em;
 }
 @media (min-width: 861px) {
-  html.theme-b .brand { font-size: 1.9rem; }
+  /* 반투명 헤더 바 두께(패딩 15px×2 + 글씨 줄높이)는 그대로 두고, 글씨만 최대한
+     키운 값입니다. 원래는 line-height를 body 기본값(1.7, 문단용으로 매우 낙낙한
+     값)에서 그대로 물려받아 32.3px 글씨에 줄높이가 54.91px나 됐는데, 한 줄짜리
+     교회명에는 그 정도 여백이 필요 없어서 줄높이를 1.15(한글 자모가 살짝 위아래로
+     걸쳐도 잘리지 않을 만큼의 여유)로 좁혔습니다. 그렇게 남는 세로 공간만큼 글씨
+     크기를 1.9rem → 2.8rem(약 +47%, 32.3px → 47.6px)까지 키워도 줄높이가
+     54.91px를 넘지 않아 바 두께는 실측 기준 그대로(84.9px) 유지됩니다.
+     (계산: 47.6px × 1.15 ≈ 54.74px ≤ 기존 줄높이 54.91px) */
+  html.theme-b .brand { font-size: 2.8rem; line-height: 1.15; }
 }
 .brand .gold-dot { color: var(--gold); }
 
