@@ -137,10 +137,8 @@
     display: inline-flex;
     flex-wrap: wrap;
     gap: 6px;
-    /* 위아래 여백을 없애고 vertical-align으로만 위치를 맞춰서, 빈칸이 낀 줄과 일반
-       텍스트만 있는 줄 사이의 줄 간격이 들쭉날쭉해 보이지 않게 했습니다. */
     margin: 0 4px;
-    vertical-align: -6px;
+    vertical-align: middle;
   }
   .quiz-choice-btn {
     padding: 6px 14px;
@@ -150,23 +148,28 @@
     color: var(--ink);
     font-family: inherit;
     font-size: 0.92rem;
+    /* 본문 줄의 line-height(2.6~3)를 그대로 물려받으면 버튼 한 줄짜리 글자에도 그
+       큰 줄높이가 적용돼서, 빈칸이 낀 줄만 유독 높이가 달라 보였습니다. 버튼은
+       line-height:1로 고정해 패딩+테두리만으로 높이를 정하게 하면, 본문 줄 간격
+       안에 자연스럽게 들어가면서 줄마다 높이가 고르게 맞습니다. */
+    line-height: 1;
     cursor: pointer;
     transition: border-color 0.15s ease, background 0.15s ease;
   }
-  .quiz-choice-btn:hover:not(:disabled) { border-color: var(--gold); background: var(--ivory-dim); }
+  /* 마우스 hover 규칙은 실제 마우스가 있는 환경(hover: hover)에서만 적용합니다.
+     그렇지 않으면 터치 기기에서 탭 후에도 남는 "고정 hover" 상태가 .selected보다
+     CSS 명시도가 높아서 선택된 배경색(gold-soft)을 hover 배경(ivory-dim)으로 덮어써
+     버렸고, 그 결과 다음 항목을 선택해서 hover가 옮겨가야만 방금 고른 항목의 색이
+     비로소 채워지는 것처럼 보였습니다. */
+  @media (hover: hover) {
+    .quiz-choice-btn:hover:not(:disabled) { border-color: var(--gold); background: var(--ivory-dim); }
+  }
   .quiz-choice-btn.selected { border-color: var(--gold); background: var(--gold-soft); font-weight: 700; }
   .quiz-choice-btn:disabled { cursor: default; }
   .quiz-choice-btn.correct-pick { border-color: #2f6d3a; background: #eaf5ec; color: #2f6d3a; font-weight: 700; }
   .quiz-choice-btn.wrong-pick { border-color: #b3413a; background: #fbeceb; color: #b3413a; text-decoration: line-through; }
   /* 선택 안 한 나머지 보기들은 채점 후 옅게 처리 */
   .quiz-blank-choices.locked .quiz-choice-btn:not(.selected) { opacity: 0.45; }
-
-  /* 모바일(터치 기기)에서는 border-color/background 전환 애니메이션이 첫 탭에는
-     반영이 늦고 다음 항목을 선택할 때야 이전 항목 배경이 채워지는 현상이 있었습니다.
-     터치 기기에서는 전환 효과 없이 즉시 색이 채워지도록 transition을 꺼서 해결합니다. */
-  @media (hover: none) {
-    .quiz-choice-btn { transition: none; }
-  }
 
   .quiz-blank-retry-row {
     display: flex; gap: 8px; justify-content: center;
@@ -239,7 +242,7 @@
       <div class="section-head" style="text-align:left; margin-bottom:28px;">
         <span class="eyebrow">BIBLE QUIZ</span>
         <h2>이번 주 말씀 퀴즈</h2>
-        <p>먼저 말씀을 천천히 읽어보시고, 준비되시면 빈칸 채우기에 도전해보세요.</p>
+        <p id="quiz-intro-text">먼저 말씀을 천천히 읽어보시고, 준비되시면 빈칸 채우기에 도전해보세요.</p>
       </div>
 
       <div class="quiz-layout" id="quiz-layout">
