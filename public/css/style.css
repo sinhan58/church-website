@@ -2217,7 +2217,24 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   margin-bottom: 24px;
   border-bottom: 1px solid rgba(255,255,255,0.08);
 }
-.footer-brand { color: #fff; font-family: var(--font-heading); font-size: 1.1rem; }
+.footer-brand-group { display: flex; align-items: center; gap: 14px; }
+.footer-logo {
+  width: 44px;
+  height: 44px;
+  object-fit: contain;
+  flex-shrink: 0;
+  background: #fff;
+  border-radius: 10px;
+  padding: 4px;
+}
+.footer-brand-text { display: flex; flex-direction: column; gap: 3px; }
+.footer-brand { color: #fff; font-family: var(--font-heading); font-size: 1.5rem; font-weight: 700; line-height: 1.2; }
+.footer-brand-en {
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: #a7abbd;
+}
 .footer-sns { display: flex; gap: 12px; }
 .footer-sns a {
   display: flex; align-items: center; justify-content: center;
@@ -2231,7 +2248,18 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
 .footer-sns a svg { width: 18px; height: 18px; }
 .footer-sns a span { font-size: 0.6rem !important; }
 .footer-sns a:hover { background: var(--gold); border-color: var(--gold); color: var(--navy-deep); }
+.footer-heresy-notice {
+  margin: 14px 0 0;
+  font-size: 0.76rem;
+  line-height: 1.6;
+  color: #7d8296;
+}
 .admin-link { color: #6b6e80; }
+
+/* ---- 컨셉B 전용: 청록 배경에 맞게 텍스트 톤 보정 ---- */
+html.theme-b .site-footer { color: #a9c4c2; }
+html.theme-b .footer-brand-en { color: #a9c4c2; }
+html.theme-b .footer-heresy-notice { color: #8fb0ad; }
 
 /* ---------------- Responsive ---------------- */
 @media (max-width: 900px) {
