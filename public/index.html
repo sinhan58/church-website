@@ -555,46 +555,48 @@
   </div>
 </div>
 
-<!-- 오른쪽 하단 확장형 플로팅 버튼 (새가족 메시지 / 큐티 / 소식·친교 / 섬김안내 / 밴드) -->
+<!-- 오른쪽 하단 확장형 플로팅 버튼 (새가족 / 큐티즈 / 소식 / 섬김 / 밴드) -->
 <div class="quick-fab-wrap" id="quick-fab-wrap">
   <div class="quick-fab-menu" id="quick-fab-menu">
     <button type="button" class="quick-fab-item" id="quick-fab-top">
-      <span class="quick-fab-item-label">맨 위로</span>
       <span class="quick-fab-item-icon">
         <svg viewBox="0 0 24 24" fill="none"><path d="M5 15l7-7 7 7" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </span>
+      <span class="quick-fab-item-label">맨 위로</span>
     </button>
     <a href="/new-family.html" class="quick-fab-item" id="quick-fab-newfamily">
-      <span class="quick-fab-item-label">새가족 메시지</span>
       <span class="quick-fab-item-icon">
         <svg viewBox="0 0 24 24" fill="none"><path d="M12 21s-7.5-4.6-10-9.2C.5 8.4 2 5 5.3 5c1.9 0 3.3 1 4.7 2.7C11.4 6 12.8 5 14.7 5 18 5 19.5 8.4 22 11.8 19.5 16.4 12 21 12 21z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </span>
+      <span class="quick-fab-item-label">새가족</span>
     </a>
     <a href="#qt" class="quick-fab-item" id="quick-fab-qt">
-      <span class="quick-fab-item-label">오늘의 큐티</span>
       <span class="quick-fab-item-icon">
         <svg viewBox="0 0 24 24" fill="none"><path d="M4 19.5A2.5 2.5 0 016.5 17H20M4 19.5A2.5 2.5 0 006.5 22H20V2H6.5A2.5 2.5 0 004 4.5v15z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </span>
+      <span class="quick-fab-item-label">큐티즈</span>
     </a>
     <a href="#board" class="quick-fab-item" id="quick-fab-board">
-      <span class="quick-fab-item-label">소식 · 친교</span>
       <span class="quick-fab-item-icon">
         <svg viewBox="0 0 24 24" fill="none"><path d="M4 5h16v11H7l-3 3V5z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </span>
+      <span class="quick-fab-item-label">소식</span>
     </a>
     <button type="button" class="quick-fab-item" id="quick-fab-ministry" style="display:none;">
-      <span class="quick-fab-item-label">섬김안내</span>
       <span class="quick-fab-item-icon">
         <svg viewBox="0 0 24 24" fill="none"><path d="M12 12a4 4 0 100-8 4 4 0 000 8zM4 21a8 8 0 0116 0" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </span>
+      <span class="quick-fab-item-label">섬김</span>
     </button>
     <a href="#" id="quick-fab-band" class="quick-fab-item" target="_blank" rel="noopener" style="display:none;">
-      <span class="quick-fab-item-label">밴드에서 소통해요</span>
       <span class="quick-fab-item-icon quick-fab-item-icon--band">BAND</span>
+      <span class="quick-fab-item-label">밴드</span>
     </a>
   </div>
   <button type="button" class="quick-fab-toggle" id="quick-fab-toggle" aria-label="빠른 메뉴 열기">
-    <svg class="quick-fab-toggle-icon" viewBox="0 0 24 24" fill="none"><path d="M12 3v18M6 9h12" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/></svg>
+    <span class="quick-fab-toggle-dot quick-fab-toggle-dot--l"></span>
+    <span class="quick-fab-toggle-dot quick-fab-toggle-dot--c"></span>
+    <span class="quick-fab-toggle-dot quick-fab-toggle-dot--r"></span>
   </button>
 </div>
 <div class="ministry-duty-modal" id="ministry-duty-modal">
