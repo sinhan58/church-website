@@ -23,6 +23,7 @@
     .catch(() => {});
 
   const mainEl = $('#quiz-main');
+  const layoutEl = $('#quiz-layout');
   let quiz = null; // 현재 퀴즈 데이터
   let verseIndex = 0; // 지금 풀고 있는 절 인덱스
   let verseResults = []; // 절마다: { verseId, blanks: [{blankId, correct, firstTry, usedHint}] }
@@ -30,6 +31,55 @@
 
   function totalBlankCount() {
     return quiz.verses.reduce((sum, v) => sum + v.blanks.length, 0);
+  }
+
+  // 빈칸 채우기(2단계)를 푸는 동안에는 오른쪽 참여자 순위 칸을 숨기고 문제지를
+  // 화면 폭 전체로 넓게 보여줍니다. 본문 읽기(1단계)·결과(3단계)에서는 다시 보여줍니다.
+  function setQuizFocusMode(on) {
+    if (!layoutEl) return;
+    layoutEl.classList.toggle('quiz-layout--focus', !!on);
+  }
+
+  // ---------------- 텍스트 읽어주기 (TTS) ----------------
+  function buildReadAloudText() {
+    return quiz.verses.map((v) => v.fullText).join(' ');
+  }
+
+  function stopReadAloud() {
+    if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+  }
+
+  function setupReadAloudButton() {
+    const btn = $('#quiz-tts-btn');
+    if (!btn) return;
+    if (!('speechSynthesis' in window)) {
+      btn.style.display = 'none';
+      return;
+    }
+
+    const labelEl = $('.quiz-tts-label', btn);
+    const resetBtn = () => {
+      btn.classList.remove('playing');
+      btn.setAttribute('aria-pressed', 'false');
+      if (labelEl) labelEl.textContent = '읽어주기';
+    };
+
+    btn.addEventListener('click', () => {
+      if (window.speechSynthesis.speaking) {
+        stopReadAloud();
+        resetBtn();
+        return;
+      }
+      const utter = new SpeechSynthesisUtterance(buildReadAloudText());
+      utter.lang = 'ko-KR';
+      utter.rate = 0.95;
+      utter.onend = resetBtn;
+      utter.onerror = resetBtn;
+      window.speechSynthesis.speak(utter);
+      btn.classList.add('playing');
+      btn.setAttribute('aria-pressed', 'true');
+      if (labelEl) labelEl.textContent = '멈추기';
+    });
   }
 
   // ---------------- 객관식 선택지 자동 생성 ----------------
@@ -77,10 +127,9 @@
   }
 
   // ---------------- 1단계: 본문 읽기 ----------------
+  // 이 단계에서는 옆의 참여자 순위 칸을 계속 보여줍니다(참여 실적을 미리 볼 수 있도록).
   function renderNameAndRead() {
-    const layout = $('.quiz-layout');
-    if (layout) layout.classList.add('reading-stage');
-
+    setQuizFocusMode(false);
     let lastRef = null;
     const readHtml = quiz.verses
       .map((v) => {
@@ -97,8 +146,15 @@
 
     mainEl.innerHTML = `
       <div class="quiz-card">
-        <p class="quiz-ref">${escapeHtml(quiz.reference)}</p>
-        <p class="quiz-week-label">${escapeHtml(quiz.weekLabel || '')}</p>
+        <div class="quiz-card-head">
+          <div class="quiz-card-head-text">
+            <p class="quiz-ref">${escapeHtml(quiz.reference)}</p>
+            <p class="quiz-week-label">${escapeHtml(quiz.weekLabel || '')}</p>
+          </div>
+          <button type="button" class="quiz-tts-btn" id="quiz-tts-btn" aria-pressed="false">
+            <span aria-hidden="true">🔊</span><span class="quiz-tts-label">읽어주기</span>
+          </button>
+        </div>
 
         <div class="quiz-read-text">${readHtml}</div>
 
@@ -107,8 +163,10 @@
         </div>
       </div>`;
 
+    setupReadAloudButton();
+
     $('#quiz-start-btn').addEventListener('click', () => {
-      if (layout) layout.classList.remove('reading-stage');
+      stopReadAloud();
       verseIndex = 0;
       verseResults = [];
       renderVerseStep();
@@ -135,6 +193,7 @@
 
   // ---------------- 2단계: 한 절씩 풀기 ----------------
   function renderVerseStep() {
+    setQuizFocusMode(true);
     scrollQuizTop();
     const verse = quiz.verses[verseIndex];
     const parts = verse.markedText.split(/(\{\{b\d+\}\})/g);
@@ -171,7 +230,7 @@
         </div>
         <p class="quiz-verse-feedback" id="quiz-verse-feedback"></p>
         <div class="quiz-hint-box" id="quiz-hint-box"></div>
-        <div class="quiz-btn-row">
+        <div class="quiz-btn-row quiz-btn-row--center">
           <button type="button" class="btn btn--gold" id="quiz-check-btn">채점하기</button>
         </div>
       </div>`;
@@ -183,6 +242,10 @@
         const group = btn.closest('.quiz-blank-choices');
         if (group.classList.contains('locked')) return;
         $$('.quiz-choice-btn', group).forEach((b) => b.classList.remove('selected'));
+        // 모바일 브라우저에서 border-color/background 전환이 한 번에 두 속성으로 걸리면
+        // 배경색 페인트가 다음 탭까지 미뤄지는 경우가 있어, 클래스를 적용하기 직전에
+        // 레이아웃을 한 번 강제로 읽어(reflow) 즉시 다시 그리도록 만듭니다.
+        void btn.offsetWidth;
         btn.classList.add('selected');
       });
     });
@@ -277,7 +340,6 @@
     const row = document.createElement('div');
     row.id = 'quiz-retry-actions';
     row.className = 'quiz-blank-retry-row';
-    row.style.display = 'flex';
     row.style.marginBottom = '16px';
     row.innerHTML = `
       <button type="button" class="hint-btn">힌트 보고 다시 풀기</button>
@@ -374,6 +436,7 @@
   }
 
   async function finishQuiz() {
+    setQuizFocusMode(false);
     const totalBlanks = totalBlankCount();
     const perBlankPoint = totalBlanks > 0 ? 100 / totalBlanks : 0;
 
