@@ -2838,25 +2838,55 @@ body.has-mini-player .quick-fab-wrap { bottom: calc(20px + 68px); }
 .quick-fab-menu {
   position: absolute;
   right: 0;
-  bottom: 68px; /* 토글 버튼(56px) + 여백(12px) 바로 위 */
+  bottom: 68px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
   gap: 10px;
-  /* 평소엔 숨겨두고, 펼쳤을 때만 아래에서 위로 살짝 올라오며 나타납니다 */
+  pointer-events: none; /* 항목별로 각각 클릭 가능 여부를 관리하므로 메뉴 박스 자체는 통과 */
+}
+.quick-fab-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  border: none;
+  background: none;
+  cursor: pointer;
+  padding: 0;
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
-  transform: translateY(8px);
-  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s linear 0.2s;
+  transform-origin: 100% 100%;
+  transform: scale(0.5) translateY(6px);
+  transition: opacity .22s ease,
+              transform .32s cubic-bezier(.34, 1.56, .64, 1),
+              visibility 0s linear .28s;
 }
-.quick-fab-wrap.open .quick-fab-menu {
+.quick-fab-wrap.open .quick-fab-item {
   opacity: 1;
   visibility: visible;
   pointer-events: auto;
-  transform: translateY(0);
-  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s linear 0s;
+  transform: scale(1) translateY(0);
+  transition: opacity .2s ease,
+              transform .38s cubic-bezier(.34, 1.56, .64, 1),
+              visibility 0s linear 0s;
 }
+/* 토글 버튼에서 가까운 항목(DOM상 뒤쪽)부터 먼저, 먼 항목일수록 살짝 늦게 튀어나옵니다 */
+.quick-fab-wrap.open .quick-fab-item:nth-child(1) { transition-delay: .18s, .18s, 0s; }
+.quick-fab-wrap.open .quick-fab-item:nth-child(2) { transition-delay: .14s, .14s, 0s; }
+.quick-fab-wrap.open .quick-fab-item:nth-child(3) { transition-delay: .10s, .10s, 0s; }
+.quick-fab-wrap.open .quick-fab-item:nth-child(4) { transition-delay: .06s, .06s, 0s; }
+.quick-fab-wrap.open .quick-fab-item:nth-child(5) { transition-delay: .03s, .03s, 0s; }
+.quick-fab-wrap.open .quick-fab-item:nth-child(6) { transition-delay:   0s,   0s, 0s; }
+
+/* 토글(+ → X) 버튼도 같은 탄성감으로 회전하도록 */
+.quick-fab-toggle-icon {
+  width: 24px;
+  height: 24px;
+  transition: transform .35s cubic-bezier(.34, 1.56, .64, 1);
+}
+.quick-fab-toggle:active { transform: scale(0.92); }
 .quick-fab-item {
   display: flex;
   align-items: center;
