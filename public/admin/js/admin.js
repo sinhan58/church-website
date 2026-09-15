@@ -58,6 +58,14 @@
     $('#login-screen').hidden = true;
     $('#dashboard').hidden = false;
     initDashboard();
+    resetContentScroll();
+  }
+
+  // 본문 영역(.content)을 항상 맨 위에서 시작하게 만듭니다. 대메뉴/하위메뉴를 바꾸거나
+  // 로그인 직후에 호출해서, 이전에 스크롤해뒀던 위치가 다음 화면에 그대로 남아있지 않게 합니다.
+  function resetContentScroll() {
+    const scrollEl = $('#admin-content-scroll');
+    if (scrollEl) scrollEl.scrollTop = 0;
   }
 
   // ---------------- 로그인 ----------------
@@ -96,17 +104,17 @@
     }
   }
 
-  // ---------------- 사이드바 탭 전환 ----------------
+  // ---------------- 상단 대메뉴 + 좌측 하위메뉴 전환 ----------------
   let dashboardInitialized = false;
   function setupNav() {
-    const sidebarNav = $('#sidebar-nav');
     const toggleBtn = $('#sidebar-toggle-btn');
     const toggleCurrentLabel = $('#sidebar-toggle-current');
 
-    // 모바일: 메뉴 접기/펴기 버튼
-    if (toggleBtn && sidebarNav) {
+    // 모바일: 하위 메뉴 접기/펴기 버튼 (지금 선택된 대메뉴의 하위 메뉴만 대상으로 함)
+    if (toggleBtn) {
       toggleBtn.addEventListener('click', () => {
-        sidebarNav.classList.toggle('open');
+        const activeGroup = $('.nav-group.active-maincat');
+        if (activeGroup) activeGroup.classList.toggle('open');
       });
     }
 
@@ -117,9 +125,31 @@
         btn.classList.add('active');
         $('#' + btn.dataset.panel).classList.add('active');
 
-        // 모바일에서 메뉴를 고르면 자동으로 접어서, 바로 그 화면 내용이 보이게 합니다.
+        // 화면(패널)을 바꿀 때마다 항상 맨 위부터 보이게 합니다.
+        resetContentScroll();
+
+        // 모바일에서 하위 메뉴를 고르면 자동으로 접어서, 바로 그 화면 내용이 보이게 합니다.
         if (toggleCurrentLabel) toggleCurrentLabel.textContent = btn.textContent;
-        if (sidebarNav) sidebarNav.classList.remove('open');
+        const group = btn.closest('.nav-group');
+        if (group) group.classList.remove('open');
+      });
+    });
+
+    // 상단 대메뉴(콘텐츠 관리 / 소통·게시판 / 운영 관리) 탭 전환.
+    // 탭을 누르면 그 카테고리의 하위 메뉴만 좌측에 보여주고, 그 안의 첫 번째(보이는) 항목을
+    // 자동으로 선택해서 화면을 바로 보여줍니다.
+    $$('.maincat-tab').forEach((tab) => {
+      tab.addEventListener('click', () => {
+        if (tab.hidden) return;
+        $$('.maincat-tab').forEach((t) => t.classList.remove('active'));
+        tab.classList.add('active');
+        $$('.nav-group').forEach((g) => g.classList.remove('active-maincat', 'open'));
+        const group = $(`.nav-group[data-maincat="${tab.dataset.maincat}"]`);
+        if (group) {
+          group.classList.add('active-maincat');
+          const firstVisible = $$('.nav-item', group).find((b) => !b.hidden);
+          if (firstVisible) firstVisible.click();
+        }
       });
     });
   }
@@ -866,9 +896,27 @@
       const allowed = isMain || (currentSession.permissions && currentSession.permissions[perm]);
       btn.hidden = !allowed;
     });
+
+    // 대메뉴(콘텐츠 관리/소통·게시판/운영 관리) 안에 보이는 하위 메뉴가 하나도 없으면,
+    // 그 대메뉴 탭 자체도 숨깁니다 (부관리자가 권한 없는 카테고리를 아예 안 보게 함).
+    $$('.nav-group').forEach((group) => {
+      const hasVisible = $$('.nav-item', group).some((b) => !b.hidden);
+      const tab = $(`.maincat-tab[data-maincat="${group.dataset.maincat}"]`);
+      if (tab) tab.hidden = !hasVisible;
+    });
+
+    // 지금 선택된 대메뉴 탭이 숨겨졌다면(그 카테고리에 권한이 전혀 없다면), 보이는 첫 대메뉴로 전환합니다.
+    const activeTab = $('.maincat-tab.active');
+    if (!activeTab || activeTab.hidden) {
+      const firstVisibleTab = $$('.maincat-tab').find((t) => !t.hidden);
+      if (firstVisibleTab) firstVisibleTab.click();
+      return;
+    }
+
     const activeBtn = $('.nav-item.active');
     if (activeBtn && activeBtn.hidden) {
-      const firstVisible = $$('.nav-item').find((b) => !b.hidden);
+      const group = activeBtn.closest('.nav-group');
+      const firstVisible = group ? $$('.nav-item', group).find((b) => !b.hidden) : null;
       if (firstVisible) firstVisible.click();
     }
   }
