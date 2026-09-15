@@ -33,19 +33,60 @@
     return quiz.verses.reduce((sum, v) => sum + v.blanks.length, 0);
   }
 
-  // 빈칸 채우기(2단계)를 푸는 동안에는 오른쪽 참여자 순위 칸을 숨기고 문제지를
-  // 화면 폭 전체로 넓게 보여줍니다. 본문 읽기(1단계)·결과(3단계)에서는 다시 보여줍니다.
+  // 오른쪽 참여자 순위 칸: 빈칸 채우기(2단계)를 푸는 동안에는 숨기고 문제지를 화면
+  // 폭 전체로 넓게 보여줍니다. 본문 읽기(1단계)·결과(3단계)에서는 다시 보여줍니다.
   function setQuizFocusMode(on) {
-    if (!layoutEl) return;
-    layoutEl.classList.toggle('quiz-layout--focus', !!on);
+    if (layoutEl) layoutEl.classList.toggle('quiz-layout--focus', !!on);
+  }
+
+  // 상단 안내 문구("먼저 말씀을 천천히 읽어보시고...")는 본문 읽기(1단계)에서만
+  // 의미가 있으므로, 빈칸 채우기가 시작되면(2단계) 숨기고 결과 화면(3단계)에서도
+  // 계속 숨겨둡니다.
+  function setIntroVisible(visible) {
+    const introEl = document.getElementById('quiz-intro-text');
+    if (introEl) introEl.hidden = !visible;
   }
 
   // ---------------- 텍스트 읽어주기 (TTS) ----------------
-  function buildReadAloudText() {
-    return quiz.verses.map((v) => v.fullText).join(' ');
+  // 절을 전부 이어 붙여 한 번에 읽으면 "미가 2:3-5" 같은 장절 표기가 안 읽히고,
+  // 다음 절로 넘어가는 지점도 티가 안 나서, 절마다 "장절 표기 → 본문" 순서의 문장으로
+  // 따로 만들어 하나씩 읽고, 절과 절 사이에는 2초씩 쉬었다가 이어서 읽습니다.
+  // (절 번호(예: "3절")는 요청에 따라 읽지 않습니다)
+  //
+  // 장절 표기는 화면에는 "미가 2:3-5"처럼 콜론(:)이 들어간 원문 그대로 표시하지만,
+  // 이 콜론을 그대로 음성 엔진에 넘기면 기기/음성마다 "2 대 3"(비율)이나 "2시 3분"
+  // (시간)처럼 엉뚱하게 읽힐 수 있어서, 읽어주기용으로만 "2장 3절부터 5절"처럼 콜론
+  // 없는 자연스러운 한국어 문장으로 바꿔서 읽습니다.
+  let ttsTimer = null;
+  let isReadingAloud = false;
+
+  function toSpeakableReference(ref) {
+    if (!ref) return '';
+    const m = String(ref).match(/^(.+?)\s*(\d+)\s*[:：]\s*(\d+)(?:\s*[-~]\s*(\d+))?\s*$/);
+    if (!m) return ref; // 이 패턴이 아니면(콜론이 없으면) 원문을 그대로 읽습니다.
+    const [, book, chapter, v1, v2] = m;
+    const verses = v2 ? `${v1}절부터 ${v2}절` : `${v1}절`;
+    return `${book.trim()} ${chapter}장 ${verses}`;
+  }
+
+  function buildReadAloudSegments() {
+    let lastRef = null;
+    return quiz.verses.map((v) => {
+      let prefix = '';
+      if (v.reference && v.reference !== lastRef) {
+        lastRef = v.reference;
+        prefix = `${toSpeakableReference(v.reference)}. `;
+      }
+      return `${prefix}${v.fullText}`;
+    });
   }
 
   function stopReadAloud() {
+    isReadingAloud = false;
+    if (ttsTimer) {
+      clearTimeout(ttsTimer);
+      ttsTimer = null;
+    }
     if ('speechSynthesis' in window) window.speechSynthesis.cancel();
   }
 
@@ -58,27 +99,47 @@
     }
 
     const labelEl = $('.quiz-tts-label', btn);
-    const resetBtn = () => {
-      btn.classList.remove('playing');
-      btn.setAttribute('aria-pressed', 'false');
-      if (labelEl) labelEl.textContent = '읽어주기';
+    const setPlayingUi = (playing) => {
+      btn.classList.toggle('playing', playing);
+      btn.setAttribute('aria-pressed', playing ? 'true' : 'false');
+      if (labelEl) labelEl.textContent = playing ? '멈추기' : '읽어주기';
     };
 
-    btn.addEventListener('click', () => {
-      if (window.speechSynthesis.speaking) {
-        stopReadAloud();
-        resetBtn();
+    function speakNext(segments, index) {
+      if (!isReadingAloud || index >= segments.length) {
+        isReadingAloud = false;
+        setPlayingUi(false);
         return;
       }
-      const utter = new SpeechSynthesisUtterance(buildReadAloudText());
+      const utter = new SpeechSynthesisUtterance(segments[index]);
       utter.lang = 'ko-KR';
       utter.rate = 0.95;
-      utter.onend = resetBtn;
-      utter.onerror = resetBtn;
+      utter.onend = () => {
+        if (!isReadingAloud) return; // 재생 중 '멈추기'를 누른 경우
+        if (index === segments.length - 1) {
+          isReadingAloud = false;
+          setPlayingUi(false);
+          return;
+        }
+        // 다음 절로 넘어가기 전 2초 쉬었다가 이어서 읽습니다.
+        ttsTimer = setTimeout(() => speakNext(segments, index + 1), 2000);
+      };
+      utter.onerror = () => {
+        isReadingAloud = false;
+        setPlayingUi(false);
+      };
       window.speechSynthesis.speak(utter);
-      btn.classList.add('playing');
-      btn.setAttribute('aria-pressed', 'true');
-      if (labelEl) labelEl.textContent = '멈추기';
+    }
+
+    btn.addEventListener('click', () => {
+      if (isReadingAloud) {
+        stopReadAloud();
+        setPlayingUi(false);
+        return;
+      }
+      isReadingAloud = true;
+      setPlayingUi(true);
+      speakNext(buildReadAloudSegments(), 0);
     });
   }
 
@@ -130,6 +191,7 @@
   // 이 단계에서는 옆의 참여자 순위 칸을 계속 보여줍니다(참여 실적을 미리 볼 수 있도록).
   function renderNameAndRead() {
     setQuizFocusMode(false);
+    setIntroVisible(true);
     let lastRef = null;
     const readHtml = quiz.verses
       .map((v) => {
@@ -194,6 +256,7 @@
   // ---------------- 2단계: 한 절씩 풀기 ----------------
   function renderVerseStep() {
     setQuizFocusMode(true);
+    setIntroVisible(false);
     scrollQuizTop();
     const verse = quiz.verses[verseIndex];
     const parts = verse.markedText.split(/(\{\{b\d+\}\})/g);
@@ -242,10 +305,6 @@
         const group = btn.closest('.quiz-blank-choices');
         if (group.classList.contains('locked')) return;
         $$('.quiz-choice-btn', group).forEach((b) => b.classList.remove('selected'));
-        // 모바일 브라우저에서 border-color/background 전환이 한 번에 두 속성으로 걸리면
-        // 배경색 페인트가 다음 탭까지 미뤄지는 경우가 있어, 클래스를 적용하기 직전에
-        // 레이아웃을 한 번 강제로 읽어(reflow) 즉시 다시 그리도록 만듭니다.
-        void btn.offsetWidth;
         btn.classList.add('selected');
       });
     });
@@ -437,6 +496,7 @@
 
   async function finishQuiz() {
     setQuizFocusMode(false);
+    setIntroVisible(false);
     const totalBlanks = totalBlankCount();
     const perBlankPoint = totalBlanks > 0 ? 100 / totalBlanks : 0;
 
