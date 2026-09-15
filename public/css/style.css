@@ -2805,35 +2805,51 @@ body.has-mini-player .quick-fab-wrap { bottom: calc(20px + 68px); }
   body.has-mini-player .quick-fab-wrap { bottom: calc(74px + 60px); }
 }
 
-/* ---------------- 오른쪽 하단 확장형 플로팅 버튼 (큐티/밴드/섬김안내/소식·친교) ---------------- */
+/* ---------------- 오른쪽 하단 확장형 플로팅 버튼 (큐티즈/밴드/섬김/소식/새가족) ---------------- */
 .quick-fab-wrap {
   position: fixed;
   right: 20px;
   bottom: 20px;
   z-index: 95;
-  /* 펼침 메뉴는 아래에서 position:absolute로 따로 띄우기 때문에, 이 박스 자체는
-     토글 버튼(56x56) 크기만 차지합니다 — 평소엔 그 이상의 영역을 절대 차지하지 않습니다. */
-  width: 56px;
-  height: 56px;
+  width: 60px;
+  height: 60px;
 }
 .quick-fab-toggle {
-  width: 56px;
-  height: 56px;
+  position: relative;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
   border: none;
-  background: var(--gold);
-  color: var(--navy-deep);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  background: #ffffff;
   cursor: pointer;
-  box-shadow: 0 8px 22px rgba(201,162,39,0.4);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.2), 0 2px 0 rgba(108,46,185,0.2), 0 4px 14px rgba(0,0,0,0.15);
+  transition: transform .3s cubic-bezier(0.34,1.8,0.4,1);
   flex: none;
 }
-.quick-fab-toggle:hover { box-shadow: 0 10px 26px rgba(201,162,39,0.5); }
-.quick-fab-toggle-icon { width: 24px; height: 24px; transition: transform 0.25s ease; }
-.quick-fab-wrap.open .quick-fab-toggle-icon { transform: rotate(45deg); }
+.quick-fab-toggle:active { transform: scale(0.8); transition: transform .1s ease; }
+
+.quick-fab-toggle-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 10px;
+  background: var(--navy-deep);
+}
+.quick-fab-toggle-dot--l { transform: translate(-16px,-50%); transition: transform .3s cubic-bezier(0.28,0.55,0.385,1.65), width .1s .1s ease, height .1s ease; }
+.quick-fab-toggle-dot--c { transform: translate(-50%,-50%); transition: background .3s ease; }
+.quick-fab-toggle-dot--r { transform: translate(10px,-50%); transition: transform .3s cubic-bezier(0.28,0.55,0.385,1.65), width .1s .1s ease, height .1s ease; }
+
+.quick-fab-wrap.open .quick-fab-toggle-dot--c { background: transparent; }
+.quick-fab-wrap.open .quick-fab-toggle-dot--l {
+  width: 14px; height: 3px; border-radius: 2px;
+  transform: translate(calc(-50% - 4px), calc(-50% - 1px)) rotate(45deg);
+}
+.quick-fab-wrap.open .quick-fab-toggle-dot--r {
+  width: 14px; height: 3px; border-radius: 2px;
+  transform: translate(calc(-50% + 4px), calc(-50% - 1px)) rotate(-45deg);
+}
 
 .quick-fab-menu {
   position: absolute;
@@ -2842,95 +2858,64 @@ body.has-mini-player .quick-fab-wrap { bottom: calc(20px + 68px); }
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 10px;
-  pointer-events: none; /* 항목별로 각각 클릭 가능 여부를 관리하므로 메뉴 박스 자체는 통과 */
+  gap: 8px;
 }
 .quick-fab-item {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
-  text-decoration: none;
-  border: none;
-  background: none;
+  justify-content: center;
+  gap: 2px;
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  border: 1px solid var(--line);
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
   cursor: pointer;
-  padding: 0;
+  text-decoration: none;
   opacity: 0;
-  visibility: hidden;
   pointer-events: none;
-  transform-origin: 100% 100%;
-  transform: scale(0.5) translateY(6px);
-  transition: opacity .22s ease,
-              transform .32s cubic-bezier(.34, 1.56, .64, 1),
-              visibility 0s linear .28s;
+  transform: scale(0.35) translateY(var(--pull));
+  transform-origin: 50% 50%;
+  transition: opacity .34s ease, transform .5s cubic-bezier(0.34,1.4,0.4,1);
 }
 .quick-fab-wrap.open .quick-fab-item {
   opacity: 1;
-  visibility: visible;
   pointer-events: auto;
   transform: scale(1) translateY(0);
-  transition: opacity .2s ease,
-              transform .38s cubic-bezier(.34, 1.56, .64, 1),
-              visibility 0s linear 0s;
+  transition: opacity .3s ease, transform .46s cubic-bezier(0.34,1.9,0.4,1);
 }
-/* 토글 버튼에서 가까운 항목(DOM상 뒤쪽)부터 먼저, 먼 항목일수록 살짝 늦게 튀어나옵니다 */
-.quick-fab-wrap.open .quick-fab-item:nth-child(1) { transition-delay: .18s, .18s, 0s; }
-.quick-fab-wrap.open .quick-fab-item:nth-child(2) { transition-delay: .14s, .14s, 0s; }
-.quick-fab-wrap.open .quick-fab-item:nth-child(3) { transition-delay: .10s, .10s, 0s; }
-.quick-fab-wrap.open .quick-fab-item:nth-child(4) { transition-delay: .06s, .06s, 0s; }
-.quick-fab-wrap.open .quick-fab-item:nth-child(5) { transition-delay: .03s, .03s, 0s; }
-.quick-fab-wrap.open .quick-fab-item:nth-child(6) { transition-delay:   0s,   0s, 0s; }
+/* 토글 버튼과 가까운 항목부터(=DOM 마지막 항목부터) 먼저 열리고 먼저 닫힘 */
+.quick-fab-item:nth-last-child(1) { transition-delay: 0s;    --pull: 9px; }
+.quick-fab-item:nth-last-child(2) { transition-delay: .05s;  --pull: 18px; }
+.quick-fab-item:nth-last-child(3) { transition-delay: .1s;   --pull: 27px; }
+.quick-fab-item:nth-last-child(4) { transition-delay: .15s;  --pull: 36px; }
+.quick-fab-item:nth-last-child(5) { transition-delay: .2s;   --pull: 45px; }
+.quick-fab-item:nth-last-child(6) { transition-delay: .25s;  --pull: 54px; }
 
-/* 토글(+ → X) 버튼도 같은 탄성감으로 회전하도록 */
-.quick-fab-toggle-icon {
-  width: 24px;
-  height: 24px;
-  transition: transform .35s cubic-bezier(.34, 1.56, .64, 1);
-}
-.quick-fab-toggle:active { transform: scale(0.92); }
-.quick-fab-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  text-decoration: none;
-  border: none;
-  background: none;
-  cursor: pointer;
-  padding: 0;
-}
-.quick-fab-item-label {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--navy-deep);
-  background: #fff;
-  padding: 6px 12px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  white-space: nowrap;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
 .quick-fab-item-icon {
-  flex: none;
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: #fff;
-  border: 1px solid var(--line);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  width: 18px;
+  height: 18px;
   color: var(--navy-deep);
 }
-.quick-fab-item-icon svg { width: 20px; height: 20px; }
+.quick-fab-item-icon svg { width: 18px; height: 18px; }
+.quick-fab-item-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--navy-deep);
+  line-height: 1;
+  white-space: nowrap;
+}
 .quick-fab-item-icon--band {
-  /* 예전엔 밴드 고유 초록색(#00c73c)을 썼는데, 다른 버튼들과 색이 안 맞아서
-     흰 배경 + 남색 글씨로 통일합니다 (다른 아이콘과 동일한 스타일). */
-  font-size: 0.6rem;
+  font-size: 0.55rem;
   font-weight: 800;
   letter-spacing: -0.02em;
 }
+
 @media (max-width: 560px) {
   .quick-fab-wrap { right: 14px; }
+}
 }
 
 .ministry-duty-modal {
