@@ -786,8 +786,35 @@
     return Uint8Array.from([...rawData].map((c) => c.charCodeAt(0)));
   }
 
+  // datetime-local input에 넣을 "YYYY-MM-DDTHH:mm" 형식(로컬 시각 기준) 문자열로 변환.
+  function formatForDatetimeLocal(msOrDate) {
+    const d = new Date(msOrDate);
+    d.setSeconds(0, 0);
+    const tzOffset = d.getTimezoneOffset() * 60000;
+    return new Date(d - tzOffset).toISOString().slice(0, 16);
+  }
+
+  // 알림 발송 시각 옆 빠른 조정 버튼(+5분/+10분/+30분/+1시간/지금) 공통 처리.
+  // 달력 스피너를 돌려서 미세하게 시간을 맞추기 어렵다는 피드백에 따라,
+  // 버튼 클릭만으로 원하는 시각을 정확히 맞출 수 있도록 합니다.
+  function setupTimeQuickAdjust(timeInputId) {
+    const timeInput = $('#' + timeInputId);
+    const wrap = document.querySelector(`.time-quick-adjust[data-time-input="${timeInputId}"]`);
+    if (!timeInput || !wrap) return;
+    wrap.querySelectorAll('button[data-minutes]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        if (btn.dataset.minutes === 'reset') {
+          timeInput.value = formatForDatetimeLocal(Date.now());
+          return;
+        }
+        const baseMs = timeInput.value ? new Date(timeInput.value).getTime() : Date.now();
+        timeInput.value = formatForDatetimeLocal(baseMs + Number(btn.dataset.minutes) * 60000);
+      });
+    });
+  }
+
   // 큐티·말씀 퀴즈 등록 폼의 "알림 예약하기" 체크박스 공통 처리.
-  // 체크하면 시간 선택칸을 보여주고 기본값을 1시간 뒤로 채워둡니다.
+  // 체크하면 시간 선택칸을 보여주고 기본값을 현재 시각으로 채워둡니다(등록하는 그 시각).
   function setupSchedulePushToggle(checkboxId, fieldId, timeInputId) {
     const checkbox = $('#' + checkboxId);
     const field = $('#' + fieldId);
@@ -796,12 +823,10 @@
     checkbox.addEventListener('change', () => {
       field.style.display = checkbox.checked ? '' : 'none';
       if (checkbox.checked && !timeInput.value) {
-        const d = new Date(Date.now() + 60 * 60 * 1000); // 기본값: 1시간 뒤
-        d.setSeconds(0, 0);
-        const tzOffset = d.getTimezoneOffset() * 60000;
-        timeInput.value = new Date(d - tzOffset).toISOString().slice(0, 16);
+        timeInput.value = formatForDatetimeLocal(Date.now());
       }
     });
+    setupTimeQuickAdjust(timeInputId);
   }
 
   // 큐티/퀴즈 등록 성공 후, 체크되어 있으면 예약 알림을 같이 만듭니다.
@@ -1602,6 +1627,37 @@
     });
   }
 
+  // ---------------- 목록 페이지네이션 (공통) ----------------
+  const LIST_PAGE_SIZE = 10;
+  const listPageState = {};
+
+  function paginateList(list, key) {
+    const totalPages = Math.max(1, Math.ceil(list.length / LIST_PAGE_SIZE));
+    const page = Math.min(Math.max(listPageState[key] || 1, 1), totalPages);
+    listPageState[key] = page;
+    const startIdx = (page - 1) * LIST_PAGE_SIZE;
+    return { pageItems: list.slice(startIdx, startIdx + LIST_PAGE_SIZE), page, totalPages };
+  }
+
+  function renderPaginationHtml(page, totalPages) {
+    if (totalPages <= 1) return '';
+    return `
+      <div class="pagination">
+        <button type="button" class="page-nav-btn" data-action="prev" ${page <= 1 ? 'disabled' : ''}>이전</button>
+        <span class="pagination-info">${page} / ${totalPages}</span>
+        <button type="button" class="page-nav-btn" data-action="next" ${page >= totalPages ? 'disabled' : ''}>다음</button>
+      </div>`;
+  }
+
+  function wirePaginationControls(container, key, rerenderFn) {
+    const pag = container.querySelector('.pagination');
+    if (!pag) return;
+    const prevBtn = pag.querySelector('[data-action="prev"]');
+    const nextBtn = pag.querySelector('[data-action="next"]');
+    if (prevBtn) prevBtn.addEventListener('click', () => { listPageState[key] = (listPageState[key] || 1) - 1; rerenderFn(); });
+    if (nextBtn) nextBtn.addEventListener('click', () => { listPageState[key] = (listPageState[key] || 1) + 1; rerenderFn(); });
+  }
+
   // ---------------- 오늘의 큐티 관리 ----------------
   let currentQtList = [];
   let editingQtId = null;
@@ -1618,9 +1674,11 @@
       container.innerHTML = `<p class="hint">등록된 큐티가 없습니다.</p>`;
       return;
     }
-    container.innerHTML = list
-      .map(
-        (q) => `
+    const { pageItems, page, totalPages } = paginateList(list, 'qt');
+    container.innerHTML =
+      pageItems
+        .map(
+          (q) => `
         <div class="post-row${q.id === editingQtId ? ' editing' : ''}" data-id="${q.id}">
           <span class="badge">큐티</span>
           <div>
@@ -1631,8 +1689,8 @@
           <button type="button" class="icon-btn edit-qt">수정</button>
           <button type="button" class="icon-btn remove-qt">삭제</button>
         </div>`
-      )
-      .join('');
+        )
+        .join('') + renderPaginationHtml(page, totalPages);
 
     $$('#qt-list .remove-qt').forEach((btn) =>
       btn.addEventListener('click', async (e) => {
@@ -1651,6 +1709,8 @@
         if (item) loadQtIntoForm(item);
       })
     );
+
+    wirePaginationControls(container, 'qt', () => renderQtList(currentQtList));
   }
 
   function resetQtForm() {
@@ -1796,9 +1856,11 @@
       container.innerHTML = `<p class="hint">등록된 찬양이 없습니다.</p>`;
       return;
     }
-    container.innerHTML = list
-      .map(
-        (p) => `
+    const { pageItems, page, totalPages } = paginateList(list, 'praise');
+    container.innerHTML =
+      pageItems
+        .map(
+          (p) => `
         <div class="post-row${p.id === editingPraiseId ? ' editing' : ''}" data-id="${p.id}">
           <span class="badge">찬양</span>
           <div>
@@ -1808,8 +1870,8 @@
           <button type="button" class="icon-btn edit-praise">수정</button>
           <button type="button" class="icon-btn remove-praise">삭제</button>
         </div>`
-      )
-      .join('');
+        )
+        .join('') + renderPaginationHtml(page, totalPages);
 
     $$('#praise-list .remove-praise').forEach((btn) =>
       btn.addEventListener('click', async (e) => {
@@ -1828,6 +1890,8 @@
         if (item) loadPraiseIntoForm(item);
       })
     );
+
+    wirePaginationControls(container, 'praise', () => renderPraiseList(currentPraiseList));
   }
 
   function resetPraiseForm() {
