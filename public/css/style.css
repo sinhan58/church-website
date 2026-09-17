@@ -593,6 +593,19 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
 .btn--gold:hover { box-shadow: 0 8px 20px rgba(201,162,39,0.35); }
 .btn--gold-fill { background: var(--gold); color: #fff; border-radius: 999px; }
 .btn--gold-fill:hover { box-shadow: 0 8px 20px rgba(201,162,39,0.35); }
+
+@keyframes cta-rainbow {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+.btn--rainbow {
+  color: var(--navy-deep);
+  background-image: linear-gradient(45deg,#F7B8A3,#F3AFCB,#A8D8EE,#A9EEDC,#FFEFA8,#FFB199);
+  background-size: 600% 100%;
+  background-position: 0% 50%;
+  animation: cta-rainbow 16s linear infinite alternate;
+}
 .btn--outline { border-color: rgba(255,255,255,0.5); color: #fff; }
 .btn--outline:hover { background: rgba(255,255,255,0.1); }
 .btn--navy { background: var(--navy-deep); color: #fff; }
@@ -656,34 +669,20 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   will-change: transform;
 }
 .about-bg-type--right { align-self: flex-end; }
-/* about-bg-line--l0("WELCOME TO THE")은 모바일 전용 문구라, PC에서는 완전히 숨겨서
-   #about-bg-left가 예전처럼 "MULDAEN DONGSAN CHURCH" 한 줄 그대로 보이게 둡니다
-   (모바일 전용 표시는 아래 @media 안에서 다시 block으로 켭니다). */
-.about-bg-line--l0 { display: none; }
 @media (max-width: 860px) {
   .about-bg-type-wrap { margin: 0 0 24px; gap: 0; }
-  /* 모바일 화면에서는 '텍스트 쇼' 효과가 한 줄로는 눈에 잘 안 띄어서, 문구를 의미 단위로
-     5줄로 나눠 보여줍니다(PC는 그대로 한 줄, l0는 PC에 아예 없음). 각 줄이 서로 다른
-     방향에서 번갈아 스쳐 지나가도록("교차" 느낌을 살리려고) 왼쪽→오른쪽 방향과
-     오른쪽→왼쪽 방향을 한 줄씩 번갈아 배치했습니다(지그재그 weave).
-     각 줄의 좌우 위치는 text-align이 아니라 align-self로 잡습니다 — #about-bg-left/
-     #about-bg-right을 모바일에서만 세로 flex 컨테이너로 만들고, 그 안의 각 줄은
-     자기 글자 폭만큼만 차지하는 flex 아이템이 되어 align-self: flex-start(왼쪽 붙음)
-     / flex-end(오른쪽 붙음)로 깔끔하게 붙습니다. (처음엔 각 줄을 폭 100%짜리
-     block + text-align으로 잡았는데, "MULDAEN DONGSAN"처럼 글자 폭이 화면 폭보다
-     넓어 한 줄바꿈 없이(nowrap) 넘치는 문구에서는 text-align이 적용 안 되고 항상
-     왼쪽부터 차서 오른쪽 끝이 잘리는 렌더링 버그가 있어 이 방식으로 바꿨습니다 —
-     글자가 아무리 길어도 넘칠 일이 없습니다.) 도착 지점(스크롤 끝)의 좌우 위치가
-     여기서 정해지고, 실제 시작 위치·이동은 main.js의 setupAboutCrossingTypography()가
-     5줄을 각각 독립적으로 담당합니다. 줄 간격은 다섯 줄 모두 똑같이 보이도록 wrap의
-     gap은 0으로 두고 대신 각 줄에 margin-bottom을 줍니다(맨 마지막 줄인 r2는 제외). */
-  #about-bg-left, #about-bg-right { display: flex; flex-direction: column; }
+  /* 모바일 화면에서는 '텍스트 쇼' 효과가 한 줄로는 눈에 잘 안 띄어서, 영문/한글 각 문구를
+     의미 단위로 2줄씩(총 4줄) 나눠 보여줍니다(PC는 그대로 한 줄). 여기 text-align은 각
+     줄이 스크롤 전 "시작 위치"일 뿐이고, 실제 스크롤에 따른 이동은 main.js의
+     setupAboutCrossingTypography()가 영문 두 줄(#about-bg-left) / 한글 두 줄
+     (#about-bg-right)을 각각 통째로 반대 방향으로 옮기는 "2그룹" 방식입니다(한 그룹
+     안의 두 줄은 항상 함께 움직입니다). 줄 간격은 네 줄 모두 똑같이 보이도록 wrap의
+     gap은 0으로 두고 대신 각 줄에 margin-bottom을 줍니다(그룹의 마지막 줄인 r2는 제외). */
   .about-bg-line { display: block; }
-  .about-bg-line--l0 { display: block; align-self: flex-start; margin-bottom: 14px; } /* 1행: 왼쪽에 붙음(→ 오른쪽으로 스쳐 지나감) */
-  .about-bg-line--l1 { align-self: flex-end; margin-bottom: 14px; }                   /* 2행: 오른쪽에 붙음(→ 왼쪽으로 스쳐 지나감) */
-  .about-bg-line--l2 { align-self: flex-start; margin-bottom: 14px; }                 /* 3행: 왼쪽에 붙음(→ 오른쪽으로 스쳐 지나감) */
-  .about-bg-line--r1 { align-self: flex-end; margin-bottom: 14px; }                   /* 4행: 오른쪽에 붙음(→ 왼쪽으로 스쳐 지나감) */
-  .about-bg-line--r2 { align-self: flex-start; }                                      /* 5행: 왼쪽에 붙음(→ 오른쪽으로 스쳐 지나감) */
+  .about-bg-line--l1 { text-align: left; margin-bottom: 14px; }  /* 1행: 왼쪽 정렬로 시작 */
+  .about-bg-line--l2 { text-align: right; margin-bottom: 14px; } /* 2행: 오른쪽 정렬로 시작 */
+  .about-bg-line--r1 { text-align: right; margin-bottom: 14px; } /* 3행: 오른쪽 정렬로 시작 */
+  .about-bg-line--r2 { text-align: right; }                      /* 4행: 오른쪽 정렬로 시작 */
 }
 .about-grid {
   display: grid;
@@ -2819,100 +2818,143 @@ body.has-mini-player .quick-fab-wrap { bottom: calc(20px + 68px); }
   body.has-mini-player .quick-fab-wrap { bottom: calc(74px + 60px); }
 }
 
-/* ---------------- 오른쪽 하단 확장형 플로팅 버튼 (큐티/밴드/섬김안내/소식·친교) ---------------- */
+/* ---------------- 오른쪽 하단 확장형 플로팅 버튼 (큐티즈/밴드/섬김/소식/새가족) ---------------- */
 .quick-fab-wrap {
   position: fixed;
   right: 20px;
   bottom: 20px;
   z-index: 95;
-  /* 펼침 메뉴는 아래에서 position:absolute로 따로 띄우기 때문에, 이 박스 자체는
-     토글 버튼(56x56) 크기만 차지합니다 — 평소엔 그 이상의 영역을 절대 차지하지 않습니다. */
-  width: 56px;
-  height: 56px;
+  width: 60px;
+  height: 60px;
+}
+@keyframes toggle-rainbow {
+  0%     { background-position: 0% 50%; }
+  10%    { background-position: 0% 50%; }
+  16.7%  { background-position: 20% 50%; }
+  26.7%  { background-position: 20% 50%; }
+  33.3%  { background-position: 40% 50%; }
+  43.3%  { background-position: 40% 50%; }
+  50%    { background-position: 60% 50%; }
+  60%    { background-position: 60% 50%; }
+  66.7%  { background-position: 80% 50%; }
+  76.7%  { background-position: 80% 50%; }
+  83.3%  { background-position: 100% 50%; }
+  93.3%  { background-position: 100% 50%; }
+  100%   { background-position: 0% 50%; }
 }
 .quick-fab-toggle {
-  width: 56px;
-  height: 56px;
+  position: relative;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
   border: none;
-  background: var(--gold);
-  color: var(--navy-deep);
-  display: flex;
-  align-items: center;
-  justify-content: center;
   cursor: pointer;
-  box-shadow: 0 8px 22px rgba(201,162,39,0.4);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.15);
+  transition: transform .3s cubic-bezier(0.34,1.8,0.4,1);
   flex: none;
+  background-image: linear-gradient(45deg,#F7B8A3,#F3AFCB,#A8D8EE,#A9EEDC,#FFEFA8,#FFB199);
+  background-size: 600% 100%;
+  background-position: 0% 50%;
+  animation: toggle-rainbow 36s ease-in-out infinite;
 }
-.quick-fab-toggle:hover { box-shadow: 0 10px 26px rgba(201,162,39,0.5); }
-.quick-fab-toggle-icon { width: 24px; height: 24px; transition: transform 0.25s ease; }
-.quick-fab-wrap.open .quick-fab-toggle-icon { transform: rotate(45deg); }
+.quick-fab-toggle:active { transform: scale(0.8); transition: transform .1s ease; }
+
+.quick-fab-toggle-dot {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 6px;
+  height: 6px;
+  border-radius: 10px;
+  background: var(--navy-deep);
+}
+.quick-fab-toggle-dot--l { transform: translate(-16px,-50%); transition: transform .3s cubic-bezier(0.28,0.55,0.385,1.65), width .1s .1s ease, height .1s ease; }
+.quick-fab-toggle-dot--c { transform: translate(-50%,-50%); transition: background .3s ease; }
+.quick-fab-toggle-dot--r { transform: translate(10px,-50%); transition: transform .3s cubic-bezier(0.28,0.55,0.385,1.65), width .1s .1s ease, height .1s ease; }
+
+.quick-fab-wrap.open .quick-fab-toggle-dot--c { background: transparent; }
+.quick-fab-wrap.open .quick-fab-toggle-dot--l {
+  width: 14px; height: 3px; border-radius: 2px;
+  transform: translate(calc(-50% - 4px), calc(-50% - 1px)) rotate(45deg);
+}
+.quick-fab-wrap.open .quick-fab-toggle-dot--r {
+  width: 14px; height: 3px; border-radius: 2px;
+  transform: translate(calc(-50% + 4px), calc(-50% - 1px)) rotate(-45deg);
+}
 
 .quick-fab-menu {
   position: absolute;
   right: 0;
-  bottom: 68px; /* 토글 버튼(56px) + 여백(12px) 바로 위 */
+  bottom: 68px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 10px;
-  /* 평소엔 숨겨두고, 펼쳤을 때만 아래에서 위로 살짝 올라오며 나타납니다 */
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transform: translateY(8px);
-  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s linear 0.2s;
-}
-.quick-fab-wrap.open .quick-fab-menu {
-  opacity: 1;
-  visibility: visible;
-  pointer-events: auto;
-  transform: translateY(0);
-  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0s linear 0s;
+  gap: 8px;
 }
 .quick-fab-item {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 10px;
-  text-decoration: none;
-  border: none;
-  background: none;
-  cursor: pointer;
-  padding: 0;
-}
-.quick-fab-item-label {
-  font-size: 0.8rem;
-  font-weight: 600;
-  color: var(--navy-deep);
-  background: #fff;
-  padding: 6px 12px;
-  border-radius: 999px;
-  border: 1px solid var(--line);
-  white-space: nowrap;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
-.quick-fab-item-icon {
-  flex: none;
-  width: 44px;
-  height: 44px;
+  justify-content: center;
+  gap: 2px;
+  width: 60px;
+  height: 60px;
   border-radius: 50%;
-  background: #fff;
   border: 1px solid var(--line);
+  background: #fff;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+  cursor: pointer;
+  text-decoration: none;
+  opacity: 0;
+  pointer-events: none;
+  transform: scale(0.35) translateY(var(--pull));
+  transform-origin: 50% 50%;
+}
+.quick-fab-wrap.open .quick-fab-item {
+  opacity: 1;
+  pointer-events: auto;
+  transform: scale(1) translateY(0);
+}
+
+/* 닫힌 상태(기본값): 토글 버튼과 가까운 항목부터 먼저 닫힘 */
+.quick-fab-item:nth-last-child(1) { transition: opacity .34s ease 0s,    transform .5s cubic-bezier(0.34,1.4,0.4,1) 0s;    --pull: 9px; }
+.quick-fab-item:nth-last-child(2) { transition: opacity .34s ease .05s, transform .5s cubic-bezier(0.34,1.4,0.4,1) .05s; --pull: 18px; }
+.quick-fab-item:nth-last-child(3) { transition: opacity .34s ease .1s,  transform .5s cubic-bezier(0.34,1.4,0.4,1) .1s;  --pull: 27px; }
+.quick-fab-item:nth-last-child(4) { transition: opacity .34s ease .15s, transform .5s cubic-bezier(0.34,1.4,0.4,1) .15s; --pull: 36px; }
+.quick-fab-item:nth-last-child(5) { transition: opacity .34s ease .2s,  transform .5s cubic-bezier(0.34,1.4,0.4,1) .2s;  --pull: 45px; }
+.quick-fab-item:nth-last-child(6) { transition: opacity .34s ease .25s, transform .5s cubic-bezier(0.34,1.4,0.4,1) .25s; --pull: 54px; }
+
+/* 열린 상태: 토글 버튼과 가까운 항목부터 먼저 열림 (닫힌 상태보다 우선순위가 높도록 .open과 함께 지정) */
+.quick-fab-wrap.open .quick-fab-item:nth-last-child(1) { transition: opacity .3s ease 0s,   transform .46s cubic-bezier(0.34,1.9,0.4,1) 0s; }
+.quick-fab-wrap.open .quick-fab-item:nth-last-child(2) { transition: opacity .3s ease .05s, transform .46s cubic-bezier(0.34,1.9,0.4,1) .05s; }
+.quick-fab-wrap.open .quick-fab-item:nth-last-child(3) { transition: opacity .3s ease .1s,  transform .46s cubic-bezier(0.34,1.9,0.4,1) .1s; }
+.quick-fab-wrap.open .quick-fab-item:nth-last-child(4) { transition: opacity .3s ease .15s, transform .46s cubic-bezier(0.34,1.9,0.4,1) .15s; }
+.quick-fab-wrap.open .quick-fab-item:nth-last-child(5) { transition: opacity .3s ease .2s,  transform .46s cubic-bezier(0.34,1.9,0.4,1) .2s; }
+.quick-fab-wrap.open .quick-fab-item:nth-last-child(6) { transition: opacity .3s ease .25s, transform .46s cubic-bezier(0.34,1.9,0.4,1) .25s; }
+
+.quick-fab-item-icon {
+  width: 18px;
+  height: 18px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
   color: var(--navy-deep);
 }
-.quick-fab-item-icon svg { width: 20px; height: 20px; }
+.quick-fab-item-icon svg { width: 18px; height: 18px; }
+.quick-fab-item-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--navy-deep);
+  line-height: 1;
+  white-space: nowrap;
+}
 .quick-fab-item-icon--band {
-  /* 예전엔 밴드 고유 초록색(#00c73c)을 썼는데, 다른 버튼들과 색이 안 맞아서
-     흰 배경 + 남색 글씨로 통일합니다 (다른 아이콘과 동일한 스타일). */
-  font-size: 0.6rem;
+  width: auto;
+  font-size: 0.55rem;
   font-weight: 800;
   letter-spacing: -0.02em;
 }
+
 @media (max-width: 560px) {
   .quick-fab-wrap { right: 14px; }
 }
