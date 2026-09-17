@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="ko">
+<html lang="ko" class="theme-b">
 <head>
 <meta charset="UTF-8" />
 <script>if ('scrollRestoration' in history) { history.scrollRestoration = 'manual'; }</script>
@@ -41,7 +41,7 @@
 <meta property="og:type" content="website" />
 <meta property="og:title" content="오늘, 당신을 위한 하나님의 이야기" />
 <meta property="og:description" content="당신이 이곳에 있는 데는 이유가 있습니다. 잠시 시간을 내어 하나님의 이야기를 들어보세요." />
-<meta property="og:image" content="https://muldaen.com/uploads/0001.png" />
+<meta property="og:image" content="https://muldaen.com/images/know-god/hero-galaxy.jpg" />
 <meta property="og:url" content="https://muldaen.com/know-god.html" />
 <meta name="twitter:card" content="summary_large_image" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -52,7 +52,7 @@
 
 <!-- PWA: 홈 화면에 추가했을 때 앱처럼 보이도록 하는 설정 -->
 <link rel="manifest" href="/manifest.json" />
-<meta name="theme-color" content="#0d1526" />
+<meta name="theme-color" content="#0f3d40" />
 <link rel="icon" href="/icons/icon-192-v2.png" />
 <link rel="apple-touch-icon" href="/icons/apple-touch-icon-v2.png" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -60,68 +60,49 @@
 
 <style>
   /* =========================================================
-     하나님의 이야기 (know-god.html) 전용 스타일
-     이 페이지에서만 쓰는 클래스는 전부 kg- 접두사를 붙여 사이트
-     공용 CSS(style.css)와 절대 부딪히지 않게 했습니다.
+     하나님의 이야기 (know-god.html) — 컨셉B(밝은 화이트+티얼) 전용 페이지
+     <html class="theme-b">를 직접 고정해서, 사이트 전체 A/B 설정과 무관하게
+     항상 밝은 컨셉B 톤으로 보이도록 했습니다. kg- 접두사 클래스만 사용해
+     공용 CSS와 충돌하지 않습니다.
      ========================================================= */
 
-  .kg-container { max-width: 720px; }
+  .kg-container { max-width: 720px; }   /* 글이 중심인 섹션 (읽기 편한 폭) */
+  .kg-wide { max-width: 1080px; }        /* 사진과 나란히 배치되는 섹션 (더 넓게) */
 
-  /* ---- 히어로 ---- */
+  /* ---- 히어로: 은하수 사진 ---- */
   .kg-hero {
     position: relative;
-    min-height: 100vh;
-    min-height: 100svh;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    overflow: hidden;
-    background:
-      radial-gradient(ellipse 60% 45% at 50% 18%, rgba(126,196,232,0.16), transparent 60%),
-      radial-gradient(ellipse 80% 60% at 50% 100%, rgba(201,162,39,0.10), transparent 65%),
-      linear-gradient(180deg, #101c38 0%, var(--navy-deep) 45%, #070b16 100%);
+    min-height: 86vh;
+    display: flex; align-items: center; justify-content: center; text-align: center; overflow: hidden;
+    background-image:
+      linear-gradient(180deg, rgba(15,61,64,0.15) 0%, rgba(9,20,20,0.15) 55%, rgba(9,20,20,0.72) 100%),
+      url('/images/know-god/hero-galaxy.jpg');
+    background-size: cover;
+    background-position: center 60%;
     color: #fff;
   }
-  .kg-hero-rings {
-    position: absolute;
-    top: 50%; left: 50%;
-    width: min(720px, 130vw);
-    height: min(720px, 130vw);
-    transform: translate(-50%, -50%);
-    z-index: 0;
-    opacity: 0.55;
-    animation: kg-spin 120s linear infinite;
-  }
-  @keyframes kg-spin { to { transform: translate(-50%, -50%) rotate(360deg); } }
-  .kg-hero-star {
-    position: absolute;
-    width: 3px; height: 3px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.55);
-  }
-  .kg-hero-inner { position: relative; z-index: 1; max-width: 700px; padding: 0 24px; }
-  .kg-hero .eyebrow { color: var(--gold); }
+  .kg-hero-inner { position: relative; z-index: 1; max-width: 720px; padding: 0 24px; }
+  .kg-hero .eyebrow { color: var(--gold-soft); }
   .kg-hero h1 {
     color: #fff;
-    font-size: clamp(1.95rem, 5vw, 3.1rem);
+    font-size: clamp(2rem, 5vw, 3.3rem);
     line-height: 1.4;
     margin: 0 0 22px;
     word-break: keep-all;
-    text-shadow: 0 2px 24px rgba(0,0,0,0.45);
+    text-shadow: 0 2px 18px rgba(0,0,0,0.55);
   }
   .kg-hero-sub {
-    font-size: clamp(1.02rem, 2vw, 1.22rem);
-    color: rgba(255,255,255,0.85);
+    font-size: clamp(1.05rem, 2vw, 1.28rem);
+    color: rgba(255,255,255,0.92);
     line-height: 1.75;
-    margin: 0 0 8px;
+    margin: 0;
     word-break: keep-all;
+    text-shadow: 0 1px 10px rgba(0,0,0,0.5);
   }
-  .kg-hero .scroll-cue { position: absolute; }
 
-  /* ---- 도입부 ---- */
+  /* ---- 도입부 (밝은 화이트, 사진 없이 글만) ---- */
   .kg-intro p {
-    font-size: clamp(1rem, 1.4vw, 1.08rem);
+    font-size: clamp(1.02rem, 1.4vw, 1.12rem);
     line-height: 1.95;
     color: #333;
     word-break: keep-all;
@@ -130,188 +111,138 @@
   .kg-intro p:last-child { margin-bottom: 0; }
   .kg-intro p strong { color: var(--navy-deep); }
 
-  /* ---- 이야기 4단(영원/창조/타락/화목) 공용 ---- */
-  .kg-point-icon {
-    display: flex;
-    justify-content: center;
-    margin-bottom: 22px;
-  }
-  .kg-point-icon svg { width: 60px; height: 60px; display: block; }
-  .section--dark .kg-point-icon svg { stroke: var(--gold); }
-  .kg-point-icon svg { stroke: var(--gold-deep); }
+  /* ---- 4단(영원/창조/타락/화목) 공용 ---- */
+  .kg-point-icon { display: flex; justify-content: center; margin-bottom: 20px; }
+  .kg-split .kg-point-icon { justify-content: flex-start; }
+  .kg-point-icon svg { width: 52px; height: 52px; display: block; stroke: var(--gold-deep); }
   .kg-point-num {
-    display: block;
-    font-family: var(--font-heading);
-    font-size: 0.82rem;
-    letter-spacing: 0.2em;
-    color: var(--gold-deep);
-    margin-bottom: 6px;
+    display: block; font-family: var(--font-heading); font-size: 0.82rem;
+    letter-spacing: 0.2em; color: var(--gold-deep); margin-bottom: 6px;
   }
-  .section--dark .kg-point-num { color: var(--gold); }
-  .kg-point-en {
-    display: block;
-    font-size: 0.78rem;
-    letter-spacing: 0.22em;
-    text-transform: uppercase;
-    color: var(--muted);
-    margin-bottom: 10px;
-  }
-  .section--dark .kg-point-en { color: #9aa0b8; }
+  .kg-point-en { display: block; font-size: 0.78rem; letter-spacing: 0.22em; text-transform: uppercase; color: var(--muted); margin-bottom: 10px; }
 
   .kg-verse {
-    margin: 8px 0 28px;
-    padding: 20px 24px;
-    background: var(--ivory-dim);
-    border-left: 4px solid var(--gold-deep);
-    border-radius: var(--radius);
+    margin: 8px 0 28px; padding: 20px 24px;
+    background: var(--ivory-dim); border-left: 4px solid var(--gold-deep); border-radius: var(--radius);
   }
-  .kg-verse p {
-    font-family: var(--font-heading);
-    color: var(--navy-deep);
-    font-size: 1.05rem;
-    line-height: 1.85;
-    margin: 0 0 8px;
-    word-break: keep-all;
-  }
-  .kg-verse cite {
-    display: block;
-    font-style: normal;
-    font-size: 0.82rem;
-    color: var(--muted);
-  }
-  .kg-verse--on-dark {
-    background: rgba(255,255,255,0.06);
-    border-left-color: var(--gold);
-  }
-  .kg-verse--on-dark p { color: #fff; }
-  .kg-verse--on-dark cite { color: #b9bccb; }
+  .kg-verse p { font-family: var(--font-heading); color: var(--navy-deep); font-size: 1.06rem; line-height: 1.85; margin: 0 0 8px; word-break: keep-all; }
+  .kg-verse cite { display: block; font-style: normal; font-size: 0.82rem; color: var(--muted); }
 
-  .kg-point-body p {
-    font-size: 1rem;
-    line-height: 1.9;
-    color: #333;
-    word-break: keep-all;
-    margin: 0 0 18px;
-  }
-  .section--dark .kg-point-body p { color: #d7d9e4; }
+  .kg-point-body p { font-size: 1.02rem; line-height: 1.9; color: #333; word-break: keep-all; margin: 0 0 18px; }
   .kg-point-body p:last-child { margin-bottom: 0; }
   .kg-point-body strong { color: var(--navy-deep); }
-  .section--dark .kg-point-body strong { color: #fff; }
 
-  /* ---- 화목(Reconciliation) 섹션 골드 포인트 ---- */
-  .kg-recon { background: linear-gradient(180deg, var(--ivory) 0%, #fbf3de 100%); }
-
-  /* ---- 기도 초청 섹션 ---- */
-  .kg-pray {
-    background: radial-gradient(ellipse 70% 60% at 50% 0%, rgba(201,162,39,0.14), transparent 60%), var(--navy-deep);
+  /* ---- 사진 + 글 2단 배치 (창조 / 화목) ---- */
+  .kg-split-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 56px;
+    align-items: center;
   }
+  .kg-split-grid--reverse .kg-split-photo { order: 2; }
+  .kg-split-grid--reverse .kg-split-text { order: 1; }
+  .kg-split-photo img {
+    width: 100%;
+    aspect-ratio: 4/5;
+    object-fit: cover;
+    border-radius: calc(var(--radius) + 6px);
+    box-shadow: var(--shadow);
+  }
+  @media (max-width: 860px) {
+    .kg-split-grid { grid-template-columns: 1fr; gap: 32px; }
+    .kg-split-grid--reverse .kg-split-photo,
+    .kg-split-grid--reverse .kg-split-text { order: 0; }
+    .kg-split-photo img { aspect-ratio: 16/10; }
+  }
+  .kg-recon { background: linear-gradient(180deg, var(--ivory) 0%, #fbf6e6 100%); }
+
+  /* ---- 타락: 전체 사진 배경 + 안에 뜬 '잠긴 문' 카드 ---- */
+  .kg-fall {
+    position: relative;
+    color: #fff;
+    background-image:
+      linear-gradient(100deg, rgba(20,22,20,0.82) 20%, rgba(20,22,20,0.35) 60%, rgba(20,22,20,0.6) 100%),
+      url('/images/know-god/fall-cracked-earth.jpg');
+    background-size: cover;
+    background-position: center;
+  }
+  .kg-fall .eyebrow { color: var(--gold-soft); }
+  .kg-fall h2 { color: #fff; }
+  .kg-fall .kg-point-icon svg { stroke: var(--gold-soft); }
+  .kg-fall .kg-point-num { color: var(--gold-soft); }
+  .kg-fall .kg-point-en { color: #cbd6d5; }
+  .kg-fall .kg-verse { background: rgba(255,255,255,0.08); border-left-color: var(--gold-soft); }
+  .kg-fall .kg-verse p { color: #fff; }
+  .kg-fall .kg-verse cite { color: #cbd6d5; }
+  .kg-fall .kg-point-body p { color: #e4e8e7; }
+  .kg-fall .kg-point-body strong { color: #fff; }
+  .kg-fall-grid { display: grid; grid-template-columns: 1.3fr 0.9fr; gap: 48px; align-items: center; }
+  .kg-fall-card {
+    background: #fff;
+    padding: 10px 10px 46px;
+    border-radius: 3px;
+    box-shadow: 0 18px 40px rgba(0,0,0,0.4);
+    transform: rotate(2.5deg);
+    max-width: 320px;
+    margin: 0 auto;
+  }
+  .kg-fall-card img { width: 100%; aspect-ratio: 4/3; object-fit: cover; display: block; }
+  .kg-fall-card figcaption {
+    margin: 14px 6px 0; text-align: center; font-family: var(--font-heading); font-size: 0.86rem;
+    color: var(--ink); word-break: keep-all; line-height: 1.5;
+  }
+  @media (max-width: 860px) {
+    .kg-fall-grid { grid-template-columns: 1fr; gap: 36px; }
+    .kg-fall-card { transform: rotate(0deg); }
+  }
+
+  /* ---- 기도 초청: 밝은 사진 + 위에 뜬 카드 ---- */
+  .kg-pray {
+    position: relative;
+    background-image:
+      linear-gradient(180deg, rgba(15,61,64,0.35) 0%, rgba(255,255,255,0.28) 70%),
+      url('/images/know-god/prayer-three-crosses.jpg');
+    background-size: cover;
+    background-position: center 30%;
+  }
+  .kg-pray .section-head h2 { color: #fff; text-shadow: 0 1px 3px rgba(0,0,0,0.6), 0 2px 14px rgba(0,0,0,0.4); }
+  .kg-pray .eyebrow { color: var(--gold-soft); text-shadow: 0 1px 4px rgba(0,0,0,0.4); }
   .kg-pray-lead {
-    color: #d7d9e4;
-    font-size: 1.02rem;
-    line-height: 1.9;
-    word-break: keep-all;
-    text-align: center;
-    max-width: 620px;
-    margin: 0 auto 36px;
+    color: #fff; font-size: 1.04rem; line-height: 1.9; word-break: keep-all; text-align: center;
+    max-width: 620px; margin: 0 auto 36px; text-shadow: 0 1px 6px rgba(0,0,0,0.45);
   }
   .kg-prayer-card {
-    background: rgba(255,255,255,0.05);
-    border: 1px solid rgba(228,200,118,0.35);
+    background: rgba(255,252,244,0.94);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(201,162,39,0.35);
     border-radius: calc(var(--radius) + 6px);
     padding: 36px 30px;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.35);
+    box-shadow: 0 24px 60px rgba(0,0,0,0.3);
   }
   .kg-prayer-card .kg-prayer-label {
-    display: block;
-    text-align: center;
-    font-family: var(--font-heading);
-    font-size: 0.85rem;
-    letter-spacing: 0.2em;
-    color: var(--gold);
-    margin-bottom: 18px;
+    display: block; text-align: center; font-family: var(--font-heading); font-size: 0.85rem;
+    letter-spacing: 0.2em; color: var(--gold-deep); margin-bottom: 18px;
   }
-  .kg-prayer-card p {
-    font-family: var(--font-heading);
-    color: #fff;
-    font-size: 1.04rem;
-    line-height: 2;
-    word-break: keep-all;
-    margin: 0 0 20px;
-  }
+  .kg-prayer-card p { font-family: var(--font-heading); color: var(--navy-deep); font-size: 1.05rem; line-height: 2; word-break: keep-all; margin: 0 0 20px; }
   .kg-prayer-card p:last-child { margin-bottom: 0; }
   .kg-pray-cta { text-align: center; margin-top: 40px; }
-  .kg-pray-cta p {
-    color: #b9bccb;
-    font-size: 0.92rem;
-    margin: 0 0 16px;
-  }
+  .kg-pray-cta p { color: #fff; font-size: 0.94rem; margin: 0 0 16px; text-shadow: 0 1px 6px rgba(0,0,0,0.45); }
 
-  /* ---- 신앙 성장 과정 / 연결 신청 폼 ---- */
+  /* ---- 신앙 성장 과정 ---- */
   .kg-growth-verse { text-align: center; margin-bottom: 44px; }
-  .kg-growth-verse p {
-    font-family: var(--font-heading);
-    color: var(--navy-deep);
-    font-size: 1.12rem;
-    line-height: 1.85;
-    word-break: keep-all;
-    margin: 0 0 8px;
-  }
+  .kg-growth-verse p { font-family: var(--font-heading); color: var(--navy-deep); font-size: 1.14rem; line-height: 1.85; word-break: keep-all; margin: 0 0 8px; }
   .kg-growth-verse cite { font-style: normal; font-size: 0.85rem; color: var(--muted); }
 
-  .kg-growth-card {
-    max-width: 620px;
-    margin: 0 auto;
-    background: var(--ivory-dim);
-    border-radius: calc(var(--radius) + 6px);
-    padding: 36px 32px;
-  }
-  .kg-growth-card h3 {
-    font-size: 1.35rem;
-    margin: 0 0 14px;
-    text-align: center;
-  }
-  .kg-growth-card > p {
-    color: #444;
-    font-size: 0.98rem;
-    line-height: 1.85;
-    word-break: keep-all;
-    text-align: center;
-    margin: 0 0 28px;
-  }
+  .kg-growth-card { max-width: 620px; margin: 0 auto; background: var(--ivory-dim); border-radius: calc(var(--radius) + 6px); padding: 36px 32px; }
+  .kg-growth-card h3 { font-size: 1.35rem; margin: 0 0 14px; text-align: center; }
+  .kg-growth-card > p { color: #444; font-size: 0.98rem; line-height: 1.85; word-break: keep-all; text-align: center; margin: 0 0 28px; }
   .kg-growth-form { display: flex; flex-direction: column; gap: 12px; }
-  .kg-growth-form input {
-    width: 100%;
-    padding: 12px 16px;
-    border: 1px solid var(--line);
-    border-radius: 6px;
-    font-size: 0.95rem;
-    font-family: inherit;
-    background: #fff;
-    box-sizing: border-box;
-  }
-  .kg-growth-foot {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 12px;
-    margin-top: 6px;
-    flex-wrap: wrap;
-  }
+  .kg-growth-form input { width: 100%; padding: 12px 16px; border: 1px solid var(--line); border-radius: 6px; font-size: 0.95rem; font-family: inherit; background: #fff; box-sizing: border-box; }
+  .kg-growth-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 6px; flex-wrap: wrap; }
   .kg-growth-status { font-size: 0.85rem; color: var(--muted); }
-  .kg-growth-privacy {
-    margin-top: 18px;
-    font-size: 0.78rem;
-    color: var(--muted);
-    line-height: 1.6;
-    text-align: center;
-  }
+  .kg-growth-privacy { margin-top: 18px; font-size: 0.78rem; color: var(--muted); line-height: 1.6; text-align: center; }
 
-  /* ---- 화면에 스크롤되어 들어올 때 은은하게 나타나는 효과 ---- */
-  .kg-reveal {
-    opacity: 0;
-    transform: translateY(24px);
-    transition: opacity 0.7s ease, transform 0.7s ease;
-  }
+  .kg-reveal { opacity: 0; transform: translateY(24px); transition: opacity 0.7s ease, transform 0.7s ease; }
   .kg-reveal.kg-in { opacity: 1; transform: translateY(0); }
 
   @media (max-width: 640px) {
@@ -332,11 +263,6 @@
 
   <!-- ============ 히어로 ============ -->
   <section class="kg-hero" id="top">
-    <svg class="kg-hero-rings" viewBox="0 0 720 720" aria-hidden="true">
-      <circle cx="360" cy="360" r="200" fill="none" stroke="rgba(228,200,118,0.18)" stroke-width="1"/>
-      <circle cx="360" cy="360" r="270" fill="none" stroke="rgba(228,200,118,0.12)" stroke-width="1"/>
-      <circle cx="360" cy="360" r="330" fill="none" stroke="rgba(126,196,232,0.10)" stroke-width="1"/>
-    </svg>
     <div class="kg-hero-inner">
       <span class="eyebrow">GOOD NEWS</span>
       <h1>오늘, 당신을 위한<br class="verse-break-sm">하나님의 이야기를<br class="verse-break-sm">들어보세요</h1>
@@ -355,8 +281,8 @@
     </div>
   </section>
 
-  <!-- ============ 1. 영원 (Eternity) ============ -->
-  <section class="section section--dark" id="eternity">
+  <!-- ============ 1. 영원 (Eternity) — 밝은 배경, 글 중심 ============ -->
+  <section class="section" id="eternity">
     <div class="container kg-container">
       <div class="kg-point-icon" aria-hidden="true">
         <svg viewBox="0 0 100 60" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
@@ -368,7 +294,7 @@
         <span class="kg-point-en">Eternity</span>
         <h2>영원</h2>
       </div>
-      <div class="kg-verse kg-verse--on-dark">
+      <div class="kg-verse">
         <p>"산이 생기기 전, 땅과 세계도 주께서 조성하시기 전 곧 영원부터 영원까지 주는 하나님이시니이다."</p>
         <cite>시편 90편 2절</cite>
       </div>
@@ -379,103 +305,93 @@
     </div>
   </section>
 
-  <!-- ============ 2. 창조 (Creation) ============ -->
-  <section class="section" id="creation">
-    <div class="container kg-container">
-      <div class="kg-point-icon" aria-hidden="true">
-        <svg viewBox="0 0 100 100" fill="none" stroke-width="3" stroke-linecap="round">
-          <circle cx="50" cy="50" r="14"/>
-          <line x1="70" y1="50" x2="86" y2="50"/>
-          <line x1="64.1" y1="64.1" x2="75.5" y2="75.5"/>
-          <line x1="50" y1="70" x2="50" y2="86"/>
-          <line x1="35.9" y1="64.1" x2="24.5" y2="75.5"/>
-          <line x1="30" y1="50" x2="14" y2="50"/>
-          <line x1="35.9" y1="35.9" x2="24.5" y2="24.5"/>
-          <line x1="50" y1="30" x2="50" y2="14"/>
-          <line x1="64.1" y1="35.9" x2="75.5" y2="24.5"/>
-        </svg>
-      </div>
-      <div class="section-head" style="text-align:center; margin-bottom:8px;">
-        <span class="kg-point-num">02</span>
-        <span class="kg-point-en">Creation</span>
-        <h2>창조</h2>
-      </div>
-      <div class="kg-verse">
-        <p>"모태에서 너를 만든 너의 구속자 여호와가 이같이 말하노라 나는 만물을 지은 여호와라 나와 함께 한 자 없이 홀로 하늘을 폈으며 땅을 펼쳤고"</p>
-        <cite>이사야 44장 24절</cite>
-      </div>
-      <div class="kg-point-body">
-        <p><strong>당신은 하나님의 걸작품입니다.</strong> 당신은 우연히 태어난 존재가 아닙니다. 이 지구상에 당신이 태어난 것은 실수가 아닙니다. 하나님은 세상이 조성되기도 전에 당신이 누구인지 아셨습니다. 성경은 하나님의 모든 창조물 중에서도 우리가 그분의 초점이라고 말합니다.</p>
-        <p>별들을 만드신 분께서 우리와 함께 삶을 살아가도록 우리를 설계하셨습니다. 당신은 명확한 목적을 가지고, 그 목적을 위해 만들어졌습니다. 당신을 만드시고 별들과 세상, 그리고 그 안의 모든 것을 창조하신 동일한 하나님이, 바로 당신과 내가 그분과 함께 살아가도록 특별히 디자인하셨습니다.</p>
+  <!-- ============ 2. 창조 (Creation) — 사진 + 글 2단 ============ -->
+  <section class="section" id="creation" style="background: var(--ivory-dim);">
+    <div class="container kg-wide">
+      <div class="kg-split-grid">
+        <div class="kg-split-photo">
+          <img src="/images/know-god/creation-stargazer.jpg" alt="은하수 아래 홀로 서서 밤하늘을 올려다보는 사람" loading="lazy" />
+        </div>
+        <div class="kg-split-text">
+          <span class="kg-point-num">02</span>
+          <span class="kg-point-en">Creation</span>
+          <h2 style="margin-bottom:20px;">창조</h2>
+          <div class="kg-verse">
+            <p>"모태에서 너를 만든 너의 구속자 여호와가 이같이 말하노라 나는 만물을 지은 여호와라 나와 함께 한 자 없이 홀로 하늘을 폈으며 땅을 펼쳤고"</p>
+            <cite>이사야 44장 24절</cite>
+          </div>
+          <div class="kg-point-body">
+            <p><strong>당신은 하나님의 걸작품입니다.</strong> 당신은 우연히 태어난 존재가 아닙니다. 이 지구상에 당신이 태어난 것은 실수가 아닙니다. 하나님은 세상이 조성되기도 전에 당신이 누구인지 아셨습니다. 성경은 하나님의 모든 창조물 중에서도 우리가 그분의 초점이라고 말합니다.</p>
+            <p>별들을 만드신 분께서 우리와 함께 삶을 살아가도록 우리를 설계하셨습니다. 당신은 명확한 목적을 가지고, 그 목적을 위해 만들어졌습니다. 당신을 만드시고 별들과 세상, 그리고 그 안의 모든 것을 창조하신 동일한 하나님이, 바로 당신과 내가 그분과 함께 살아가도록 특별히 디자인하셨습니다.</p>
+          </div>
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- ============ 3. 타락 (The Fall) ============ -->
-  <section class="section section--dark" id="fall">
-    <div class="container kg-container">
-      <div class="kg-point-icon" aria-hidden="true">
-        <svg viewBox="0 0 100 100" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-          <circle cx="50" cy="50" r="36"/>
-          <path d="M50 14 L44 34 L58 42 L40 58 L54 66 L50 86"/>
-        </svg>
-      </div>
-      <div class="section-head" style="text-align:center; margin-bottom:8px;">
-        <span class="kg-point-num">03</span>
-        <span class="kg-point-en">The Fall</span>
-        <h2>타락</h2>
-      </div>
-      <div class="kg-verse kg-verse--on-dark">
-        <p>"그들은 다 치우쳐 함께 더러운 자가 되고 선을 행하는 자 없으니 하나도 없도다"</p>
-        <cite>시편 53편 3절</cite>
-      </div>
-      <div class="kg-point-body">
-        <p><strong>우리 세상은 절망적인 상태에 처해 있습니다.</strong> 인류에게 문제가 있다는 것은 누구에게 들을 필요도 없이 명백합니다. 우리는 세상의 상태를 보고 있으며, 우리 자신의 삶을 얼마나 어지럽혀 놓았는지 잘 알고 있습니다. 성경은 우리의 이 문제를 '죄'라고 부릅니다. 죄는 하나님과 그분의 계획을 거부하는 것입니다.</p>
-        <p>하나님은 '선'이시기 때문에 그분을 거부한다는 것은 그분의 선하심을 거부하는 것을 의미합니다. 선함이 없기에 우리는 우리 자신과 타인, 그리고 하나님의 나머지 피조물들을 향해 끔찍한 행위를 저지릅니다.</p>
-        <p>성경은 하나님이 그분의 피조물을 심판하시는 분이며, 의로운 재판장처럼 우리의 죄를 다루셔야 한다고 말합니다. 하지만 우리의 죄의 빚은 너무나 무거워서 하나님 자신만이 그 빚을 갚으실 수 있었습니다.</p>
+  <!-- ============ 3. 타락 (The Fall) — 전체 사진 배경 + 잠긴 문 카드 ============ -->
+  <section class="section kg-fall" id="fall">
+    <div class="container kg-wide">
+      <div class="kg-fall-grid">
+        <div>
+          <div class="kg-point-icon" aria-hidden="true">
+            <svg viewBox="0 0 100 100" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="50" cy="50" r="36"/>
+              <path d="M50 14 L44 34 L58 42 L40 58 L54 66 L50 86"/>
+            </svg>
+          </div>
+          <span class="kg-point-num">03</span>
+          <span class="kg-point-en">The Fall</span>
+          <h2 style="margin-bottom:20px;">타락</h2>
+          <div class="kg-verse">
+            <p>"그들은 다 치우쳐 함께 더러운 자가 되고 선을 행하는 자 없으니 하나도 없도다"</p>
+            <cite>시편 53편 3절</cite>
+          </div>
+          <div class="kg-point-body">
+            <p><strong>우리 세상은 절망적인 상태에 처해 있습니다.</strong> 인류에게 문제가 있다는 것은 누구에게 들을 필요도 없이 명백합니다. 우리는 세상의 상태를 보고 있으며, 우리 자신의 삶을 얼마나 어지럽혀 놓았는지 잘 알고 있습니다. 성경은 우리의 이 문제를 '죄'라고 부릅니다. 죄는 하나님과 그분의 계획을 거부하는 것입니다.</p>
+            <p>하나님은 '선'이시기 때문에 그분을 거부한다는 것은 그분의 선하심을 거부하는 것을 의미합니다. 선함이 없기에 우리는 우리 자신과 타인, 그리고 하나님의 나머지 피조물들을 향해 끔찍한 행위를 저지릅니다.</p>
+            <p>성경은 하나님이 그분의 피조물을 심판하시는 분이며, 의로운 재판장처럼 우리의 죄를 다루셔야 한다고 말합니다. 하지만 우리의 죄의 빚은 너무나 무거워서 하나님 자신만이 그 빚을 갚으실 수 있었습니다.</p>
+          </div>
+        </div>
+        <figure class="kg-fall-card">
+          <img src="/images/know-god/fall-locked-door.jpg" alt="쇠사슬과 자물쇠로 굳게 잠긴 낡은 나무 문" loading="lazy" />
+          <figcaption>우리 힘으로는 열 수 없는 문</figcaption>
+        </figure>
       </div>
     </div>
   </section>
 
-  <!-- ============ 4. 화목 (Reconciliation) ============ -->
+  <!-- ============ 4. 화목 (Reconciliation) — 사진 + 글 2단(반대 방향) ============ -->
   <section class="section kg-recon" id="reconciliation">
-    <div class="container kg-container">
-      <div class="kg-point-icon" aria-hidden="true">
-        <svg viewBox="0 0 100 100" fill="none" stroke-width="3" stroke-linecap="round">
-          <line x1="50" y1="14" x2="50" y2="86"/>
-          <line x1="26" y1="38" x2="74" y2="38"/>
-          <g opacity="0.55" stroke-width="2">
-            <line x1="50" y1="8" x2="50" y2="0"/>
-            <line x1="28" y1="16" x2="21" y2="9"/>
-            <line x1="72" y1="16" x2="79" y2="9"/>
-            <line x1="12" y1="38" x2="2" y2="38"/>
-            <line x1="88" y1="38" x2="98" y2="38"/>
-          </g>
-        </svg>
-      </div>
-      <div class="section-head" style="text-align:center; margin-bottom:8px;">
-        <span class="kg-point-num">04</span>
-        <span class="kg-point-en">Reconciliation</span>
-        <h2>화목</h2>
-      </div>
-      <div class="kg-verse">
-        <p>"하나님이 세상을 이처럼 사랑하사 독생자를 주셨으니 이는 그를 믿는 자마다 멸망하지 않고 영생을 얻게 하려 하심이라"</p>
-        <cite>요한복음 3장 16절</cite>
-      </div>
-      <div class="kg-point-body">
-        <p><strong>예수님은 길이요, 진리요, 생명이십니다.</strong> 하나님은 당신과 함께하기를 간절히 원하십니다. 그분은 당신을 너무나 사랑하셔서 우리가 진 빚을 대신 갚아주시기 위해 그분의 완벽한 아들을 보내셨습니다. 모든 빚을, 영원히, 당신에게는 아무런 대가 없이 치르셨습니다.</p>
-        <p>예수님은 동정녀의 몸에서 태어나 땅 위에서 잠시 사셨고, 채찍질당하시고 십자가에 못 박히시는 것을 허락하셨으며, 사흘 만에 무덤에서 부활하셨습니다. 이로써 우리가 하나님과 다시 연결될 수 있는 길을 열어주셨습니다.</p>
-        <p>이제 우리가 해야 할 일은 하나님의 선물을 받아들이는 것뿐입니다. 예수님이 십자가에서 이루신 일을 받아들이기만 하면 됩니다. 하나님이 나를 사랑하시고, 나의 죄 값을 치르기 위해 그분의 아들을 보내셨으며, 내가 그분과 관계를 맺을 수 있음을 믿기만 하면 됩니다. 그리고 하나님께 그 삶을 구하기만 하면 됩니다.</p>
+    <div class="container kg-wide">
+      <div class="kg-split-grid kg-split-grid--reverse">
+        <div class="kg-split-photo">
+          <img src="/images/know-god/reconciliation-cross.jpg" alt="붉은 천이 걸린 십자가" loading="lazy" />
+        </div>
+        <div class="kg-split-text">
+          <span class="kg-point-num">04</span>
+          <span class="kg-point-en">Reconciliation</span>
+          <h2 style="margin-bottom:20px;">화목</h2>
+          <div class="kg-verse">
+            <p>"하나님이 세상을 이처럼 사랑하사 독생자를 주셨으니 이는 그를 믿는 자마다 멸망하지 않고 영생을 얻게 하려 하심이라"</p>
+            <cite>요한복음 3장 16절</cite>
+          </div>
+          <div class="kg-point-body">
+            <p><strong>예수님은 길이요, 진리요, 생명이십니다.</strong> 하나님은 당신과 함께하기를 간절히 원하십니다. 그분은 당신을 너무나 사랑하셔서 우리가 진 빚을 대신 갚아주시기 위해 그분의 완벽한 아들을 보내셨습니다. 모든 빚을, 영원히, 당신에게는 아무런 대가 없이 치르셨습니다.</p>
+            <p>예수님은 동정녀의 몸에서 태어나 땅 위에서 잠시 사셨고, 채찍질당하시고 십자가에 못 박히시는 것을 허락하셨으며, 사흘 만에 무덤에서 부활하셨습니다. 이로써 우리가 하나님과 다시 연결될 수 있는 길을 열어주셨습니다.</p>
+            <p>이제 우리가 해야 할 일은 하나님의 선물을 받아들이는 것뿐입니다. 예수님이 십자가에서 이루신 일을 받아들이기만 하면 됩니다. 하나님이 나를 사랑하시고, 나의 죄 값을 치르기 위해 그분의 아들을 보내셨으며, 내가 그분과 관계를 맺을 수 있음을 믿기만 하면 됩니다. 그리고 하나님께 그 삶을 구하기만 하면 됩니다.</p>
+          </div>
+        </div>
       </div>
     </div>
   </section>
 
-  <!-- ============ 기도 초청 ============ -->
+  <!-- ============ 기도 초청 — 밝은 사진 배경 + 카드 ============ -->
   <section class="section kg-pray" id="pray">
     <div class="container kg-container">
       <div class="section-head" style="text-align:center; margin-bottom:24px; max-width:100%;">
         <span class="eyebrow">PRAY TODAY</span>
-        <h2 style="color:#fff;">오늘 예수님을 당신의<br class="verse-break-sm">주님과 구주로 영접하세요</h2>
+        <h2>오늘 예수님을 당신의<br class="verse-break-sm">주님과 구주로 영접하세요</h2>
       </div>
       <p class="kg-pray-lead">하나님과의 관계를 원하십니까? 그분이 당신을 위해 죽으시려고 예수님을 보내셨음을 믿으며, 예수님이 당신의 주님이자 구주가 되기를 원하십니까? 당신의 새 삶은 하나님을 믿고 당신의 믿음을 고백하는 것에서 시작됩니다. 아래 기도를 크게 따라 기도해 보세요.</p>
 
