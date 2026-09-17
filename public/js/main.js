@@ -409,12 +409,7 @@
 
   box.innerHTML = `<div class="kakao-map-preview">${imgTag}</div>`;
 }
-
-    if (contact.mapEmbedUrl) {
-      box.innerHTML = `<iframe src="${contact.mapEmbedUrl}" loading="lazy" allowfullscreen></iframe>`;
-    }
-  }
-
+    
   function getDeviceType() {
     return window.matchMedia('(max-width: 860px)').matches ? 'mobile' : 'desktop';
   }
