@@ -389,28 +389,26 @@
   }
 
   function renderMap(contact) {
-    const box = $('#map-box');
-    if (!box) return;
+  const box = $('#map-box');
+  if (!box) return;
 
-    const validImage = contact.kakaoMapImageUrl && /^https:\/\/staticmap\.kakao\.com\//.test(contact.kakaoMapImageUrl)
-      ? contact.kakaoMapImageUrl
-      : '';
-    const validLink = contact.kakaoMapLinkUrl && /^https:\/\/map\.kakao\.com\//.test(contact.kakaoMapLinkUrl)
-      ? contact.kakaoMapLinkUrl
-      : '';
+  const validLink = contact.kakaoMapLinkUrl && /^https:\/\/map\.kakao\.com\//.test(contact.kakaoMapLinkUrl)
+    ? contact.kakaoMapLinkUrl
+    : '';
 
-    if (validImage && validLink) {
-      box.innerHTML = `
-        <a class="kakao-map-preview" href="${validLink}" target="_blank" rel="noopener">
-          <img src="${validImage}" alt="교회 위치 지도" loading="lazy" />
-          <svg class="kakao-map-pin" viewBox="0 0 32 44" aria-hidden="true">
-            <path d="M16 0C7.163 0 0 7.163 0 16c0 11 16 28 16 28s16-17 16-28C32 7.163 24.837 0 16 0z" fill="#0d1526"/>
-            <circle cx="16" cy="16" r="6.5" fill="#c9a227"/>
-          </svg>
-          <span class="kakao-map-cta">카카오맵에서 크게 보기 <span class="dbl-chevron">&raquo;</span></span>
-        </a>`;
-      return;
-    }
+  const imgTag = `<img src="/images/church-map.png" alt="물댄동산교회 오시는 길 약도" loading="lazy" />`;
+
+  if (validLink) {
+    box.innerHTML = `
+      <a class="kakao-map-preview" href="${validLink}" target="_blank" rel="noopener">
+        ${imgTag}
+        <span class="kakao-map-cta">카카오맵에서 크게 보기 <span class="dbl-chevron">&raquo;</span></span>
+      </a>`;
+    return;
+  }
+
+  box.innerHTML = `<div class="kakao-map-preview">${imgTag}</div>`;
+}
 
     if (contact.mapEmbedUrl) {
       box.innerHTML = `<iframe src="${contact.mapEmbedUrl}" loading="lazy" allowfullscreen></iframe>`;
