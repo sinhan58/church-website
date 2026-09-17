@@ -255,16 +255,16 @@
   // 옵션이 만드는 부드러운 움직임을 그대로 쓰며, PC/모바일 화면 모두에서 불러옵니다
   // (모션을 줄이도록 설정한 기기에서는 장식 효과이므로 건너뜁니다).
   // PC: 영문 한 줄 / 한글 한 줄, 두 덩어리가 통째로 서로 반대 방향으로 스쳐 지나갑니다
-  //   (#about-bg-left/#about-bg-right 전체를 옮김. l0("WELCOME TO THE")는 모바일
-  //   전용 문구라 PC에서는 style.css가 아예 숨겨서 PC는 예전과 똑같습니다).
-  // 모바일(~860px 이하): "WELCOME TO THE / MULDAEN DONGSAN / CHURCH / 물댄동산교회에 /
-  //   오신 것을 환영합니다" 5줄로 나눠 보여주고, 각 줄을 독립적으로 움직입니다(한때
-  //   2줄씩 묶어서 통째로 움직이는 "2그룹" 방식을 썼었는데, 5줄 요청으로 다시 줄
-  //   단위 개별 이동으로 바꿨습니다). 방향은 한 줄씩 번갈아 좌우로 스쳐 지나가게 해서
-  //   지그재그로 "교차"하는 느낌을 살렸습니다(1·3·5행은 왼쪽→오른쪽, 2·4행은
-  //   오른쪽→왼쪽). 각 줄은 display:block인데 너비를 따로 안 줘서 래퍼 폭(≈화면 폭)
-  //   전체를 차지하므로, xPercent 이동 폭은 "요소 자기 폭의 %"라 화면의 상당 부분을
-  //   이동하는 큰 움직임입니다. 다섯 줄 모두 속도(이동 폭)를 동일하게 뒀습니다.
+  //   (#about-bg-left/#about-bg-right 전체를 옮김).
+  // 모바일(~860px 이하): style.css에서 각 문구를 2줄씩(총 4줄)로 나눠 보여주지만, 이동은
+  //   PC와 같은 "2그룹" 방식입니다 — 영문 두 줄(#about-bg-left)이 통째로 오른쪽으로,
+  //   한글 두 줄(#about-bg-right)이 통째로 왼쪽으로 스쳐 지나가되, 속도(이동 폭)는
+  //   PC보다 크게 잡아 눈에 잘 띄게 했습니다. (한때 4줄이 각자 다른 방향으로 움직이는
+  //   방식도 써봤지만, 다시 2그룹 방식으로 되돌렸습니다.)
+  //   #about-bg-left는 align-self가 stretch라 래퍼 폭(≈화면 폭) 전체를 차지하고,
+  //   #about-bg-right는 flex-end라 자기 글자 폭만큼만 차지하며 화면 오른쪽에 붙어
+  //   있습니다. 그래서 xPercent 이동 폭은 "요소 자기 폭의 %"라 실제로는 화면의 상당
+  //   부분을 이동하는 큰 움직임입니다.
   //   중요: 트리거 구간(start~end)을 교회소개 "섹션 전체"(#about, 위에서 아래까지)로
   //   잡으면, 이 장식 띠는 섹션 맨 위쪽에만 있는데 진행률(progress)은 섹션 전체
   //   스크롤 거리를 기준으로 계산되기 때문에, 띠가 화면 맨 위에 걸리는 시점에는
@@ -273,16 +273,11 @@
   //   끝나는 시점이 서로 어긋남). 그래서 모바일은 트리거를 섹션 전체가 아니라
   //   이 띠 자신(.about-bg-type-wrap)으로 두고, end를 'top top'(띠의 맨 위가 화면
   //   맨 위에 닿는 순간)으로 맞춰서, 띠가 화면 위쪽에 다다르는 바로 그 순간에
-  //   다섯 줄 모두 정확히 xPercent 0(제자리)이 되도록 했습니다(모든 줄이 화면 상단에서
-  //   잘리지 않고 다 들어와 있음). PC는 기존 트리거(섹션 전체)를 그대로 둡니다.
+  //   정확히 xPercent 0(제자리)이 되도록 했습니다. PC는 기존 트리거(섹션 전체)를
+  //   그대로 둡니다.
   function setupAboutCrossingTypography() {
     const leftEl = $('#about-bg-left');
     const rightEl = $('#about-bg-right');
-    const l0El = $('#about-bg-line-l0');
-    const l1El = $('#about-bg-line-l1');
-    const l2El = $('#about-bg-line-l2');
-    const r1El = $('#about-bg-line-r1');
-    const r2El = $('#about-bg-line-r2');
     const aboutSection = $('#about');
     const bgWrap = $('.about-bg-type-wrap');
     if (!leftEl || !rightEl || !aboutSection) return;
@@ -336,25 +331,22 @@
       const isMobile = window.matchMedia('(max-width: 860px)').matches;
 
       if (isMobile) {
-        // 모바일: 5줄을 각각 독립적으로, 한 줄씩 번갈아 반대 방향으로 스쳐 지나가게
-        // 합니다(지그재그). 트리거는 띠 자신(bgWrap)으로 잡고 end를 'top top'으로 둬서,
-        // 띠가 화면 맨 위에 닿는 순간 다섯 줄 모두 정확히 제자리(0)에 오도록 했습니다
-        // (그 순간 어느 줄도 화면 밖으로 잘리지 않습니다). 1·3·5행(왼쪽에 붙음 →
-        // 오른쪽으로 스쳐 지나감)은 음수에서 0으로, 2·4행(오른쪽에 붙음 → 왼쪽으로
-        // 스쳐 지나감)은 양수에서 0으로 움직입니다.
-        // xPercent는 "요소 자기 폭의 %"라, 줄마다 글자 폭이 많이 달라서(짧은 CHURCH부터
-        // 긴 MULDAEN DONGSAN까지) 모든 줄에 같은 %를 주면 짧은 줄은 너무 조금, 긴 줄은
-        // 너무 많이 움직여 속도가 다르게 느껴집니다. 그래서 다섯 줄이 실제로는 비슷한
-        // 픽셀 거리(약 90px)만큼 이동하도록 줄마다 %를 다르게 역산했습니다(자기 폭이
-        // 좁을수록 큰 %가 필요).
+        // 모바일: 영문 두 줄 / 한글 두 줄 덩어리가 각각 통째로 반대 방향으로 스쳐
+        // 지나갑니다. 트리거를 띠 자신(bgWrap)으로 잡고 end를 'top top'으로 둬서,
+        // 띠가 화면 맨 위에 닿는 순간 각 요소가 원래 제자리(0) 근처에 오도록
+        // 했습니다. 시작 지점은 반대쪽으로 당겨서(아래에서 올라오는 동안) 스쳐
+        // 지나가는 느낌을 주는데, 실제 렌더링된 글자 폭 기준으로 2.5글자 정도만
+        // 화면 쪽으로 당겨뒀습니다(영문 -31, 한글 26; "조금 더 빠르게" 요청으로
+        // 1.2배 늘려 영문 -37, 한글 31; "반의 반 글자만 더 지나가게" 요청으로
+        // 글자 폭의 1/4만큼(영문 약 7px, 한글 약 9px) 추가로 당겨 영문 -39,
+        // 한글 33). 끝나는 지점도 같은 요청으로 반의 반 글자만큼(약 2%p) 더
+        // 지나가도록, 제자리(0)에서 멈추지 않고 같은 방향으로 살짝 더 나아가게
+        // 했습니다(영문 0→2, 한글 0→-2).
         const mobileTrigger = bgWrap
           ? { trigger: bgWrap, start: 'top bottom', end: 'top top' }
           : null;
-        scrollSlide(l0El, -25, 0, mobileTrigger); // 1행 WELCOME TO THE: 왼쪽→오른쪽
-        scrollSlide(l1El, 22, 0, mobileTrigger);  // 2행 MULDAEN DONGSAN: 오른쪽→왼쪽
-        scrollSlide(l2El, -52, 0, mobileTrigger); // 3행 CHURCH: 왼쪽→오른쪽 (짧은 줄이라 %는 크게)
-        scrollSlide(r1El, 32, 0, mobileTrigger);  // 4행 물댄동산교회에: 오른쪽→왼쪽
-        scrollSlide(r2El, -24, 0, mobileTrigger); // 5행 오신 것을 환영합니다: 왼쪽→오른쪽
+        scrollSlide(leftEl, -39, 2, mobileTrigger);
+        scrollSlide(rightEl, 33, -2, mobileTrigger);
       } else {
         // PC: 영문/한글 덩어리 전체가 서로 반대 방향으로, 교회소개 섹션 전체를
         // 트리거 구간으로 삼아 이동합니다. 1열(영문, leftEl)은 변경 없음.
@@ -370,12 +362,31 @@
     init();
   }
 
-  // (예전에는 모바일 '텍스트 쇼'가 영문을 2줄(1행 왼쪽정렬/2행 오른쪽정렬)로 묶어서
-  // 통째로 움직이는 "2그룹" 방식이라, 2행(CHURCH)의 박스 너비를 1행(MULDAEN DONGSAN)의
-  // 실제 글자 폭에 맞추는 alignAboutBgLine2ToLine1() 함수가 필요했습니다. 지금은 5줄이
-  // 각각 독립적으로 움직이고 각 줄이 항상 래퍼 전체 폭을 박스로 쓰기 때문에(그래야
-  // xPercent 이동 폭 계산이 다섯 줄 모두 같은 기준이 됩니다), 이 정렬 보정은 더 이상
-  // 필요 없어 제거했습니다.)
+  // 모바일 '텍스트 쇼'의 영문 2행(CHURCH, 오른쪽 정렬)을 1행(MULDAEN DONGSAN, 왼쪽
+  // 정렬)의 실제 글자 끝에 맞춥니다. 2행은 원래 박스 전체 폭(화면 폭) 기준으로
+  // 오른쪽 정렬돼 있어서, 1행 글자가 실제로 그 폭을 다 채우지 못하면(폰트에 따라
+  // 너비가 달라짐) 두 줄의 끝이 서로 어긋나 보입니다. 그래서 1행의 실제 렌더링
+  // 너비를 재서 2행 박스 너비로 그대로 적용해, 2행이 항상 1행이 끝나는 지점에서
+  // 끝나도록 맞춥니다(폰트 로딩이 늦게 끝나는 경우를 대비해 로딩 완료 후 다시
+  // 재고, 화면 크기가 바뀔 때도 다시 잽니다).
+  function alignAboutBgLine2ToLine1() {
+    const l1 = $('#about-bg-line-l1');
+    const l2 = $('#about-bg-line-l2');
+    if (!l1 || !l2) return;
+
+    function apply() {
+      const range = document.createRange();
+      range.selectNodeContents(l1);
+      const width = range.getBoundingClientRect().width;
+      if (width > 0) l2.style.width = `${width}px`;
+    }
+
+    apply();
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(apply).catch(() => {});
+    }
+    window.addEventListener('resize', apply);
+  }
 
   function renderMap(contact) {
     const box = $('#map-box');
@@ -2907,6 +2918,7 @@
   observeReveals();
   setupHeroAboutTransition();
   setupAboutCrossingTypography();
+  alignAboutBgLine2ToLine1();
   // ---------------- 말씀 퀴즈 티저 카드 ----------------
   // 관리자가 이번 주 퀴즈를 등록해뒀을 때만 카드가 보이게 합니다. (없으면 빈 링크가
   // 보이지 않도록 기본은 숨김 상태로 시작해서, 있을 때만 드러냅니다)
