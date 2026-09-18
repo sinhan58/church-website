@@ -1963,10 +1963,14 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   white-space: nowrap;
 }
 .offering-holder-line strong { color: var(--ink); font-weight: 600; margin-left: 4px; }
-.offering-note { font-size: 0.86rem; line-height: 1.7; color: var(--muted); white-space: pre-line; border-bottom: 1px solid var(--line); padding-bottom: 18px; margin: 0 0 22px; }
+/* 예전엔 여기(계좌 정보 문구 아래)와 바로 아래 영수증 신청 CTA 위, 이렇게 두 줄이
+   가까이 붙어서 구분선이 두 개나 겹쳐 보였습니다. 지금은 온라인 헌금 카드
+   안쪽 구분선은 모두 없애고(border 제거, 위아래 간격만 유지), '온라인 헌금 안내'와
+   '기도 요청' 두 칸을 나누는 바깥쪽 구분선(.offering-prayer-col + .offering-prayer-col,
+   PC는 세로선/모바일은 가로선)만 남깁니다. */
+.offering-note { font-size: 0.86rem; line-height: 1.7; color: var(--muted); white-space: pre-line; padding-bottom: 18px; margin: 0 0 22px; }
 
 .offering-receipt-cta {
-  border-top: 1px solid var(--line);
   padding-top: 20px;
   text-align: center;
 }
