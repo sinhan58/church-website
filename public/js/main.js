@@ -367,23 +367,37 @@
     init();
   }
 
-  // 모바일 '텍스트 쇼'의 영문 2행(CHURCH, 오른쪽 정렬)을 1행(MULDAEN DONGSAN, 왼쪽
-  // 정렬)의 실제 글자 끝에 맞춥니다. 2행은 원래 박스 전체 폭(화면 폭) 기준으로
-  // 오른쪽 정렬돼 있어서, 1행 글자가 실제로 그 폭을 다 채우지 못하면(폰트에 따라
-  // 너비가 달라짐) 두 줄의 끝이 서로 어긋나 보입니다. 그래서 1행의 실제 렌더링
-  // 너비를 재서 2행 박스 너비로 그대로 적용해, 2행이 항상 1행이 끝나는 지점에서
-  // 끝나도록 맞춥니다(폰트 로딩이 늦게 끝나는 경우를 대비해 로딩 완료 후 다시
-  // 재고, 화면 크기가 바뀔 때도 다시 잽니다).
+  // 모바일 '텍스트 쇼'의 영문 2행(오른쪽 정렬)을 1행(왼쪽 정렬)의 실제 글자 끝에
+  // 맞춥니다. 2행은 원래 박스 전체 폭(화면 폭) 기준으로 오른쪽 정렬돼 있어서, 1행
+  // 글자가 실제로 그 폭을 다 채우지 못하면(폰트에 따라 너비가 달라짐) 두 줄의 끝이
+  // 서로 어긋나 보입니다. 그래서 1행의 실제 렌더링 너비를 재서 2행 박스 너비로
+  // 그대로 적용해, 2행이 항상 1행이 끝나는 지점에서 끝나도록 맞춥니다(폰트 로딩이
+  // 늦게 끝나는 경우를 대비해 로딩 완료 후 다시 재고, 화면 크기가 바뀔 때도 다시 잽니다).
+  // 주의: 1행("MULDAEN")보다 2행("DONGSAN CHURCH")이 더 긴 문구로 바뀌면서, 2행을
+  // 1행 폭에 맞춰 억지로 좁히면(오른쪽 정렬 + 줄바꿈 없음이라) 2행 글자 앞부분이
+  // 박스 왼쪽 경계 밖으로 넘쳐서 바깥 래퍼의 overflow:hidden에 잘려 화면 밖으로 잘려
+  // 보일 수 있습니다. 그래서 2행 내용이 1행보다 넓을 때는 폭을 억지로 맞추지 않고
+  // (인라인 width를 비워 원래 줄 전체 폭 기준 오른쪽 정렬로 되돌려) 잘림을 막습니다.
   function alignAboutBgLine2ToLine1() {
     const l1 = $('#about-bg-line-l1');
     const l2 = $('#about-bg-line-l2');
     if (!l1 || !l2) return;
 
     function apply() {
-      const range = document.createRange();
-      range.selectNodeContents(l1);
-      const width = range.getBoundingClientRect().width;
-      if (width > 0) l2.style.width = `${width}px`;
+      const range1 = document.createRange();
+      range1.selectNodeContents(l1);
+      const l1Width = range1.getBoundingClientRect().width;
+      if (l1Width <= 0) return;
+
+      const range2 = document.createRange();
+      range2.selectNodeContents(l2);
+      const l2NaturalWidth = range2.getBoundingClientRect().width;
+
+      if (l2NaturalWidth > l1Width) {
+        l2.style.width = ''; // 2행이 더 길면 잘리지 않도록 폭 강제를 풀어줍니다
+      } else {
+        l2.style.width = `${l1Width}px`;
+      }
     }
 
     apply();
