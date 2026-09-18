@@ -19,6 +19,7 @@ const renderQuizPage = createStaticPageRenderer('quiz.html');
 const renderPrivacyPage = createStaticPageRenderer('privacy.html');
 const renderNewFamilyPage = createStaticPageRenderer('new-family.html');
 const renderGospelPage = createStaticPageRenderer('gospel.html');
+const renderKnowGodPage = createStaticPageRenderer('know-god.html');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -203,6 +204,18 @@ app.get('/gospel.html', async (req, res, next) => {
   try {
     const site = await readData('site');
     res.send(renderGospelPage({ site: site || {} }));
+  } catch (err) {
+    next(err);
+  }
+});
+// '하나님의 이야기' 페이지 (예전엔 정적 파일로만 서빙되어 관리자가 고른 글씨체가 반영되지
+// 않았습니다 — 다른 보조 페이지들과 동일하게 서버에서 글씨체를 미리 반영해서 보냅니다.
+// 이 페이지는 항상 컨셉B 톤을 쓰도록 <html class="theme-b">가 파일에 고정되어 있어서,
+// 아래 site.theme 값과 무관하게 그 모양 그대로 유지됩니다.)
+app.get('/know-god.html', async (req, res, next) => {
+  try {
+    const site = await readData('site');
+    res.send(renderKnowGodPage({ site: site || {} }));
   } catch (err) {
     next(err);
   }
