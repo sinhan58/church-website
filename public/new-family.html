@@ -127,6 +127,7 @@
   .nf-cta-row {
     display: flex;
     flex-wrap: wrap;
+    justify-content: center;
     gap: 12px;
     margin-top: 28px;
   }
@@ -137,14 +138,18 @@
 <header class="site-header scrolled">
   <div class="container">
     <a href="/" class="brand" id="nf-brand">물댄동산교회</a>
+    <nav class="nav-desktop" id="nf-nav-desktop"></nav>
+    <button class="hamburger" id="nf-hamburger" aria-label="메뉴 열기">
+      <span></span><span></span><span></span>
+    </button>
   </div>
 </header>
+
+<nav class="nav-mobile" id="nf-nav-mobile"></nav>
 
 <main class="page-enter">
   <section class="section nf-section">
     <div class="container nf-container">
-
-      <a href="/" class="qt-back-link">← 홈으로</a>
 
       <div class="section-head" style="text-align:left; margin-bottom:20px;">
         <span class="eyebrow">WELCOME</span>
@@ -183,7 +188,7 @@
       </ul>
 
       <div class="nf-cta-row">
-        <a href="/know-god.html" class="btn btn--gold">오늘, 당신을 위한 이야기</a>
+        <a href="/know-god.html" class="btn btn--gold-fill btn--rainbow">오늘, 당신을 위한 이야기 <span class="dbl-chevron">&raquo;</span></a>
         <a href="/inquiry.html" class="btn btn--outline">온라인 문의하기</a>
         <a href="/#contact" class="btn btn--outline">오시는 길 보기</a>
       </div>
@@ -192,6 +197,10 @@
       <div class="nf-contact-box">
         <p><strong id="nf-pastor-label">담임목사</strong>: <span id="nf-pastor-name">-</span></p>
         <p><strong>연락처</strong>: <span id="nf-contact-phone">-</span></p>
+      </div>
+
+      <div class="qt-reaction-bar">
+        <a href="/" class="qt-home-btn">홈으로</a>
       </div>
 
     </div>
@@ -222,6 +231,46 @@
       document.getElementById('nf-contact-phone').textContent = phone || '-';
     })
     .catch(() => {});
+
+  // ---------------- 상단 메뉴줄 (홈페이지와 동일한 교회명 + 메뉴) ----------------
+  function nfEscapeHtml(str) {
+    return String(str == null ? '' : str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+  fetch('/api/menu')
+    .then((res) => res.json())
+    .then((menu) => {
+      if (!Array.isArray(menu)) return;
+      var html = menu.map(function (m) {
+        // 관리자가 등록한 메뉴 링크는 홈페이지 전용 해시(#service 등)일 수 있어서,
+        // 이 페이지(다른 경로)에서도 정상 동작하도록 앞에 '/'를 붙여 홈으로 이동 후 스크롤되게 합니다.
+        var link = m.link && m.link.charAt(0) === '#' ? '/' + m.link : m.link;
+        return '<a href="' + nfEscapeHtml(link) + '">' + nfEscapeHtml(m.label) + '</a>';
+      }).join('');
+      var navDesktop = document.getElementById('nf-nav-desktop');
+      var navMobile = document.getElementById('nf-nav-mobile');
+      if (navDesktop) navDesktop.innerHTML = html;
+      if (navMobile) navMobile.innerHTML = html;
+    })
+    .catch(() => {});
+
+  var nfHamburger = document.getElementById('nf-hamburger');
+  var nfNavMobile = document.getElementById('nf-nav-mobile');
+  if (nfHamburger && nfNavMobile) {
+    nfHamburger.addEventListener('click', function () {
+      nfHamburger.classList.toggle('active');
+      nfNavMobile.classList.toggle('open');
+    });
+    nfNavMobile.addEventListener('click', function (e) {
+      if (e.target.tagName === 'A') {
+        nfHamburger.classList.remove('active');
+        nfNavMobile.classList.remove('open');
+      }
+    });
+  }
 </script>
 </body>
 </html>
