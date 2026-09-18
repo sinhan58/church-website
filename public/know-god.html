@@ -286,6 +286,8 @@
   .kg-growth-card > p { color: #444; font-size: 0.98rem; line-height: 1.85; word-break: keep-all; text-align: center; margin: 0 0 28px; }
   .kg-growth-form { display: flex; flex-direction: column; gap: 12px; }
   .kg-growth-form input { width: 100%; padding: 12px 16px; border: 1px solid var(--line); border-radius: 6px; font-size: 0.95rem; font-family: inherit; background: #fff; box-sizing: border-box; }
+  /* 다른 gold 버튼들(오늘 이 기도를 드렸습니다 등)과 글씨색을 흰색으로 통일 */
+  .kg-growth-submit { color: #fff; }
   .kg-growth-foot { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 6px; flex-wrap: wrap; }
   .kg-growth-status { font-size: 0.85rem; color: var(--muted); }
   .kg-growth-privacy { margin-top: 18px; font-size: 0.78rem; color: var(--muted); line-height: 1.6; text-align: center; }
@@ -473,7 +475,9 @@
   </section>
 
   <!-- ============ 신앙 성장 과정 ============ -->
-  <section class="section" id="growth">
+  <!-- '네, 이 기도를 드렸습니다' 버튼을 누르기 전까지는 이 섹션 전체(성경구절 포함)가
+       보이지 않다가, 버튼을 눌러야만 펼쳐집니다. -->
+  <section class="section" id="growth" hidden>
     <div class="container kg-container">
       <div class="kg-growth-verse">
         <p>"너는 마음을 다하여 여호와를 의뢰하고 네 명철을 의지하지 말라 너는 범사에 그를 인정하라 그리하면 네 길을 지도하시리라"</p>
@@ -496,7 +500,7 @@
           <input type="tel" id="kg-phone" placeholder="전화번호" maxlength="20" required />
           <div class="kg-growth-foot">
             <span class="kg-growth-status" id="kg-growth-status"></span>
-            <button type="submit" class="btn btn--gold" style="margin-left:auto;">신청하기</button>
+            <button type="submit" class="btn btn--gold kg-growth-submit" style="margin-left:auto;">신청하기</button>
           </div>
         </form>
         <p class="kg-growth-privacy">남겨주신 정보는 신앙 성장을 위한 연결 목적으로만 사용되며, 다른 목적으로 사용되지 않습니다.</p>
@@ -588,14 +592,21 @@
   track('pageview', { path: location.pathname });
 
   // '네, 이 기도를 드렸습니다' 클릭 시 관리자 통계에 집계되도록 기록하고, 그때까지
-  // 숨겨져 있던 다음 단계 안내(축하 문구 + 예배시간 확인/동역자 신청 버튼)를 펼칩니다.
+  // 숨겨져 있던 다음 단계 안내(축하 문구 + 예배시간 확인/동역자 신청 버튼)와 그 아래
+  // '신앙 성장 과정' 섹션(성경구절 포함) 전체를 함께 펼칩니다.
   var kgPrayBtn = document.getElementById('kg-pray-btn');
   var kgPrayNextStep = document.getElementById('kg-pray-next-step');
+  var kgGrowthSection = document.getElementById('growth');
   if (kgPrayBtn) {
     kgPrayBtn.addEventListener('click', function () {
       track('click', { label: 'kg_prayed_today' });
       if (kgPrayNextStep && kgPrayNextStep.hidden) {
         kgPrayNextStep.hidden = false;
+      }
+      if (kgGrowthSection && kgGrowthSection.hidden) {
+        kgGrowthSection.hidden = false;
+      }
+      if (kgPrayNextStep) {
         kgPrayNextStep.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       }
     });
