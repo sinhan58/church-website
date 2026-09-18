@@ -358,54 +358,21 @@
         // 왼쪽으로 늘렸습니다 — 실제 렌더링된 글자 폭 기준 반 글자(PC 폭 1400px 기준
         // 약 42px ≈ 자기 폭의 3%p)씩 두 차례 늘려 -10 → -13 → -16. (모바일에서만
         // 이동 방향을 반대로 바꾼 뒤, PC는 원래대로 영문 왼쪽→오른쪽·한글 오른쪽→왼쪽
-        // 방향으로 되돌렸습니다.)
+        // 방향으로 되돌렸습니다.) 이후 "글씨 반의 반 정도 더 왼쪽으로" 요청으로,
+        // 위 "반 글자"(3%p) 단계의 절반인 1.5%p만큼 더 늘려 -16 → -17.5.
         scrollSlide(leftEl, 0, 25);
-        scrollSlide(rightEl, 15, -16);
+        scrollSlide(rightEl, 15, -17.5);
       }
     }
 
     init();
   }
 
-  // 모바일 '텍스트 쇼'의 영문 2행(오른쪽 정렬)을 1행(왼쪽 정렬)의 실제 글자 끝에
-  // 맞춥니다. 2행은 원래 박스 전체 폭(화면 폭) 기준으로 오른쪽 정렬돼 있어서, 1행
-  // 글자가 실제로 그 폭을 다 채우지 못하면(폰트에 따라 너비가 달라짐) 두 줄의 끝이
-  // 서로 어긋나 보입니다. 그래서 1행의 실제 렌더링 너비를 재서 2행 박스 너비로
-  // 그대로 적용해, 2행이 항상 1행이 끝나는 지점에서 끝나도록 맞춥니다(폰트 로딩이
-  // 늦게 끝나는 경우를 대비해 로딩 완료 후 다시 재고, 화면 크기가 바뀔 때도 다시 잽니다).
-  // 주의: 1행("MULDAEN")보다 2행("DONGSAN CHURCH")이 더 긴 문구로 바뀌면서, 2행을
-  // 1행 폭에 맞춰 억지로 좁히면(오른쪽 정렬 + 줄바꿈 없음이라) 2행 글자 앞부분이
-  // 박스 왼쪽 경계 밖으로 넘쳐서 바깥 래퍼의 overflow:hidden에 잘려 화면 밖으로 잘려
-  // 보일 수 있습니다. 그래서 2행 내용이 1행보다 넓을 때는 폭을 억지로 맞추지 않고
-  // (인라인 width를 비워 원래 줄 전체 폭 기준 오른쪽 정렬로 되돌려) 잘림을 막습니다.
-  function alignAboutBgLine2ToLine1() {
-    const l1 = $('#about-bg-line-l1');
-    const l2 = $('#about-bg-line-l2');
-    if (!l1 || !l2) return;
-
-    function apply() {
-      const range1 = document.createRange();
-      range1.selectNodeContents(l1);
-      const l1Width = range1.getBoundingClientRect().width;
-      if (l1Width <= 0) return;
-
-      const range2 = document.createRange();
-      range2.selectNodeContents(l2);
-      const l2NaturalWidth = range2.getBoundingClientRect().width;
-
-      if (l2NaturalWidth > l1Width) {
-        l2.style.width = ''; // 2행이 더 길면 잘리지 않도록 폭 강제를 풀어줍니다
-      } else {
-        l2.style.width = `${l1Width}px`;
-      }
-    }
-
-    apply();
-    if (document.fonts && document.fonts.ready) {
-      document.fonts.ready.then(apply).catch(() => {});
-    }
-    window.addEventListener('resize', apply);
-  }
+  // 예전엔 모바일 '텍스트 쇼' 2행이 오른쪽 정렬이라 1행 끝(오른쪽)에 맞추는 JS 보정이
+  // 있었습니다. 지금은 1행(MULDAEN)·2행(DONGSAN CHURCH) 모두 style.css에서 왼쪽 정렬
+  // (.about-bg-line--l1, --l2 둘 다 text-align:left)로 바뀌어서, 두 줄 다 같은 폭(화면
+  // 폭)의 블록 요소로 왼쪽 끝이 항상 자동으로 맞기 때문에 별도 JS 보정이 필요 없어져
+  // 이 함수(alignAboutBgLine2ToLine1)는 제거했습니다.
 
   function renderMap(contact) {
     const box = $('#map-box');
@@ -2937,7 +2904,6 @@
   observeReveals();
   setupHeroAboutTransition();
   setupAboutCrossingTypography();
-  alignAboutBgLine2ToLine1();
   // ---------------- 말씀 퀴즈 티저 카드 ----------------
   // 관리자가 이번 주 퀴즈를 등록해뒀을 때만 카드가 보이게 합니다. (없으면 빈 링크가
   // 보이지 않도록 기본은 숨김 상태로 시작해서, 있을 때만 드러냅니다)
