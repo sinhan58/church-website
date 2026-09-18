@@ -41,7 +41,7 @@
 <meta property="og:type" content="website" />
 <meta property="og:title" content="오늘, 당신을 위한 하나님의 이야기" />
 <meta property="og:description" content="당신이 이곳에 있는 데는 이유가 있습니다. 잠시 시간을 내어 하나님의 이야기를 들어보세요." />
-<meta property="og:image" content="https://muldaen.com/images/know-god/hero-galaxy.jpg?v=1" />
+<meta property="og:image" content="https://muldaen.com/images/know-god/hero-sunrise-peak.jpg?v=1" />
 <meta property="og:url" content="https://muldaen.com/know-god.html" />
 <meta name="twitter:card" content="summary_large_image" />
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -69,14 +69,14 @@
   .kg-container { max-width: 720px; }   /* 글이 중심인 섹션 (읽기 편한 폭) */
   .kg-wide { max-width: 1080px; }        /* 사진과 나란히 배치되는 섹션 (더 넓게) */
 
-  /* ---- 히어로: 은하수 사진 ---- */
+  /* ---- 히어로: 산 정상에서 맞이하는 일출 사진 ---- */
   .kg-hero {
     position: relative;
     min-height: 86vh;
     display: flex; align-items: center; justify-content: center; text-align: center; overflow: hidden;
     background-image:
       linear-gradient(180deg, rgba(15,61,64,0.15) 0%, rgba(9,20,20,0.15) 55%, rgba(9,20,20,0.72) 100%),
-      url('/images/know-god/hero-galaxy.jpg?v=1');
+      url('/images/know-god/hero-sunrise-peak.jpg?v=1');
     background-size: cover;
     background-position: center 60%;
     color: #fff;
@@ -225,10 +225,47 @@
   }
   .kg-prayer-card p { font-family: var(--font-heading); color: var(--navy-deep); font-size: 1.05rem; line-height: 2; word-break: keep-all; margin: 0 0 20px; }
   .kg-prayer-card p:last-child { margin-bottom: 0; }
-  .kg-pray-cta { text-align: center; margin-top: 40px; }
-  .kg-pray-cta p { color: #fff; font-size: 0.94rem; margin: 0 0 16px; text-shadow: 0 1px 6px rgba(0,0,0,0.45); }
-  .kg-pray-cta-next { font-size: 1.18rem; font-weight: 700; }
-  .kg-pray-cta-buttons { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; margin-top: 6px; }
+  /* ---- 기도 이후 안내 카드 ----
+     예전엔 사진 배경 위에 흰 글씨만 얹었는데, 배경 그라데이션이 아래로 갈수록 밝아지는
+     구간이라 흰 글씨/버튼(.btn--outline)이 잘 안 보이는 문제가 있었습니다. 기도문
+     카드(.kg-prayer-card)와 같은 밝은 카드에 담아, 사진이 어떤 밝기든 항상 또렷하게
+     보이도록 바꿨습니다. */
+  .kg-pray-cta {
+    max-width: 620px;
+    margin: 40px auto 0;
+    background: rgba(255,252,244,0.94);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(201,162,39,0.35);
+    border-radius: calc(var(--radius) + 6px);
+    padding: 36px 30px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.3);
+    text-align: center;
+  }
+  .kg-pray-cta-question {
+    font-family: var(--font-heading);
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--navy-deep);
+    margin: 0 0 22px;
+    word-break: keep-all;
+  }
+  .kg-pray-cta-buttons { display: flex; justify-content: center; flex-wrap: wrap; margin-bottom: 30px; }
+  .kg-pray-cta-congrats {
+    font-size: 1.02rem;
+    color: var(--ink);
+    line-height: 1.85;
+    word-break: keep-all;
+    margin: 0 0 26px;
+    padding-top: 26px;
+    border-top: 1px solid var(--line);
+  }
+  .kg-pray-cta-congrats strong { color: var(--gold-deep); font-size: 1.12rem; }
+  .kg-pray-cta-next-buttons { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+  /* 카드가 밝은 배경이라, 사진 위 전용이던 흰색 테두리(.btn--outline)는 이 카드 안에서는
+     대신 짙은 남색 테두리로 바꿔서 항상 잘 보이게 합니다(다른 페이지의 .btn--outline에는
+     영향 없음 — 이 카드 안에서만 적용). */
+  .kg-pray-cta-next-buttons .btn--outline { border-color: var(--navy-deep); color: var(--navy-deep); }
+  .kg-pray-cta-next-buttons .btn--outline:hover { background: rgba(15,61,64,0.08); }
 
   /* ---- 신앙 성장 과정 ---- */
   .kg-growth-verse { text-align: center; margin-bottom: 44px; }
@@ -289,26 +326,26 @@
     </div>
   </section>
 
-  <!-- ============ 1. 영원 (Eternity) — 밝은 배경, 글 중심 ============ -->
+  <!-- ============ 1. 영원 (Eternity) — 사진 + 글 2단(반대 방향) ============ -->
   <section class="section" id="eternity">
-    <div class="container kg-container">
-      <div class="kg-point-icon" aria-hidden="true">
-        <svg viewBox="0 0 100 60" fill="none" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M24 32 C24 20,40 20,50 32 C60 44,76 44,76 32 C76 20,60 20,50 32 C40 44,24 44,24 32 Z"/>
-        </svg>
-      </div>
-      <div class="section-head" style="text-align:center; margin-bottom:8px;">
-        <span class="kg-point-num">01</span>
-        <span class="kg-point-en">Eternity</span>
-        <h2>영원</h2>
-      </div>
-      <div class="kg-verse">
-        <p>"산이 생기기 전, 땅과 세계도 주께서 조성하시기 전 곧 영원부터 영원까지 주는 하나님이시니이다."</p>
-        <cite>시편 90편 2절</cite>
-      </div>
-      <div class="kg-point-body">
-        <p><strong>하나님은 영원하십니다.</strong> 우주의 창조주이자 성경의 하나님은 시간이 시작되기도 전에 존재하셨습니다. 그분은 전능하시고, 모든 것을 아시며, 언제나 함께하십니다. 그분은 한 마디 말씀으로 우주를 만드실 만큼 전능하십니다.</p>
-        <p>하지만 더욱 중요한 것은, 성경이 "하나님은 사랑이시며, 하나님은 선하시다"고 말한다는 점입니다. 그분은 단순히 사랑 많고 선하신 하나님이 아닙니다. 사랑과 선함 그 자체가 영원하신 하나님의 속성이기 때문에 존재합니다.</p>
+    <div class="container kg-wide">
+      <div class="kg-split-grid kg-split-grid--reverse">
+        <div class="kg-split-photo">
+          <img src="/images/know-god/hero-galaxy.jpg?v=1" alt="광활한 은하수와 별들이 가득한 밤하늘" loading="lazy" />
+        </div>
+        <div class="kg-split-text">
+          <span class="kg-point-num">01</span>
+          <span class="kg-point-en">Eternity</span>
+          <h2 style="margin-bottom:20px;">영원</h2>
+          <div class="kg-verse">
+            <p>"산이 생기기 전, 땅과 세계도 주께서 조성하시기 전 곧 영원부터 영원까지 주는 하나님이시니이다."</p>
+            <cite>시편 90편 2절</cite>
+          </div>
+          <div class="kg-point-body">
+            <p><strong>하나님은 영원하십니다.</strong> 우주의 창조주이자 성경의 하나님은 시간이 시작되기도 전에 존재하셨습니다. 그분은 전능하시고, 모든 것을 아시며, 언제나 함께하십니다. 그분은 한 마디 말씀으로 우주를 만드실 만큼 전능하십니다.</p>
+            <p>하지만 더욱 중요한 것은, 성경이 "하나님은 사랑이시며, 하나님은 선하시다"고 말한다는 점입니다. 그분은 단순히 사랑 많고 선하신 하나님이 아닙니다. 사랑과 선함 그 자체가 영원하신 하나님의 속성이기 때문에 존재합니다.</p>
+          </div>
+        </div>
       </div>
     </div>
   </section>
@@ -411,11 +448,14 @@
       </div>
 
       <div class="kg-pray-cta">
-        <p>이 기도로 예수님을 처음 만나셨나요? 진심으로 축하드립니다.</p>
-        <p class="kg-pray-cta-next">이어서 <strong>다음 걸음을 안내해 드릴게요.</strong></p>
+        <p class="kg-pray-cta-question">이 기도로 예수님을 처음 만나셨나요?</p>
         <div class="kg-pray-cta-buttons">
-          <a href="#growth" class="btn btn--gold-fill" id="kg-pray-btn">오늘 이 기도를 드렸습니다 <span class="dbl-chevron">»</span></a>
+          <a href="#pray-next" class="btn btn--gold-fill" id="kg-pray-btn">오늘 이 기도를 드렸습니다 <span class="dbl-chevron">»</span></a>
+        </div>
+        <p class="kg-pray-cta-congrats" id="pray-next"><strong>진심으로 축하합니다!</strong><br class="verse-break-sm">이어서 다음 걸음을 안내해 드릴게요.</p>
+        <div class="kg-pray-cta-next-buttons">
           <a href="/new-family.html" class="btn btn--outline">예배시간 확인하기 <span class="dbl-chevron">»</span></a>
+          <a href="#growth" class="btn btn--gold">동역자 신청하기 <span class="dbl-chevron">»</span></a>
         </div>
       </div>
     </div>
