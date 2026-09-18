@@ -124,12 +124,16 @@
     margin-top: 12px;
   }
   .nf-contact-box p { margin: 4px 0; }
+  /* 강조 버튼('오늘, 당신을 위한 이야기')은 독립된 줄에서 완전히 가운데 정렬되도록
+     별도 블록으로 둡니다(아래 보조 버튼 두 개와 한 줄로 묶으면, 그룹 전체의 중심은
+     화면 중앙이어도 강조 버튼 자체는 다른 버튼들에 밀려 한쪽으로 쏠려 보였습니다). */
+  .nf-cta-primary { text-align: center; margin-top: 28px; }
   .nf-cta-row {
     display: flex;
     flex-wrap: wrap;
     justify-content: center;
     gap: 12px;
-    margin-top: 28px;
+    margin-top: 14px;
   }
 </style>
 </head>
@@ -187,8 +191,10 @@
         </li>
       </ul>
 
-      <div class="nf-cta-row">
+      <div class="nf-cta-primary">
         <a href="/know-god.html" class="btn btn--gold-fill btn--rainbow">오늘, 당신을 위한 이야기 <span class="dbl-chevron">&raquo;</span></a>
+      </div>
+      <div class="nf-cta-row">
         <a href="/inquiry.html" class="btn btn--outline">온라인 문의하기</a>
         <a href="/#contact" class="btn btn--outline">오시는 길 보기</a>
       </div>
