@@ -255,12 +255,14 @@
   // 옵션이 만드는 부드러운 움직임을 그대로 쓰며, PC/모바일 화면 모두에서 불러옵니다
   // (모션을 줄이도록 설정한 기기에서는 장식 효과이므로 건너뜁니다).
   // PC: 영문 한 줄 / 한글 한 줄, 두 덩어리가 통째로 서로 반대 방향으로 스쳐 지나갑니다
-  //   (#about-bg-left/#about-bg-right 전체를 옮김).
+  //   (#about-bg-left/#about-bg-right 전체를 옮김) — 영문(1열)이 왼쪽에서 오른쪽으로,
+  //   한글(2열)이 오른쪽에서 왼쪽으로 스쳐 지나갑니다.
   // 모바일(~860px 이하): style.css에서 각 문구를 2줄씩(총 4줄)로 나눠 보여주지만, 이동은
-  //   PC와 같은 "2그룹" 방식입니다 — 영문 두 줄(#about-bg-left)이 통째로 오른쪽으로,
-  //   한글 두 줄(#about-bg-right)이 통째로 왼쪽으로 스쳐 지나가되, 속도(이동 폭)는
-  //   PC보다 크게 잡아 눈에 잘 띄게 했습니다. (한때 4줄이 각자 다른 방향으로 움직이는
-  //   방식도 써봤지만, 다시 2그룹 방식으로 되돌렸습니다.)
+  //   PC와 같은 "2그룹" 방식입니다 — PC와 달리 모바일만 방향을 반대로 바꿔서, 영문 두 줄
+  //   (#about-bg-left)이 통째로 오른쪽에서 왼쪽으로, 한글 두 줄(#about-bg-right)이
+  //   통째로 왼쪽에서 오른쪽으로 스쳐 지나가며, 속도(이동 폭)는 PC보다 크게 잡아 눈에
+  //   잘 띄게 했습니다. (한때 4줄이 각자 다른 방향으로 움직이는 방식도 써봤지만, 다시
+  //   2그룹 방식으로 되돌렸고, 이후 모바일만 방향을 반대로 바꿨습니다.)
   //   #about-bg-left는 align-self가 stretch라 래퍼 폭(≈화면 폭) 전체를 차지하고,
   //   #about-bg-right는 flex-end라 자기 글자 폭만큼만 차지하며 화면 오른쪽에 붙어
   //   있습니다. 그래서 xPercent 이동 폭은 "요소 자기 폭의 %"라 실제로는 화면의 상당
@@ -332,28 +334,31 @@
 
       if (isMobile) {
         // 모바일: 영문 두 줄 / 한글 두 줄 덩어리가 각각 통째로 반대 방향으로 스쳐
-        // 지나갑니다. 트리거를 띠 자신(bgWrap)으로 잡고 end를 'top top'으로 둬서,
-        // 띠가 화면 맨 위에 닿는 순간 각 요소가 원래 제자리(0) 근처에 오도록
-        // 했습니다. 시작 지점은 반대쪽으로 당겨서(아래에서 올라오는 동안) 스쳐
-        // 지나가는 느낌을 주는데, 실제 렌더링된 글자 폭 기준으로 2.5글자 정도만
-        // 화면 쪽으로 당겨뒀습니다(영문 -31, 한글 26; "조금 더 빠르게" 요청으로
-        // 1.2배 늘려 영문 -37, 한글 31; "반의 반 글자만 더 지나가게" 요청으로
-        // 글자 폭의 1/4만큼(영문 약 7px, 한글 약 9px) 추가로 당겨 영문 -39,
-        // 한글 33). 끝나는 지점도 같은 요청으로 반의 반 글자만큼(약 2%p) 더
-        // 지나가도록, 제자리(0)에서 멈추지 않고 같은 방향으로 살짝 더 나아가게
-        // 했습니다(영문 0→2, 한글 0→-2).
+        // 지나갑니다(영문은 오른쪽→왼쪽, 한글은 왼쪽→오른쪽). 트리거를 띠 자신(bgWrap)으로
+        // 잡고 end를 'top top'으로 둬서, 띠가 화면 맨 위에 닿는 순간 각 요소가 원래
+        // 제자리(0) 근처에 오도록 했습니다. 시작 지점은 반대쪽으로 당겨서(아래에서
+        // 올라오는 동안) 스쳐 지나가는 느낌을 주는데, 실제 렌더링된 글자 폭 기준으로
+        // 2.5글자 정도만 화면 쪽으로 당겨뒀습니다(영문 -31, 한글 26; "조금 더 빠르게"
+        // 요청으로 1.2배 늘려 영문 -37, 한글 31; "반의 반 글자만 더 지나가게" 요청으로
+        // 글자 폭의 1/4만큼(영문 약 7px, 한글 약 9px) 추가로 당겨 영문 -39, 한글 33).
+        // 끝나는 지점도 같은 요청으로 반의 반 글자만큼(약 2%p) 더 지나가도록, 제자리(0)에서
+        // 멈추지 않고 같은 방향으로 살짝 더 나아가게 했습니다(영문 0→2, 한글 0→-2).
+        // 이후 "이동 방향을 반대로" 요청으로 시작/끝 값의 부호를 모두 뒤집어, 영문은
+        // 오른쪽에서 왼쪽으로(39→-2), 한글은 왼쪽에서 오른쪽으로(-33→2) 스치도록
+        // 바꿨습니다(이동 폭 자체는 그대로 유지).
         const mobileTrigger = bgWrap
           ? { trigger: bgWrap, start: 'top bottom', end: 'top top' }
           : null;
-        scrollSlide(leftEl, -39, 2, mobileTrigger);
-        scrollSlide(rightEl, 33, -2, mobileTrigger);
+        scrollSlide(leftEl, 39, -2, mobileTrigger);
+        scrollSlide(rightEl, -33, 2, mobileTrigger);
       } else {
         // PC: 영문/한글 덩어리 전체가 서로 반대 방향으로, 교회소개 섹션 전체를
-        // 트리거 구간으로 삼아 이동합니다. 1열(영문, leftEl)은 변경 없음.
-        // 2열(한글, rightEl)만 "반 글자 사이즈 정도 더 보여지게" 요청으로 끝나는
-        // 지점을 더 왼쪽으로 늘렸습니다 — 실제 렌더링된 글자 폭 기준 반 글자
-        // (PC 폭 1400px 기준 약 42px ≈ 자기 폭의 3%p)씩 두 차례 늘려
-        // -10 → -13 → -16.
+        // 트리거 구간으로 삼아 이동합니다. 1열(영문, leftEl)은 변경 없음. 2열(한글,
+        // rightEl)만 "반 글자 사이즈 정도 더 보여지게" 요청으로 끝나는 지점을 더
+        // 왼쪽으로 늘렸습니다 — 실제 렌더링된 글자 폭 기준 반 글자(PC 폭 1400px 기준
+        // 약 42px ≈ 자기 폭의 3%p)씩 두 차례 늘려 -10 → -13 → -16. (모바일에서만
+        // 이동 방향을 반대로 바꾼 뒤, PC는 원래대로 영문 왼쪽→오른쪽·한글 오른쪽→왼쪽
+        // 방향으로 되돌렸습니다.)
         scrollSlide(leftEl, 0, 25);
         scrollSlide(rightEl, 15, -16);
       }
@@ -389,27 +394,34 @@
   }
 
   function renderMap(contact) {
-  const box = $('#map-box');
-  if (!box) return;
+    const box = $('#map-box');
+    if (!box) return;
 
-  const validLink = contact.kakaoMapLinkUrl && /^https:\/\/map\.kakao\.com\//.test(contact.kakaoMapLinkUrl)
-    ? contact.kakaoMapLinkUrl
-    : '';
+    const validImage = contact.kakaoMapImageUrl && /^https:\/\/staticmap\.kakao\.com\//.test(contact.kakaoMapImageUrl)
+      ? contact.kakaoMapImageUrl
+      : '';
+    const validLink = contact.kakaoMapLinkUrl && /^https:\/\/map\.kakao\.com\//.test(contact.kakaoMapLinkUrl)
+      ? contact.kakaoMapLinkUrl
+      : '';
 
-  const imgTag = `<img src="/images/church-map.png" alt="물댄동산교회 오시는 길 약도" loading="lazy" />`;
+    if (validImage && validLink) {
+      box.innerHTML = `
+        <a class="kakao-map-preview" href="${validLink}" target="_blank" rel="noopener">
+          <img src="${validImage}" alt="교회 위치 지도" loading="lazy" />
+          <svg class="kakao-map-pin" viewBox="0 0 32 44" aria-hidden="true">
+            <path d="M16 0C7.163 0 0 7.163 0 16c0 11 16 28 16 28s16-17 16-28C32 7.163 24.837 0 16 0z" fill="#0d1526"/>
+            <circle cx="16" cy="16" r="6.5" fill="#c9a227"/>
+          </svg>
+          <span class="kakao-map-cta">카카오맵에서 크게 보기 <span class="dbl-chevron">&raquo;</span></span>
+        </a>`;
+      return;
+    }
 
-  if (validLink) {
-    box.innerHTML = `
-      <a class="kakao-map-preview" href="${validLink}" target="_blank" rel="noopener">
-        ${imgTag}
-        <span class="kakao-map-cta">카카오맵에서 크게 보기 <span class="dbl-chevron">&raquo;</span></span>
-      </a>`;
-    return;
+    if (contact.mapEmbedUrl) {
+      box.innerHTML = `<iframe src="${contact.mapEmbedUrl}" loading="lazy" allowfullscreen></iframe>`;
+    }
   }
 
-  box.innerHTML = `<div class="kakao-map-preview">${imgTag}</div>`;
-}
-    
   function getDeviceType() {
     return window.matchMedia('(max-width: 860px)').matches ? 'mobile' : 'desktop';
   }
