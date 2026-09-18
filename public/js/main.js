@@ -374,33 +374,29 @@
   // 폭)의 블록 요소로 왼쪽 끝이 항상 자동으로 맞기 때문에 별도 JS 보정이 필요 없어져
   // 이 함수(alignAboutBgLine2ToLine1)는 제거했습니다.
 
+  // 카카오맵 API 이미지 대신, 관리자가 미리 준비해둔 약도 이미지(/images/church-map.png)를
+  // 항상 고정으로 보여줍니다. 카카오맵 바로가기 링크가 등록돼 있으면 약도 전체를 그 링크로
+  // 감싸 누르면 카카오맵이 새 창으로 열리게 하고, 링크가 없으면 그냥 이미지만 보여줍니다.
   function renderMap(contact) {
     const box = $('#map-box');
     if (!box) return;
 
-    const validImage = contact.kakaoMapImageUrl && /^https:\/\/staticmap\.kakao\.com\//.test(contact.kakaoMapImageUrl)
-      ? contact.kakaoMapImageUrl
-      : '';
     const validLink = contact.kakaoMapLinkUrl && /^https:\/\/map\.kakao\.com\//.test(contact.kakaoMapLinkUrl)
       ? contact.kakaoMapLinkUrl
       : '';
 
-    if (validImage && validLink) {
+    const imgTag = `<img src="/images/church-map.png" alt="물댄동산교회 오시는 길 약도" loading="lazy" />`;
+
+    if (validLink) {
       box.innerHTML = `
         <a class="kakao-map-preview" href="${validLink}" target="_blank" rel="noopener">
-          <img src="${validImage}" alt="교회 위치 지도" loading="lazy" />
-          <svg class="kakao-map-pin" viewBox="0 0 32 44" aria-hidden="true">
-            <path d="M16 0C7.163 0 0 7.163 0 16c0 11 16 28 16 28s16-17 16-28C32 7.163 24.837 0 16 0z" fill="#0d1526"/>
-            <circle cx="16" cy="16" r="6.5" fill="#c9a227"/>
-          </svg>
+          ${imgTag}
           <span class="kakao-map-cta">카카오맵에서 크게 보기 <span class="dbl-chevron">&raquo;</span></span>
         </a>`;
       return;
     }
 
-    if (contact.mapEmbedUrl) {
-      box.innerHTML = `<iframe src="${contact.mapEmbedUrl}" loading="lazy" allowfullscreen></iframe>`;
-    }
+    box.innerHTML = `<div class="kakao-map-preview">${imgTag}</div>`;
   }
 
   function getDeviceType() {
