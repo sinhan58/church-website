@@ -683,9 +683,12 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
      gap은 0으로 두고 대신 각 줄에 margin-bottom을 줍니다(그룹의 마지막 줄인 r2는 제외). */
   .about-bg-line { display: block; }
   .about-bg-line--l1 { text-align: left; margin-bottom: 14px; }  /* 1행: 왼쪽 정렬로 시작 */
-  .about-bg-line--l2 { text-align: right; margin-bottom: 14px; } /* 2행: 오른쪽 정렬로 시작 */
-  .about-bg-line--r1 { text-align: right; margin-bottom: 14px; } /* 3행: 오른쪽 정렬로 시작 */
-  .about-bg-line--r2 { text-align: right; }                      /* 4행: 오른쪽 정렬로 시작 */
+  /* 2행("DONGSAN CHURCH")은 예전엔 오른쪽 정렬이라 1행("MULDAEN")과 왼쪽 끝이 서로
+     안 맞아 어색해 보였습니다. 1행과 같은 왼쪽 정렬로 바꿔서, 두 줄 다 같은 폭(화면
+     폭)의 블록 요소가 항상 같은 왼쪽 끝에서 시작하도록 맞췄습니다. */
+  .about-bg-line--l2 { text-align: left; margin-bottom: 14px; }  /* 2행: 1행과 같은 왼쪽 정렬 */
+  .about-bg-line--r1 { text-align: right; margin-bottom: 14px; } /* 3행: 오른쪽 정렬로 시작 (기존 그대로) */
+  .about-bg-line--r2 { text-align: right; }                      /* 4행: 오른쪽 정렬로 시작 (기존 그대로) */
 }
 .about-grid {
   display: grid;
