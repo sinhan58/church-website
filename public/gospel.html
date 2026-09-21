@@ -95,7 +95,7 @@
 
 <header class="site-header scrolled">
   <div class="container">
-    <a href="/" class="brand" id="gospel-brand">물댄동산교회</a>
+    <a href="/" class="brand" id="gospel-brand"><img src="/images/brand-symbol.png?v=2" class="brand-logo" alt="" /><span id="gospel-brand-text">물댄동산교회</span></a>
   </div>
 </header>
 
@@ -137,7 +137,10 @@
     .then((site) => {
       if (!site) return;
       if (site.churchName) {
-        document.getElementById('gospel-brand').textContent = site.churchName;
+        // 헤더 로고(이미지)가 #gospel-brand(<a>) 안에 함께 들어있어서, 예전처럼
+        // #gospel-brand.textContent로 통째로 덮어쓰면 로고 이미지까지 지워집니다.
+        // 그래서 글자만 담긴 #gospel-brand-text(<span>)만 따로 갱신합니다.
+        document.getElementById('gospel-brand-text').textContent = site.churchName;
         document.getElementById('gospel-footer-name').textContent = site.churchName;
       }
       const html = site.newFamily && site.newFamily.gospelHtml;
