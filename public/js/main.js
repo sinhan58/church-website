@@ -643,7 +643,12 @@
     }
 
     document.title = site.churchName || '물댄동산교회';
-    $('#brand-name').textContent = site.churchName || '물댄동산교회';
+    // 헤더 로고(이미지)가 #brand-name(<a>) 안에 함께 들어있어서, 예전처럼
+    // #brand-name.textContent로 통째로 덮어쓰면 로고 이미지까지 지워집니다.
+    // 그래서 글자만 담긴 #brand-text(<span>)만 따로 갱신합니다.
+    const brandTextEl = $('#brand-text');
+    if (brandTextEl) brandTextEl.textContent = site.churchName || '물댄동산교회';
+    else $('#brand-name').textContent = site.churchName || '물댄동산교회';
     $('#footer-brand').textContent = site.churchName || '물댄동산교회';
     $('#footer-brand-2').textContent = site.churchName || '물댄동산교회';
     if (site.sermonsIntro) {
