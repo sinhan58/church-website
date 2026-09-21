@@ -138,7 +138,7 @@ ${fontStyleTag}
 
 <header class="site-header scrolled">
   <div class="container">
-    <a href="/" class="brand">${escapeHtml(churchName)}</a>
+    <a href="/" class="brand"><img src="/images/brand-symbol.png?v=2" class="brand-logo" alt="" />${escapeHtml(churchName)}</a>
   </div>
 </header>
 
