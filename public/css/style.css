@@ -1366,6 +1366,16 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   padding-bottom: 2px;
 }
 .praise-category-chips::-webkit-scrollbar { display: none; }
+@media (max-width: 900px) {
+  /* 모바일은 화면 폭이 좁아서 칩이 줄바꿈(flex-wrap:wrap)되면 두 줄로 늘어나
+     공간을 많이 차지합니다. 한 줄로 고정하고(nowrap) 옆으로 스크롤해서 보게 합니다. */
+  .praise-category-chips {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    padding: 0 4px 6px;
+    -webkit-overflow-scrolling: touch;
+  }
+}
 
 .praise-theme-dial-wrap {
   display: none; /* PC에서는 숨김, 칩 목록을 대신 씀 */
@@ -2038,6 +2048,7 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
 }
 #receipt-form textarea { resize: vertical; }
 .btn-gold {
+  display: inline-block;
   align-self: flex-start;
   background: var(--gold);
   color: #fff;
