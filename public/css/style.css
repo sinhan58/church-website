@@ -578,6 +578,11 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   justify-content: center;
   min-width: 240px;
   line-height: 1.35;
+  /* 무지개색 배경(.btn--rainbow) 위에서는 원래 지정된 짙은 남색 글씨가 배경색이
+     바뀔 때마다 대비가 들쭉날쭉해서 읽기 불편했습니다. 흰색으로 통일하고, 밝은
+     배경 색 위에서도 항상 또렷하게 보이도록 은은한 그림자를 더했습니다. */
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(13,21,38,0.35), 0 2px 10px rgba(13,21,38,0.25);
 }
 .hero-cta .btn-row1,
 .hero-cta .btn-row2 {
@@ -689,10 +694,17 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   font-weight: 900;
   text-transform: uppercase;
   white-space: nowrap;
-  color: var(--navy-deep);
-  opacity: 0.09;
+  /* 예전엔 opacity로 전체를 옅게 만들었는데, opacity는 나중에 추가한 그림자 효과까지
+     똑같이 옅게 눌러버려서 그림자가 거의 안 보이는 문제가 있었습니다. 그래서 글씨
+     색 자체에만 투명도를 섞어(color-mix) 옅게 만들고, 그림자는 별도로 온전한
+     밝기로 얹어서 윤곽이 또렷하게 살아나도록 했습니다. */
+  color: color-mix(in srgb, var(--navy-deep) 9%, transparent);
   line-height: 1;
   will-change: transform;
+  text-shadow:
+    0 1px 0 rgba(255,255,255,0.45),
+    0 3px 10px rgba(13,21,38,0.22),
+    0 12px 32px rgba(201,162,39,0.22);
 }
 .about-bg-type--right { align-self: flex-end; }
 @media (max-width: 860px) {
@@ -1374,6 +1386,11 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
     justify-content: flex-start;
     padding: 0 4px 6px;
     -webkit-overflow-scrolling: touch;
+    /* 오른쪽 끝 칩이 화면 경계에 딱 맞춰 잘리면 "더 있다"는 느낌이 잘 안 나서,
+       오른쪽 끝을 부드럽게 페이드아웃시켜 옆으로 더 스크롤할 수 있다는 걸
+       바로 알아챌 수 있게 했습니다. */
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 36px), transparent 100%);
+    mask-image: linear-gradient(90deg, #000 calc(100% - 36px), transparent 100%);
   }
 }
 
