@@ -16,7 +16,12 @@
     .then((site) => {
       if (site && site.churchName) {
         document.title = `${document.title} | ${site.churchName}`;
-        $('#quiz-brand').textContent = site.churchName;
+        // 헤더 로고(이미지)가 #quiz-brand(<a>) 안에 함께 들어있어서, 예전처럼
+        // #quiz-brand.textContent로 통째로 덮어쓰면 로고 이미지까지 지워집니다.
+        // 그래서 글자만 담긴 #quiz-brand-text(<span>)만 따로 갱신합니다.
+        const brandTextEl = $('#quiz-brand-text');
+        if (brandTextEl) brandTextEl.textContent = site.churchName;
+        else $('#quiz-brand').textContent = site.churchName;
         $('#quiz-footer-name').textContent = site.churchName;
       }
     })
