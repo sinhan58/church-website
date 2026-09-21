@@ -699,18 +699,15 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   font-weight: 900;
   text-transform: uppercase;
   white-space: nowrap;
-  /* opacity로 전체를 옅게 처리하면 그림자까지 같이 옅어져서 그림자가 거의 안
-     보였습니다. 글씨 색 자체에만 옅은 정도를 섞고(밝기는 기존 opacity:0.09와
-     동일), 그림자는 분리해서 온전한 세기로 한 방향(오른쪽 아래)으로 또렷하게
-     넣어 보내주신 샘플과 같은 입체감을 냈습니다. */
-  color: color-mix(in srgb, var(--navy-deep) 9%, transparent);
+  /* 글씨 자체가 9%로 너무 옅다 보니, 오프셋을 준 그림자가 마치 살짝 떨어진
+     자리에 찍힌 "또 다른 글씨"처럼 따로 보이는 문제가 있었습니다(그림자가
+     원래 글씨보다 더 진하고 또렷해서 오히려 그림자 쪽이 "진짜 글씨"처럼
+     읽혔던 것). 글씨 자체를 훨씬 진하게(26%) 만들어서 글씨가 확실한
+     주인공이 되게 하고, 그 아래 자연스러운 그림자를 넣어 입체감을 줬습니다. */
+  color: color-mix(in srgb, var(--navy-deep) 26%, transparent);
   line-height: 1;
   will-change: transform;
-  /* 글씨 자체가 9%로 아주 옅다 보니, 그림자의 흐림(blur) 반경이 조금만 커도
-     흐릿한 진짜 글씨보다 그림자 쪽이 더 두드러져서 전체가 초점 나간 사진처럼
-     뿌옇게 보였습니다. 흐림을 최소화하고(3px) 살짝 진하게(0.4) 해서, 흐려
-     보이지 않으면서도 오른쪽 아래로 또렷한 그림자만 지도록 했습니다. */
-  text-shadow: 3px 4px 3px rgba(13, 21, 38, 0.4);
+  text-shadow: 3px 4px 4px rgba(13, 21, 38, 0.35);
 }
 .about-bg-type--right { align-self: flex-end; }
 @media (max-width: 860px) {
