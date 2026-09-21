@@ -508,18 +508,28 @@
   }
 
   // ---------------- 모바일 메뉴 ----------------
+  // 예전엔 화면 오른쪽에서 전체 높이(100vh)로 밀고 들어오는 막대 형태라, 카드 밖=페이지
+  // 나머지 부분이 곧 배경이었습니다. 이제 화면 오른쪽 위에 뜨는 작은 둥근 카드 형태로
+  // 바뀌면서, 카드 밖(뒤 배경)을 탭해도 닫히는 걸 알려주는 옅은 반투명 오버레이
+  // (.nav-mobile-scrim)가 따로 필요해져서 메뉴와 함께 열고 닫아줍니다.
   const hamburger = $('#hamburger');
   const navMobile = $('#nav-mobile');
+  const navMobileScrim = $('#nav-mobile-scrim');
+  function closeMobileMenu() {
+    hamburger.classList.remove('active');
+    navMobile.classList.remove('open');
+    if (navMobileScrim) navMobileScrim.classList.remove('open');
+  }
   hamburger.addEventListener('click', () => {
-    hamburger.classList.toggle('active');
-    navMobile.classList.toggle('open');
+    const willOpen = !navMobile.classList.contains('open');
+    hamburger.classList.toggle('active', willOpen);
+    navMobile.classList.toggle('open', willOpen);
+    if (navMobileScrim) navMobileScrim.classList.toggle('open', willOpen);
   });
   navMobile.addEventListener('click', (e) => {
-    if (e.target.tagName === 'A') {
-      hamburger.classList.remove('active');
-      navMobile.classList.remove('open');
-    }
+    if (e.target.tagName === 'A') closeMobileMenu();
   });
+  if (navMobileScrim) navMobileScrim.addEventListener('click', closeMobileMenu);
 
   // ---------------- 사이트 기본 정보 ----------------
   // 대문(히어로) 배경 사진 슬라이드쇼: 사진을 여러 장 등록하면 몇 초마다 자연스럽게
