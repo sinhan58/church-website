@@ -148,7 +148,7 @@
 
 <header class="site-header scrolled">
   <div class="container">
-    <a href="/" class="brand" id="nf-brand">물댄동산교회</a>
+    <a href="/" class="brand" id="nf-brand"><img src="/images/brand-symbol.png?v=2" class="brand-logo" alt="" /><span id="nf-brand-text">물댄동산교회</span></a>
     <nav class="nav-desktop" id="nf-nav-desktop"></nav>
     <button class="hamburger" id="nf-hamburger" aria-label="메뉴 열기">
       <span></span><span></span><span></span>
@@ -234,7 +234,10 @@
       if (!site) return;
       if (site.churchName) {
         document.title = `새가족 메시지 | ${site.churchName}`;
-        document.getElementById('nf-brand').textContent = site.churchName;
+        // 헤더 로고(이미지)가 #nf-brand(<a>) 안에 함께 들어있어서, 예전처럼
+        // #nf-brand.textContent로 통째로 덮어쓰면 로고 이미지까지 지워집니다.
+        // 그래서 글자만 담긴 #nf-brand-text(<span>)만 따로 갱신합니다.
+        document.getElementById('nf-brand-text').textContent = site.churchName;
         document.getElementById('nf-church-name-inline').textContent = site.churchName;
         document.getElementById('nf-footer-name').textContent = site.churchName;
       }
