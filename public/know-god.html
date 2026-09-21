@@ -305,7 +305,7 @@
 
 <header class="site-header scrolled">
   <div class="container">
-    <a href="/" class="brand" id="kg-brand">물댄동산교회</a>
+    <a href="/" class="brand" id="kg-brand"><img src="/images/brand-symbol.png?v=2" class="brand-logo" alt="" /><span id="kg-brand-text">물댄동산교회</span></a>
     <nav class="nav-desktop" id="kg-nav-desktop"></nav>
     <button class="hamburger" id="kg-hamburger" aria-label="메뉴 열기">
       <span></span><span></span><span></span>
@@ -525,7 +525,10 @@
       if (!site) return;
       if (site.churchName) {
         document.getElementById('kg-title').textContent = `하나님의 이야기 | ${site.churchName}`;
-        document.getElementById('kg-brand').textContent = site.churchName;
+        // 헤더 로고(이미지)가 #kg-brand(<a>) 안에 함께 들어있어서, 예전처럼
+        // #kg-brand.textContent로 통째로 덮어쓰면 로고 이미지까지 지워집니다.
+        // 그래서 글자만 담긴 #kg-brand-text(<span>)만 따로 갱신합니다.
+        document.getElementById('kg-brand-text').textContent = site.churchName;
         document.getElementById('kg-footer-name').textContent = site.churchName;
       }
     })
