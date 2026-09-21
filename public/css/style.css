@@ -706,7 +706,11 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   color: color-mix(in srgb, var(--navy-deep) 9%, transparent);
   line-height: 1;
   will-change: transform;
-  text-shadow: 4px 6px 10px rgba(13, 21, 38, 0.45);
+  /* 글씨 자체가 9%로 아주 옅다 보니, 그림자의 흐림(blur) 반경이 조금만 커도
+     흐릿한 진짜 글씨보다 그림자 쪽이 더 두드러져서 전체가 초점 나간 사진처럼
+     뿌옇게 보였습니다. 흐림을 최소화하고(3px) 살짝 진하게(0.4) 해서, 흐려
+     보이지 않으면서도 오른쪽 아래로 또렷한 그림자만 지도록 했습니다. */
+  text-shadow: 3px 4px 3px rgba(13, 21, 38, 0.4);
 }
 .about-bg-type--right { align-self: flex-end; }
 @media (max-width: 860px) {
