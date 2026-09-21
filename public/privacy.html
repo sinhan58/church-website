@@ -93,7 +93,7 @@
 
 <header class="site-header scrolled">
   <div class="container">
-    <a href="/" class="brand" id="policy-brand">물댄동산교회</a>
+    <a href="/" class="brand" id="policy-brand"><img src="/images/brand-symbol.png?v=2" class="brand-logo" alt="" /><span id="policy-brand-text">물댄동산교회</span></a>
   </div>
 </header>
 
@@ -209,7 +209,7 @@
     .then((site) => {
       if (site && site.churchName) {
         document.title = `개인정보처리방침 | ${site.churchName}`;
-        document.getElementById('policy-brand').textContent = site.churchName;
+        document.getElementById('policy-brand-text').textContent = site.churchName;
         document.getElementById('policy-church-name').textContent = site.churchName;
         document.getElementById('policy-footer-name').textContent = site.churchName;
       }
