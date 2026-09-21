@@ -349,6 +349,16 @@ html.theme-b .nav-desktop a {
   font-weight: 700;
   color: #fff;
   letter-spacing: -0.01em;
+  display: flex;
+  align-items: center;
+}
+/* 글씨 크기(em)에 비례해서 커지도록 해서, 컨셉B PC(2.8rem)처럼 글씨가 커지는
+   자리에서도 로고와 글씨 비율이 항상 같게 유지됩니다. */
+.brand-logo {
+  height: 1.3em;
+  width: auto;
+  margin-right: 0.32em;
+  flex: none;
 }
 @media (min-width: 861px) {
   /* 반투명 헤더 바 두께(패딩 15px×2 + 글씨 줄높이)는 그대로 두고, 글씨만 최대한
