@@ -399,27 +399,62 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
 .hamburger.active span:nth-child(2) { opacity: 0; }
 .hamburger.active span:nth-child(3) { transform: translateY(-7px) rotate(-45deg); }
 
+/* 예전엔 화면 오른쪽에서 전체 높이(100vh)로 밀고 들어오는 막대 형태였는데, 화면을
+   너무 많이 가려서 둥근 모서리의 작은 카드 형태로 바꿨습니다. 폭은 화면의 약 1/3
+   (clamp로 너무 좁거나 넓어지지 않게 172~260px 사이로 제한), 높이는 100vh 고정이
+   아니라 메뉴 목록 내용만큼만(auto) 차지합니다. 등장/퇴장도 위→아래로 꽉 채워 밀고
+   들어오는 느낌 대신, 오른쪽에서 왼쪽으로 슬라이드되며 페이드인/아웃되는 부드러운
+   느낌으로 바꿨습니다(.nav-mobile-scrim이 뒤에서 옅게 배경을 덮어, 카드 밖을 탭하면
+   닫히는 것도 자연스럽게 인지되게 합니다). */
 .nav-mobile {
   display: none;
   flex-direction: column;
   position: fixed;
-  top: 0; right: 0;
-  width: min(78vw, 320px);
-  height: 100vh;
-  background: var(--navy-deep);
-  padding: 100px 32px 32px;
-  transform: translateX(100%);
-  transition: transform 0.3s ease;
-  z-index: 99;
+  top: 84px;
+  right: 16px;
+  width: clamp(172px, 34vw, 260px);
+  max-height: calc(100vh - 104px);
+  overflow-y: auto;
+  background: #fbf8ef;
+  border-radius: 18px;
+  box-shadow: 0 12px 28px rgba(15, 21, 26, 0.18);
+  padding: 10px 8px;
+  transform-origin: top right;
+  transform: translateX(36px);
+  opacity: 0;
+  pointer-events: none;
+  transition: transform 0.42s cubic-bezier(.16,1,.3,1), opacity 0.38s ease;
+  z-index: 101;
 }
-.nav-mobile.open { transform: translateX(0); }
+.nav-mobile.open {
+  transform: translateX(0);
+  opacity: 1;
+  pointer-events: auto;
+}
 .nav-mobile a {
-  color: #eceaf0;
-  padding: 14px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  font-size: 1.05rem;
-  transition: filter 0.15s ease;
+  display: block;
+  color: #1c2b2a;
+  padding: 12px 12px;
+  border-radius: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  transition: background 0.15s ease;
 }
+.nav-mobile a:active { background: rgba(15, 61, 64, 0.08); }
+
+/* 메뉴 카드 밖(뒤 배경)을 탭하면 닫히는 것을 인지시켜주는 옅은 반투명 오버레이.
+   카드처럼 open 클래스로 함께 열리고 닫힙니다(main.js에서 같이 토글). */
+.nav-mobile-scrim {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 21, 26, 0.12);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  z-index: 98;
+}
+.nav-mobile-scrim.open { opacity: 1; pointer-events: auto; }
 
 /* ---------------- Hero ---------------- */
 .hero {
@@ -2346,6 +2381,7 @@ html.theme-b .footer-heresy-notice { color: #8fb0ad; }
   .nav-desktop { display: none; }
   .hamburger { display: flex; }
   .nav-mobile { display: flex; }
+  .nav-mobile-scrim { display: block; }
   .about-grid { grid-template-columns: 1fr; }
   #about-body-text p { margin: 0; }
   .contact-grid { grid-template-columns: 1fr; }
