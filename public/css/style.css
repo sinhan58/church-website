@@ -685,11 +685,14 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   flex-direction: column;
   gap: 14px;
   margin: 0 0 44px;
-  /* 가로로만 흘러 지나가는 효과라 가로 넘침만 잘라내면 되는데, overflow:hidden을
-     양쪽 축에 다 걸어두면 아래로 퍼지는 그림자(특히 2번째 줄)까지 세로로 잘려
-     보이는 문제가 있었습니다. 가로만 잘라내고 세로는 그대로 두어 그림자가
-     잘리지 않게 합니다. */
-  overflow-x: hidden;
+  /* 가로로만 흘러 지나가는 효과라 가로 넘침만 잘라내면 되는데, overflow-x:hidden과
+     overflow-y:visible을 같이 쓰면 스펙상 "한쪽이 visible이 아니면 다른 쪽 visible은
+     auto로 강제 변환"되는 규칙 때문에 overflow-y가 실제로는 auto로 계산되어 버려서
+     text-shadow 같은 잉크 오버플로우까지 다시 잘리는 문제가 있었습니다(2번째 줄
+     그림자 하단이 평평하게 잘려 보이던 원인). overflow-x: clip은 이 강제 변환 예외
+     대상이라, clip으로 바꾸면 가로는 그대로 잘리면서 세로는 진짜 visible로 유지되어
+     그림자가 잘리지 않습니다. */
+  overflow-x: clip;
   overflow-y: visible;
   pointer-events: none;
   user-select: none;
