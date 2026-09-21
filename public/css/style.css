@@ -685,7 +685,12 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   flex-direction: column;
   gap: 14px;
   margin: 0 0 44px;
-  overflow: hidden;
+  /* 가로로만 흘러 지나가는 효과라 가로 넘침만 잘라내면 되는데, overflow:hidden을
+     양쪽 축에 다 걸어두면 아래로 퍼지는 그림자(특히 2번째 줄)까지 세로로 잘려
+     보이는 문제가 있었습니다. 가로만 잘라내고 세로는 그대로 두어 그림자가
+     잘리지 않게 합니다. */
+  overflow-x: hidden;
+  overflow-y: visible;
   pointer-events: none;
   user-select: none;
 }
@@ -694,11 +699,14 @@ html.theme-b .nav-desktop a { font-size: 1.15rem; }
   font-weight: 900;
   text-transform: uppercase;
   white-space: nowrap;
-  color: var(--navy-deep);
-  opacity: 0.09;
+  /* opacity로 전체를 옅게 처리하면 그림자까지 같이 옅어져서 그림자가 거의 안
+     보였습니다. 글씨 색 자체에만 옅은 정도를 섞고(밝기는 기존 opacity:0.09와
+     동일), 그림자는 분리해서 온전한 세기로 한 방향(오른쪽 아래)으로 또렷하게
+     넣어 보내주신 샘플과 같은 입체감을 냈습니다. */
+  color: color-mix(in srgb, var(--navy-deep) 9%, transparent);
   line-height: 1;
   will-change: transform;
-  text-shadow: 0 2px 4px rgba(13,21,38,0.35);
+  text-shadow: 4px 6px 10px rgba(13, 21, 38, 0.45);
 }
 .about-bg-type--right { align-self: flex-end; }
 @media (max-width: 860px) {
