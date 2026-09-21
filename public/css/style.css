@@ -352,10 +352,11 @@ html.theme-b .nav-desktop a {
   display: flex;
   align-items: center;
 }
-/* 글씨 크기(em)에 비례해서 커지도록 해서, 컨셉B PC(2.8rem)처럼 글씨가 커지는
-   자리에서도 로고와 글씨 비율이 항상 같게 유지됩니다. */
+/* 모바일·PC 컨셉A는 글자 줄높이(36.72px)가 메뉴줄 두께를 정하고 있어서, 로고가 그
+   줄높이를 넘지만 않으면 두께가 절대 안 늘어납니다. 실측해보니 36.72px까지 여유가
+   있어서, 안전하게 36px로 고정했습니다(기존 1.3em ≈ 28px 대비 더 크지만 줄높이 밑). */
 .brand-logo {
-  height: 1.3em;
+  height: 36px;
   width: auto;
   margin-right: 0.32em;
   flex: none;
@@ -370,6 +371,18 @@ html.theme-b .nav-desktop a {
      54.91px를 넘지 않아 바 두께는 실측 기준 그대로(84.9px) 유지됩니다.
      (계산: 47.6px × 1.15 ≈ 54.74px ≤ 기존 줄높이 54.91px) */
   html.theme-b .brand { font-size: 2.8rem; line-height: 1.15; }
+  /* 컨셉B PC는 글씨가 커서(47.6px) 로고가 이미 텍스트 줄높이(54.74px)보다 큰
+     61.88px(1.3em) 상태였고, 이게 곧 지금의 메뉴줄 두께를 결정하고 있습니다.
+     위 36px 고정값을 그대로 두면 오히려 지금보다 얇아져 버리므로, 이 화면만은
+     기존 비율(1.3em = 지금 크기 그대로)로 되돌려서 두께가 절대 변하지 않게 합니다. */
+  html.theme-b .brand-logo { height: 1.3em; }
+}
+/* 컨셉B 헤더는 색 없이 아주 옅은 흰 미스트만 깔려 있어, 흰색 선으로만 그려진 로고가
+   밝은 배경 위를 지날 때 배경에 묻힐 수 있습니다. 교회명·햄버거 아이콘과 똑같은
+   그림자를 넣어 대비를 보강합니다(컨셉A는 배경이 항상 어두워 그림자가 필요 없어서
+   지금까지와 같이 컨셉B에만 적용합니다). */
+html.theme-b .brand-logo {
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.5)) drop-shadow(0 2px 10px rgba(0,0,0,0.35));
 }
 .brand .gold-dot { color: var(--gold); }
 
