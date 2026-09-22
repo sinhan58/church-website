@@ -4051,6 +4051,101 @@ a:focus-visible, button:focus-visible {
   color: #fff;
 }
 
+/* 계정 표시줄의 "읽기표 보기" 버튼 */
+.bible-progress-btn {
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--navy-deep);
+  font-size: 0.78rem;
+  font-weight: 600;
+  border-radius: 999px;
+  padding: 5px 12px;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+.bible-progress-btn:hover { border-color: var(--gold); }
+
+/* 성경읽기표 모달 */
+.bible-progress-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(13,21,38,0.55);
+  padding: 24px;
+  align-items: center;
+  justify-content: center;
+}
+.bible-progress-modal.open { display: flex; }
+.bible-progress-modal-inner {
+  background: #fff;
+  border-radius: 16px;
+  padding: 22px;
+  width: 100%;
+  max-width: 520px;
+  max-height: min(85vh, 720px);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+}
+.bible-progress-summary {
+  margin: 0 0 4px;
+  font-size: 0.84rem;
+  color: var(--muted);
+}
+.bible-progress-section h4 {
+  margin: 10px 0 8px;
+  font-size: 0.88rem;
+  color: var(--navy-deep);
+  font-family: var(--font-heading);
+}
+.bible-progress-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.bible-progress-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--ivory);
+  padding: 8px 10px;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s ease;
+}
+.bible-progress-row:hover { border-color: var(--gold); }
+.bible-progress-row.is-done { background: #fbf6e6; border-color: var(--gold-soft); }
+.bible-progress-name {
+  flex: 0 0 84px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+.bible-progress-bar-track {
+  flex: 1;
+  height: 6px;
+  border-radius: 999px;
+  background: var(--line);
+  overflow: hidden;
+}
+.bible-progress-bar-fill {
+  display: block;
+  height: 100%;
+  background: var(--gold);
+  border-radius: 999px;
+}
+.bible-progress-count {
+  flex: 0 0 52px;
+  font-size: 0.72rem;
+  color: var(--muted);
+  text-align: right;
+}
+
 .bible-reading-status {
   text-align: center;
   color: var(--muted);
