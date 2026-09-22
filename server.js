@@ -20,6 +20,7 @@ const renderPrivacyPage = createStaticPageRenderer('privacy.html');
 const renderNewFamilyPage = createStaticPageRenderer('new-family.html');
 const renderGospelPage = createStaticPageRenderer('gospel.html');
 const renderKnowGodPage = createStaticPageRenderer('know-god.html');
+const renderBiblePage = createStaticPageRenderer('bible.html');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -216,6 +217,16 @@ app.get('/know-god.html', async (req, res, next) => {
   try {
     const site = await readData('site');
     res.send(renderKnowGodPage({ site: site || {} }));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// 성경 리더 (다른 보조 페이지들과 동일하게 관리자가 고른 글씨체를 서버에서 미리 반영)
+app.get('/bible.html', async (req, res, next) => {
+  try {
+    const site = await readData('site');
+    res.send(renderBiblePage({ site: site || {} }));
   } catch (err) {
     next(err);
   }
