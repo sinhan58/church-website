@@ -311,7 +311,9 @@ router.get('/bible/history', async (req, res) => {
       loggedIn: true,
       nickname: record.nickname || '',
       lastRead: record.lastRead || null,
-      readCount: Array.isArray(record.readChapters) ? record.readChapters.length : 0
+      readCount: Array.isArray(record.readChapters) ? record.readChapters.length : 0,
+      // "성경읽기표"에서 책별로 몇 장 읽었는지 계산하려면 전체 목록이 필요해서 함께 내려줍니다.
+      readChapters: Array.isArray(record.readChapters) ? record.readChapters : []
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
