@@ -174,6 +174,9 @@
         }
         history.replaceState(null, '', `/bible.html?${params.toString()}`);
 
+        // 로그인 중이라면, 지금 펼친 장을 "마지막으로 읽은 곳"으로 서버에 저장합니다.
+        recordReadingProgress(currentBook, currentChapter, highlightRange ? highlightRange.start : null);
+
         if (highlightRange) {
           setTimeout(() => {
             const target = $(`.bible-verse[data-verse="${highlightRange.start}"]`);
@@ -276,11 +279,127 @@
     if (document.visibilityState === 'hidden') stopSpeaking();
   });
 
-  // ---------------- 시작: 책 목록을 받아온 뒤, 딥링크가 있으면 그 위치로 이동 ----------------
-  fetch('/api/bible/books')
-    .then((res) => res.json())
-    .then((data) => {
-      booksIndex = data.books || [];
+  // ---------------- 카카오 로그인 + 읽기 기록 ----------------
+  // "지금 로그인되어 있는가"와 "지금까지 읽은 장 수"는 여러 함수(시작 시 이어읽기,
+  // 장을 펼칠 때마다 기록 저장, 계정 표시줄 갱신)에서 함께 써야 해서 상태로 둡니다.
+  let kakaoConfig = null; // { enabled, jsKey, redirectUri }
+  let isLoggedIn = false;
+  let readCount = 0;
+
+  function updateAccountBar() {
+    const bar = $('#bible-account-bar');
+    const loginBtn = $('#bible-login-btn');
+    const info = $('#bible-account-info');
+    if (!kakaoConfig || !kakaoConfig.enabled) {
+      bar.hidden = true;
+      return;
+    }
+    bar.hidden = false;
+    if (isLoggedIn) {
+      loginBtn.hidden = true;
+      info.hidden = false;
+      $('#bible-account-progress').textContent = readCount > 0 ? `지금까지 ${readCount}장 읽으셨어요` : '오늘부터 읽기 기록이 저장돼요';
+    } else {
+      loginBtn.hidden = false;
+      info.hidden = true;
+    }
+  }
+
+  function loadKakaoSdk() {
+    return new Promise((resolve, reject) => {
+      if (window.Kakao) { resolve(); return; }
+      const s = document.createElement('script');
+      // 버전은 카카오 개발자 사이트(디벨로퍼스 > 문서 > JavaScript > 다운로드)의 최신
+      // 안정 버전을 따릅니다. 오래돼서 업데이트가 필요해지면 이 숫자만 바꾸면 됩니다.
+      s.src = 'https://t1.kakaocdn.net/kakao_js_sdk/2.8.3/kakao.min.js';
+      s.crossOrigin = 'anonymous';
+      s.onload = resolve;
+      s.onerror = reject;
+      document.head.appendChild(s);
+    });
+  }
+
+  function setupKakaoLogin() {
+    fetch('/api/bible/kakao-config')
+      .then((res) => res.json())
+      .then((cfg) => {
+        kakaoConfig = cfg;
+        if (!cfg.enabled) { updateAccountBar(); return; }
+        loadKakaoSdk()
+          .then(() => {
+            if (!window.Kakao.isInitialized()) window.Kakao.init(cfg.jsKey);
+            updateAccountBar();
+          })
+          .catch(() => { kakaoConfig = { enabled: false }; updateAccountBar(); });
+      })
+      .catch(() => {});
+  }
+
+  $('#bible-login-btn').addEventListener('click', () => {
+    if (!kakaoConfig || !kakaoConfig.enabled || !window.Kakao || !window.Kakao.isInitialized()) return;
+    // 로그인하러 가기 직전, 지금 보고 있던 장/절 위치(주소창 쿼리스트링)를 그대로 실어
+    // 보내서, 로그인하고 돌아왔을 때 원래 보던 자리로 이어집니다.
+    window.Kakao.Auth.authorize({
+      redirectUri: kakaoConfig.redirectUri,
+      state: encodeURIComponent(location.search || '')
+    });
+  });
+
+  $('#bible-logout-btn').addEventListener('click', () => {
+    fetch('/api/bible/logout', { method: 'POST' }).then(() => {
+      isLoggedIn = false;
+      readCount = 0;
+      updateAccountBar();
+    });
+  });
+
+  // 카카오 로그인 콜백이 실패했을 때(?kakaoError=1) 안내만 하고 조용히 지웁니다.
+  (function handleKakaoErrorParam() {
+    const params = new URLSearchParams(location.search);
+    if (params.get('kakaoError') === '1') {
+      params.delete('kakaoError');
+      const rest = params.toString();
+      history.replaceState(null, '', `/bible.html${rest ? '?' + rest : ''}`);
+      alert('카카오 로그인에 실패했습니다. 잠시 후 다시 시도해주세요.');
+    }
+  })();
+
+  // 장을 펼칠 때마다(로그인 상태일 때만) 서버에 "마지막으로 읽은 곳"을 저장합니다.
+  function recordReadingProgress(book, chapter, verse) {
+    if (!isLoggedIn) return;
+    fetch('/api/bible/history', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code: book.code, chapter, verse: verse || null })
+    })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && typeof data.readCount === 'number') {
+          readCount = data.readCount;
+          updateAccountBar();
+        }
+      })
+      .catch(() => {});
+  }
+
+  // ---------------- 시작: 책 목록 + 로그인 상태를 함께 받아온 뒤, 위치를 정합니다 ----------------
+  // 우선순위: ① 큐티/설교의 ref 딥링크 ② 주소창의 b/c/v ③ 로그인 상태라면 마지막으로
+  // 읽던 곳 ④ 그 무엇도 없으면 창세기 1장.
+  setupKakaoLogin();
+
+  Promise.all([
+    fetch('/api/bible/books').then((res) => res.json()),
+    fetch('/api/bible/history').then((res) => (res.ok ? res.json() : { loggedIn: false }))
+  ])
+    .then(([booksData, historyData]) => {
+      booksIndex = booksData.books || [];
+      isLoggedIn = !!historyData.loggedIn;
+      readCount = historyData.readCount || 0;
+      updateAccountBar();
+      if (isLoggedIn) {
+        const nameEl = $('#bible-account-name');
+        nameEl.textContent = historyData.nickname ? `${historyData.nickname}님, 안녕하세요` : '카카오 계정으로 로그인됨';
+      }
 
       const params = new URLSearchParams(location.search);
       const refParam = params.get('ref'); // 큐티/설교 쪽에서 원문 그대로 넘어온 경우
@@ -300,9 +419,9 @@
                 return;
               }
             }
-            loadDefaultBook();
+            loadStartingPoint(historyData);
           })
-          .catch(loadDefaultBook);
+          .catch(() => loadStartingPoint(historyData));
         return;
       }
 
@@ -320,11 +439,24 @@
         }
       }
 
-      loadDefaultBook();
+      loadStartingPoint(historyData);
     })
     .catch(() => {
       $('#bible-loading').textContent = '책 목록을 불러오지 못했습니다. 잠시 후 다시 시도해주세요.';
     });
+
+  function loadStartingPoint(historyData) {
+    // 딥링크가 없을 때: 로그인 중이고 마지막으로 읽던 곳이 있으면 그곳부터 이어서 보여주고,
+    // 그마저 없으면(첫 방문 등) 창세기 1장부터 시작합니다.
+    if (historyData && historyData.loggedIn && historyData.lastRead && historyData.lastRead.code) {
+      const book = booksIndex.find((b) => b.code === historyData.lastRead.code);
+      if (book) {
+        loadChapter(book, historyData.lastRead.chapter || 1);
+        return;
+      }
+    }
+    loadDefaultBook();
+  }
 
   function loadDefaultBook() {
     // 특별히 지정된 위치가 없으면 창세기 1장부터 시작합니다.
