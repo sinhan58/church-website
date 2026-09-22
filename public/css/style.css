@@ -3809,6 +3809,66 @@ a:focus-visible, button:focus-visible {
 .bible-page-container {
   max-width: 720px;
 }
+
+/* 카카오 로그인 / 읽기 기록 안내 바 (로그인 전엔 버튼만, 로그인 후엔 정보만 보임) */
+.bible-account-bar {
+  margin-bottom: 16px;
+}
+.bible-login-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 11px 14px;
+  border: none;
+  border-radius: 8px;
+  background: #fee500;
+  color: #3c1e1e;
+  font-family: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: filter 0.15s ease;
+}
+.bible-login-btn:hover { filter: brightness(0.96); }
+.bible-kakao-icon { font-size: 1rem; line-height: 1; }
+.bible-account-info {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  padding: 10px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--ivory);
+}
+.bible-account-name {
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+.bible-account-progress {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: var(--navy-deep);
+  background: var(--gold-soft);
+  border-radius: 999px;
+  padding: 3px 9px;
+  white-space: nowrap;
+}
+.bible-logout-btn {
+  margin-left: auto;
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-decoration: underline;
+  cursor: pointer;
+}
+.bible-logout-btn:hover { color: var(--ink); }
+
 .bible-toolbar {
   display: flex;
   flex-direction: column;
