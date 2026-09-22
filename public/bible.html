@@ -69,6 +69,18 @@
         <h2>성경 읽기</h2>
       </div>
 
+      <!-- 카카오 로그인으로 읽기 기록을 이어가는 영역 (로그인 전/후 둘 중 하나만 보임) -->
+      <div class="bible-account-bar" id="bible-account-bar" hidden>
+        <button type="button" class="bible-login-btn" id="bible-login-btn" hidden>
+          <span class="bible-kakao-icon">💬</span> 카카오로 로그인하고 읽기 기록 저장하기
+        </button>
+        <div class="bible-account-info" id="bible-account-info" hidden>
+          <span class="bible-account-name" id="bible-account-name"></span>
+          <span class="bible-account-progress" id="bible-account-progress"></span>
+          <button type="button" class="bible-logout-btn" id="bible-logout-btn">로그아웃</button>
+        </div>
+      </div>
+
       <!-- 신/구약 선택 + 책·장 선택 + 글자 크기 + 듣기 도구모음 -->
       <div class="bible-toolbar">
         <div class="bible-testament-tabs" role="tablist" aria-label="신구약 선택">
@@ -136,6 +148,6 @@
   </div>
 </footer>
 
-<script src="/js/bible.js?v=1"></script>
+<script src="/js/bible.js?v=2"></script>
 </body>
 </html>
