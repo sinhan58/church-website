@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<script>if ('scrollRestoration' in history) { history.scrollRestoration = 'manual'; }</script>
+<!-- 글씨체 준비될 때까지 잠깐 화면 숨기기 (최대 0.8초) -->
+<script>document.documentElement.classList.add('fonts-loading');</script>
+<style>
+  html.fonts-loading body { opacity: 0; }
+  body { transition: opacity 0.25s ease; }
+</style>
+<script>
+(function () {
+  var done = false;
+  function reveal() {
+    if (done) return;
+    done = true;
+    document.documentElement.classList.remove('fonts-loading');
+  }
+  function waitForLinkLoad(link) {
+    return new Promise(function (resolve) {
+      if (link.sheet) { resolve(); return; }
+      link.addEventListener('load', resolve, { once: true });
+      link.addEventListener('error', resolve, { once: true });
+    });
+  }
+  var fontLinks = Array.prototype.slice.call(document.querySelectorAll('link.gfont-link'));
+  var linksReady = fontLinks.length ? Promise.all(fontLinks.map(waitForLinkLoad)) : Promise.resolve();
+  var fontsApiReady = ('fonts' in document) ? document.fonts.ready : Promise.resolve();
+  var ready = linksReady.then(function () { return fontsApiReady; });
+  Promise.race([
+    ready,
+    new Promise(function (resolve) { setTimeout(resolve, 800); })
+  ]).then(reveal);
+  setTimeout(reveal, 1500);
+})();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>성경 읽기</title>
+<meta name="description" content="개역한글 성경을 장·절 단위로 읽고, 글자 크기 조절과 음성으로 듣기 기능을 이용할 수 있습니다." />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link class="gfont-link" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;600;700&display=block" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+<link rel="stylesheet" href="/css/style.css" />
+<!--FONT_STYLE_TAG-->
+
+<!-- PWA: 홈 화면에 추가했을 때 앱처럼 보이도록 하는 설정 -->
+<link rel="manifest" href="/manifest.json" />
+<meta name="theme-color" content="#0d1526" />
+<link rel="icon" href="/icons/icon-192-v2.png" />
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon-v2.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+</head>
+<body>
+
+<header class="site-header scrolled">
+  <div class="container">
+    <a href="/" class="brand" id="bible-brand"><img src="/images/brand-symbol.png?v=2" class="brand-logo" alt="" /><span id="bible-brand-text">물댄동산교회</span></a>
+  </div>
+</header>
+
+<main>
+  <section class="section bible-page-section">
+    <div class="container bible-page-container">
+
+      <div class="section-head" style="text-align:left; margin-bottom:20px;">
+        <span class="eyebrow">BIBLE</span>
+        <h2>성경 읽기</h2>
+      </div>
+
+      <!-- 신/구약 선택 + 책·장 선택 + 글자 크기 + 듣기 도구모음 -->
+      <div class="bible-toolbar">
+        <div class="bible-testament-tabs" role="tablist" aria-label="신구약 선택">
+          <button type="button" class="bible-testament-tab is-active" id="bible-tab-ot" data-testament="OT">구약</button>
+          <button type="button" class="bible-testament-tab" id="bible-tab-nt" data-testament="NT">신약</button>
+        </div>
+
+        <div class="bible-picker-row">
+          <button type="button" class="bible-book-select" id="bible-book-btn" aria-haspopup="true" aria-expanded="false">
+            <span id="bible-book-btn-label">책 선택</span>
+            <svg viewBox="0 0 24 24" width="16" height="16" fill="none"><path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <select class="bible-chapter-select" id="bible-chapter-select" aria-label="장 선택"></select>
+        </div>
+
+        <div class="bible-tools-row">
+          <div class="bible-font-control" role="group" aria-label="글자 크기 조절">
+            <button type="button" id="bible-font-smaller" aria-label="글자 작게">가<span class="bible-font-sub">-</span></button>
+            <span class="bible-font-label" id="bible-font-label">보통</span>
+            <button type="button" id="bible-font-bigger" aria-label="글자 크게">가<span class="bible-font-sub">+</span></button>
+          </div>
+          <button type="button" class="bible-listen-btn" id="bible-listen-btn">
+            <span id="bible-listen-icon">🔊</span> <span id="bible-listen-label">듣기</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 책 선택 모달 (구약 39권 / 신약 27권을 격자로) -->
+      <div class="bible-book-modal" id="bible-book-modal">
+        <div class="bible-book-modal-inner">
+          <div class="bible-book-modal-head">
+            <h3>책 선택</h3>
+            <button type="button" class="bible-book-modal-close" id="bible-book-modal-close" aria-label="닫기">✕</button>
+          </div>
+          <div class="bible-book-grid" id="bible-book-grid"></div>
+        </div>
+      </div>
+
+      <div class="bible-reading-status" id="bible-loading">불러오는 중...</div>
+
+      <div class="bible-chapter-head" id="bible-chapter-head" hidden>
+        <h3 id="bible-chapter-title"></h3>
+      </div>
+
+      <div class="bible-verses" id="bible-verses"></div>
+
+      <div class="bible-chapter-nav">
+        <button type="button" class="bible-chapter-nav-btn" id="bible-prev-chapter">← 이전 장</button>
+        <button type="button" class="bible-chapter-nav-btn" id="bible-next-chapter">다음 장 →</button>
+      </div>
+
+      <p class="bible-source-note">본문: 대한성서공회 개역한글판(1961)</p>
+
+      <div class="qt-reaction-bar">
+        <a href="/" class="qt-home-btn">홈으로</a>
+      </div>
+
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="container">
+    <p>&copy; <span id="bible-year"></span> <span id="bible-footer-name">물댄동산교회</span>. All rights reserved. &nbsp;·&nbsp; <a href="/privacy.html" style="color:inherit;">개인정보처리방침</a></p>
+  </div>
+</footer>
+
+<script src="/js/bible.js?v=1"></script>
+</body>
+</html>
