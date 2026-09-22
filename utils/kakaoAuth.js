@@ -72,7 +72,9 @@ function setLoginCookie(res, kakaoId) {
 }
 
 function clearLoginCookie(res) {
-  res.clearCookie(COOKIE_NAME, { path: '/' });
+  // 처음 쿠키를 심을 때 쓴 옵션(httpOnly, sameSite, path)과 최대한 똑같이 맞춰서 지워야
+  // 일부 브라우저에서 "다른 쿠키"로 취급해 삭제가 안 먹는 문제가 생기지 않습니다.
+  res.clearCookie(COOKIE_NAME, { httpOnly: true, sameSite: 'lax', path: '/' });
 }
 
 module.exports = { getKakaoIdFromReq, setLoginCookie, clearLoginCookie };
