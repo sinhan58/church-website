@@ -8,6 +8,11 @@ const { getCachedSermons } = require('../utils/youtube');
 const { buildAndCacheSermonPoster, pregenerateMissingSermonPosters, pickSermonPhotoSource } = require('../utils/sermonPoster');
 const { VAPID_PUBLIC_KEY, saveSubscription, removeSubscription, sendTest } = require('../utils/push');
 const bible = require('../utils/bible');
+const { getKakaoIdFromReq, setLoginCookie, clearLoginCookie } = require('../utils/kakaoAuth');
+const { exchangeCodeForToken, fetchKakaoUser } = require('../utils/kakao');
+
+const SITE_URL = process.env.SITE_URL || 'https://muldaen.com';
+const KAKAO_REDIRECT_URI = `${SITE_URL}/api/bible/kakao/callback`;
 
 const uploadsDir = path.join(__dirname, '..', 'public', 'uploads');
 
@@ -230,6 +235,108 @@ router.get('/bible/resolve', (req, res) => {
     const resolved = bible.parseVerseRef(ref);
     if (!resolved) return res.status(404).json({ error: '구절 표기를 인식하지 못했습니다.' });
     res.json(resolved);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ---------- 성경 리더: 카카오 로그인 + 읽기 기록(2단계) ----------
+// 흐름: 클라이언트가 /bible/kakao-config로 JavaScript 키를 받아 카카오 SDK를 초기화
+// → "카카오로 로그인" 버튼 클릭 시 Kakao.Auth.authorize()가 카카오 로그인 화면으로
+// 이동 → 로그인 완료 후 카카오가 이 서버의 /bible/kakao/callback으로 "인가 코드"를
+// 담아 돌려보냄 → 여기서 그 코드를 실제 토큰으로 바꾸고, 토큰으로 회원번호(고유 id)를
+// 받아와 자체 서명 쿠키(utils/kakaoAuth.js)를 심어줌 → 이후 요청은 그 쿠키로 신원을
+// 확인해 utils/db.js의 'bibleHistory' 데이터에서 그 사람의 읽기 기록을 읽고 씁니다.
+
+// 브라우저에 안전하게 내려줘도 되는 값만 전달합니다 (REST API 키·Client Secret은 절대 포함 안 함).
+router.get('/bible/kakao-config', (req, res) => {
+  res.json({
+    enabled: !!(process.env.KAKAO_JS_KEY && process.env.KAKAO_REST_API_KEY),
+    jsKey: process.env.KAKAO_JS_KEY || '',
+    redirectUri: KAKAO_REDIRECT_URI
+  });
+});
+
+// 카카오 로그인 완료 후 카카오 서버가 사용자를 이 주소로 돌려보냅니다.
+router.get('/bible/kakao/callback', async (req, res) => {
+  try {
+    const { code, state } = req.query;
+    if (!code) return res.redirect('/bible.html?kakaoError=1');
+
+    const accessToken = await exchangeCodeForToken(code, KAKAO_REDIRECT_URI);
+    const user = await fetchKakaoUser(accessToken);
+    const kakaoId = String(user.id);
+    const nickname =
+      (user.kakao_account && user.kakao_account.profile && user.kakao_account.profile.nickname) || '';
+
+    const history = (await readData('bibleHistory')) || { users: {} };
+    if (!history.users) history.users = {};
+    if (!history.users[kakaoId]) history.users[kakaoId] = {};
+    if (nickname) history.users[kakaoId].nickname = nickname;
+    history.users[kakaoId].lastLoginAt = new Date().toISOString();
+    await writeData('bibleHistory', history);
+
+    setLoginCookie(res, kakaoId);
+
+    // 로그인하기 직전 보고 있던 장/절 위치(state)로 그대로 돌아갑니다.
+    let back = '';
+    if (state) {
+      try {
+        back = decodeURIComponent(state);
+        if (!back.startsWith('?')) back = ''; // 이상한 값이 섞여 들어오는 걸 방지
+      } catch (e) {
+        back = '';
+      }
+    }
+    res.redirect(`/bible.html${back}`);
+  } catch (err) {
+    console.error('카카오 로그인 실패:', err.message);
+    res.redirect('/bible.html?kakaoError=1');
+  }
+});
+
+router.post('/bible/logout', (req, res) => {
+  clearLoginCookie(res);
+  res.json({ ok: true });
+});
+
+// 로그인한 사람의 현재 기록(마지막으로 읽던 위치, 총 읽은 장 수)을 돌려줍니다.
+router.get('/bible/history', async (req, res) => {
+  try {
+    const kakaoId = getKakaoIdFromReq(req);
+    if (!kakaoId) return res.json({ loggedIn: false });
+    const history = (await readData('bibleHistory')) || { users: {} };
+    const record = (history.users && history.users[kakaoId]) || {};
+    res.json({
+      loggedIn: true,
+      nickname: record.nickname || '',
+      lastRead: record.lastRead || null,
+      readCount: Array.isArray(record.readChapters) ? record.readChapters.length : 0
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 장을 펼쳐볼 때마다 호출되어 "마지막으로 읽은 곳"과 "지금까지 읽은 장 수"를 갱신합니다.
+router.post('/bible/history', async (req, res) => {
+  try {
+    const kakaoId = getKakaoIdFromReq(req);
+    if (!kakaoId) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    const { code, chapter, verse } = req.body || {};
+    if (!code || !chapter) return res.status(400).json({ error: '잘못된 요청입니다.' });
+
+    const history = (await readData('bibleHistory')) || { users: {} };
+    if (!history.users) history.users = {};
+    if (!history.users[kakaoId]) history.users[kakaoId] = {};
+    const record = history.users[kakaoId];
+    record.lastRead = { code, chapter, verse: verse || null, at: new Date().toISOString() };
+    record.readChapters = Array.isArray(record.readChapters) ? record.readChapters : [];
+    const key = `${code}-${chapter}`;
+    if (!record.readChapters.includes(key)) record.readChapters.push(key);
+    await writeData('bibleHistory', history);
+
+    res.json({ ok: true, readCount: record.readChapters.length });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
