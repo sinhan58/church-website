@@ -837,13 +837,26 @@
     inner.style.height = `${h}px`;
   }
 
-  function openVideoModal(videoId) {
+  // verseRef가 있으면(설교 제목에서 성경구절을 알아낸 경우), 영상 모달 하단에
+  // "성경 본문 읽기" 스마트 연동 버튼을 보여주고 /bible.html?ref=... 로 연결합니다.
+  function openVideoModal(videoId, verseRef) {
     const modal = $('#video-modal');
     const inner = $('#video-modal-inner');
     inner.classList.remove('video-modal-inner--portrait');
     sizeVideoModal(16, 9);
     $('#video-modal-frame').innerHTML =
       `<iframe src="https://www.youtube.com/embed/${videoId}?autoplay=1" title="설교 영상" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+
+    const bibleBtn = $('#video-modal-bible-btn');
+    if (bibleBtn) {
+      if (verseRef) {
+        bibleBtn.href = `/bible.html?ref=${encodeURIComponent(verseRef)}`;
+        bibleBtn.style.display = '';
+      } else {
+        bibleBtn.style.display = 'none';
+      }
+    }
+
     modal.classList.add('open');
     lockScroll();
 
@@ -860,6 +873,8 @@
   function closeVideoModal() {
     $('#video-modal').classList.remove('open');
     $('#video-modal-frame').innerHTML = '';
+    const bibleBtn = $('#video-modal-bible-btn');
+    if (bibleBtn) bibleBtn.style.display = 'none';
     unlockScroll();
   }
   $('#video-modal-close').addEventListener('click', closeVideoModal);
@@ -1214,18 +1229,19 @@
     // 모바일 전용 규칙(.sermon-hero-b-*)에서 처리합니다.
     const isThemeB = document.documentElement.classList.contains('theme-b');
 
+    const { verseRef: heroVerseRef, title: heroTitle } = parseSermonTitleClient(hero.title || '');
+
     if (isThemeB) {
       // 컨셉B: 서버에서 이미지를 합성하지 않고, 사진은 배경으로 깔고 글씨는 CSS로 얹습니다.
       // (화면 표시 전용이라 공유 미리보기가 필요 없어서, 훨씬 빠르고 위치 조정도 쉬운 이 방식을 씁니다)
-      const { verseRef, title } = parseSermonTitleClient(hero.title || '');
       const churchName = (currentSiteData && currentSiteData.churchName) || '';
       const pastorName = (currentSiteData && currentSiteData.about && currentSiteData.about.pastorName) || '';
       card.innerHTML = `
         <div class="sermon-hero-b-photo" style="background-image:url('/api/sermon-photo')"></div>
         <div class="sermon-hero-b-text">
           <div class="sermon-hero-b-label">주일 예배 설교</div>
-          <h3 class="sermon-hero-b-title">${escapeHtml(title)}</h3>
-          ${verseRef ? `<p class="sermon-hero-b-verse">${escapeHtml(verseRef)}</p>` : ''}
+          <h3 class="sermon-hero-b-title">${escapeHtml(heroTitle)}</h3>
+          ${heroVerseRef ? `<p class="sermon-hero-b-verse">${escapeHtml(heroVerseRef)}</p>` : ''}
           <div class="sermon-hero-b-line"></div>
           <p class="sermon-hero-b-church">${escapeHtml(churchName)}</p>
           ${pastorName ? `<p class="sermon-hero-b-pastor">${escapeHtml(pastorName)}</p>` : ''}
@@ -1263,7 +1279,7 @@
         itemId: hero.videoId,
         itemTitle: hero.title || ''
       });
-      openVideoModal(hero.videoId);
+      openVideoModal(hero.videoId, heroVerseRef);
     };
   }
 
@@ -1322,7 +1338,7 @@
           .map((id) => (categoryNameById[id] ? `<span class="theme-badge">${escapeHtml(categoryNameById[id])}</span>` : ''))
           .join('');
         return `
-        <a href="#" class="sermon-list-row" data-video-id="${escapeHtml(v.videoId)}" data-title="${escapeHtml(v.title || '')}">
+        <a href="#" class="sermon-list-row" data-video-id="${escapeHtml(v.videoId)}" data-title="${escapeHtml(v.title || '')}" data-verse-ref="${escapeHtml(verseRef || '')}">
           ${badgesHtml ? `<span class="badges">${badgesHtml}</span>` : ''}
           <p class="title"><span class="bullet">•</span><span class="text">${escapeHtml(title || v.title || '')}</span></p>
           ${verseRef ? `<p class="verse">${escapeHtml(verseRef)}</p>` : ''}
@@ -1339,19 +1355,9 @@
           itemId: row.dataset.videoId,
           itemTitle: row.dataset.title
         });
-        openVideoModal(row.dataset.videoId);
+        openVideoModal(row.dataset.videoId, row.dataset.verseRef);
       });
     });
-  }
-
-  // 서버의 parseSermonTitle과 동일한 규칙으로, 목록 표시용 제목/구절을 클라이언트에서도 뽑아냅니다.
-  function parseSermonTitleClient(raw = '') {
-    let t = raw.replace(/주일예배/g, '');
-    t = t.replace(/\b\d{8}\b/g, '').trim().replace(/^[-_·\s]+|[-_·\s]+$/g, '');
-    t = t.replace(/\s{2,}/g, ' '); // 단어를 지우면서 남는 이중 띄어쓰기 정리
-    const m = t.match(/^([가-힣]+\s?\d+장\s?\d+(?:[~\-]\d+)?절(?:,\s?\d+(?:[~\-]\d+)?절)*)\s*(.*)$/);
-    if (m) return { verseRef: m[1].trim(), title: m[2].trim() || t };
-    return { verseRef: '', title: t };
   }
 
   // ---------------- 가로 캐러셀 공용 이전/다음 버튼 ----------------
