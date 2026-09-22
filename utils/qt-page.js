@@ -178,6 +178,7 @@ ${fontStyleTag}
           data-url="${pageUrl}">
           공유
         </button>
+        ${item.verseRef ? `<a href="/bible.html?ref=${encodeURIComponent(item.verseRef)}" class="qt-bible-btn" id="qt-bible-btn">📖 이 말씀 성경에서 읽기</a>` : ''}
         <a href="/" class="qt-home-btn" id="qt-home-btn"${cameFromHome ? ' data-back="1"' : ''}>홈으로</a>
       </div>
 
