@@ -3934,7 +3934,7 @@ a:focus-visible, button:focus-visible {
   align-items: center;
   justify-content: center;
 }
-.bible-book-modal.is-open { display: flex; }
+.bible-book-modal.open { display: flex; }
 .bible-book-modal-inner {
   background: #fff;
   border-radius: 16px;
