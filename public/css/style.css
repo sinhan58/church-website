@@ -812,6 +812,20 @@ html.theme-b .about-bg-type { color: #f1f3f4; }
   .about-bg-line--l2 { text-align: left; margin-bottom: 14px; }  /* 2행: 1행과 같은 왼쪽 정렬 */
   .about-bg-line--r1 { text-align: right; margin-bottom: 14px; } /* 3행: 오른쪽 정렬로 시작 (기존 그대로) */
   .about-bg-line--r2 { text-align: right; }                      /* 4행: 오른쪽 정렬로 시작 (기존 그대로) */
+  /* 모바일 전용 '텍스트 쇼' 색상·그림자 최종안: 글씨색을 파스텔 회색(#dedede)으로
+     바꾸고, 오른쪽/아래쪽으로 따로 쌓던 6단 그림자 대신 대각선 3단으로 단순화해
+     길이를 짧게 줄였습니다(기존 PC 규칙과는 별개로 모바일에서만 적용됩니다).
+     컨셉A·컨셉B 배경색이 달라도 같은 값을 쓰도록 아래 html.theme-b 쪽도 함께
+     지정해, 위쪽에 있는 "html.theme-b .about-bg-type { color: #f1f3f4; }" 규칙이
+     이 화면 폭에서는 이 색으로 덮어써지도록 했습니다. */
+  .about-bg-type,
+  html.theme-b .about-bg-type {
+    color: #dedede;
+    text-shadow:
+      0.3px 0.3px 0.3px rgba(51, 51, 51, 0.15),
+      0.6px 0.6px 0.6px rgba(51, 51, 51, 0.19),
+      1px 1px 1px rgba(51, 51, 51, 0.24);
+  }
 }
 .about-grid {
   display: grid;
