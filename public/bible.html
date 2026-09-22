@@ -77,6 +77,7 @@
         <div class="bible-account-info" id="bible-account-info" hidden>
           <span class="bible-account-name" id="bible-account-name"></span>
           <span class="bible-account-progress" id="bible-account-progress"></span>
+          <button type="button" class="bible-progress-btn" id="bible-progress-btn">읽기표 보기</button>
           <button type="button" class="bible-logout-btn" id="bible-logout-btn">로그아웃</button>
         </div>
       </div>
@@ -119,6 +120,25 @@
         </div>
       </div>
 
+      <!-- 성경읽기표 모달 (로그인한 성도님이 66권 중 어디를 얼마나 읽었는지 한눈에 확인) -->
+      <div class="bible-progress-modal" id="bible-progress-modal">
+        <div class="bible-progress-modal-inner">
+          <div class="bible-book-modal-head">
+            <h3>나의 성경읽기표</h3>
+            <button type="button" class="bible-book-modal-close" id="bible-progress-modal-close" aria-label="닫기">✕</button>
+          </div>
+          <p class="bible-progress-summary" id="bible-progress-summary"></p>
+          <div class="bible-progress-section">
+            <h4>구약 (39권)</h4>
+            <div class="bible-progress-list" id="bible-progress-list-ot"></div>
+          </div>
+          <div class="bible-progress-section">
+            <h4>신약 (27권)</h4>
+            <div class="bible-progress-list" id="bible-progress-list-nt"></div>
+          </div>
+        </div>
+      </div>
+
       <div class="bible-reading-status" id="bible-loading">불러오는 중...</div>
 
       <div class="bible-chapter-head" id="bible-chapter-head" hidden>
@@ -148,6 +168,6 @@
   </div>
 </footer>
 
-<script src="/js/bible.js?v=2"></script>
+<script src="/js/bible.js?v=4"></script>
 </body>
 </html>
