@@ -105,8 +105,10 @@
   }
 
   function openBookModal() {
-    if (currentBook) setActiveTestament(currentBook.testament);
-    else renderBookGrid();
+    // 예전엔 여기서 항상 "지금 읽고 있는 책의 신/구약"으로 되돌려버려서, 사용자가
+    // 방금 누른 "신약" 탭이 모달을 열자마자 무시되고 구약으로 되돌아가는 문제가 있었습니다.
+    // 이제는 사용자가 마지막으로 누른 탭(activeTestament)을 그대로 존중합니다.
+    renderBookGrid();
     $('#bible-book-modal').classList.add('open');
     $('#bible-book-btn').setAttribute('aria-expanded', 'true');
   }
@@ -151,6 +153,14 @@
         currentBook = booksIndex.find((b) => b.code === data.code) || book;
         currentChapter = data.chapter;
         currentVerses = data.verses;
+
+        // 지금 펼친 책이 구약/신약 중 어느 쪽인지에 맞춰 상단 탭 표시도 함께 맞춰줍니다
+        // (딥링크로 신약 본문을 바로 열었을 때도 탭이 "구약"에 멈춰 있던 문제 방지).
+        if (currentBook.testament && currentBook.testament !== activeTestament) {
+          activeTestament = currentBook.testament;
+          $('#bible-tab-ot').classList.toggle('is-active', activeTestament === 'OT');
+          $('#bible-tab-nt').classList.toggle('is-active', activeTestament === 'NT');
+        }
 
         $('#bible-book-btn-label').textContent = currentBook.name;
         renderChapterSelect();
@@ -285,6 +295,7 @@
   let kakaoConfig = null; // { enabled, jsKey, redirectUri }
   let isLoggedIn = false;
   let readCount = 0;
+  let readChaptersList = []; // ["GEN-1", "GEN-2", ...] - 성경읽기표 계산용
 
   function updateAccountBar() {
     const bar = $('#bible-account-bar');
@@ -304,6 +315,65 @@
       info.hidden = true;
     }
   }
+
+  // ---------------- 성경읽기표 (66권 중 어디를 얼마나 읽었는지 한눈에 보기) ----------------
+  // 여러 권을 왔다갔다 하며 읽는 분들을 위한 기능이라, 단순 누적 장 수가 아니라
+  // 책마다 실제로 펼쳐본 장이 몇 장인지 readChaptersList(예: "GEN-3")로 직접 계산합니다.
+  function renderReadingChart() {
+    const total = booksIndex.length;
+    const readBookCount = booksIndex.filter((b) => countReadChapters(b) > 0).length;
+    const completeBookCount = booksIndex.filter((b) => countReadChapters(b) >= b.chapters).length;
+    $('#bible-progress-summary').textContent =
+      `총 ${total}권 중 ${readBookCount}권을 펼쳐보셨고, 그중 ${completeBookCount}권을 완독하셨어요.`;
+
+    $('#bible-progress-list-ot').innerHTML = renderProgressRows('OT');
+    $('#bible-progress-list-nt').innerHTML = renderProgressRows('NT');
+
+    $$('.bible-progress-row', $('#bible-progress-modal')).forEach((row) => {
+      row.addEventListener('click', () => {
+        const book = booksIndex.find((b) => b.code === row.dataset.code);
+        if (book) {
+          closeProgressModal();
+          loadChapter(book, 1);
+        }
+      });
+    });
+  }
+
+  function countReadChapters(book) {
+    const prefix = book.code + '-';
+    return readChaptersList.filter((id) => id.startsWith(prefix)).length;
+  }
+
+  function renderProgressRows(testament) {
+    return booksIndex
+      .filter((b) => b.testament === testament)
+      .map((b) => {
+        const n = countReadChapters(b);
+        const percent = Math.round((n / b.chapters) * 100);
+        const done = n >= b.chapters;
+        return `
+          <button type="button" class="bible-progress-row${done ? ' is-done' : ''}" data-code="${b.code}">
+            <span class="bible-progress-name">${escapeHtml(b.name)}${done ? ' ✓' : ''}</span>
+            <span class="bible-progress-bar-track"><span class="bible-progress-bar-fill" style="width:${percent}%"></span></span>
+            <span class="bible-progress-count">${n}/${b.chapters}장</span>
+          </button>`;
+      })
+      .join('');
+  }
+
+  function openProgressModal() {
+    renderReadingChart();
+    $('#bible-progress-modal').classList.add('open');
+  }
+  function closeProgressModal() {
+    $('#bible-progress-modal').classList.remove('open');
+  }
+  $('#bible-progress-btn').addEventListener('click', openProgressModal);
+  $('#bible-progress-modal-close').addEventListener('click', closeProgressModal);
+  $('#bible-progress-modal').addEventListener('click', (e) => {
+    if (e.target.id === 'bible-progress-modal') closeProgressModal();
+  });
 
   function loadKakaoSdk() {
     return new Promise((resolve, reject) => {
@@ -346,11 +416,18 @@
   });
 
   $('#bible-logout-btn').addEventListener('click', () => {
-    fetch('/api/bible/logout', { method: 'POST' }).then(() => {
-      isLoggedIn = false;
-      readCount = 0;
-      updateAccountBar();
-    });
+    // 화면만 바꾸고 실제 로그아웃 요청이 실패해도 모르고 지나가는 일이 없도록,
+    // 응답 성공 여부를 확인하고 실패하면 알려줍니다. 성공하면 새로고침해서 서버가
+    // 실제로 로그아웃 상태로 봤는지까지 확실하게 확인합니다.
+    fetch('/api/bible/logout', { method: 'POST' })
+      .then((res) => {
+        if (!res.ok) throw new Error('로그아웃 요청 실패: ' + res.status);
+        location.reload();
+      })
+      .catch((err) => {
+        console.error('로그아웃 실패:', err);
+        alert('로그아웃에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      });
   });
 
   // 카카오 로그인 콜백이 실패했을 때(?kakaoError=1) 안내만 하고 조용히 지웁니다.
@@ -376,6 +453,10 @@
       .then((data) => {
         if (data && typeof data.readCount === 'number') {
           readCount = data.readCount;
+          // 성경읽기표를 다시 열었을 때 방금 읽은 장도 바로 반영되도록, 서버에 매번
+          // 다시 물어보지 않고 로컬 목록에도 똑같이 추가해둡니다.
+          const key = `${book.code}-${chapter}`;
+          if (!readChaptersList.includes(key)) readChaptersList.push(key);
           updateAccountBar();
         }
       })
@@ -395,6 +476,7 @@
       booksIndex = booksData.books || [];
       isLoggedIn = !!historyData.loggedIn;
       readCount = historyData.readCount || 0;
+      readChaptersList = Array.isArray(historyData.readChapters) ? historyData.readChapters : [];
       updateAccountBar();
       if (isLoggedIn) {
         const nameEl = $('#bible-account-name');
