@@ -1419,19 +1419,38 @@ html.theme-b .about-bg-type { color: #f1f3f4; }
   inset: 0;
 }
 .video-modal-inner iframe { width: 100%; height: 100%; border: 0; border-radius: var(--radius); }
-.video-modal-close {
+.video-modal-actions {
   position: absolute;
   bottom: -52px;
   left: 50%;
-  top: auto; right: auto;
   transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+}
+.video-modal-close {
   color: #fff;
   font-size: 0.95rem;
   background: rgba(255,255,255,0.15);
   border: none;
   padding: 8px 18px;
   border-radius: 999px;
+  cursor: pointer;
 }
+/* 설교 영상을 볼 때, 본문 말씀을 바로 성경에서 읽어볼 수 있는 스마트 연동 버튼
+   (제목에서 성경구절을 알아낸 설교에만 표시됩니다) */
+.video-modal-bible-btn {
+  color: var(--navy-deep);
+  font-size: 0.9rem;
+  font-weight: 600;
+  background: var(--gold-soft);
+  border: none;
+  padding: 8px 18px;
+  border-radius: 999px;
+  text-decoration: none;
+}
+.video-modal-bible-btn:hover { background: var(--gold); }
 
 .file-modal {
   display: none;
@@ -2850,7 +2869,7 @@ div.qt-stage:hover { transform: translateY(-4px); }
 .qt-detail-body { font-size: 1rem; line-height: 1.9; margin-bottom: 28px; }
 
 .qt-reaction-bar { display: flex; gap: 10px; justify-content: center; margin-bottom: 28px; flex-wrap: wrap; }
-.qt-amen-btn, .qt-share-btn, .qt-home-btn, .qt-listen-btn {
+.qt-amen-btn, .qt-share-btn, .qt-home-btn, .qt-listen-btn, .qt-bible-btn {
   display: flex; align-items: center; gap: 6px;
   font-size: 0.86rem;
   padding: 10px 20px;
@@ -2859,9 +2878,13 @@ div.qt-stage:hover { transform: translateY(-4px); }
   background: var(--ivory);
   color: var(--ink);
   cursor: pointer;
+  text-decoration: none;
 }
 .qt-amen-btn { position: relative; overflow: visible; }
-.qt-amen-btn:hover, .qt-share-btn:hover, .qt-home-btn:hover, .qt-listen-btn:hover { border-color: var(--gold); }
+.qt-amen-btn:hover, .qt-share-btn:hover, .qt-home-btn:hover, .qt-listen-btn:hover, .qt-bible-btn:hover { border-color: var(--gold); }
+/* 오늘의 큐티/목회 칼럼에서 본문 성경 구절로 바로 이동하는 스마트 연동 버튼 */
+.qt-bible-btn { background: var(--gold-soft); border-color: var(--gold-soft); color: var(--navy-deep); font-weight: 600; }
+.qt-bible-btn:hover { background: var(--gold); border-color: var(--gold); }
 .qt-amen-btn.pressed { border-color: var(--gold); background: var(--gold-soft); color: var(--navy-deep); }
 .qt-heart { color: #e8382f; font-size: 1.05rem; }
 @keyframes qtAmenPop {
@@ -3779,3 +3802,295 @@ a:focus-visible, button:focus-visible {
   cursor: pointer;
 }
 .mission-cards-dot.active { background: var(--gold); transform: scale(1.3); }
+
+/* ======================================================================
+   웹 성경 리더 (public/bible.html) 전용 스타일
+   ====================================================================== */
+.bible-page-container {
+  max-width: 720px;
+}
+.bible-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 24px;
+}
+.bible-testament-tabs {
+  display: flex;
+  gap: 8px;
+}
+.bible-testament-tab {
+  flex: 1;
+  padding: 10px 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--muted);
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+.bible-testament-tab.is-active {
+  background: var(--navy-deep);
+  border-color: var(--navy-deep);
+  color: #fff;
+}
+.bible-picker-row {
+  display: flex;
+  gap: 8px;
+}
+.bible-book-select,
+.bible-chapter-select {
+  padding: 11px 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  font-family: inherit;
+  font-size: 0.92rem;
+  color: var(--ink);
+}
+.bible-book-select {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  cursor: pointer;
+  font-weight: 600;
+  text-align: left;
+}
+.bible-book-select svg { color: var(--muted); flex: none; }
+.bible-chapter-select {
+  width: 96px;
+  cursor: pointer;
+}
+.bible-tools-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.bible-font-control {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: #fff;
+}
+.bible-font-control button {
+  border: none;
+  background: none;
+  cursor: pointer;
+  color: var(--navy-deep);
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 4px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: baseline;
+}
+#bible-font-smaller { font-size: 0.7rem; }
+#bible-font-bigger { font-size: 1.1rem; }
+.bible-font-sub { font-size: 0.62em; margin-left: 1px; }
+.bible-font-label {
+  font-size: 0.8rem;
+  color: var(--muted);
+  min-width: 34px;
+  text-align: center;
+}
+.bible-listen-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--ivory);
+  color: var(--ink);
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease, background 0.15s ease, color 0.15s ease;
+}
+.bible-listen-btn:hover { border-color: var(--gold); }
+.bible-listen-btn.is-speaking {
+  background: var(--navy-deep);
+  border-color: var(--navy-deep);
+  color: #fff;
+}
+
+/* 책 선택 모달 */
+.bible-book-modal {
+  display: none;
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: rgba(13,21,38,0.55);
+  padding: 24px;
+  align-items: center;
+  justify-content: center;
+}
+.bible-book-modal.is-open { display: flex; }
+.bible-book-modal-inner {
+  background: #fff;
+  border-radius: 16px;
+  padding: 22px;
+  width: 100%;
+  max-width: 480px;
+  max-height: min(80vh, 640px);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.bible-book-modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.bible-book-modal-head h3 {
+  margin: 0;
+  font-family: var(--font-heading);
+  font-size: 1.1rem;
+  color: var(--navy-deep);
+}
+.bible-book-modal-close {
+  border: none;
+  background: none;
+  font-size: 1.05rem;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px 8px;
+}
+.bible-book-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+.bible-book-grid-item {
+  padding: 10px 6px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--ivory);
+  color: var(--ink);
+  font-size: 0.86rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: center;
+  transition: background 0.15s ease, border-color 0.15s ease, color 0.15s ease;
+}
+.bible-book-grid-item:hover { border-color: var(--gold); }
+.bible-book-grid-item.is-active {
+  background: var(--navy-deep);
+  border-color: var(--navy-deep);
+  color: #fff;
+}
+
+.bible-reading-status {
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.9rem;
+  padding: 40px 0;
+}
+.bible-chapter-head { text-align: center; margin-bottom: 18px; }
+.bible-chapter-head h3 {
+  font-family: var(--font-heading);
+  font-size: 1.3rem;
+  color: var(--navy-deep);
+  margin: 0;
+}
+.bible-verses {
+  font-size: var(--bible-font-size, 20px);
+  line-height: 1.9;
+  color: var(--ink);
+}
+.bible-verse {
+  margin: 0 0 14px;
+  scroll-margin-top: 100px;
+  transition: background 0.3s ease;
+  border-radius: 6px;
+  padding: 2px 6px;
+  margin-left: -6px;
+  margin-right: -6px;
+}
+.bible-verse-num {
+  font-weight: 700;
+  color: var(--gold-deep);
+  margin-right: 6px;
+  font-size: 0.75em;
+  vertical-align: super;
+}
+.bible-verse.is-highlighted { background: var(--gold-soft); }
+.bible-verse.is-speaking { background: #fdf2cf; }
+.bible-chapter-nav {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 32px 0 20px;
+}
+.bible-chapter-nav-btn {
+  flex: 1;
+  padding: 12px 0;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  color: var(--navy-deep);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color 0.15s ease;
+}
+.bible-chapter-nav-btn:hover:not(:disabled) { border-color: var(--gold); }
+.bible-chapter-nav-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+.bible-source-note {
+  text-align: center;
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin: 0 0 20px;
+}
+
+/* ---------------- 모바일 상단 메뉴: '성경' 바로가기 버튼 ---------------- */
+/* PC에서는 플로팅 버튼(quick-fab)으로 제공하므로, 헤더의 이 버튼은 모바일
+   화면(나머지 상단 메뉴가 햄버거로 접히는 지점과 동일한 900px 기준)에서만 보여줍니다. */
+.header-bible-btn {
+  display: none;
+  align-items: center;
+  gap: 4px;
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 7px 12px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.4);
+  background: rgba(255,255,255,0.08);
+  text-decoration: none;
+  margin-right: 8px;
+  white-space: nowrap;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+.header-bible-btn svg { width: 15px; height: 15px; flex: none; }
+.header-bible-btn:hover,
+.header-bible-btn:active { background: rgba(255,255,255,0.2); border-color: rgba(255,255,255,0.6); }
+html.theme-b .header-bible-btn {
+  filter: drop-shadow(0 1px 3px rgba(0,0,0,0.5)) drop-shadow(0 2px 6px rgba(0,0,0,0.35));
+}
+@media (max-width: 900px) {
+  .header-bible-btn { display: inline-flex; }
+}
+
+/* ---------------- PC 전용: 플로팅 버튼에 '성경' 추가 ---------------- */
+/* 기존 6개 항목(맨 위로/새가족/큐티즈/소식/섬김/밴드)의 nth-last-child 애니메이션
+   순서를 건드리지 않기 위해, 새 항목은 #quick-fab-menu의 맨 앞(첫 번째 자식)에
+   추가합니다 — 그러면 자동으로 nth-last-child(7)이 되어 기존 1~6번은 그대로입니다. */
+.quick-fab-item:nth-last-child(7) { transition: opacity .34s ease .3s,  transform .5s cubic-bezier(0.34,1.4,0.4,1) .3s;  --pull: 63px; }
+.quick-fab-wrap.open .quick-fab-item:nth-last-child(7) { transition: opacity .3s ease .3s, transform .46s cubic-bezier(0.34,1.9,0.4,1) .3s; }
+
+@media (max-width: 900px) {
+  /* 모바일에서는 상단 헤더의 '성경' 버튼(.header-bible-btn)으로 대체하므로 숨김 */
+  .quick-fab-item--bible { display: none !important; }
+}
