@@ -7,6 +7,7 @@ const { readData, writeData, makeId } = require('../utils/db');
 const { getCachedSermons } = require('../utils/youtube');
 const { buildAndCacheSermonPoster, pregenerateMissingSermonPosters, pickSermonPhotoSource } = require('../utils/sermonPoster');
 const { VAPID_PUBLIC_KEY, saveSubscription, removeSubscription, sendTest } = require('../utils/push');
+const bible = require('../utils/bible');
 
 const uploadsDir = path.join(__dirname, '..', 'public', 'uploads');
 
@@ -205,6 +206,47 @@ router.get('/column/:id', async (req, res) => {
     if (!item) return res.status(404).json({ error: '칼럼을 찾을 수 없습니다.' });
     res.json(item);
   } catch (err) { res.status(500).json({ error: err.message }); }
+});
+
+// ---------- 성경 리더 (공개) ----------
+// 본문 출처: 대한성서공회 개역한글판(1961) — 저작권 보호기간 만료로 공개도메인.
+// utils/bible.js가 서버 시작 시 본문 전체를 메모리에 올려두므로, 아래 라우트들은
+// 파일을 다시 읽지 않고 바로 응답합니다.
+
+// 신/구약 책 목록(장 수 포함) — 책 선택 UI에서 사용
+router.get('/bible/books', (req, res) => {
+  try {
+    res.json({ source: bible.SOURCE_NOTICE, books: bible.getBooksIndex() });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// "요한복음 3장 16절" 같은 표기를 실제 책/장/절 좌표로 변환합니다. 오늘의 큐티·주일
+// 설교의 "이 말씀 성경에서 읽기" 스마트 연동 버튼이 사용합니다.
+router.get('/bible/resolve', (req, res) => {
+  try {
+    const ref = String(req.query.ref || '');
+    const resolved = bible.parseVerseRef(ref);
+    if (!resolved) return res.status(404).json({ error: '구절 표기를 인식하지 못했습니다.' });
+    res.json(resolved);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 특정 책의 한 장 본문 전체
+router.get('/bible/:code/:chapter', (req, res) => {
+  try {
+    const book = bible.getBookByCode(req.params.code);
+    if (!book) return res.status(404).json({ error: '해당 책을 찾을 수 없습니다.' });
+    const chapterNum = parseInt(req.params.chapter, 10);
+    const chapter = bible.getChapter(req.params.code, chapterNum);
+    if (!chapter) return res.status(404).json({ error: '해당 장을 찾을 수 없습니다.' });
+    res.json(chapter);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
 
 router.post('/track', async (req, res) => {
