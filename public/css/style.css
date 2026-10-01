@@ -1565,8 +1565,14 @@ html.theme-b .about-bg-type { color: #f1f3f4; }
   .praise-category-chips {
     flex-wrap: nowrap;
     justify-content: flex-start;
-    padding: 0 4px 6px;
     -webkit-overflow-scrolling: touch;
+    /* 칩 줄이 .container의 좌우 여백(24px) 안쪽에서 잘려, 화면 양쪽 끝 24px은 스크롤도
+       탭도 안 되는 빈 영역이었음 → 줄을 화면 끝까지 넓히고(음수 margin), 첫/마지막 칩은
+       같은 만큼 안쪽 여백(padding)을 둬서 처음 위치는 지금과 똑같이 보이게 함 */
+    margin-left: -24px;
+    margin-right: -24px;
+    padding: 0 24px 6px;
+    scroll-padding-inline: 24px;
   }
 }
 
