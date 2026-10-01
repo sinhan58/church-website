@@ -2,10 +2,58 @@
   const $ = (sel) => document.querySelector(sel);
   const $$ = (sel, root = document) => Array.from((root || document).querySelectorAll(sel));
 
-  async function getJSON(url) {
+  // ---------------- 홈 데이터 잠깐 기억해두기 (홈으로 돌아올 때 즉시 그리기용) ----------------
+  // 큐티·칼럼 상세에서 '홈으로'(뒤로가기)로 돌아오면 휴대폰이 홈 화면을 처음부터 새로
+  // 만드는 경우가 많은데, 설교·찬양·큐티 내용을 서버에서 다시 받아오는 동안 원래 위치를
+  // 알 수 없어서 "화면이 뜸 → 사용자가 스크롤 → 로딩이 끝나면 원래 위치로 끌려감" 현상이
+  // 있었습니다. 그래서 홈에서 받아온 내용을 이 탭(세션) 동안 기억해 두었다가, 돌아왔을
+  // 때는 서버를 기다리지 않고 기억해 둔 내용으로 즉시 그린 뒤 원래 위치에서 화면을
+  // 보여줍니다. 최신 내용은 뒤에서 조용히 받아와 비교하고, 실제로 바뀐 경우에만 반영합니다.
+  const HOME_CACHE_KEY = 'homeApiCache';
+  const HOME_CACHE_URLS = [
+    '/api/site', '/api/sermons', '/api/sermon-categories', '/api/sermon-category-tags',
+    '/api/praises', '/api/praise-categories', '/api/posts', '/api/qt', '/api/column', '/api/partners'
+  ];
+  let homeCache = {};
+  try { homeCache = JSON.parse(sessionStorage.getItem(HOME_CACHE_KEY) || '{}') || {}; } catch (e) { homeCache = {}; }
+  // index.html의 head 스크립트가 "뒤로가기로 돌아왔고, 기억해 둔 내용이 있다"고 판단했을 때만 사용
+  let useHomeCache = !!window.__pendingReturnRestore;
+  const homeCacheChanged = new Set();
+  const homeCacheBgFetches = [];
+  const homeCacheBgStarted = new Set();
+
+  function saveHomeCache(url, text) {
+    if (!HOME_CACHE_URLS.includes(url)) return;
+    homeCache[url] = text;
+    try { sessionStorage.setItem(HOME_CACHE_KEY, JSON.stringify(homeCache)); } catch (e) {}
+  }
+
+  async function fetchJSONText(url) {
     const res = await fetch(url);
     if (!res.ok) throw new Error(`요청 실패: ${url}`);
-    return res.json();
+    return res.text();
+  }
+
+  async function getJSON(url) {
+    if (useHomeCache && typeof homeCache[url] === 'string') {
+      const cachedText = homeCache[url];
+      // 최신 내용은 뒤에서 조용히 받아와 비교만 해둠 (화면은 건드리지 않음)
+      if (!homeCacheBgStarted.has(url)) {
+        homeCacheBgStarted.add(url);
+        homeCacheBgFetches.push(
+          fetchJSONText(url)
+            .then((freshText) => {
+              if (freshText !== cachedText) homeCacheChanged.add(url);
+              saveHomeCache(url, freshText);
+            })
+            .catch(() => {})
+        );
+      }
+      return JSON.parse(cachedText);
+    }
+    const text = await fetchJSONText(url);
+    saveHomeCache(url, text);
+    return JSON.parse(text);
   }
 
   function escapeHtml(str = '') {
@@ -3018,6 +3066,7 @@
   }
 
   window.__performPendingScroll = function () {
+    if (window.__pendingReturnRestore) restoreHomeScroll();
     scrollToPendingHash();
     // 주소창에 #qt를 다시 붙이면, 그 이후 평범하게 새로고침할 때마다 계속
     // 큐티로 이동해버리는 문제가 생기므로 URL은 계속 깨끗한 '/'로 둡니다.
@@ -3040,83 +3089,87 @@
       console.error('콘텐츠를 불러오는 중 오류가 발생했습니다:', err);
     });
 
-  dataReadyForScroll.finally(() => {
-    if (window.__resolveDataReady) window.__resolveDataReady();
-    // 실제 데이터가 다 준비된 이 시점에, 혹시 위에서 0.8초 타임아웃으로 먼저 스크롤이
-    // 됐었더라도(그 사이 레이아웃이 밀렸을 수 있으므로) 한 번 더 정확한 위치로
-    // 보정합니다. 이제 진짜로 다 끝났으니 해시 값도 여기서 비워둡니다.
-    scrollToPendingHash();
-    window.__pendingScrollHash = null;
-  });
-
-  Promise.all([loadMissions(), loadQuizTeaser(), loadColumn()]).catch((err) => {
+  // 칼럼 카드는 큐티 섹션 안에 있어서, 홈으로 돌아왔을 때 위치 계산에 같이 포함합니다.
+  const columnReady = loadColumn().catch(() => {});
+  Promise.all([loadMissions(), loadQuizTeaser(), columnReady]).catch((err) => {
     console.error('선교/퀴즈/칼럼 콘텐츠를 불러오는 중 오류가 발생했습니다:', err);
   });
 
-  // ---------------- 뒤로가기 시 스크롤 위치 직접 복원 ----------------
-  // 위쪽의 history.scrollRestoration = 'manual' 설정 때문에(해시 이동이 미리
-  // 튀는 것을 막기 위한 용도), 브라우저가 뒤로가기 때 스크롤 위치를 자동으로
-  // 복원해주지 않게 됐습니다. 그래서 이 페이지를 벗어날 때 스크롤 위치를 직접
-  // 저장해두고, 뒤로가기로 다시 돌아왔을 때 직접 그 위치로 되돌려줍니다.
+  // ---------------- 뒤로가기(홈으로) 시 스크롤 위치 직접 복원 ----------------
+  // 위쪽의 history.scrollRestoration = 'manual' 설정 때문에(해시 이동이 미리 튀는 것을
+  // 막기 위한 용도) 브라우저가 스크롤 위치를 자동으로 복원해주지 않아서, 이 페이지를
+  // 벗어날 때 위치를 저장해두고 돌아왔을 때 직접 되돌려줍니다.
   window.addEventListener('pagehide', () => {
     try {
       sessionStorage.setItem('homeScrollY', String(window.scrollY));
     } catch (err) {}
   });
-  // 뒤로가기로 돌아온 직후, 데이터를 새로 불러오는 동안(딜레이) 사용자가 이미 화면을
-  // 스크롤했는데 로딩이 끝나는 순간 예전 위치로 다시 끌려 올라가는 문제가 있었습니다.
-  // → 돌아온 뒤 사용자가 화면을 만지거나(터치·휠·키보드) 스크롤하면, 그 뒤의 자동 복원은
-  //   하지 않습니다. 또 복원할 때는 부드러운 스크롤 애니메이션 없이 즉시 이동합니다.
+
+  // 돌아온 뒤 사용자가 화면을 만지거나(터치·휠·키보드) 움직였다면, 그 이후의 자동 복원은
+  // 하지 않고 사용자가 보고 있는 위치를 그대로 존중합니다.
   let userMovedSinceReturn = false;
   const markUserMoved = () => { userMovedSinceReturn = true; };
   ['touchstart', 'wheel', 'keydown', 'mousedown'].forEach((type) => {
     window.addEventListener(type, markUserMoved, { passive: true, capture: true });
   });
 
+  function restoreHomeScroll() {
+    if (userMovedSinceReturn) return;
+    try {
+      const savedY = sessionStorage.getItem('homeScrollY');
+      if (savedY === null) return;
+      const y = Number(savedY);
+      if (Math.abs(window.scrollY - y) < 2) return;
+      const html = document.documentElement;
+      const prev = html.style.scrollBehavior;
+      html.style.scrollBehavior = 'auto'; // CSS의 smooth 스크롤 때문에 끌려가는 움직임이 보이지 않도록 즉시 이동
+      window.scrollTo(0, y);
+      html.style.scrollBehavior = prev;
+    } catch (err) {}
+  }
+
+  let isBackReload = false;
+  try {
+    const navEntries = performance.getEntriesByType('navigation');
+    isBackReload = !!(navEntries[0] && navEntries[0].type === 'back_forward');
+  } catch (err) {}
+
+  // (A) 홈 화면을 새로 만들면서 돌아온 경우
+  //     → 기억해 둔 내용으로 즉시 그린 뒤(서버 대기 없음), 화면을 보여주기 "전에"
+  //       원래 위치로 맞춥니다(head 스크립트가 데이터 준비 신호를 기다렸다가 화면을 공개).
+  Promise.all([dataReadyForScroll, columnReady]).finally(() => {
+    if (window.__pendingReturnRestore) restoreHomeScroll();
+    if (window.__resolveDataReady) window.__resolveDataReady();
+    // (해시로 들어온 경우) 실제 데이터가 다 준비된 시점에 한 번 더 정확한 위치로 보정
+    scrollToPendingHash();
+    window.__pendingScrollHash = null;
+
+    if (window.__pendingReturnRestore) {
+      // 이제부터는 평소처럼 서버에서 받아오고, 뒤에서 받아온 최신 내용과 비교해서
+      // 실제로 바뀐 게 있을 때만 반영합니다. (보통은 바뀐 게 없어 화면이 전혀 움직이지 않음)
+      useHomeCache = false;
+      Promise.all(homeCacheBgFetches).then(() => {
+        if (homeCacheChanged.has('/api/qt')) {
+          // 예: 큐티 상세에서 '아멘'을 누르고 돌아온 경우 하트 수만 새로 반영
+          loadQT().catch(() => {}).finally(restoreHomeScroll);
+        }
+      });
+      window.__pendingReturnRestore = false;
+    } else if (isBackReload) {
+      // 기억해 둔 내용이 없이 새로 만들며 돌아온 경우(예: 업데이트 직후 첫 복귀)는
+      // 예전 방식대로 데이터가 준비된 뒤 위치를 맞춤 (사용자가 이미 움직였으면 건너뜀)
+      restoreHomeScroll();
+    }
+  });
+
+  // (B) 브라우저가 홈 화면을 통째로 보관해뒀다가 그대로 꺼내 보여준 경우(bfcache)
+  //     → 위치는 이미 그대로이고, 큐티 하트(아멘) 상태만 새로 반영합니다.
   window.addEventListener('pageshow', (event) => {
-    // event.persisted: 뒤로/앞으로 가기로 캐시에서 복원된 경우 true.
-    // 일부 상황에서는 캐시 복원이 아니라 완전히 새로 불러오는 경우도 있어서,
-    // 그런 경우까지 대비해 Navigation Timing API로 "뒤로가기로 온 것"인지도 같이 봅니다.
-    let isBackNavigation = event.persisted;
-    if (!isBackNavigation) {
-      try {
-        const navEntries = performance.getEntriesByType('navigation');
-        isBackNavigation = navEntries[0] && navEntries[0].type === 'back_forward';
-      } catch (err) {}
-    }
-    if (!isBackNavigation) return;
-
+    if (!event.persisted) return;
     userMovedSinceReturn = false;
-
-    function restoreScroll() {
-      if (userMovedSinceReturn) return; // 이미 사용자가 움직였으면 그 위치를 존중
-      try {
-        const savedY = sessionStorage.getItem('homeScrollY');
-        if (savedY === null) return;
-        const y = Number(savedY);
-        if (Math.abs(window.scrollY - y) < 2) return; // 이미 그 자리면 아무것도 안 함
-        const html = document.documentElement;
-        const prev = html.style.scrollBehavior;
-        html.style.scrollBehavior = 'auto'; // CSS의 smooth 스크롤 때문에 끌려가는 듯한 움직임 방지
-        window.scrollTo(0, y);
-        html.style.scrollBehavior = prev;
-      } catch (err) {}
-    }
-
-    // 1) 돌아오자마자 한 번 즉시 복원 (캐시 복원이면 이미 그 자리라 아무 변화 없음)
-    restoreScroll();
-
-    if (event.persisted) {
-      // 2-a) 캐시(bfcache)에서 그대로 복원된 경우: 큐티 상세에서 '아멘'을 누르고 돌아왔을 때
-      //      하트 상태가 바로 반영되도록 큐티 목록만 새로 불러오고, 끝난 뒤 위치를 한 번 더 맞춤
-      //      (그 사이 사용자가 스크롤했다면 위 restoreScroll이 알아서 건너뜀)
-      loadQT()
-        .catch(() => {})
-        .finally(restoreScroll);
-    } else {
-      // 2-b) 페이지를 완전히 새로 불러온 경우: 위쪽 섹션들이 다 채워져야 정확한 위치가
-      //      나오므로, 데이터 준비가 끝난 뒤 한 번 더 맞춤 (이미 loadQT도 포함돼 있어 중복 호출 안 함)
-      dataReadyForScroll.finally(restoreScroll);
-    }
+    restoreHomeScroll();
+    loadQT()
+      .catch(() => {})
+      .finally(restoreHomeScroll);
   });
 })();
