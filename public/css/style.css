@@ -680,6 +680,11 @@ html.theme-b .hamburger span {
   min-width: 0;
   padding: 9px 20px;
   line-height: 1.25;
+  border-radius: 12px; /* 알약형 → 둥근 사각형 */
+}
+/* PC에서는 두 버튼 사이를 조금 더 띄움 */
+@media (min-width: 561px) {
+  .hero-cta { gap: 20px; }
 }
 .hero-cta .btn-row2--tag { margin-top: 2px; }
 
@@ -689,6 +694,7 @@ html.theme-b .hamburger span {
   .hero-cta .btn {
     padding: 7px 14px;
     font-size: 0.84rem;
+    border-radius: 10px;
   }
   .hero-cta .btn-row2--tag { font-size: 0.7rem; margin-top: 1px; }
   .hero-cta .dbl-chevron { font-size: 1.25em; }
