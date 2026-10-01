@@ -3161,6 +3161,9 @@ body.has-mini-player .quick-fab-wrap { bottom: calc(20px + 68px); }
   flex-direction: column;
   align-items: flex-end;
   gap: 8px;
+  /* 메뉴 상자 자체는 투명하지만, 닫힌 뒤에도 그 자리(오른쪽 세로 영역)를 덮어 아래 글·버튼이
+     눌리지 않는 문제가 있어 클릭을 통과시킴. 항목들은 열렸을 때만 pointer-events: auto로 눌림 */
+  pointer-events: none;
 }
 .quick-fab-item {
   display: flex;
