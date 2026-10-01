@@ -664,37 +664,38 @@ html.theme-b .hamburger span {
   margin-top: 3px;
 }
 
-/* 히어로 두 버튼이 두껍고 여백이 많아 보여서 날렵하게 줄임 (PC 공통) */
+/* 히어로 두 버튼: 두께(위아래 여백)와 양옆 여백을 줄여 날렵하게 정리.
+   두 버튼 너비는 긴 쪽 글씨에 맞춰 똑같이 맞추고(grid 1fr), 고정 최소너비(240px)는 해제 */
+.hero-cta {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  width: max-content;
+  max-width: 100%;
+  margin-left: auto;
+  margin-right: auto;
+  gap: 12px;
+}
 .hero-cta .btn {
-  padding: 10px 26px;
+  min-width: 0;
+  padding: 9px 20px;
   line-height: 1.25;
 }
 .hero-cta .btn-row2--tag { margin-top: 2px; }
 
-/* 모바일: 최소 너비(240px)를 풀고 두 버튼을 한 줄에 나란히 배치,
-   글씨·여백을 한 단계 작게 해서 히어로 화면에서 버튼이 차지하는 높이를 절반 이하로 줄임 */
+/* 모바일: 글씨와 여백을 한 단계 작게, 두 버튼은 한 줄에 나란히 */
 @media (max-width: 560px) {
-  .hero-cta {
-    flex-wrap: nowrap;
-    gap: 10px;
-    width: 100%;
-    max-width: 380px;
-    margin-left: auto;
-    margin-right: auto;
-  }
+  .hero-cta { gap: 8px; }
   .hero-cta .btn {
-    flex: 1 1 0;
-    min-width: 0;
-    padding: 8px 10px;
-    font-size: 0.86rem;
+    padding: 7px 14px;
+    font-size: 0.84rem;
   }
   .hero-cta .btn-row2--tag { font-size: 0.7rem; margin-top: 1px; }
   .hero-cta .dbl-chevron { font-size: 1.25em; }
 }
-/* 아주 좁은 휴대폰에서는 글씨가 잘리지 않도록 다시 위아래로 쌓음 */
+/* 아주 좁은 휴대폰에서는 글씨가 잘리지 않도록 위아래로 쌓음 */
 @media (max-width: 359px) {
-  .hero-cta { flex-wrap: wrap; max-width: 240px; }
-  .hero-cta .btn { flex: 1 1 100%; }
+  .hero-cta { grid-auto-flow: row; }
 }
 
 /* 버튼/링크 끝에 붙는 겹화살괄호(») — 본문 글씨보다 작게 찍혀 보이지 않도록
