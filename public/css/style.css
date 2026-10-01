@@ -3196,21 +3196,22 @@ body.has-mini-player .quick-fab-wrap { bottom: calc(20px + 68px); }
   transform: scale(1) translateY(0);
 }
 
-/* 닫힌 상태(기본값): 토글 버튼과 가까운 항목부터 먼저 닫힘 */
-.quick-fab-item:nth-last-child(1) { transition: opacity .34s ease 0s,    transform .5s cubic-bezier(0.34,1.4,0.4,1) 0s;    --pull: 9px; }
-.quick-fab-item:nth-last-child(2) { transition: opacity .34s ease .05s, transform .5s cubic-bezier(0.34,1.4,0.4,1) .05s; --pull: 18px; }
-.quick-fab-item:nth-last-child(3) { transition: opacity .34s ease .1s,  transform .5s cubic-bezier(0.34,1.4,0.4,1) .1s;  --pull: 27px; }
-.quick-fab-item:nth-last-child(4) { transition: opacity .34s ease .15s, transform .5s cubic-bezier(0.34,1.4,0.4,1) .15s; --pull: 36px; }
-.quick-fab-item:nth-last-child(5) { transition: opacity .34s ease .2s,  transform .5s cubic-bezier(0.34,1.4,0.4,1) .2s;  --pull: 45px; }
-.quick-fab-item:nth-last-child(6) { transition: opacity .34s ease .25s, transform .5s cubic-bezier(0.34,1.4,0.4,1) .25s; --pull: 54px; }
+/* 닫힌 상태(기본값): 토글 버튼과 가까운 항목부터 먼저 닫힘
+   (열고 닫는 속도가 느리게 느껴져서 시간·항목 간 간격을 줄임: 열기 최대 약 0.45초, 닫기 약 0.36초) */
+.quick-fab-item:nth-last-child(1) { transition: opacity .16s ease 0s, transform .24s cubic-bezier(0.34,1.3,0.4,1) 0s; --pull: 9px; }
+.quick-fab-item:nth-last-child(2) { transition: opacity .16s ease 0.02s, transform .24s cubic-bezier(0.34,1.3,0.4,1) 0.02s; --pull: 18px; }
+.quick-fab-item:nth-last-child(3) { transition: opacity .16s ease 0.04s, transform .24s cubic-bezier(0.34,1.3,0.4,1) 0.04s; --pull: 27px; }
+.quick-fab-item:nth-last-child(4) { transition: opacity .16s ease 0.06s, transform .24s cubic-bezier(0.34,1.3,0.4,1) 0.06s; --pull: 36px; }
+.quick-fab-item:nth-last-child(5) { transition: opacity .16s ease 0.08s, transform .24s cubic-bezier(0.34,1.3,0.4,1) 0.08s; --pull: 45px; }
+.quick-fab-item:nth-last-child(6) { transition: opacity .16s ease 0.1s, transform .24s cubic-bezier(0.34,1.3,0.4,1) 0.1s; --pull: 54px; }
 
 /* 열린 상태: 토글 버튼과 가까운 항목부터 먼저 열림 (닫힌 상태보다 우선순위가 높도록 .open과 함께 지정) */
-.quick-fab-wrap.open .quick-fab-item:nth-last-child(1) { transition: opacity .3s ease 0s,   transform .46s cubic-bezier(0.34,1.9,0.4,1) 0s; }
-.quick-fab-wrap.open .quick-fab-item:nth-last-child(2) { transition: opacity .3s ease .05s, transform .46s cubic-bezier(0.34,1.9,0.4,1) .05s; }
-.quick-fab-wrap.open .quick-fab-item:nth-last-child(3) { transition: opacity .3s ease .1s,  transform .46s cubic-bezier(0.34,1.9,0.4,1) .1s; }
-.quick-fab-wrap.open .quick-fab-item:nth-last-child(4) { transition: opacity .3s ease .15s, transform .46s cubic-bezier(0.34,1.9,0.4,1) .15s; }
-.quick-fab-wrap.open .quick-fab-item:nth-last-child(5) { transition: opacity .3s ease .2s,  transform .46s cubic-bezier(0.34,1.9,0.4,1) .2s; }
-.quick-fab-wrap.open .quick-fab-item:nth-last-child(6) { transition: opacity .3s ease .25s, transform .46s cubic-bezier(0.34,1.9,0.4,1) .25s; }
+.quick-fab-wrap.open .quick-fab-item:nth-last-child(1) { transition: opacity .2s ease 0s, transform .3s cubic-bezier(0.34,1.7,0.4,1) 0s; }
+.quick-fab-wrap.open .quick-fab-item:nth-last-child(2) { transition: opacity .2s ease 0.025s, transform .3s cubic-bezier(0.34,1.7,0.4,1) 0.025s; }
+.quick-fab-wrap.open .quick-fab-item:nth-last-child(3) { transition: opacity .2s ease 0.05s, transform .3s cubic-bezier(0.34,1.7,0.4,1) 0.05s; }
+.quick-fab-wrap.open .quick-fab-item:nth-last-child(4) { transition: opacity .2s ease 0.075s, transform .3s cubic-bezier(0.34,1.7,0.4,1) 0.075s; }
+.quick-fab-wrap.open .quick-fab-item:nth-last-child(5) { transition: opacity .2s ease 0.1s, transform .3s cubic-bezier(0.34,1.7,0.4,1) 0.1s; }
+.quick-fab-wrap.open .quick-fab-item:nth-last-child(6) { transition: opacity .2s ease 0.125s, transform .3s cubic-bezier(0.34,1.7,0.4,1) 0.125s; }
 
 .quick-fab-item-icon {
   width: 18px;
@@ -4313,8 +4314,8 @@ html.theme-b .header-bible-btn {
 /* 기존 6개 항목(맨 위로/새가족/큐티즈/소식/섬김/밴드)의 nth-last-child 애니메이션
    순서를 건드리지 않기 위해, 새 항목은 #quick-fab-menu의 맨 앞(첫 번째 자식)에
    추가합니다 — 그러면 자동으로 nth-last-child(7)이 되어 기존 1~6번은 그대로입니다. */
-.quick-fab-item:nth-last-child(7) { transition: opacity .34s ease .3s,  transform .5s cubic-bezier(0.34,1.4,0.4,1) .3s;  --pull: 63px; }
-.quick-fab-wrap.open .quick-fab-item:nth-last-child(7) { transition: opacity .3s ease .3s, transform .46s cubic-bezier(0.34,1.9,0.4,1) .3s; }
+.quick-fab-item:nth-last-child(7) { transition: opacity .16s ease 0.12s, transform .24s cubic-bezier(0.34,1.3,0.4,1) 0.12s; --pull: 63px; }
+.quick-fab-wrap.open .quick-fab-item:nth-last-child(7) { transition: opacity .2s ease 0.15s, transform .3s cubic-bezier(0.34,1.7,0.4,1) 0.15s; }
 
 @media (max-width: 900px) {
   /* 모바일에서는 상단 헤더의 '성경' 버튼(.header-bible-btn)으로 대체하므로 숨김 */
