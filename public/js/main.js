@@ -526,8 +526,20 @@
     navMobile.classList.toggle('open', willOpen);
     if (navMobileScrim) navMobileScrim.classList.toggle('open', willOpen);
   });
+  // 모바일 메뉴 맨 아래에 구분선 + '성경' 바로가기 추가
+  // (메뉴 목록은 서버가 관리자 '메뉴 관리' 내용으로 채워 보내고, 성경은 그 아래 고정 항목으로 붙임)
+  if (navMobile && !navMobile.querySelector('.nav-mobile-bible')) {
+    navMobile.insertAdjacentHTML('beforeend',
+      '<div class="nav-mobile-divider" aria-hidden="true"></div>' +
+      '<a href="/bible.html" class="nav-mobile-bible">' +
+        '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 6.5c-1.7-1.3-4-2-6.5-2S2 5 2 5v14s2-.5 3.5-.5 4.3.7 6 2c1.7-1.3 4.5-2 6-2s3.5.5 3.5.5V5s-1-.5-3.5-.5-4.8.7-6.5 2z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M12 6.5V21" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>' +
+        '<span>성경</span>' +
+      '</a>'
+    );
+  }
   navMobile.addEventListener('click', (e) => {
-    if (e.target.tagName === 'A') closeMobileMenu();
+    // 링크 안의 아이콘/글씨를 눌러도 메뉴가 닫히도록 closest('a')로 확인
+    if (e.target.closest('a')) closeMobileMenu();
   });
   if (navMobileScrim) navMobileScrim.addEventListener('click', closeMobileMenu);
 
