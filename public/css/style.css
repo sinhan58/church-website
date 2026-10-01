@@ -473,6 +473,25 @@ html.theme-b .hamburger span {
 }
 .nav-mobile a:active { background: rgba(15, 61, 64, 0.08); }
 
+/* 모바일 메뉴 아래쪽 '성경' 항목: 위 메뉴와 얇은 구분선으로 나누고, 아이콘+글씨를 조금 작게 */
+.nav-mobile-divider {
+  height: 1px;
+  background: rgba(28, 43, 42, 0.12);
+  margin: 6px 12px;
+}
+.nav-mobile a.nav-mobile-bible {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.92rem;
+}
+.nav-mobile a.nav-mobile-bible svg {
+  width: 17px;
+  height: 17px;
+  flex: none;
+  color: var(--gold);
+}
+
 /* 메뉴 카드 밖(뒤 배경)을 탭하면 닫히는 것을 인지시켜주는 옅은 반투명 오버레이.
    카드처럼 open 클래스로 함께 열리고 닫힙니다(main.js에서 같이 토글). */
 .nav-mobile-scrim {
@@ -4274,9 +4293,12 @@ a:focus-visible, button:focus-visible {
 html.theme-b .header-bible-btn {
   filter: drop-shadow(0 1px 3px rgba(0,0,0,0.5)) drop-shadow(0 2px 6px rgba(0,0,0,0.35));
 }
+/* 모바일에서는 '성경'을 햄버거 메뉴 안(맨 아래)으로 옮겼으므로 헤더 버튼은 숨김 상태 유지.
+   다시 헤더에 보이게 하려면 아래 주석을 풀면 됩니다.
 @media (max-width: 900px) {
   .header-bible-btn { display: inline-flex; }
 }
+*/
 
 /* ---------------- PC 전용: 플로팅 버튼에 '성경' 추가 ---------------- */
 /* 기존 6개 항목(맨 위로/새가족/큐티즈/소식/섬김/밴드)의 nth-last-child 애니메이션
