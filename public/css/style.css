@@ -693,14 +693,14 @@ html.theme-b .hamburger span {
   .hero-cta { gap: 8px; }
   .hero-cta .btn {
     padding: 7px 14px;
-    font-size: 0.84rem;
+    font-size: 0.9rem;
     border-radius: 10px;
   }
   .hero-cta .btn-row2--tag { font-size: 0.7rem; margin-top: 1px; }
   .hero-cta .dbl-chevron { font-size: 1.25em; }
 }
 /* 아주 좁은 휴대폰에서는 글씨가 잘리지 않도록 위아래로 쌓음 */
-@media (max-width: 359px) {
+@media (max-width: 374px) {
   .hero-cta { grid-auto-flow: row; }
 }
 
