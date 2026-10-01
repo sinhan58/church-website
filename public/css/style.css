@@ -664,6 +664,39 @@ html.theme-b .hamburger span {
   margin-top: 3px;
 }
 
+/* 히어로 두 버튼이 두껍고 여백이 많아 보여서 날렵하게 줄임 (PC 공통) */
+.hero-cta .btn {
+  padding: 10px 26px;
+  line-height: 1.25;
+}
+.hero-cta .btn-row2--tag { margin-top: 2px; }
+
+/* 모바일: 최소 너비(240px)를 풀고 두 버튼을 한 줄에 나란히 배치,
+   글씨·여백을 한 단계 작게 해서 히어로 화면에서 버튼이 차지하는 높이를 절반 이하로 줄임 */
+@media (max-width: 560px) {
+  .hero-cta {
+    flex-wrap: nowrap;
+    gap: 10px;
+    width: 100%;
+    max-width: 380px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .hero-cta .btn {
+    flex: 1 1 0;
+    min-width: 0;
+    padding: 8px 10px;
+    font-size: 0.86rem;
+  }
+  .hero-cta .btn-row2--tag { font-size: 0.7rem; margin-top: 1px; }
+  .hero-cta .dbl-chevron { font-size: 1.25em; }
+}
+/* 아주 좁은 휴대폰에서는 글씨가 잘리지 않도록 다시 위아래로 쌓음 */
+@media (max-width: 359px) {
+  .hero-cta { flex-wrap: wrap; max-width: 240px; }
+  .hero-cta .btn { flex: 1 1 100%; }
+}
+
 /* 버튼/링크 끝에 붙는 겹화살괄호(») — 본문 글씨보다 작게 찍혀 보이지 않도록
    글씨 크기 기준으로 키워서 씁니다(em 단위라 어디 붙어도 비율이 맞습니다).
    예전엔 1.15em이었는데, » 글자 자체가 폰트 안에서 작게 그려져 있어서 여전히
