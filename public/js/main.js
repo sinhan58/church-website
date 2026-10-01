@@ -3063,6 +3063,16 @@
       sessionStorage.setItem('homeScrollY', String(window.scrollY));
     } catch (err) {}
   });
+  // 뒤로가기로 돌아온 직후, 데이터를 새로 불러오는 동안(딜레이) 사용자가 이미 화면을
+  // 스크롤했는데 로딩이 끝나는 순간 예전 위치로 다시 끌려 올라가는 문제가 있었습니다.
+  // → 돌아온 뒤 사용자가 화면을 만지거나(터치·휠·키보드) 스크롤하면, 그 뒤의 자동 복원은
+  //   하지 않습니다. 또 복원할 때는 부드러운 스크롤 애니메이션 없이 즉시 이동합니다.
+  let userMovedSinceReturn = false;
+  const markUserMoved = () => { userMovedSinceReturn = true; };
+  ['touchstart', 'wheel', 'keydown', 'mousedown'].forEach((type) => {
+    window.addEventListener(type, markUserMoved, { passive: true, capture: true });
+  });
+
   window.addEventListener('pageshow', (event) => {
     // event.persisted: 뒤로/앞으로 가기로 캐시에서 복원된 경우 true.
     // 일부 상황에서는 캐시 복원이 아니라 완전히 새로 불러오는 경우도 있어서,
@@ -3076,21 +3086,37 @@
     }
     if (!isBackNavigation) return;
 
+    userMovedSinceReturn = false;
+
     function restoreScroll() {
+      if (userMovedSinceReturn) return; // 이미 사용자가 움직였으면 그 위치를 존중
       try {
         const savedY = sessionStorage.getItem('homeScrollY');
-        if (savedY !== null) {
-          window.scrollTo(0, Number(savedY));
-        }
+        if (savedY === null) return;
+        const y = Number(savedY);
+        if (Math.abs(window.scrollY - y) < 2) return; // 이미 그 자리면 아무것도 안 함
+        const html = document.documentElement;
+        const prev = html.style.scrollBehavior;
+        html.style.scrollBehavior = 'auto'; // CSS의 smooth 스크롤 때문에 끌려가는 듯한 움직임 방지
+        window.scrollTo(0, y);
+        html.style.scrollBehavior = prev;
       } catch (err) {}
     }
 
-    // 큐티 상세 페이지에서 '아멘'을 누르고 돌아온 경우, 캐시(bfcache)에서 그대로
-    // 복원되면 큐티 카드의 하트 뱃지가 누르기 전 상태로 그대로 보입니다. 뒤로가기로
-    // 돌아올 때마다 큐티 목록을 새로 불러와서 하트 상태가 바로 반영되게 합니다.
-    // 카드 내용이 새로 그려지며 높이가 살짝 바뀔 수 있어서, 스크롤 복원은 그 다음에 합니다.
-    loadQT()
-      .catch(() => {})
-      .finally(restoreScroll);
+    // 1) 돌아오자마자 한 번 즉시 복원 (캐시 복원이면 이미 그 자리라 아무 변화 없음)
+    restoreScroll();
+
+    if (event.persisted) {
+      // 2-a) 캐시(bfcache)에서 그대로 복원된 경우: 큐티 상세에서 '아멘'을 누르고 돌아왔을 때
+      //      하트 상태가 바로 반영되도록 큐티 목록만 새로 불러오고, 끝난 뒤 위치를 한 번 더 맞춤
+      //      (그 사이 사용자가 스크롤했다면 위 restoreScroll이 알아서 건너뜀)
+      loadQT()
+        .catch(() => {})
+        .finally(restoreScroll);
+    } else {
+      // 2-b) 페이지를 완전히 새로 불러온 경우: 위쪽 섹션들이 다 채워져야 정확한 위치가
+      //      나오므로, 데이터 준비가 끝난 뒤 한 번 더 맞춤 (이미 loadQT도 포함돼 있어 중복 호출 안 함)
+      dataReadyForScroll.finally(restoreScroll);
+    }
   });
 })();
