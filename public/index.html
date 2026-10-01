@@ -15,7 +15,23 @@
       window.__resolveDataReady = resolve;
     });
   } else {
-    window.__dataReadyPromise = Promise.resolve();
+    // 큐티·칼럼 상세에서 '홈으로'(뒤로가기)로 돌아왔고, 홈 내용을 기억해 둔 게 있으면:
+    // main.js가 기억해 둔 내용으로 즉시 그리고 원래 위치로 맞출 때까지만 화면을 숨겼다가
+    // (보통 순식간) 원래 위치에서 바로 보여줍니다. → 스크롤하다 끌려가는 현상 방지
+    var isReturnWithCache = false;
+    try {
+      var navEntry = performance.getEntriesByType('navigation')[0];
+      isReturnWithCache = !!(navEntry && navEntry.type === 'back_forward' &&
+        sessionStorage.getItem('homeScrollY') !== null && sessionStorage.getItem('homeApiCache'));
+    } catch (e) {}
+    if (isReturnWithCache) {
+      window.__pendingReturnRestore = true;
+      window.__dataReadyPromise = new Promise(function (resolve) {
+        window.__resolveDataReady = resolve;
+      });
+    } else {
+      window.__dataReadyPromise = Promise.resolve();
+    }
   }
 </script>
 <!-- 글씨체 준비될 때까지, 그리고(해시 진입 시) 콘텐츠 데이터가 준비될 때까지 화면 숨기기 -->
@@ -673,6 +689,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
 <script src="/js/countries.js"></script>
 <script src="/js/font-catalog.js"></script>
-<script src="/js/main.js?v=122"></script>
+<script src="/js/main.js?v=123"></script>
 </body>
 </html>
