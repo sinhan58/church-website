@@ -18,7 +18,7 @@ try {
   console.error('[admin] sharp 모듈을 불러오지 못했습니다. 이미지 자동 압축 기능은 비활성화됩니다:', err.message);
 }
 
-const { readData, writeData, makeId, saveUploadedFile } = require('../utils/db');
+const { readData, writeData, makeId, saveUploadedFile, readAllData } = require('../utils/db');
 const { requireAuth, requireMainAdmin, requirePermission } = require('../middleware/auth');
 const { updateSermonsCache, getCachedSermons } = require('../utils/youtube');
 const { pregenerateMissingSermonPosters, listBuiltinPhotoFilenames } = require('../utils/sermonPoster');
@@ -223,6 +223,25 @@ router.put('/my-password', async (req, res) => {
 });
 
 // ---------- 관리자 계정 관리 (메인 관리자 전용) ----------
+// ---------- 전체 데이터 백업 내려받기 (메인 관리자 전용) ----------
+// 홈페이지의 모든 데이터(기본 정보·메뉴·게시글·설교·큐티·칼럼·선교·기도요청·영수증 신청 등)를
+// JSON 파일 하나로 내려받습니다. 개인정보가 들어 있으니 안전한 곳에 보관해야 합니다.
+// (사진·첨부파일 자체는 Supabase 저장소에 그대로 있고, 여기에는 그 주소만 들어 있습니다)
+router.get('/backup', requireMainAdmin, async (req, res) => {
+  try {
+    const all = await readAllData();
+    const now = new Date();
+    const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    const payload = { exportedAt: now.toISOString(), site: 'muldaen.com', data: all };
+    res.set('Content-Type', 'application/json; charset=utf-8');
+    res.set('Content-Disposition', `attachment; filename="muldaen-backup-${kst}.json"`);
+    res.set('Cache-Control', 'no-store');
+    res.send(JSON.stringify(payload, null, 2));
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.get('/accounts', requireMainAdmin, async (req, res) => {
   try {
     const admins = (await readData('admins')) || [];
