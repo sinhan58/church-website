@@ -10,6 +10,11 @@ const { VAPID_PUBLIC_KEY, saveSubscription, removeSubscription, sendTest } = req
 const bible = require('../utils/bible');
 const { getKakaoIdFromReq, setLoginCookie, clearLoginCookie } = require('../utils/kakaoAuth');
 const { exchangeCodeForToken, fetchKakaoUser } = require('../utils/kakao');
+const { clientIp, limitRequests, failureGuard } = require('../utils/rateLimit');
+
+// 비밀글 비밀번호 대입 방지: 같은 IP 또는 같은 글에 대해 15분 동안 8번 틀리면 잠시 잠금
+const secretVerifyGuard = failureGuard({ name: 'secret-verify', max: 8, windowMs: 15 * 60 * 1000 });
+const TEN_MIN = 10 * 60 * 1000;
 
 const SITE_URL = process.env.SITE_URL || 'https://muldaen.com';
 const KAKAO_REDIRECT_URI = `${SITE_URL}/api/bible/kakao/callback`;
@@ -21,7 +26,7 @@ router.get('/push/vapid-public-key', (req, res) => {
   res.json({ publicKey: VAPID_PUBLIC_KEY });
 });
 
-router.post('/push/subscribe', async (req, res) => {
+router.post('/push/subscribe', limitRequests({ name: 'push-sub', max: 20, windowMs: TEN_MIN }), async (req, res) => {
   try {
     const subscription = req.body;
     if (!subscription || !subscription.endpoint) {
@@ -36,7 +41,7 @@ router.post('/push/subscribe', async (req, res) => {
 
 // 지금 이 기기(브라우저)로만 테스트 알림을 보냅니다. "알림이 안 온다"는 문의를
 // 받았을 때, 그 사람의 기기에서 직접 눌러보게 해서 원인을 좁히기 위한 용도입니다.
-router.post('/push/test', async (req, res) => {
+router.post('/push/test', limitRequests({ name: 'push-test', max: 5, windowMs: TEN_MIN }), async (req, res) => {
   try {
     const subscription = req.body;
     if (!subscription || !subscription.endpoint) {
@@ -184,7 +189,7 @@ router.get('/qt/:id', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.post('/qt/:id/amen', async (req, res) => {
+router.post('/qt/:id/amen', limitRequests({ name: 'amen', max: 40, windowMs: TEN_MIN }), async (req, res) => {
   try {
     const qt = (await readData('qt')) || [];
     const idx = qt.findIndex((q) => q.id === req.params.id);
@@ -358,7 +363,7 @@ router.get('/bible/:code/:chapter', (req, res) => {
   }
 });
 
-router.post('/track', async (req, res) => {
+router.post('/track', limitRequests({ name: 'track', max: 600, windowMs: TEN_MIN }), async (req, res) => {
   try {
     const { type, path: trackPath, label, itemType, itemId, itemTitle, seconds, device } = req.body;
     const today = new Date().toISOString().slice(0, 10);
@@ -418,7 +423,7 @@ function emptyDeviceBucket() {
   return { pageviews: 0, timeSpentSeconds: 0, timeSpentSessions: 0 };
 }
 
-router.post('/receipt-requests', async (req, res) => {
+router.post('/receipt-requests', limitRequests({ name: 'receipt', max: 5, windowMs: 60 * 60 * 1000, message: '신청이 너무 많이 접수되었습니다. 잠시 후 다시 시도해주세요.' }), async (req, res) => {
   try {
     const { name, phone, email, note } = req.body;
     if (!name || !phone) return res.status(400).json({ error: '이름과 연락처를 입력해주세요.' });
@@ -489,8 +494,16 @@ function createSecretBoardRouter(key, { requiredMessage }) {
       if (!item.secret) {
         return res.json({ ok: true, content: item.content, name: item.name, date: item.date, reply: item.reply || '' });
       }
+      const guardKeys = [`ip:${clientIp(req)}`, `post:${key}:${item.id}`];
+      const lockedMin = secretVerifyGuard.isLocked(guardKeys);
+      if (lockedMin) {
+        return res.status(429).json({ error: `비밀번호를 여러 번 틀려 잠시 확인이 제한되었습니다. ${lockedMin}분 후에 다시 시도해주세요.` });
+      }
       const valid = item.passwordHash && bcrypt.compareSync(String(password || ''), item.passwordHash);
-      if (!valid) return res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
+      if (!valid) {
+        secretVerifyGuard.fail(guardKeys);
+        return res.status(401).json({ error: '비밀번호가 일치하지 않습니다.' });
+      }
       res.json({ ok: true, content: item.content, name: item.name, date: item.date, reply: item.reply || '' });
     } catch (err) { res.status(500).json({ error: err.message }); }
   });
@@ -513,7 +526,7 @@ router.get('/quiz/current', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-router.post('/quiz/:id/submit', async (req, res) => {
+router.post('/quiz/:id/submit', limitRequests({ name: 'quiz', max: 10, windowMs: TEN_MIN }), async (req, res) => {
   try {
     const quizzes = (await readData('quizzes')) || [];
     const quiz = quizzes.find((q) => q.id === req.params.id);
@@ -544,6 +557,9 @@ router.get('/quiz/:id/leaderboard', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// 기도요청·문의 새 글 도배 방지 (같은 IP에서 10분에 5건까지)
+router.post('/prayers', limitRequests({ name: 'prayer-post', max: 5, windowMs: TEN_MIN, message: '짧은 시간에 너무 많은 글이 등록되었습니다. 잠시 후 다시 시도해주세요.' }));
+router.post('/inquiries', limitRequests({ name: 'inquiry-post', max: 5, windowMs: TEN_MIN, message: '짧은 시간에 너무 많은 글이 등록되었습니다. 잠시 후 다시 시도해주세요.' }));
 router.use('/prayers', createSecretBoardRouter('prayers', { requiredMessage: '기도 내용을 입력해주세요.' }));
 router.use('/inquiries', createSecretBoardRouter('inquiries', { requiredMessage: '문의 내용을 입력해주세요.' }));
 
