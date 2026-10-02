@@ -1,6 +1,9 @@
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
+const { clientIp, failureGuard } = require('../utils/rateLimit');
+// 관리자 비밀번호 대입 방지: 같은 IP 또는 같은 아이디로 15분 동안 10번 틀리면 잠시 잠금
+const loginGuard = failureGuard({ name: 'admin-login', max: 10, windowMs: 15 * 60 * 1000 });
 const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
@@ -155,11 +158,17 @@ async function ensureMainAdmin() {
 router.post('/login', async (req, res) => {
   try {
     const { username, password } = req.body;
+    const guardKeys = [`ip:${clientIp(req)}`, `user:${String(username || '').toLowerCase()}`];
+    const lockedMin = loginGuard.isLocked(guardKeys);
+    if (lockedMin) {
+      return res.status(429).json({ error: `로그인을 여러 번 실패해 잠시 제한되었습니다. ${lockedMin}분 후에 다시 시도해주세요.` });
+    }
     const admins = await ensureMainAdmin();
     const admin = admins.find((a) => a.username === username);
     const validPass = admin ? bcrypt.compareSync(password || '', admin.passwordHash) : false;
 
     if (!admin || !validPass) {
+      loginGuard.fail(guardKeys);
       return res.status(401).json({ error: '아이디 또는 비밀번호가 올바르지 않습니다.' });
     }
 
