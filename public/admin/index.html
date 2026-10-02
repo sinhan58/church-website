@@ -1018,6 +1018,13 @@
         <h3>전체 관리자 계정</h3>
         <div id="account-list" class="account-list"></div>
       </div>
+
+      <div class="card" id="backup-card" hidden>
+        <h3>전체 데이터 백업</h3>
+        <p class="hint">홈페이지의 모든 데이터(기본 정보, 메뉴, 게시글, 설교, 큐티, 칼럼, 선교, 기도요청·문의, 영수증 신청 등)를 파일 하나로 내려받습니다. 한 달에 한 번 정도 받아서 안전한 곳에 보관해 주세요. 성도님들의 개인정보가 들어 있으니 다른 사람과 공유하지 마세요. 사진·첨부파일은 저장소에 그대로 있고, 이 파일에는 그 주소만 들어 있습니다.</p>
+        <button class="btn-primary" id="backup-download-btn">백업 파일 내려받기</button>
+        <span class="save-status" id="backup-status"></span>
+      </div>
     </section>
 
     </div>
@@ -1029,7 +1036,7 @@
 <script src="/js/font-catalog.js"></script>
 <script src="/js/countries.js"></script>
 <script src="/admin/js/service-background-admin.js?v=9"></script>
-<script src="/admin/js/admin.js?v=30"></script>
+<script src="/admin/js/admin.js?v=31"></script>
 <script src="/admin/js/richtext-about-admin.js?v=2"></script>
 <script src="/admin/js/column-admin.js?v=2"></script>
 <script src="/admin/js/gospel-content-admin.js?v=1"></script>
