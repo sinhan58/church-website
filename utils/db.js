@@ -110,6 +110,24 @@ async function saveUploadedFile(buffer, filename, mimetype, localUploadsDir) {
   return `/uploads/${filename}`;
 }
 
+// "읽고 → 고치고 → 저장"을 한 데이터 덩어리(name)마다 한 번에 하나씩 차례대로 처리합니다.
+// 두 사람이 거의 동시에 아멘을 누르는 경우처럼, 동시에 읽고 저장하면 한쪽 변경이 덮어써져
+// 사라지는 문제를 막기 위한 것입니다. (서버가 한 대라서 서버 안에서 순서만 지키면 충분합니다)
+// 사용법: await updateData('qt', (list) => { ...list 수정...; return list; })
+const updateLocks = new Map();
+function updateData(name, mutator) {
+  const prev = updateLocks.get(name) || Promise.resolve();
+  const run = prev.catch(() => {}).then(async () => {
+    const current = await readData(name);
+    const next = await mutator(current);
+    if (next !== undefined) await writeData(name, next);
+    return next;
+  });
+  // 다음 작업은 이번 작업이 끝난 뒤(성공/실패 상관없이) 시작
+  updateLocks.set(name, run.catch(() => {}));
+  return run;
+}
+
 // 전체 데이터 백업용: 저장된 모든 데이터 덩어리를 { 이름: 내용 } 형태로 한 번에 읽습니다.
 async function readAllData() {
   if (!useSupabase) {
@@ -136,4 +154,4 @@ async function readAllData() {
   return out;
 }
 
-module.exports = { readData, writeData, readAllData, makeId, saveUploadedFile, useSupabase, STORAGE_BUCKET };
+module.exports = { readData, writeData, updateData, readAllData, makeId, saveUploadedFile, useSupabase, STORAGE_BUCKET };
