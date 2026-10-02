@@ -41,7 +41,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link class="gfont-link" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;600;700&display=block" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
-<link rel="stylesheet" href="/css/style.css?v=244" />
+<link rel="stylesheet" href="/css/style.css?v=245" />
 <!--FONT_STYLE_TAG-->
 
 <!-- PWA: 홈 화면에 추가했을 때 앱처럼 보이도록 하는 설정 -->
@@ -165,6 +165,15 @@
           </div>
         </div>
       </div>
+      <!-- 안내 창 (브라우저 기본 alert 대신 홈페이지 디자인에 맞춘 창) -->
+      <div class="bible-progress-modal bible-notice-modal" id="bible-notice-modal" role="dialog" aria-modal="true" aria-labelledby="bible-notice-title">
+        <div class="bible-progress-modal-inner bible-notice-inner">
+          <div class="bible-notice-icon" id="bible-notice-icon">📖</div>
+          <h3 class="bible-notice-title" id="bible-notice-title"></h3>
+          <p class="bible-notice-text" id="bible-notice-text"></p>
+          <div class="bible-confirm-actions" id="bible-notice-actions"></div>
+        </div>
+      </div>
       <div class="bible-reading-status" id="bible-loading">불러오는 중...</div>
 
       <div class="bible-chapter-head" id="bible-chapter-head" hidden>
@@ -194,6 +203,6 @@
   </div>
 </footer>
 
-<script src="/js/bible.js?v=5"></script>
+<script src="/js/bible.js?v=6"></script>
 </body>
 </html>
