@@ -1,5 +1,6 @@
 require('dotenv').config();
 const express = require('express');
+const compression = require('compression');
 const session = require('express-session');
 const path = require('path');
 const cron = require('node-cron');
@@ -31,6 +32,9 @@ const uploadsDir = path.join(__dirname, 'public', 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
+
+// 응답 압축(gzip): main.js·style.css 같은 큰 파일을 보통 1/4~1/5 크기로 줄여 보내 첫 로딩을 빠르게 함
+app.use(compression());
 
 app.use(express.json({ limit: '2mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -246,7 +250,25 @@ app.get('/sw.js', (req, res) => {
 // index:false로 꺼둔 이유: 그대로 두면 '/' 요청을 이 static 미들웨어가 먼저 가로채서
 // public/index.html을 그냥 파일 그대로 보내버려, 위에서 만든 '/' 라우트가 아예 실행되지
 // 않습니다. 그래서 '/' 하나는 위 라우트가 전담하고, 그 외 정적 파일들은 그대로 이걸로 서빙합니다.
-app.use(express.static(path.join(__dirname, 'public'), { index: false }));
+// 브라우저 보관(캐시) 규칙:
+//  - 주소에 ?v=번호가 붙은 CSS·JS (예: /css/style.css?v=242): 내용이 바뀌면 번호도 바뀌므로
+//    1년간 보관해도 안전 → 재방문 시 다시 받지 않아 빨라짐
+//  - 그 외 이미지·아이콘·글꼴: 같은 이름으로 덮어써서 바꾸는 경우가 있어 1일만 보관
+//  - 번호 없는 CSS·JS·HTML: 매번 바뀌었는지 확인(바뀌지 않았으면 다시 받지 않음)
+app.use(express.static(path.join(__dirname, 'public'), {
+  index: false,
+  setHeaders(res, filePath) {
+    const req = res.req;
+    const versioned = req && req.query && req.query.v;
+    if (/\.(css|js)$/i.test(filePath)) {
+      res.setHeader('Cache-Control', versioned ? 'public, max-age=31536000, immutable' : 'no-cache');
+    } else if (/\.(png|jpe?g|gif|webp|svg|ico|woff2?|ttf|otf|mp4|webm)$/i.test(filePath)) {
+      res.setHeader('Cache-Control', versioned ? 'public, max-age=31536000, immutable' : 'public, max-age=86400');
+    } else {
+      res.setHeader('Cache-Control', 'no-cache');
+    }
+  }
+}));
 
 // API 라우트
 app.use('/api', apiRoutes);
