@@ -3,7 +3,8 @@ const router = express.Router();
 const bcrypt = require('bcryptjs');
 const path = require('path');
 const fs = require('fs');
-const { readData, writeData, makeId } = require('../utils/db');
+const { readData, writeData, updateData, makeId } = require('../utils/db');
+const stats = require('../utils/stats');
 const { getCachedSermons } = require('../utils/youtube');
 const { buildAndCacheSermonPoster, pregenerateMissingSermonPosters, pickSermonPhotoSource } = require('../utils/sermonPoster');
 const { VAPID_PUBLIC_KEY, saveSubscription, removeSubscription, sendTest } = require('../utils/push');
@@ -191,13 +192,19 @@ router.get('/qt/:id', async (req, res) => {
 
 router.post('/qt/:id/amen', limitRequests({ name: 'amen', max: 40, windowMs: TEN_MIN }), async (req, res) => {
   try {
-    const qt = (await readData('qt')) || [];
-    const idx = qt.findIndex((q) => q.id === req.params.id);
-    if (idx === -1) return res.status(404).json({ error: '큐티를 찾을 수 없습니다.' });
     const delta = req.body.action === 'remove' ? -1 : 1;
-    qt[idx].amen = Math.max(0, (qt[idx].amen || 0) + delta);
-    await writeData('qt', qt);
-    res.json({ amen: qt[idx].amen });
+    let amen = null;
+    // 동시에 여러 명이 눌러도 숫자가 빠지지 않도록 차례대로 처리
+    await updateData('qt', (qt) => {
+      const list = qt || [];
+      const item = list.find((q) => q.id === req.params.id);
+      if (!item) return undefined; // 저장하지 않음
+      item.amen = Math.max(0, (item.amen || 0) + delta);
+      amen = item.amen;
+      return list;
+    });
+    if (amen === null) return res.status(404).json({ error: '큐티를 찾을 수 없습니다.' });
+    res.json({ amen });
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
@@ -363,65 +370,13 @@ router.get('/bible/:code/:chapter', (req, res) => {
   }
 });
 
-router.post('/track', limitRequests({ name: 'track', max: 600, windowMs: TEN_MIN }), async (req, res) => {
-  try {
-    const { type, path: trackPath, label, itemType, itemId, itemTitle, seconds, device } = req.body;
-    const today = new Date().toISOString().slice(0, 10);
-    const stats = (await readData('stats')) || { pageviews: {}, clicks: {} };
-    if (!stats.itemClicks) stats.itemClicks = {};
-    if (!stats.timeSpent) stats.timeSpent = {};
-    if (!stats.deviceStats) stats.deviceStats = {};
-
-    const dev = device === 'mobile' ? 'mobile' : 'desktop'; // PC/모바일 두 가지로만 단순화
-
-    if (type === 'pageview' && trackPath) {
-      stats.pageviews[today] = stats.pageviews[today] || {};
-      stats.pageviews[today][trackPath] = (stats.pageviews[today][trackPath] || 0) + 1;
-
-      stats.deviceStats[today] = stats.deviceStats[today] || { desktop: emptyDeviceBucket(), mobile: emptyDeviceBucket() };
-      stats.deviceStats[today][dev].pageviews += 1;
-    } else if (type === 'click' && label) {
-      stats.clicks[today] = stats.clicks[today] || {};
-      stats.clicks[today][label] = (stats.clicks[today][label] || 0) + 1;
-
-      // 어떤 항목(영상 하나하나, 게시글 하나하나 등)을 눌렀는지도 같이 기록합니다.
-      if (itemType && itemId) {
-        stats.itemClicks[today] = stats.itemClicks[today] || {};
-        stats.itemClicks[today][itemType] = stats.itemClicks[today][itemType] || {};
-        const bucket = stats.itemClicks[today][itemType];
-        if (!bucket[itemId]) bucket[itemId] = { count: 0, title: itemTitle || '' };
-        bucket[itemId].count += 1;
-        if (itemTitle) bucket[itemId].title = itemTitle;
-      }
-    } else if (type === 'timespent' && trackPath && seconds) {
-      // 비정상적으로 큰 값(방치된 탭 등)이 통계를 왜곡하지 않도록 최대 1시간으로 제한.
-      // 1초 이상이면 전부 기록합니다 (실수 클릭 없다고 가정).
-      const sec = Math.min(Number(seconds) || 0, 3600);
-      if (sec >= 1) {
-        stats.timeSpent[today] = stats.timeSpent[today] || {};
-        stats.timeSpent[today][trackPath] = stats.timeSpent[today][trackPath] || { totalSeconds: 0, sessions: 0 };
-        stats.timeSpent[today][trackPath].totalSeconds += sec;
-        stats.timeSpent[today][trackPath].sessions += 1;
-
-        stats.deviceStats[today] = stats.deviceStats[today] || { desktop: emptyDeviceBucket(), mobile: emptyDeviceBucket() };
-        stats.deviceStats[today][dev].timeSpentSeconds += sec;
-        stats.deviceStats[today][dev].timeSpentSessions += 1;
-      }
-    } else {
-      return res.status(400).json({ error: '잘못된 요청입니다.' });
-    }
-
-    await writeData('stats', stats);
-    res.json({ ok: true });
-  } catch (err) {
-    // 통계 수집 실패가 사용자 화면에 영향을 주면 안 되므로 에러여도 200으로 조용히 응답
-    res.json({ ok: false });
-  }
+router.post('/track', limitRequests({ name: 'track', max: 600, windowMs: TEN_MIN }), (req, res) => {
+  // 방문 통계는 요청마다 바로 저장하지 않고 서버 메모리에 모아뒀다가 30초마다 한 번에
+  // 저장합니다(utils/stats.js). 통계 수집 실패가 화면에 영향을 주면 안 되므로 항상 조용히 응답.
+  const ok = stats.record(req.body || {});
+  if (!ok) return res.status(400).json({ error: '잘못된 요청입니다.' });
+  res.json({ ok: true });
 });
-
-function emptyDeviceBucket() {
-  return { pageviews: 0, timeSpentSeconds: 0, timeSpentSessions: 0 };
-}
 
 router.post('/receipt-requests', limitRequests({ name: 'receipt', max: 5, windowMs: 60 * 60 * 1000, message: '신청이 너무 많이 접수되었습니다. 잠시 후 다시 시도해주세요.' }), async (req, res) => {
   try {
