@@ -618,13 +618,20 @@
         text: '이번에 펼쳐 보신 장은 이미 모두 기록되어 있어요.\n다른 곳에서 읽으신 장은 읽기표에서 직접 체크할 수 있어요.',
         actions: [
           { label: '읽기표에서 체크하기', primary: true, onClick: openProgressModal },
-          { label: '닫기' }
+          { label: '홈으로 나가기', onClick: goHome },
+          { label: '계속 읽기' }
         ]
       });
       return;
     }
-    openReadConfirm(pendingOpened);
+    // '읽기 마치기'는 성경 읽기를 끝내고 나가려는 경우가 많아서, 기록(또는 기록하지 않기)을
+    // 고르면 홈으로 나갑니다. 더 읽고 싶으면 '계속 읽기'로 남을 수 있습니다.
+    openReadConfirm(pendingOpened, { allowContinue: true, onDone: goHome });
   });
+
+  function goHome() {
+    location.href = '/';
+  }
 
   // 성경 페이지 밖으로 나가는 링크(홈으로, 상단 로고 등)를 누르면, 떠나기 전에 먼저 확인
   document.addEventListener('click', (e) => {
