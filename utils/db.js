@@ -110,4 +110,30 @@ async function saveUploadedFile(buffer, filename, mimetype, localUploadsDir) {
   return `/uploads/${filename}`;
 }
 
-module.exports = { readData, writeData, makeId, saveUploadedFile, useSupabase, STORAGE_BUCKET };
+// 전체 데이터 백업용: 저장된 모든 데이터 덩어리를 { 이름: 내용 } 형태로 한 번에 읽습니다.
+async function readAllData() {
+  if (!useSupabase) {
+    const out = {};
+    if (fs.existsSync(DATA_DIR)) {
+      fs.readdirSync(DATA_DIR)
+        .filter((f) => f.endsWith('.json'))
+        .forEach((f) => { out[f.replace(/\.json$/, '')] = readFileData(f.replace(/\.json$/, '')); });
+    }
+    return out;
+  }
+  const out = {};
+  const PAGE = 500;
+  for (let from = 0; ; from += PAGE) {
+    const { data, error } = await supabase
+      .from('site_data')
+      .select('key, value')
+      .order('key')
+      .range(from, from + PAGE - 1);
+    if (error) throw new Error('Supabase 전체 읽기 실패: ' + error.message);
+    (data || []).forEach((row) => { out[row.key] = row.value; });
+    if (!data || data.length < PAGE) break;
+  }
+  return out;
+}
+
+module.exports = { readData, writeData, readAllData, makeId, saveUploadedFile, useSupabase, STORAGE_BUCKET };
