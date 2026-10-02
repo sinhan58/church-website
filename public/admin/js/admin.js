@@ -2815,7 +2815,48 @@
       $('#account-list-card').hidden = false;
       setupAddAccountForm();
       loadAccountList();
+      setupBackupCard();
     }
+  }
+
+  // ---------------- 전체 데이터 백업 (메인 관리자 전용) ----------------
+  function setupBackupCard() {
+    const card = $('#backup-card');
+    const btn = $('#backup-download-btn');
+    const statusEl = $('#backup-status');
+    if (!card || !btn) return;
+    card.hidden = false;
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      statusEl.textContent = '백업 파일을 만드는 중...';
+      try {
+        const res = await fetch('/api/admin/backup', { credentials: 'same-origin' });
+        if (!res.ok) {
+          let msg = '백업에 실패했습니다.';
+          try { msg = (await res.json()).error || msg; } catch (e) {}
+          throw new Error(msg);
+        }
+        const blob = await res.blob();
+        const disposition = res.headers.get('Content-Disposition') || '';
+        const match = disposition.match(/filename="([^"]+)"/);
+        const filename = match ? match[1] : 'muldaen-backup.json';
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        statusEl.textContent = '내려받기 완료 ✓';
+      } catch (err) {
+        statusEl.textContent = '';
+        alert(err.message);
+      } finally {
+        btn.disabled = false;
+        setTimeout(() => { if (statusEl.textContent.indexOf('완료') !== -1) statusEl.textContent = ''; }, 4000);
+      }
+    });
   }
 
   function setupMyPasswordForm() {
