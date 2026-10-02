@@ -41,7 +41,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link class="gfont-link" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;600;700&display=block" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
-<link rel="stylesheet" href="/css/style.css" />
+<link rel="stylesheet" href="/css/style.css?v=244" />
 <!--FONT_STYLE_TAG-->
 
 <!-- PWA: 홈 화면에 추가했을 때 앱처럼 보이도록 하는 설정 -->
@@ -77,6 +77,7 @@
         <div class="bible-account-info" id="bible-account-info" hidden>
           <span class="bible-account-name" id="bible-account-name"></span>
           <span class="bible-account-progress" id="bible-account-progress"></span>
+          <button type="button" class="bible-progress-btn bible-finish-btn" id="bible-finish-btn">읽기 마치기 ✓</button>
           <button type="button" class="bible-progress-btn" id="bible-progress-btn">읽기표 보기</button>
           <button type="button" class="bible-logout-btn" id="bible-logout-btn">로그아웃</button>
         </div>
@@ -139,6 +140,31 @@
         </div>
       </div>
 
+      <!-- 읽은 장 확인 모달: 펼쳐 본 장을 실제로 읽었는지 확인받고 기록 -->
+      <div class="bible-progress-modal bible-confirm-modal" id="bible-confirm-modal">
+        <div class="bible-progress-modal-inner">
+          <div class="bible-book-modal-head">
+            <h3 id="bible-confirm-title">오늘 읽으신 장을 기록할까요?</h3>
+          </div>
+          <div id="bible-confirm-main">
+            <p class="bible-confirm-desc" id="bible-confirm-desc"></p>
+            <div class="bible-confirm-actions">
+              <button type="button" class="bible-confirm-btn is-primary" id="bible-confirm-all">모두 읽었어요</button>
+              <button type="button" class="bible-confirm-btn" id="bible-confirm-partial-btn">부분 체크하기</button>
+              <button type="button" class="bible-confirm-btn is-quiet" id="bible-confirm-skip">기록하지 않기</button>
+            </div>
+            <button type="button" class="bible-confirm-continue" id="bible-confirm-continue" hidden>← 계속 읽기</button>
+          </div>
+          <div id="bible-confirm-partial" hidden>
+            <p class="bible-confirm-desc">실제로 읽으신 장을 눌러서 채워 주세요. 채워진 칸이 읽음으로 기록돼요.</p>
+            <div id="bible-confirm-partial-books"></div>
+            <div class="bible-confirm-actions">
+              <button type="button" class="bible-confirm-btn is-primary" id="bible-confirm-save">선택한 장 기록하기</button>
+              <button type="button" class="bible-confirm-btn is-quiet" id="bible-confirm-back">← 뒤로</button>
+            </div>
+          </div>
+        </div>
+      </div>
       <div class="bible-reading-status" id="bible-loading">불러오는 중...</div>
 
       <div class="bible-chapter-head" id="bible-chapter-head" hidden>
@@ -168,6 +194,6 @@
   </div>
 </footer>
 
-<script src="/js/bible.js?v=4"></script>
+<script src="/js/bible.js?v=5"></script>
 </body>
 </html>
