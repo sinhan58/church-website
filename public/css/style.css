@@ -4244,6 +4244,77 @@ a:focus-visible, button:focus-visible {
   text-align: right;
 }
 
+/* 성경읽기표: 책을 펼치면 보이는 장별 칸 (읽은 장은 채워짐, 눌러서 읽음/해제) */
+.bible-progress-item { display: flex; flex-direction: column; gap: 6px; }
+.bible-progress-item.is-expanded .bible-progress-row { border-color: var(--gold); }
+.bible-progress-detail {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  padding: 10px;
+}
+.bible-ch-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(38px, 1fr));
+  gap: 6px;
+}
+.bible-ch-cell {
+  height: 34px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--ivory);
+  color: var(--ink);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0;
+  -webkit-tap-highlight-color: transparent;
+}
+.bible-ch-cell.is-opened { border: 2px dashed var(--gold); }
+.bible-ch-cell.is-read { background: var(--gold); border-color: var(--gold); color: #fff; }
+.bible-ch-cell.is-read.is-opened { border-style: solid; }
+.bible-progress-open-btn {
+  margin-top: 10px;
+  width: 100%;
+  border: none;
+  background: var(--navy-deep);
+  color: #fff;
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 0.84rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+/* 읽은 장 확인 모달 */
+.bible-confirm-modal { z-index: 210; }
+.bible-confirm-desc { margin: 0 0 14px; font-size: 0.9rem; line-height: 1.6; color: var(--ink); }
+.bible-confirm-desc strong { color: var(--navy-deep); }
+.bible-confirm-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 6px; }
+.bible-confirm-btn {
+  border: 1px solid var(--line);
+  background: var(--ivory);
+  color: var(--navy-deep);
+  border-radius: 10px;
+  padding: 12px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.bible-confirm-btn.is-primary { background: var(--gold); border-color: var(--gold); color: #fff; }
+.bible-confirm-btn.is-quiet { background: transparent; color: var(--muted); }
+.bible-confirm-continue {
+  margin-top: 10px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 0.84rem;
+  cursor: pointer;
+}
+.bible-confirm-book { margin-bottom: 14px; }
+.bible-confirm-book h4 { margin: 0 0 8px; font-size: 0.95rem; color: var(--navy-deep); font-family: var(--font-heading); }
+.bible-confirm-book h4 span { font-size: 0.72rem; color: var(--muted); font-weight: 400; font-family: inherit; }
+.bible-finish-btn { border-color: var(--gold); color: var(--navy-deep); font-weight: 600; }
+
 .bible-reading-status {
   text-align: center;
   color: var(--muted);
