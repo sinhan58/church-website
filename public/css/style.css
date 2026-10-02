@@ -1268,6 +1268,35 @@ html.theme-b .about-bg-type { color: #f1f3f4; }
   margin: 0;
 }
 
+/* ---- PC 전용: 교회명·목사님 성함이 하단 띠에 가려지거나 잘리지 않게 ----
+   카드 높이는 오른쪽 '지난 설교 목록' 높이를 따라가서 매번 달라지는데, 글씨는 넉넉한 높이를
+   가정한 고정 간격으로 위에서부터 쌓여, 제목이 2~3줄만 돼도 맨 아래 목사님 성함이
+   하단 띠(57px) 뒤로 밀려 잘렸습니다.
+   → 글씨 영역의 바닥을 하단 띠 바로 위로 맞추고, 구분선·교회명·성함은 그 바닥에 붙여 고정.
+     라벨·제목·구절은 위에서부터 배치하고, 공간이 모자라면 main.js가 여백 → 제목 크기 순으로
+     단계적으로 줄입니다. (오른쪽 목사님 사진 영역 .sermon-hero-b-photo 는 전혀 건드리지 않음) */
+@media (min-width: 901px) {
+  .sermon-hero-b-text {
+    bottom: 57px;            /* 하단 띠 높이만큼 위에서 끝남 */
+    padding: 36px 32px 22px;
+  }
+  .sermon-hero-b-verse { margin-bottom: 20px; }
+  .sermon-hero-b-line { margin-top: auto; flex-shrink: 0; } /* 구분선부터 아래는 바닥에 붙임 */
+  .sermon-hero-b-church,
+  .sermon-hero-b-pastor { flex-shrink: 0; }
+
+  /* 1단계: 공간이 조금 모자랄 때 — 큰 여백부터 줄임 */
+  .sermon-hero-b-text.fit-1 .sermon-hero-b-label { margin-bottom: 28px; }
+  .sermon-hero-b-text.fit-1 .sermon-hero-b-title { margin-top: 0; margin-bottom: 20px; }
+  .sermon-hero-b-text.fit-1 .sermon-hero-b-verse { margin-bottom: 14px; }
+  /* 2단계: 더 모자랄 때 — 위쪽 여백과 라벨도 조금 더 작게 */
+  .sermon-hero-b-text.fit-2 { padding-top: 26px; }
+  .sermon-hero-b-text.fit-2 .sermon-hero-b-label { margin-bottom: 18px; padding: 6px 16px; font-size: 0.95rem; }
+  .sermon-hero-b-text.fit-2 .sermon-hero-b-title { margin-bottom: 14px; }
+  .sermon-hero-b-text.fit-2 .sermon-hero-b-line { margin-bottom: 12px; }
+  /* 3단계 이후는 main.js가 제목 글씨 크기를 조금씩 줄임 */
+}
+
 .sermon-hero-band {
   position: absolute;
   left: 0;
