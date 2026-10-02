@@ -281,12 +281,11 @@ router.get('/bible/kakao/callback', async (req, res) => {
     const nickname =
       (user.kakao_account && user.kakao_account.profile && user.kakao_account.profile.nickname) || '';
 
-    const history = (await readData('bibleHistory')) || { users: {} };
-    if (!history.users) history.users = {};
-    if (!history.users[kakaoId]) history.users[kakaoId] = {};
-    if (nickname) history.users[kakaoId].nickname = nickname;
-    history.users[kakaoId].lastLoginAt = new Date().toISOString();
-    await writeData('bibleHistory', history);
+    await updateBibleHistory((history) => {
+      if (!history.users[kakaoId]) history.users[kakaoId] = {};
+      if (nickname) history.users[kakaoId].nickname = nickname;
+      history.users[kakaoId].lastLoginAt = new Date().toISOString();
+    });
 
     setLoginCookie(res, kakaoId);
 
@@ -312,45 +311,102 @@ router.post('/bible/logout', (req, res) => {
   res.json({ ok: true });
 });
 
-// 로그인한 사람의 현재 기록(마지막으로 읽던 위치, 총 읽은 장 수)을 돌려줍니다.
+// ---------------- 성경 읽기 기록 ----------------
+// 예전에는 장을 "펼치기만 해도" 읽은 것으로 저장했는데, 장만 넘겨볼 때도 읽음으로 쌓여서
+// 2단계로 바꿨습니다.
+//   - 장을 펼치면: "마지막으로 읽던 곳"(이어 읽기용)만 저장 → POST /bible/history
+//   - 실제 읽음 표시: 성도님이 직접 확인(모두 읽음 / 부분 체크 / 읽기표에서 직접 체크)한
+//     장만 저장 → POST /bible/read
+// 읽기 기록 데이터 형식 버전. 2로 바뀔 때 예전 방식으로 쌓인 "펼친 장" 기록은 모두 비웁니다
+// (요청에 따라 새로 시작). 이어 읽기 위치·닉네임은 그대로 둡니다.
+const BIBLE_HISTORY_VERSION = 2;
+
+// 모든 읽기 기록 변경은 이 함수로 (동시에 저장해도 서로 덮어쓰지 않게 차례대로 처리)
+function updateBibleHistory(mutate) {
+  return updateData('bibleHistory', async (current) => {
+    const history = current || { users: {} };
+    if (!history.users) history.users = {};
+    if (history.readVersion !== BIBLE_HISTORY_VERSION) {
+      Object.values(history.users).forEach((u) => { if (u) u.readChapters = []; });
+      history.readVersion = BIBLE_HISTORY_VERSION;
+    }
+    await mutate(history);
+    return history;
+  });
+}
+
+// 예: "GEN-3" 처럼 실제로 있는 책·장인지 확인
+function isValidChapterKey(key) {
+  if (typeof key !== 'string') return false;
+  const m = key.match(/^([A-Z0-9]{2,4})-(\d{1,3})$/);
+  if (!m) return false;
+  const book = bible.getBookByCode(m[1]);
+  const ch = Number(m[2]);
+  return !!(book && ch >= 1 && ch <= book.chapters);
+}
+
+// 로그인한 사람의 현재 기록(마지막으로 읽던 위치, 읽은 장 목록)을 돌려줍니다.
 router.get('/bible/history', async (req, res) => {
   try {
     const kakaoId = getKakaoIdFromReq(req);
     if (!kakaoId) return res.json({ loggedIn: false });
-    const history = (await readData('bibleHistory')) || { users: {} };
-    const record = (history.users && history.users[kakaoId]) || {};
+    let history = await readData('bibleHistory');
+    if (!history || history.readVersion !== BIBLE_HISTORY_VERSION) {
+      await updateBibleHistory(() => {}); // 처음 한 번만: 예전 방식 기록 비우기
+      history = await readData('bibleHistory');
+    }
+    const record = (history && history.users && history.users[kakaoId]) || {};
+    const readChapters = Array.isArray(record.readChapters) ? record.readChapters : [];
     res.json({
       loggedIn: true,
       nickname: record.nickname || '',
       lastRead: record.lastRead || null,
-      readCount: Array.isArray(record.readChapters) ? record.readChapters.length : 0,
-      // "성경읽기표"에서 책별로 몇 장 읽었는지 계산하려면 전체 목록이 필요해서 함께 내려줍니다.
-      readChapters: Array.isArray(record.readChapters) ? record.readChapters : []
+      readCount: readChapters.length,
+      readChapters
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-// 장을 펼쳐볼 때마다 호출되어 "마지막으로 읽은 곳"과 "지금까지 읽은 장 수"를 갱신합니다.
+// 장을 펼칠 때마다 호출: "마지막으로 읽던 곳"만 갱신 (읽음 표시는 하지 않음)
 router.post('/bible/history', async (req, res) => {
   try {
     const kakaoId = getKakaoIdFromReq(req);
     if (!kakaoId) return res.status(401).json({ error: '로그인이 필요합니다.' });
     const { code, chapter, verse } = req.body || {};
-    if (!code || !chapter) return res.status(400).json({ error: '잘못된 요청입니다.' });
+    if (!isValidChapterKey(`${code}-${chapter}`)) return res.status(400).json({ error: '잘못된 요청입니다.' });
+    await updateBibleHistory((history) => {
+      if (!history.users[kakaoId]) history.users[kakaoId] = {};
+      history.users[kakaoId].lastRead = { code, chapter: Number(chapter), verse: verse || null, at: new Date().toISOString() };
+    });
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
 
-    const history = (await readData('bibleHistory')) || { users: {} };
-    if (!history.users) history.users = {};
-    if (!history.users[kakaoId]) history.users[kakaoId] = {};
-    const record = history.users[kakaoId];
-    record.lastRead = { code, chapter, verse: verse || null, at: new Date().toISOString() };
-    record.readChapters = Array.isArray(record.readChapters) ? record.readChapters : [];
-    const key = `${code}-${chapter}`;
-    if (!record.readChapters.includes(key)) record.readChapters.push(key);
-    await writeData('bibleHistory', history);
-
-    res.json({ ok: true, readCount: record.readChapters.length });
+// 읽음 표시 추가/해제: { chapters: ["GEN-1", "GEN-3"], read: true | false }
+router.post('/bible/read', async (req, res) => {
+  try {
+    const kakaoId = getKakaoIdFromReq(req);
+    if (!kakaoId) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    const { chapters, read } = req.body || {};
+    if (!Array.isArray(chapters) || chapters.length === 0 || chapters.length > 1200) {
+      return res.status(400).json({ error: '잘못된 요청입니다.' });
+    }
+    const keys = [...new Set(chapters)].filter(isValidChapterKey);
+    let readChapters = [];
+    await updateBibleHistory((history) => {
+      if (!history.users[kakaoId]) history.users[kakaoId] = {};
+      const rec = history.users[kakaoId];
+      const set = new Set(Array.isArray(rec.readChapters) ? rec.readChapters : []);
+      keys.forEach((k) => (read === false ? set.delete(k) : set.add(k)));
+      rec.readChapters = [...set];
+      rec.readUpdatedAt = new Date().toISOString();
+      readChapters = rec.readChapters;
+    });
+    res.json({ ok: true, readCount: readChapters.length, readChapters });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
