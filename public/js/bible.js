@@ -12,6 +12,33 @@
   function escapeHtml(str = '') {
     return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
+  // 브라우저 기본 알림창(alert)은 맨 위에 사이트 주소("muldaen.com 내용:")가 붙고 모양도
+  // 바꿀 수 없어서, 홈페이지 디자인에 맞춘 안내 창을 직접 띄웁니다.
+  // actions: [{ label, primary, onClick }] (없으면 '확인' 버튼 하나)
+  function showNotice({ icon = '📖', title = '', text = '', actions } = {}) {
+    const modal = $('#bible-notice-modal');
+    if (!modal) { alert([title, text].filter(Boolean).join('\n')); return; }
+    $('#bible-notice-icon').textContent = icon;
+    $('#bible-notice-title').textContent = title;
+    $('#bible-notice-text').textContent = text;
+    const wrap = $('#bible-notice-actions');
+    wrap.innerHTML = '';
+    (actions && actions.length ? actions : [{ label: '확인', primary: true }]).forEach((a) => {
+      const btn = document.createElement('button');
+      btn.type = 'button';
+      btn.className = 'bible-confirm-btn' + (a.primary ? ' is-primary' : ' is-quiet');
+      btn.textContent = a.label;
+      btn.addEventListener('click', () => {
+        modal.classList.remove('open');
+        if (a.onClick) a.onClick();
+      });
+      wrap.appendChild(btn);
+    });
+    modal.classList.add('open');
+    const first = wrap.querySelector('button');
+    if (first) first.focus();
+  }
+
 
   $('#bible-year') && ($('#bible-year').textContent = new Date().getFullYear());
 
@@ -277,7 +304,7 @@
 
   $('#bible-listen-btn').addEventListener('click', () => {
     if (!('speechSynthesis' in window)) {
-      alert('이 브라우저에서는 음성 읽기 기능을 지원하지 않습니다.');
+      showNotice({ icon: '🔇', title: '듣기 기능을 쓸 수 없어요', text: '이 브라우저에서는 음성 읽기를 지원하지 않습니다.\n다른 브라우저(크롬, 사파리 등)에서 다시 시도해 주세요.' });
       return;
     }
     if (isSpeaking) stopSpeaking();
@@ -443,7 +470,7 @@
         }
       })
       .catch(() => {
-        alert('읽음 기록을 저장하지 못했습니다. 인터넷 연결을 확인하고 다시 시도해주세요.');
+        showNotice({ icon: '⚠️', title: '저장하지 못했어요', text: '읽음 기록을 저장하지 못했습니다.\n인터넷 연결을 확인하고 다시 시도해 주세요.' });
       });
   }
 
@@ -585,7 +612,15 @@
   $('#bible-finish-btn').addEventListener('click', () => {
     const unread = unreadOf(pendingOpened);
     if (!unread.length) {
-      alert('이번에 새로 펼쳐 보신 장이 없어요. 읽기표에서 장을 직접 체크할 수도 있어요.');
+      showNotice({
+        icon: '📖',
+        title: '새로 펼쳐 보신 장이 없어요',
+        text: '이번에 펼쳐 보신 장은 이미 모두 기록되어 있어요.\n다른 곳에서 읽으신 장은 읽기표에서 직접 체크할 수 있어요.',
+        actions: [
+          { label: '읽기표에서 체크하기', primary: true, onClick: openProgressModal },
+          { label: '닫기' }
+        ]
+      });
       return;
     }
     openReadConfirm(pendingOpened);
@@ -658,7 +693,7 @@
       })
       .catch((err) => {
         console.error('로그아웃 실패:', err);
-        alert('로그아웃에 실패했습니다. 잠시 후 다시 시도해주세요.');
+        showNotice({ icon: '⚠️', title: '로그아웃하지 못했어요', text: '잠시 후 다시 시도해 주세요.' });
       });
   });
 
@@ -669,7 +704,7 @@
       params.delete('kakaoError');
       const rest = params.toString();
       history.replaceState(null, '', `/bible.html${rest ? '?' + rest : ''}`);
-      alert('카카오 로그인에 실패했습니다. 잠시 후 다시 시도해주세요.');
+      showNotice({ icon: '⚠️', title: '카카오 로그인에 실패했어요', text: '잠시 후 다시 시도해 주세요.' });
     }
   })();
 
