@@ -56,11 +56,14 @@
     return JSON.parse(text);
   }
 
+  // 큰따옴표(")도 바꿔줘야, 제목에 "..."가 들어간 설교·찬양 영상의 data-title="" 같은
+  // 속성 값이 중간에 잘리거나 카드가 깨지지 않습니다. (숫자 등이 들어와도 안전하도록 String 처리)
   function escapeHtml(str = '') {
-    return str
+    return String(str == null ? '' : str)
       .replace(/&/g, '&amp;')
       .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;');
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
   }
 
   // 예배 카드의 이름("온 세대가 함께 드리는 주일예배" 등)에서, 실제 예배 이름
