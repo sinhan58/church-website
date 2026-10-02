@@ -309,7 +309,7 @@
     if (isLoggedIn) {
       loginBtn.hidden = true;
       info.hidden = false;
-      $('#bible-account-progress').textContent = readCount > 0 ? `지금까지 ${readCount}장 읽으셨어요` : '오늘부터 읽기 기록이 저장돼요';
+      $('#bible-account-progress').textContent = readCount > 0 ? `지금까지 ${readCount}장 읽으셨어요` : '읽은 장을 기록해 보세요';
     } else {
       loginBtn.hidden = false;
       info.hidden = true;
@@ -317,25 +317,47 @@
   }
 
   // ---------------- 성경읽기표 (66권 중 어디를 얼마나 읽었는지 한눈에 보기) ----------------
-  // 여러 권을 왔다갔다 하며 읽는 분들을 위한 기능이라, 단순 누적 장 수가 아니라
-  // 책마다 실제로 펼쳐본 장이 몇 장인지 readChaptersList(예: "GEN-3")로 직접 계산합니다.
+  // 책 줄을 누르면 그 책의 1장~마지막 장 칸이 펼쳐지고, 읽은 장은 색이 채워집니다.
+  // 칸을 눌러 직접 읽음/해제할 수 있어서, 종이 성경 등으로 따로 읽은 장도 표시할 수 있습니다.
+  let expandedChartBook = null;
+
   function renderReadingChart() {
     const total = booksIndex.length;
     const readBookCount = booksIndex.filter((b) => countReadChapters(b) > 0).length;
     const completeBookCount = booksIndex.filter((b) => countReadChapters(b) >= b.chapters).length;
     $('#bible-progress-summary').textContent =
-      `총 ${total}권 중 ${readBookCount}권을 펼쳐보셨고, 그중 ${completeBookCount}권을 완독하셨어요.`;
+      `총 ${total}권 중 ${readBookCount}권을 읽기 시작하셨고, 그중 ${completeBookCount}권을 완독하셨어요. ` +
+      '책을 누르면 장별로 보이고, 칸을 눌러 읽음을 직접 표시하거나 지울 수 있어요.';
 
     $('#bible-progress-list-ot').innerHTML = renderProgressRows('OT');
     $('#bible-progress-list-nt').innerHTML = renderProgressRows('NT');
 
     $$('.bible-progress-row', $('#bible-progress-modal')).forEach((row) => {
       row.addEventListener('click', () => {
-        const book = booksIndex.find((b) => b.code === row.dataset.code);
-        if (book) {
-          closeProgressModal();
-          loadChapter(book, 1);
+        expandedChartBook = expandedChartBook === row.dataset.code ? null : row.dataset.code;
+        renderReadingChart();
+        const opened = $(`.bible-progress-item[data-code="${row.dataset.code}"]`);
+        if (opened && expandedChartBook) opened.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      });
+    });
+    $$('.bible-progress-detail .bible-ch-cell', $('#bible-progress-modal')).forEach((cell) => {
+      cell.addEventListener('click', () => {
+        const key = cell.dataset.key;
+        const nowRead = !readChaptersList.includes(key);
+        saveReadChapters([key], nowRead).then(renderReadingChart);
+      });
+    });
+    $$('.bible-progress-open-btn', $('#bible-progress-modal')).forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const book = booksIndex.find((b) => b.code === btn.dataset.code);
+        if (!book) return;
+        // 아직 안 읽은 첫 장부터 (다 읽었으면 1장)
+        let ch = 1;
+        for (let i = 1; i <= book.chapters; i++) {
+          if (!readChaptersList.includes(`${book.code}-${i}`)) { ch = i; break; }
         }
+        closeProgressModal();
+        loadChapter(book, ch);
       });
     });
   }
@@ -345,6 +367,21 @@
     return readChaptersList.filter((id) => id.startsWith(prefix)).length;
   }
 
+  // 한 책의 장 칸들(1~N). opts.opened: 이번에 펼쳐 본 장(점선 테두리), opts.selected: 채워 보일 장
+  function renderChapterCells(book, opts = {}) {
+    const selected = opts.selected || new Set(readChaptersList);
+    const opened = opts.opened || new Set();
+    let html = '';
+    for (let i = 1; i <= book.chapters; i++) {
+      const key = `${book.code}-${i}`;
+      const cls = ['bible-ch-cell'];
+      if (selected.has(key)) cls.push('is-read');
+      if (opened.has(key)) cls.push('is-opened');
+      html += `<button type="button" class="${cls.join(' ')}" data-key="${key}" aria-pressed="${selected.has(key)}">${i}</button>`;
+    }
+    return `<div class="bible-ch-grid">${html}</div>`;
+  }
+
   function renderProgressRows(testament) {
     return booksIndex
       .filter((b) => b.testament === testament)
@@ -352,12 +389,20 @@
         const n = countReadChapters(b);
         const percent = Math.round((n / b.chapters) * 100);
         const done = n >= b.chapters;
+        const expanded = expandedChartBook === b.code;
         return `
-          <button type="button" class="bible-progress-row${done ? ' is-done' : ''}" data-code="${b.code}">
-            <span class="bible-progress-name">${escapeHtml(b.name)}${done ? ' ✓' : ''}</span>
-            <span class="bible-progress-bar-track"><span class="bible-progress-bar-fill" style="width:${percent}%"></span></span>
-            <span class="bible-progress-count">${n}/${b.chapters}장</span>
-          </button>`;
+          <div class="bible-progress-item${expanded ? ' is-expanded' : ''}" data-code="${b.code}">
+            <button type="button" class="bible-progress-row${done ? ' is-done' : ''}" data-code="${b.code}" aria-expanded="${expanded}">
+              <span class="bible-progress-name">${escapeHtml(b.name)}${done ? ' ✓' : ''}</span>
+              <span class="bible-progress-bar-track"><span class="bible-progress-bar-fill" style="width:${percent}%"></span></span>
+              <span class="bible-progress-count">${n}/${b.chapters}장</span>
+            </button>
+            ${expanded ? `
+              <div class="bible-progress-detail">
+                ${renderChapterCells(b)}
+                <button type="button" class="bible-progress-open-btn" data-code="${b.code}">${escapeHtml(b.name)} 읽으러 가기 →</button>
+              </div>` : ''}
+          </div>`;
       })
       .join('');
   }
@@ -374,6 +419,192 @@
   $('#bible-progress-modal').addEventListener('click', (e) => {
     if (e.target.id === 'bible-progress-modal') closeProgressModal();
   });
+
+  // 읽음 표시 저장 (추가: read=true / 해제: read=false). 화면 목록도 서버 결과로 맞춤
+  function saveReadChapters(keys, read) {
+    if (!keys.length) return Promise.resolve();
+    // 화면에는 바로 반영(느린 인터넷에서도 눌림이 바로 보이게)
+    const set = new Set(readChaptersList);
+    keys.forEach((k) => (read ? set.add(k) : set.delete(k)));
+    readChaptersList = [...set];
+    readCount = readChaptersList.length;
+    updateAccountBar();
+    return fetch('/api/bible/read', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ chapters: keys, read })
+    })
+      .then((res) => (res.ok ? res.json() : Promise.reject(new Error('저장 실패'))))
+      .then((data) => {
+        if (data && Array.isArray(data.readChapters)) {
+          readChaptersList = data.readChapters;
+          readCount = readChaptersList.length;
+          updateAccountBar();
+        }
+      })
+      .catch(() => {
+        alert('읽음 기록을 저장하지 못했습니다. 인터넷 연결을 확인하고 다시 시도해주세요.');
+      });
+  }
+
+  // ---------------- "읽은 장 확인하기" ----------------
+  // 장을 펼치기만 해서는 읽음으로 기록하지 않고, 이번에 펼쳐 본 장들을 모아뒀다가
+  // 성경 페이지를 떠날 때(또는 '읽기 마치기'를 누를 때) 실제로 읽었는지 물어봅니다.
+  //   - 모두 읽었어요: 펼쳐 본 장 전부 기록
+  //   - 부분 체크하기: 그 책의 전체 장이 보이고, 실제로 읽은 장만 골라서 기록
+  //   - 기록하지 않기: 아무것도 기록하지 않음
+  // 뒤로가기·창 닫기처럼 화면에서 물어볼 수 없는 방법으로 떠난 경우에는, 다음에 성경
+  // 페이지를 열 때 "지난번에 펼쳐 보신 장"으로 다시 물어봅니다.
+  const PENDING_KEY = 'biblePendingOpened';
+  function loadPending() {
+    try { return JSON.parse(localStorage.getItem(PENDING_KEY) || '[]').filter((k) => typeof k === 'string'); } catch (e) { return []; }
+  }
+  function savePending(list) {
+    try { localStorage.setItem(PENDING_KEY, JSON.stringify(list)); } catch (e) {}
+  }
+  // 이번 방문 전에 남아 있던 확인 대기 목록 (페이지를 열자마자 따로 떼어둠)
+  const previousPending = loadPending();
+  savePending([]);
+  let pendingOpened = []; // 이번 방문에서 펼쳐 본 장
+
+  function addPending(key) {
+    if (!pendingOpened.includes(key)) pendingOpened.push(key);
+    savePending(pendingOpened);
+  }
+  function unreadOf(list) {
+    return list.filter((k) => !readChaptersList.includes(k));
+  }
+  function clearPending() {
+    pendingOpened = [];
+    savePending([]);
+  }
+
+  // ["GEN-1","GEN-2","GEN-3","GEN-5"] → "창세기 1~3, 5장"
+  function describeChapters(keys) {
+    const byBook = new Map();
+    keys.forEach((k) => {
+      const [code, ch] = k.split('-');
+      if (!byBook.has(code)) byBook.set(code, []);
+      byBook.get(code).push(Number(ch));
+    });
+    const parts = [];
+    booksIndex.forEach((b) => {
+      const nums = byBook.get(b.code);
+      if (!nums) return;
+      nums.sort((a, c) => a - c);
+      const ranges = [];
+      let start = nums[0];
+      let prev = nums[0];
+      for (let i = 1; i <= nums.length; i++) {
+        const n = nums[i];
+        if (n === prev + 1) { prev = n; continue; }
+        ranges.push(start === prev ? `${start}` : `${start}~${prev}`);
+        start = n; prev = n;
+      }
+      parts.push(`${b.name} ${ranges.join(', ')}장`);
+    });
+    return parts.join(' · ');
+  }
+
+  let confirmState = null; // { keys, onDone, allowContinue, partialSelected }
+
+  function openReadConfirm(keys, { onDone, allowContinue = false, previous = false } = {}) {
+    const unread = unreadOf(keys);
+    if (!unread.length) { if (onDone) onDone(); return; }
+    confirmState = { keys: unread, onDone, allowContinue };
+    $('#bible-confirm-title').textContent = previous ? '지난번에 펼쳐 보신 장을 확인해 주세요' : '오늘 읽으신 장을 기록할까요?';
+    $('#bible-confirm-desc').innerHTML =
+      `${previous ? '지난번에' : '이번에'} 펼쳐 보신 장: <strong>${escapeHtml(describeChapters(unread))}</strong> (${unread.length}장)<br>` +
+      '장만 넘겨 보신 경우도 있으니, 실제로 읽으신 장만 기록해 주세요.';
+    $('#bible-confirm-main').hidden = false;
+    $('#bible-confirm-partial').hidden = true;
+    $('#bible-confirm-continue').hidden = !allowContinue;
+    $('#bible-confirm-modal').classList.add('open');
+  }
+
+  function finishReadConfirm() {
+    $('#bible-confirm-modal').classList.remove('open');
+    clearPending();
+    const done = confirmState && confirmState.onDone;
+    confirmState = null;
+    if (done) done();
+  }
+
+  function showPartialCheck() {
+    if (!confirmState) return;
+    const opened = new Set(confirmState.keys);
+    const codes = [...new Set(confirmState.keys.map((k) => k.split('-')[0]))];
+    // 처음에는 이미 읽음으로 기록된 장만 채워 둠 → 실제로 읽은 장을 눌러서 채우면 됨
+    confirmState.partialSelected = new Set(readChaptersList);
+    const wrap = $('#bible-confirm-partial-books');
+    wrap.innerHTML = booksIndex
+      .filter((b) => codes.includes(b.code))
+      .map((b) => `
+        <div class="bible-confirm-book">
+          <h4>${escapeHtml(b.name)} <span>(점선: 이번에 펼쳐 본 장)</span></h4>
+          ${renderChapterCells(b, { opened, selected: confirmState.partialSelected })}
+        </div>`)
+      .join('');
+    $$('.bible-ch-cell', wrap).forEach((cell) => {
+      cell.addEventListener('click', () => {
+        const key = cell.dataset.key;
+        const sel = confirmState.partialSelected;
+        if (sel.has(key)) sel.delete(key); else sel.add(key);
+        cell.classList.toggle('is-read', sel.has(key));
+        cell.setAttribute('aria-pressed', String(sel.has(key)));
+      });
+    });
+    $('#bible-confirm-main').hidden = true;
+    $('#bible-confirm-partial').hidden = false;
+  }
+
+  $('#bible-confirm-all').addEventListener('click', () => {
+    if (!confirmState) return;
+    saveReadChapters(confirmState.keys, true).finally(finishReadConfirm);
+  });
+  $('#bible-confirm-partial-btn').addEventListener('click', showPartialCheck);
+  $('#bible-confirm-skip').addEventListener('click', finishReadConfirm);
+  $('#bible-confirm-back').addEventListener('click', () => {
+    $('#bible-confirm-main').hidden = false;
+    $('#bible-confirm-partial').hidden = true;
+  });
+  $('#bible-confirm-save').addEventListener('click', () => {
+    if (!confirmState) return;
+    const sel = confirmState.partialSelected || new Set();
+    const codes = new Set(confirmState.keys.map((k) => k.split('-')[0]));
+    const before = new Set(readChaptersList.filter((k) => codes.has(k.split('-')[0])));
+    const toAdd = [...sel].filter((k) => codes.has(k.split('-')[0]) && !before.has(k));
+    const toRemove = [...before].filter((k) => !sel.has(k));
+    Promise.all([saveReadChapters(toAdd, true), saveReadChapters(toRemove, false)]).finally(finishReadConfirm);
+  });
+  $('#bible-confirm-continue').addEventListener('click', () => {
+    // 떠나지 않고 계속 읽기 (펼쳐 본 장 목록은 그대로 유지)
+    $('#bible-confirm-modal').classList.remove('open');
+    confirmState = null;
+  });
+  $('#bible-finish-btn').addEventListener('click', () => {
+    const unread = unreadOf(pendingOpened);
+    if (!unread.length) {
+      alert('이번에 새로 펼쳐 보신 장이 없어요. 읽기표에서 장을 직접 체크할 수도 있어요.');
+      return;
+    }
+    openReadConfirm(pendingOpened);
+  });
+
+  // 성경 페이지 밖으로 나가는 링크(홈으로, 상단 로고 등)를 누르면, 떠나기 전에 먼저 확인
+  document.addEventListener('click', (e) => {
+    if (!isLoggedIn || e.defaultPrevented || e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+    const a = e.target.closest && e.target.closest('a[href]');
+    if (!a || a.target === '_blank' || a.hasAttribute('download')) return;
+    const href = a.getAttribute('href') || '';
+    if (href.startsWith('#') || href.startsWith('javascript:')) return;
+    let url;
+    try { url = new URL(a.href, location.href); } catch (err) { return; }
+    if (url.origin === location.origin && url.pathname === location.pathname) return; // 같은 페이지 안 이동
+    if (!unreadOf(pendingOpened).length) return;
+    e.preventDefault();
+    openReadConfirm(pendingOpened, { allowContinue: true, onDone: () => { location.href = a.href; } });
+  }, true);
 
   function loadKakaoSdk() {
     return new Promise((resolve, reject) => {
@@ -422,6 +653,7 @@
     fetch('/api/bible/logout', { method: 'POST' })
       .then((res) => {
         if (!res.ok) throw new Error('로그아웃 요청 실패: ' + res.status);
+        clearPending();
         location.reload();
       })
       .catch((err) => {
@@ -441,26 +673,17 @@
     }
   })();
 
-  // 장을 펼칠 때마다(로그인 상태일 때만) 서버에 "마지막으로 읽은 곳"을 저장합니다.
+  // 장을 펼칠 때마다(로그인 상태일 때만) 서버에 "마지막으로 읽던 곳"을 저장합니다.
+  // 읽음 표시는 하지 않고, "이번에 펼쳐 본 장" 목록에만 넣어 두었다가 나중에 확인받습니다.
   function recordReadingProgress(book, chapter, verse) {
     if (!isLoggedIn) return;
+    const key = `${book.code}-${chapter}`;
+    if (!readChaptersList.includes(key)) addPending(key);
     fetch('/api/bible/history', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ code: book.code, chapter, verse: verse || null })
-    })
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
-        if (data && typeof data.readCount === 'number') {
-          readCount = data.readCount;
-          // 성경읽기표를 다시 열었을 때 방금 읽은 장도 바로 반영되도록, 서버에 매번
-          // 다시 물어보지 않고 로컬 목록에도 똑같이 추가해둡니다.
-          const key = `${book.code}-${chapter}`;
-          if (!readChaptersList.includes(key)) readChaptersList.push(key);
-          updateAccountBar();
-        }
-      })
-      .catch(() => {});
+    }).catch(() => {});
   }
 
   // ---------------- 시작: 책 목록 + 로그인 상태를 함께 받아온 뒤, 위치를 정합니다 ----------------
@@ -481,6 +704,11 @@
       if (isLoggedIn) {
         const nameEl = $('#bible-account-name');
         nameEl.textContent = historyData.nickname ? `${historyData.nickname}님, 안녕하세요` : '카카오 계정으로 로그인됨';
+        // 지난번에 확인 없이 떠났던 장이 있으면 먼저 물어봄
+        const validPrev = previousPending.filter((k) => booksIndex.some((b) => k.startsWith(b.code + '-')));
+        if (unreadOf(validPrev).length) setTimeout(() => openReadConfirm(validPrev, { previous: true }), 400);
+      } else {
+        clearPending();
       }
 
       const params = new URLSearchParams(location.search);
