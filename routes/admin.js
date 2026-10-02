@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const { clientIp, failureGuard } = require('../utils/rateLimit');
+const statsCollector = require('../utils/stats');
 // 관리자 비밀번호 대입 방지: 같은 IP 또는 같은 아이디로 15분 동안 10번 틀리면 잠시 잠금
 const loginGuard = failureGuard({ name: 'admin-login', max: 10, windowMs: 15 * 60 * 1000 });
 const multer = require('multer');
@@ -1148,6 +1149,7 @@ router.delete('/partners/:id', requirePermission('missions'), async (req, res) =
 // ---------- 통계 ----------
 router.get('/stats', requirePermission('stats'), async (req, res) => {
   try {
+    await statsCollector.flush(); // 아직 저장 전인 최근 통계까지 반영해서 보여줌
     res.json((await readData('stats')) || { pageviews: {}, clicks: {} });
   } catch (err) {
     res.status(500).json({ error: err.message });
