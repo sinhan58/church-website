@@ -1280,6 +1280,48 @@
     return { verseRef: '', title: t };
   }
 
+  // 컨셉B 설교 카드의 글씨가 카드 안(하단 띠 위)에 다 들어가도록 맞춥니다.
+  // - 모바일: 예전과 같이 제목이 4줄 이상이면 제목 위 여백만 없앰
+  // - PC: 카드 높이가 오른쪽 목록 높이를 따라 달라지므로, 실제로 넘치는지 재보고
+  //       여백(1·2단계) → 제목 글씨 크기 순으로 넘치지 않을 때까지 조금씩 줄임
+  //       (오른쪽 사진 영역은 건드리지 않음)
+  function fitSermonHeroText(card) {
+    const textEl = card && card.querySelector('.sermon-hero-b-text');
+    const titleEl = card && card.querySelector('.sermon-hero-b-title');
+    if (!textEl || !titleEl) return;
+
+    if (!window.matchMedia('(min-width: 901px)').matches) {
+      textEl.classList.remove('fit-1', 'fit-2');
+      titleEl.style.fontSize = '';
+      const lineHeightPx = parseFloat(getComputedStyle(titleEl).lineHeight);
+      const lineCount = Math.round(titleEl.offsetHeight / lineHeightPx);
+      titleEl.classList.toggle('sermon-hero-b-title--tall', lineCount >= 4);
+      return;
+    }
+
+    titleEl.classList.remove('sermon-hero-b-title--tall');
+    textEl.classList.remove('fit-1', 'fit-2');
+    titleEl.style.fontSize = '';
+    const overflowing = () => textEl.scrollHeight > textEl.clientHeight + 1;
+    if (!overflowing()) return;
+    textEl.classList.add('fit-1');
+    if (!overflowing()) return;
+    textEl.classList.add('fit-2');
+    let size = parseFloat(getComputedStyle(titleEl).fontSize);
+    const minSize = 20; // 제목은 이보다 작게는 줄이지 않음
+    while (overflowing() && size > minSize) {
+      size -= 1;
+      titleEl.style.fontSize = size + 'px';
+    }
+  }
+
+  // 창 크기를 바꾸면(PC에서 브라우저 폭 조절 등) 다시 맞춤
+  let sermonHeroFitTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(sermonHeroFitTimer);
+    sermonHeroFitTimer = setTimeout(() => fitSermonHeroText($('#sermon-hero-card')), 150);
+  });
+
   function renderSermonHero() {
     const card = $('#sermon-hero-card');
     const hero = currentHeroVideo();
@@ -1317,13 +1359,9 @@
       // 제목이 길어서 4줄 이상으로 줄바꿈되면, 원래 "한 줄 아래에서 시작"하던 여백을
       // 없애서 그만큼 위로 올려줍니다 — 그래야 늘어난 줄 수만큼 아래 내용이 밀려나도
       // 카드 안에 다 들어갑니다.
-      requestAnimationFrame(() => {
-        const titleEl = card.querySelector('.sermon-hero-b-title');
-        if (!titleEl) return;
-        const lineHeightPx = parseFloat(getComputedStyle(titleEl).lineHeight);
-        const lineCount = Math.round(titleEl.offsetHeight / lineHeightPx);
-        titleEl.classList.toggle('sermon-hero-b-title--tall', lineCount >= 4);
-      });
+      requestAnimationFrame(() => fitSermonHeroText(card));
+      // 글씨체가 늦게 적용되면 글자 폭이 바뀌어 줄 수가 달라질 수 있어 한 번 더 맞춤
+      if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => fitSermonHeroText(card));
     } else {
       const posterUrl = `/api/sermon-poster/${encodeURIComponent(hero.videoId)}?title=${encodeURIComponent(hero.title || '')}`;
       card.innerHTML = `
