@@ -108,10 +108,34 @@
         // (예: "아니하는 샘" → "아니하는샘"). 이제 br 앞에 진짜 공백 문자를 하나 넣어서,
         // PC(=br 숨김)에서는 그 공백이 살아남아 띄어쓰기가 되고, 모바일(=br 보임)에서는
         // 줄바꿈 직전의 공백이라 평소처럼 화면에 티 나지 않습니다.
-        return `${firstHalf} <br class="verse-break-sm">${secondHalf}`;
+        // 줄 하나를 span으로 감싸 두고, 모바일에서 실제로 한 줄에 들어가는 줄은
+        // fitHeroVerseLines()가 나누지 않도록(no-split) 합니다.
+        return `<span class="verse-line">${firstHalf} <br class="verse-break-sm">${secondHalf}</span>`;
       })
       .join('<br>');
   }
+
+  // 모바일 히어로 성경구절: 예전에는 글자 수(띄어쓰기 제외 10자 초과)만 보고 무조건 두 줄로
+  // 나눴는데, 이제는 실제 화면에 한 줄로 들어가는 줄(예: "여호와가 너를 항상 인도하여")은
+  // 나누지 않고, 넘칠 때만 반으로 나눕니다. (화면 폭·글씨체 적용 후 다시 확인)
+  function fitHeroVerseLines() {
+    const el = $('#hero-verse');
+    if (!el) return;
+    const lines = el.querySelectorAll('.verse-line');
+    lines.forEach((line) => line.classList.add('no-split'));
+    if (!window.matchMedia('(max-width: 860px)').matches) return;
+    lines.forEach((line) => {
+      // 그려진 글자 조각들의 세로 위치가 모두 같으면 한 줄, 다르면 넘쳐서 접힌 것
+      const tops = [...line.getClientRects()].map((r) => Math.round(r.top));
+      if (tops.length && Math.max(...tops) - Math.min(...tops) > 2) line.classList.remove('no-split');
+    });
+  }
+  let heroVerseFitTimer = null;
+  window.addEventListener('resize', () => {
+    clearTimeout(heroVerseFitTimer);
+    heroVerseFitTimer = setTimeout(fitHeroVerseLines, 150);
+  });
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => fitHeroVerseLines());
 
   // 교회소개 본문(#about-body-text)처럼 관리자가 리치 텍스트 에디터로 입력한 HTML 안에는
   // "가정이 교회 되고, 매일이 주일 되고, 일상이 예배가 되는 교회!"같이 쉼표로 길게 이어진
@@ -328,6 +352,52 @@
   //   맨 위에 닿는 순간)으로 맞춰서, 띠가 화면 위쪽에 다다르는 바로 그 순간에
   //   정확히 xPercent 0(제자리)이 되도록 했습니다. PC는 기존 트리거(섹션 전체)를
   //   그대로 둡니다.
+  // ---------------- '내려서 보기' 누르면 '텍스트 쇼'를 화면 위쪽까지 올려 주기 ----------------
+  // 어르신들은 화면을 밀어 내리기보다 누를 것을 찾으시는 경우가 많아서, 안내 문구를 누르면
+  // 아래 교회소개 섹션의 큰 글씨('텍스트 쇼')가 상단 메뉴 바로 아래 보기 좋은 위치까지
+  // 부드럽게 올라와 멈춥니다. 그 뒤로는 평소처럼 직접 스크롤하시면 됩니다.
+  (function setupScrollCue() {
+    const cue = $('#scroll-cue');
+    if (!cue) return;
+    cue.addEventListener('click', (e) => {
+      e.preventDefault();
+      const target = $('#about .about-bg-type-wrap') || $('#about');
+      if (!target) return;
+      const header = $('#site-header');
+      const headerH = header ? header.getBoundingClientRect().height : 0;
+      const gap = 20; // 상단 메뉴와 텍스트 쇼 사이 여백
+      const endY = Math.max(0, window.scrollY + target.getBoundingClientRect().top - headerH - gap);
+      const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+      const html = document.documentElement;
+      const prevBehavior = html.style.scrollBehavior;
+      html.style.scrollBehavior = 'auto';
+      if (reduce) { window.scrollTo(0, endY); html.style.scrollBehavior = prevBehavior; return; }
+      const startY = window.scrollY;
+      const dist = endY - startY;
+      const duration = Math.min(1100, Math.max(600, Math.abs(dist) * 0.9));
+      const easeOut = (t) => 1 - Math.pow(1 - t, 3);
+      let startTime = null;
+      // 사용자가 도중에 화면을 만지면 즉시 멈추고 손가락을 따르게 함
+      let cancelled = false;
+      const cancel = () => { cancelled = true; };
+      window.addEventListener('touchstart', cancel, { once: true, passive: true });
+      window.addEventListener('wheel', cancel, { once: true, passive: true });
+      function step(ts) {
+        if (cancelled) { html.style.scrollBehavior = prevBehavior; return; }
+        if (startTime === null) startTime = ts;
+        const t = Math.min(1, (ts - startTime) / duration);
+        window.scrollTo(0, startY + dist * easeOut(t));
+        if (t < 1) requestAnimationFrame(step);
+        else {
+          html.style.scrollBehavior = prevBehavior;
+          window.removeEventListener('touchstart', cancel);
+          window.removeEventListener('wheel', cancel);
+        }
+      }
+      requestAnimationFrame(step);
+    });
+  })();
+
   function setupAboutCrossingTypography() {
     const leftEl = $('#about-bg-left');
     const rightEl = $('#about-bg-right');
@@ -756,6 +826,7 @@
 
     if (site.hero) {
       $('#hero-verse').innerHTML = buildHeroVerseHtml(site.hero.verse);
+      fitHeroVerseLines();
       $('#hero-verse-ref').textContent = site.hero.verseRef || '';
       $('#hero-subtitle').innerHTML = escapeHtml(site.hero.subtitle || '').replace(/\n/g, '<br>');
       $('.hero').classList.toggle('hero--no-overlay', site.hero.overlayEnabled === false);
