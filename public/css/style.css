@@ -4462,52 +4462,166 @@ html.theme-b .header-account { filter: drop-shadow(0 1px 3px rgba(0,0,0,0.45)); 
 .nav-mobile a.nav-mobile-me { display: flex; align-items: center; gap: 8px; font-size: 0.92rem; }
 .nav-mobile a.nav-mobile-me svg { width: 17px; height: 17px; flex: none; color: var(--gold); }
 
-/* ================= 마이페이지 ================= */
-.me-section { padding-top: 120px; min-height: 70vh; background: var(--ivory); }
-.me-container { max-width: 640px; }
-.me-status { color: var(--muted); }
-.me-card {
-  background: #fff;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  padding: 20px;
-  margin-bottom: 14px;
+/* ================= 마이페이지 =================
+   교회 홈페이지의 남색·금색을 그대로 쓰되, 이 페이지의 중심은 "성경 통독 진행 고리" 하나.
+   나머지(목록·설정)는 조용하게: 카드 상자를 반복하지 않고 여백과 얇은 선으로 구분.
+   PC: 왼쪽(내 정보·진행 고리·설정)  |  오른쪽(아멘한 큐티·말씀 퀴즈)
+   모바일: 위에서 아래로 한 줄 */
+/* 진행 고리가 0에서 차오르도록 숫자 변수 등록 */
+@property --p { syntax: '<number>'; inherits: false; initial-value: 0; }
+.me-page { background: var(--ivory); padding: 104px 0 72px; min-height: 80vh; }
+.me-wrap { max-width: 1040px; margin: 0 auto; padding: 0 20px; }
+/* display:grid 등이 hidden을 덮어쓰지 않도록 (로그인 전 화면에 로그인 후 화면이 같이 보이던 문제 방지) */
+.me-page [hidden] { display: none !important; }
+.me-status { color: var(--muted); text-align: center; padding: 60px 0; }
+
+/* 로그인 전 */
+.me-welcome { max-width: 440px; margin: 24px auto 0; text-align: center; }
+.me-welcome-mark {
+  width: 64px; height: 64px; margin: 0 auto 18px; border-radius: 50%;
+  background: conic-gradient(var(--gold) 0 72%, var(--line) 72% 100%);
+  -webkit-mask: radial-gradient(circle, transparent 23px, #000 24px);
+          mask: radial-gradient(circle, transparent 23px, #000 24px);
 }
-.me-card h3 { margin: 0; font-family: var(--font-heading); font-size: 1.05rem; color: var(--navy-deep); }
-.me-card-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
-.me-more { font-size: 0.82rem; color: var(--gold); font-weight: 600; white-space: nowrap; }
-.me-count { display: inline-block; min-width: 22px; padding: 1px 7px; margin-left: 4px; border-radius: 999px; background: var(--ivory); color: var(--navy-deep); font-size: 0.78rem; font-family: inherit; text-align: center; }
-.me-count:empty { display: none; }
-.me-small { font-size: 0.8rem; color: var(--muted); margin: 0; }
-.me-login-card h3 { margin-bottom: 6px; }
-.me-login-card p { margin: 0 0 10px; font-size: 0.9rem; color: var(--ink); }
-.me-login-card .me-small { margin-top: 10px; text-align: center; }
-.me-benefits { list-style: none; padding: 0; margin: 0 0 16px; display: grid; gap: 6px; font-size: 0.9rem; color: var(--ink); }
-.me-profile { display: flex; align-items: center; gap: 14px; }
+.me-welcome-title { font-family: var(--font-heading); font-size: 1.7rem; color: var(--navy-deep); margin: 0 0 10px; }
+.me-welcome-lead { color: var(--ink); font-size: 0.98rem; line-height: 1.65; margin: 0 0 24px; }
+.me-kakao-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  width: 100%; padding: 15px; border: none; border-radius: 12px;
+  background: #fee500; color: #191919; font-size: 1rem; font-weight: 700; cursor: pointer;
+}
+.me-kakao-btn:focus-visible, .me-btn:focus-visible, .me-setting:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+.me-welcome-list { list-style: none; padding: 0; margin: 28px 0 20px; text-align: left; border-top: 1px solid var(--line); }
+.me-welcome-list li { padding: 14px 2px; border-bottom: 1px solid var(--line); font-size: 0.88rem; color: var(--muted); display: flex; flex-direction: column; gap: 2px; }
+.me-welcome-list strong { color: var(--navy-deep); font-size: 0.95rem; }
+.me-fineprint { font-size: 0.78rem; color: var(--muted); line-height: 1.6; margin: 0; }
+
+/* 로그인 후 레이아웃 */
+.me-layout { display: grid; grid-template-columns: 340px 1fr; gap: 40px; align-items: start; }
+.me-side { position: sticky; top: 96px; display: flex; flex-direction: column; gap: 16px; }
+
+/* 내 정보 + 진행 고리 (남색 패널) */
+.me-profile {
+  background: var(--navy-deep);
+  color: #fff;
+  border-radius: 20px;
+  padding: 26px 24px 24px;
+}
+.me-profile-top { display: flex; align-items: center; gap: 14px; }
 .me-avatar {
-  width: 48px; height: 48px; border-radius: 50%;
-  background: var(--navy-deep); color: #fff;
+  width: 52px; height: 52px; border-radius: 50%; flex: none;
   display: flex; align-items: center; justify-content: center;
-  font-size: 1.2rem; font-weight: 700; flex: none;
+  background: var(--navy-soft); color: var(--gold-soft);
+  border: 2px solid var(--gold);
+  font-family: var(--font-heading); font-size: 1.25rem; font-weight: 700;
 }
-.me-profile-text { flex: 1; min-width: 0; }
-.me-name { margin: 0 0 2px; font-size: 1rem; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.me-link-btn { border: none; background: none; color: var(--muted); font-size: 0.82rem; text-decoration: underline; cursor: pointer; padding: 4px; }
-.me-bible-total { display: flex; align-items: baseline; gap: 4px; flex-wrap: wrap; }
-.me-big { font-size: 2rem; font-weight: 700; color: var(--navy-deep); line-height: 1.1; }
-.me-unit { font-size: 1rem; color: var(--navy-deep); font-weight: 600; margin-right: 6px; }
-.me-bar { height: 8px; background: var(--ivory); border-radius: 999px; overflow: hidden; margin: 10px 0 12px; }
-.me-bar span { display: block; height: 100%; width: 0; background: var(--gold); border-radius: 999px; transition: width .6s ease; }
-.me-bible-split { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; font-size: 0.9rem; color: var(--ink); margin-bottom: 14px; }
-.me-bible-split div { background: var(--ivory); border-radius: 8px; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; }
-.me-action-btn { display: block; text-align: center; background: var(--navy-deep); color: #fff; border-radius: 10px; padding: 11px; font-size: 0.9rem; font-weight: 600; }
-.me-list { list-style: none; margin: 0; padding: 0; }
-.me-list li + li { border-top: 1px solid var(--line); }
-.me-list a, .me-list-row { display: flex; flex-direction: column; gap: 2px; padding: 10px 2px; color: var(--ink); }
-.me-list-title { font-size: 0.92rem; font-weight: 600; }
-.me-list-meta { font-size: 0.78rem; color: var(--muted); }
-.me-empty { font-size: 0.86rem; color: var(--muted); padding: 6px 2px; }
-.me-danger { text-align: center; margin: 24px 0 8px; }
+.me-profile-name { min-width: 0; }
+.me-profile-name h1 { margin: 0; font-family: var(--font-heading); font-size: 1.3rem; font-weight: 700; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.me-profile-name p { margin: 3px 0 0; font-size: 0.8rem; color: rgba(255,255,255,0.6); }
+
+.me-ring-block { display: flex; align-items: center; gap: 20px; margin: 26px 0 22px; }
+.me-ring {
+  --p: 0;
+  width: 132px; height: 132px; flex: none; border-radius: 50%;
+  background: conic-gradient(var(--gold) calc(var(--p) * 1%), rgba(255,255,255,0.12) 0);
+  display: flex; align-items: center; justify-content: center;
+  transition: --p 1s ease;
+}
+.me-ring-inner {
+  width: 108px; height: 108px; border-radius: 50%; background: var(--navy-deep);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+}
+.me-ring-num { font-family: var(--font-heading); font-size: 2rem; font-weight: 700; line-height: 1; color: #fff; }
+.me-ring-of { margin-top: 4px; font-size: 0.72rem; color: rgba(255,255,255,0.6); }
+.me-ring-stats { margin: 0; display: grid; gap: 10px; flex: 1; min-width: 0; }
+.me-ring-stats div { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 8px; }
+.me-ring-stats div:last-child { border-bottom: none; padding-bottom: 0; }
+.me-ring-stats dt { font-size: 0.8rem; color: rgba(255,255,255,0.6); }
+.me-ring-stats dd { margin: 0; font-size: 0.88rem; font-weight: 600; color: #fff; white-space: nowrap; }
+
+.me-profile-actions { display: grid; grid-template-columns: 1fr; gap: 8px; }
+.me-btn {
+  display: flex; align-items: center; justify-content: center; text-align: center;
+  min-height: 44px; padding: 10px 12px; border-radius: 10px;
+  font-size: 0.88rem; font-weight: 600; line-height: 1.3;
+}
+.me-btn--gold { background: var(--gold); color: var(--navy-deep); }
+.me-btn--ghost { border: 1px solid rgba(255,255,255,0.3); color: #fff; }
+.me-btn--gold:hover { background: var(--gold-soft); }
+.me-btn--ghost:hover { background: rgba(255,255,255,0.08); }
+
+/* 계정 설정 (조용한 목록) */
+.me-settings { background: #fff; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; }
+.me-setting {
+  width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 15px 18px; border: none; background: none; text-align: left; cursor: pointer;
+  font-size: 0.9rem; color: var(--ink); font-family: inherit;
+}
+.me-setting + .me-setting { border-top: 1px solid var(--line); }
+.me-setting:hover { background: var(--ivory); }
+.me-setting-value { color: var(--muted); font-size: 0.84rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 55%; }
+.me-setting--danger { color: #a23b33; }
+
+/* 오른쪽 목록들 */
+.me-main { display: flex; flex-direction: column; gap: 44px; padding-top: 6px; }
+.me-block-head { display: flex; align-items: baseline; gap: 10px; padding-bottom: 12px; border-bottom: 2px solid var(--navy-deep); }
+.me-block-head h2 { margin: 0; font-family: var(--font-heading); font-size: 1.25rem; color: var(--navy-deep); }
+.me-block-count { font-size: 0.9rem; color: var(--gold-deep); font-weight: 700; }
+.me-block-link { margin-left: auto; font-size: 0.85rem; color: var(--gold-deep); font-weight: 600; }
+.me-block-link:hover { text-decoration: underline; }
+
+/* 아멘한 큐티: 왼쪽에 날짜를 달력처럼 */
+.me-qt-list, .me-quiz-list { list-style: none; margin: 0; padding: 0; }
+.me-qt-list li { border-bottom: 1px solid var(--line); }
+.me-qt-list a { display: flex; align-items: center; gap: 16px; padding: 14px 4px; color: var(--ink); }
+.me-qt-list a:hover .me-qt-title { color: var(--gold-deep); }
+.me-qt-date { width: 48px; flex: none; text-align: center; line-height: 1.1; }
+.me-qt-date b { display: block; font-family: var(--font-heading); font-size: 1.3rem; color: var(--navy-deep); }
+.me-qt-date span { font-size: 0.72rem; color: var(--muted); }
+.me-qt-text { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.me-qt-title { font-size: 0.98rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.me-qt-ref { font-size: 0.8rem; color: var(--muted); }
+.me-qt-heart { margin-left: auto; color: #d9473f; font-size: 0.95rem; flex: none; }
+
+/* 말씀 퀴즈: 오른쪽에 점수 */
+.me-quiz-list li { display: flex; align-items: center; gap: 14px; padding: 14px 4px; border-bottom: 1px solid var(--line); }
+.me-quiz-text { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
+.me-quiz-title { font-size: 0.98rem; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.me-quiz-sub { font-size: 0.8rem; color: var(--muted); }
+.me-quiz-score { flex: none; text-align: right; font-family: var(--font-heading); color: var(--navy-deep); }
+.me-quiz-score b { font-size: 1.35rem; }
+.me-quiz-score span { font-size: 0.78rem; color: var(--muted); margin-left: 2px; }
+
+.me-empty-row { padding: 22px 4px; color: var(--muted); font-size: 0.9rem; line-height: 1.6; border-bottom: 1px solid var(--line); }
+.me-empty-row a { color: var(--gold-deep); font-weight: 600; }
+
+/* 이름 입력 */
+.me-name-inner { text-align: left; }
+.me-name-inner .bible-notice-title, .me-name-inner .bible-notice-text { text-align: left; }
+.me-name-input {
+  width: 100%; padding: 13px 14px; border: 1px solid var(--line); border-radius: 10px;
+  font-size: 1rem; font-family: inherit; background: var(--ivory); color: var(--ink);
+}
+.me-name-input:focus { outline: 2px solid var(--gold); border-color: var(--gold); background: #fff; }
+.me-name-error { min-height: 1.2em; margin: 6px 0 4px; font-size: 0.8rem; color: #a23b33; }
+
+@media (max-width: 900px) {
+  .me-page { padding-top: 108px; }
+  .me-layout { grid-template-columns: 1fr; gap: 32px; }
+  /* 모바일: 내 정보 → 활동 목록 → 계정 설정(맨 아래) 순서 */
+  .me-side { display: contents; }
+  .me-profile { order: 1; }
+  .me-main { order: 2; }
+  .me-settings { order: 3; }
+  .me-main { gap: 36px; }
+}
+@media (max-width: 380px) {
+  .me-ring-block { flex-direction: column; align-items: stretch; }
+  .me-ring { margin: 0 auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .me-ring { transition: none; }
+}
 
 /* 말씀 퀴즈: 카카오 로그인 참여 */
 .quiz-kakao-name { margin: 0; font-size: 0.95rem; color: var(--navy-deep); }
