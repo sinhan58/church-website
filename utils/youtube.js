@@ -43,6 +43,31 @@ async function fetchLatestVideos(channelId) {
   });
 }
 
+// 보관함에도 없는(예전에 이미 목록에서 밀려나 정보가 사라진) 테마 영상을 되살리기 위해,
+// 유튜브 공개 oEmbed로 제목을 다시 받아옵니다. (API 키 불필요, 실패하면 조용히 건너뜀)
+async function fetchVideoInfo(videoId) {
+  const url = `https://www.youtube.com/oembed?url=${encodeURIComponent(`https://www.youtube.com/watch?v=${videoId}`)}&format=json`;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  try {
+    const res = await fetch(url, { signal: controller.signal, headers: { 'User-Agent': 'Mozilla/5.0 (church-website-bot)' } });
+    if (!res.ok) return null;
+    const d = await res.json();
+    return {
+      videoId,
+      title: d.title || '',
+      publishedAt: null, // oEmbed는 게시일을 주지 않음 → 보관함 목록 맨 뒤에 놓임
+      thumbnail: `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`,
+      url: `https://www.youtube.com/watch?v=${videoId}`,
+      recovered: true
+    };
+  } catch (e) {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /**
  * 최신 영상을 가져와 data/sermons.json 에 캐시로 저장합니다.
  * (관리자 수동 새로고침 및 스케줄러가 공통으로 사용)
@@ -78,6 +103,20 @@ async function updateSermonsCache(channelId, limit = 12) {
       }
     });
 
+    // 1-2) 테마는 붙어 있는데 최신 목록에도, 보관함에도 없는 영상(이 기능이 생기기 전에 이미
+    //      밀려나 정보가 사라진 경우 등) → 유튜브에서 제목을 다시 받아와 보관함에 되살림
+    const missing = Object.keys(tagMap).filter(
+      (id) => (tagMap[id] || []).length > 0 && !newIds.has(id) && !archiveIds.has(id)
+    ).slice(0, 30);
+    for (const id of missing) {
+      const info = await fetchVideoInfo(id);
+      if (info) {
+        archive.push(info);
+        archiveIds.add(id);
+        archiveChanged = true;
+      }
+    }
+
     // 2) 보관함에 있던 영상의 테마 태그가 전부 없어졌으면(관리자가 테마 해제) 보관함에서도 정리
     for (let i = archive.length - 1; i >= 0; i -= 1) {
       const hasTag = (tagMap[archive[i].videoId] || []).length > 0;
@@ -103,9 +142,29 @@ async function updateSermonsCache(channelId, limit = 12) {
   return data;
 }
 
+// 홈페이지·관리자 페이지에 보여줄 설교 목록 = 최신 영상 + 테마가 지정된 지난 영상(보관함).
+// 예전에는 보관함에 챙겨두기만 하고 실제로 목록에 합쳐 보내지 않아서, 테마를 지정한
+// 영상도 최신 목록에서 밀려나면 홈페이지 설교 섹션에서 사라졌습니다.
+// 최신 영상이 앞(맨 앞 영상 = 대표 설교)이고, 보관함 영상은 그 뒤에 게시일 최신순으로 붙습니다.
 async function getCachedSermons() {
-  const cached = await readData('sermons');
-  return cached || { lastUpdated: null, videos: [] };
+  const [cached, archive, tags] = await Promise.all([
+    readData('sermons'),
+    readData('sermonsArchive'),
+    readData('sermonCategoryTags')
+  ]);
+  const base = cached || { lastUpdated: null, videos: [] };
+  const latest = Array.isArray(base.videos) ? base.videos : [];
+  const latestIds = new Set(latest.map((v) => v.videoId));
+  const tagMap = tags || {};
+  const kept = (Array.isArray(archive) ? archive : [])
+    .filter((v) => v && v.videoId && !latestIds.has(v.videoId) && (tagMap[v.videoId] || []).length > 0)
+    .sort((a, b) => {
+      if (!a.publishedAt) return 1;
+      if (!b.publishedAt) return -1;
+      return new Date(b.publishedAt) - new Date(a.publishedAt);
+    })
+    .map((v) => ({ ...v, archived: true }));
+  return { ...base, videos: latest.concat(kept) };
 }
 
 module.exports = { fetchLatestVideos, updateSermonsCache, getCachedSermons };
