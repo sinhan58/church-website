@@ -80,62 +80,17 @@
     return escaped;
   }
 
-  // 대문(히어로) 성경구절: 관리자가 줄바꿈(\n)으로 나눠둔 줄 중 하나가 유독 길면, 작은
-  // 화면(~400px 이하, style.css의 .verse-break-sm 참고)에서만 보이는 줄바꿈을 어절 단위로
-  // 균형 잡힌 지점에 하나 더 끼워 넣어 3줄로 보이게 합니다. 그보다 넓은 화면에서는 이
-  // 줄바꿈이 숨겨져서 원래대로 한 줄에 다 보입니다. 어절 길이를 기준으로 지점을 찾기
-  // 때문에 나중에 구절이 바뀌어도 같은 방식으로 자동 적용됩니다.
+  // 대문(히어로) 성경구절: 관리자가 줄바꿈(\n)으로 나눠둔 줄을 하나씩 블록으로 감쌉니다.
+  // 화면에 한 줄로 안 들어가는 긴 줄은 CSS(text-wrap: balance)가 알아서 비슷한 길이의
+  // 두 줄로 나눕니다. 예전처럼 자바스크립트가 화면을 그린 뒤 재서 다시 나누지 않으므로,
+  // 처음부터 최종 모양으로 그려져 글씨가 움직이지 않습니다.
+  // ※ 서버(utils/render-index의 buildHeroVerseHtml)도 똑같은 모양으로 미리 채워 보냅니다.
   function buildHeroVerseHtml(text) {
-    const lines = String(text || '').split('\n');
-    return lines
-      .map((line) => {
-        const words = line.split(' ').filter(Boolean);
-        const totalLen = words.reduce((sum, w) => sum + w.length, 0);
-        if (words.length < 2 || totalLen <= 10) return escapeHtml(line);
-        let splitIdx = 1;
-        let bestDiff = Infinity;
-        for (let i = 1; i < words.length; i++) {
-          const acc = words.slice(0, i).reduce((sum, w) => sum + w.length, 0);
-          const diff = Math.abs(acc - totalLen / 2);
-          if (diff <= bestDiff) { bestDiff = diff; splitIdx = i; }
-        }
-        const firstHalf = escapeHtml(words.slice(0, splitIdx).join(' '));
-        const secondHalf = escapeHtml(words.slice(splitIdx).join(' '));
-        // 버그 수정: 예전엔 앞/뒤 반쪽 사이에 공백 없이 <br class="verse-break-sm">만
-        // 넣었습니다. 모바일(860px 이하)에서는 이 br이 실제 줄바꿈으로 보여서 문제가
-        // 없었지만, PC에서는 CSS가 이 br을 통째로 숨기는데(display:none) 숨겨진 태그는
-        // 공백 역할을 전혀 하지 않아서 두 낱말이 띄어쓰기 없이 그대로 붙어버렸습니다
-        // (예: "아니하는 샘" → "아니하는샘"). 이제 br 앞에 진짜 공백 문자를 하나 넣어서,
-        // PC(=br 숨김)에서는 그 공백이 살아남아 띄어쓰기가 되고, 모바일(=br 보임)에서는
-        // 줄바꿈 직전의 공백이라 평소처럼 화면에 티 나지 않습니다.
-        // 줄 하나를 span으로 감싸 두고, 모바일에서 실제로 한 줄에 들어가는 줄은
-        // fitHeroVerseLines()가 나누지 않도록(no-split) 합니다.
-        return `<span class="verse-line">${firstHalf} <br class="verse-break-sm">${secondHalf}</span>`;
-      })
-      .join('<br>');
+    return String(text || '')
+      .split('\n')
+      .map((line) => `<span class="verse-line">${escapeHtml(line.trim())}</span>`)
+      .join('');
   }
-
-  // 모바일 히어로 성경구절: 예전에는 글자 수(띄어쓰기 제외 10자 초과)만 보고 무조건 두 줄로
-  // 나눴는데, 이제는 실제 화면에 한 줄로 들어가는 줄(예: "여호와가 너를 항상 인도하여")은
-  // 나누지 않고, 넘칠 때만 반으로 나눕니다. (화면 폭·글씨체 적용 후 다시 확인)
-  function fitHeroVerseLines() {
-    const el = $('#hero-verse');
-    if (!el) return;
-    const lines = el.querySelectorAll('.verse-line');
-    lines.forEach((line) => line.classList.add('no-split'));
-    if (!window.matchMedia('(max-width: 860px)').matches) return;
-    lines.forEach((line) => {
-      // 그려진 글자 조각들의 세로 위치가 모두 같으면 한 줄, 다르면 넘쳐서 접힌 것
-      const tops = [...line.getClientRects()].map((r) => Math.round(r.top));
-      if (tops.length && Math.max(...tops) - Math.min(...tops) > 2) line.classList.remove('no-split');
-    });
-  }
-  let heroVerseFitTimer = null;
-  window.addEventListener('resize', () => {
-    clearTimeout(heroVerseFitTimer);
-    heroVerseFitTimer = setTimeout(fitHeroVerseLines, 150);
-  });
-  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => fitHeroVerseLines());
 
   // 교회소개 본문(#about-body-text)처럼 관리자가 리치 텍스트 에디터로 입력한 HTML 안에는
   // "가정이 교회 되고, 매일이 주일 되고, 일상이 예배가 되는 교회!"같이 쉼표로 길게 이어진
@@ -825,10 +780,17 @@
     $('#footer-year').textContent = new Date().getFullYear();
 
     if (site.hero) {
-      $('#hero-verse').innerHTML = buildHeroVerseHtml(site.hero.verse);
-      fitHeroVerseLines();
-      $('#hero-verse-ref').textContent = site.hero.verseRef || '';
-      $('#hero-subtitle').innerHTML = escapeHtml(site.hero.subtitle || '').replace(/\n/g, '<br>');
+      // 서버가 이미 같은 문구를 채워 보냈으면 다시 그리지 않음 (다시 그리면 미세하게 움직일 수 있어서)
+      const verseEl = $('#hero-verse');
+      if (verseEl.getAttribute('data-verse') !== (site.hero.verse || '')) {
+        verseEl.innerHTML = buildHeroVerseHtml(site.hero.verse);
+        verseEl.setAttribute('data-verse', site.hero.verse || '');
+      }
+      const refEl = $('#hero-verse-ref');
+      if (refEl.textContent !== (site.hero.verseRef || '')) refEl.textContent = site.hero.verseRef || '';
+      const subHtml = escapeHtml(site.hero.subtitle || '').replace(/\n/g, '<br>');
+      const subEl = $('#hero-subtitle');
+      if (subEl.innerHTML !== subHtml) subEl.innerHTML = subHtml;
       $('.hero').classList.toggle('hero--no-overlay', site.hero.overlayEnabled === false);
       if (Array.isArray(site.hero.backgroundImages) && site.hero.backgroundImages.length) {
         startHeroSlideshow(site.hero.backgroundImages);
