@@ -22,6 +22,7 @@ const renderNewFamilyPage = createStaticPageRenderer('new-family.html');
 const renderGospelPage = createStaticPageRenderer('gospel.html');
 const renderKnowGodPage = createStaticPageRenderer('know-god.html');
 const renderBiblePage = createStaticPageRenderer('bible.html');
+const renderMyPage = createStaticPageRenderer('me.html');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -221,6 +222,17 @@ app.get('/know-god.html', async (req, res, next) => {
   try {
     const site = await readData('site');
     res.send(renderKnowGodPage({ site: site || {} }));
+  } catch (err) {
+    next(err);
+  }
+});
+
+// 마이페이지 (카카오 로그인 + 내 활동 모아 보기)
+app.get('/me.html', async (req, res, next) => {
+  try {
+    const site = await readData('site');
+    res.set('Cache-Control', 'no-cache');
+    res.send(renderMyPage({ site: site || {} }));
   } catch (err) {
     next(err);
   }
