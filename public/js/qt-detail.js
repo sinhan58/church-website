@@ -157,6 +157,18 @@
 
     setPressedState(localStorage.getItem(storageKey) === '1');
 
+    // 카카오 로그인 상태면, 이 기기 기록 대신 계정에 저장된 "아멘한 큐티" 기준으로 맞춤
+    // (다른 기기에서 아멘했어도 똑같이 보이고, 마이페이지 기록과도 일치)
+    fetch('/api/me', { credentials: 'same-origin' })
+      .then((r) => r.json())
+      .then((me) => {
+        if (!me || !me.loggedIn || !Array.isArray(me.amenQt)) return;
+        const pressed = me.amenQt.includes(qtId);
+        localStorage.setItem(storageKey, pressed ? '1' : '0');
+        setPressedState(pressed);
+      })
+      .catch(() => {});
+
     amenBtn.addEventListener('click', async () => {
       const alreadyPressed = localStorage.getItem(storageKey) === '1';
       const action = alreadyPressed ? 'remove' : 'add';
