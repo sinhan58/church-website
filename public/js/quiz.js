@@ -33,6 +33,28 @@
   let verseIndex = 0; // 지금 풀고 있는 절 인덱스
   let verseResults = []; // 절마다: { verseId, blanks: [{blankId, correct, firstTry, usedHint}] }
   let participantName = '';
+  // 카카오 로그인 상태(로그인하면 이름 입력 없이 닉네임으로 참여, 마이페이지에 기록)
+  let kakaoMe = null; // { loggedIn, nickname }
+  let kakaoAlreadyJoined = false;
+  let kakaoReady = null;
+  function checkKakaoLogin() {
+    if (kakaoReady) return kakaoReady;
+    kakaoReady = Promise.all([
+      fetch('/api/me', { credentials: 'same-origin' }).then((r) => r.json()).catch(() => ({ loggedIn: false })),
+      fetch('/api/bible/kakao-config').then((r) => r.json()).catch(() => ({ enabled: false }))
+    ]).then(async ([me, cfg]) => {
+      kakaoMe = { loggedIn: !!(me && me.loggedIn), nickname: (me && me.nickname) || '', enabled: !!(cfg && cfg.enabled) };
+      if (kakaoMe.loggedIn && quiz) {
+        try {
+          const r = await fetch(`/api/quiz/${quiz.id}/my`, { credentials: 'same-origin' });
+          const d = await r.json();
+          kakaoAlreadyJoined = !!d.participated;
+        } catch (e) {}
+      }
+      return kakaoMe;
+    });
+    return kakaoReady;
+  }
 
   function totalBlankCount() {
     return quiz.verses.reduce((sum, v) => sum + v.blanks.length, 0);
@@ -232,10 +254,13 @@
 
     setupReadAloudButton();
 
-    $('#quiz-start-btn').addEventListener('click', () => {
+    // 본문을 읽는 동안 미리 로그인 상태를 확인해 둠
+    checkKakaoLogin();
+    $('#quiz-start-btn').addEventListener('click', async () => {
       stopReadAloud();
       verseIndex = 0;
       verseResults = [];
+      await checkKakaoLogin();
       renderVerseStep();
     });
   }
@@ -280,13 +305,21 @@
       .join('');
 
     // 첫 번째 절에서만, 문제 바로 위에 이름 입력란을 눈에 띄게 보여줍니다.
-    const nameFieldHtml =
-      verseIndex === 0
-        ? `<div class="quiz-name-field">
+    // 카카오 로그인 상태면 입력란 대신 "OOO님으로 참여해요"를 보여줍니다.
+    const loginReturn = encodeURIComponent(location.pathname + location.search);
+    let nameFieldHtml = '';
+    if (verseIndex === 0 && kakaoMe && kakaoMe.loggedIn && kakaoMe.nickname) {
+      nameFieldHtml = `<div class="quiz-name-field quiz-name-field--kakao">
+           <p class="quiz-kakao-name">🙂 <strong>${escapeHtml(kakaoMe.nickname)}</strong>님으로 참여해요</p>
+           <p class="quiz-name-notice" id="quiz-name-notice">${kakaoAlreadyJoined ? '이미 이 퀴즈에 참여하셨어요. 결과는 마이페이지에서 볼 수 있어요.' : ''}</p>
+         </div>`;
+    } else if (verseIndex === 0) {
+      nameFieldHtml = `<div class="quiz-name-field">
              <input type="text" id="quiz-name-input" placeholder="이름을 입력해주세요" maxlength="20" />
              <p class="quiz-name-notice" id="quiz-name-notice"></p>
-           </div>`
-        : '';
+             ${kakaoMe && kakaoMe.enabled ? `<a class="quiz-kakao-login-link" href="/me.html?return=${loginReturn}">카카오로 로그인하면 이름 입력 없이 참여하고 기록도 남아요 →</a>` : ''}
+           </div>`;
+    }
 
     mainEl.innerHTML = `
       <div class="quiz-card">
@@ -322,6 +355,13 @@
 
   async function checkVerse(verse) {
     // 첫 번째 절이면, 채점하기 전에 먼저 이름을 확인합니다.
+    if (verseIndex === 0 && !participantName && kakaoMe && kakaoMe.loggedIn && kakaoMe.nickname) {
+      if (kakaoAlreadyJoined) {
+        $('#quiz-name-notice').textContent = '이미 이 퀴즈에 참여하셨어요. 결과는 마이페이지에서 볼 수 있어요.';
+        return;
+      }
+      participantName = kakaoMe.nickname;
+    }
     if (verseIndex === 0 && !participantName) {
       const nameInput = $('#quiz-name-input');
       const noticeEl = $('#quiz-name-notice');
@@ -529,6 +569,7 @@
           총 ${totalBlanks}칸 중 ${correctCount}칸 정답 (한 번에 맞힌 칸 ${firstTryCount}개)
         </p>
         <p style="text-align:center; color:var(--muted); font-size:0.85rem;">참여해주셔서 감사해요, ${escapeHtml(participantName)}님!</p>
+        ${kakaoMe && kakaoMe.loggedIn ? '<p style="text-align:center; font-size:0.85rem;"><a href="/me.html" style="color:var(--gold); font-weight:600;">마이페이지에서 내 퀴즈 기록 보기 →</a></p>' : ''}
         <div style="text-align:center; margin-top:20px;">
           <a href="/#qt" class="btn btn--navy">홈으로</a>
         </div>
