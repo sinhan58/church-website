@@ -620,6 +620,16 @@ html.theme-b .hamburger span {
 .verse-break-sm { display: none; }
 @media (max-width: 860px) {
   .verse-break-sm { display: inline; }
+  /* 한 줄에 들어가는 줄은 나누지 않음 (main.js fitHeroVerseLines) */
+  .verse-line.no-split .verse-break-sm { display: none; }
+  /* 작은 휴대폰에서도 구절이 크게 보이도록: 양옆 여백을 조금 줄이고, 글씨 크기를 화면 폭에
+     맞춰 키움. 띄어쓰기 포함 약 13글자("여호와가 너를 항상 인도하여")가 한 줄에 들어가는 크기
+     (360px 폰 약 1.6rem, 375px 약 1.7rem, 390px 이상은 1.75rem(28px)에서 멈춤 — 큰 화면이라고
+     더 키우지 않도록 상한을 둠) */
+  /* hero-inner가 내용 폭만큼 줄어들던 것을 화면 폭 전체로 (그래야 한 줄 판단이 정확함) */
+  .hero-inner { width: 100%; box-sizing: border-box; padding-left: 16px; padding-right: 16px; }
+  .verse-card { padding-left: 0; padding-right: 0; }
+  .verse-card .verse-text { font-size: clamp(1.5rem, calc((100vw - 32px) / 12.7), 1.75rem); }
 }
 @media (min-width: 861px) {
   html.theme-b .verse-card .verse-text { font-size: clamp(1.85rem, 2.6vw, 2.4rem); }
@@ -767,36 +777,53 @@ html.theme-b .hamburger span {
 .btn--navy { background: var(--navy-deep); color: #fff; }
 .btn--sm { padding: 9px 18px; font-size: 0.85rem; }
 
+/* 아래로 내려 볼 수 있다는 안내: 어르신들도 알아보시도록 영어 "SCROLL" 대신 한글
+   "내려서 보기"로, 글씨는 더 환한 흰색으로, 화살표는 주황색 포인트로. 누를 수 있는 링크라
+   손가락으로 누르기 좋게 위아래 여백을 넉넉히 둠 (화살표 모양·움직임은 예전 그대로) */
 .scroll-cue {
   position: absolute;
-  bottom: 28px; left: 50%;
+  bottom: 22px; left: 50%;
   transform: translateX(-50%);
-  color: rgba(255,255,255,0.65);
-  font-size: 0.75rem;
-  letter-spacing: 0.15em;
+  color: #ffffff;
+  font-size: 0.75rem;   /* 예전 영문 "SCROLL"과 같은 크기 */
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  white-space: nowrap;
+  text-shadow: 0 1px 3px rgba(0,0,0,0.6), 0 2px 10px rgba(0,0,0,0.35);
   z-index: 2;
-  padding-bottom: 24px;
+  padding: 10px 16px 30px;
+  -webkit-tap-highlight-color: transparent;
 }
+.scroll-cue:hover, .scroll-cue:focus-visible { color: #ffffff; }
+.scroll-cue:focus-visible { outline: 2px solid #ff9a3c; outline-offset: 2px; border-radius: 8px; }
 .scroll-cue::before,
 .scroll-cue::after {
   content: '';
   position: absolute;
   left: 50%;
   width: 11px; height: 11px;
-  border-right: 2px solid rgba(255,255,255,0.85);
-  border-bottom: 2px solid rgba(255,255,255,0.85);
+  border-right: 2px solid #ff9a3c;
+  border-bottom: 2px solid #ff9a3c;
+  filter: drop-shadow(0 1px 2px rgba(0,0,0,0.45));
   /* 끝없이 반복하지 않고 4번만 움직인 뒤 멈춥니다. "아래로 스크롤하세요"라는 힌트는
      처음 몇 초만 보여도 충분하고, 계속 움직이는 요소가 있으면 배터리도 더 쓰고
      화면 밝기 전환 같은 시스템 처리와 겹칠 때 버벅임의 원인이 될 수 있습니다. */
-  animation: scrollChevron 1.8s ease 4;
-  animation-fill-mode: forwards;
+  /* 네 번 움직인 뒤(1.8초 × 4 = 7.2초) 사라지지 않고 가운데 위치에 그대로 보이며 멈춤 */
+  animation: scrollChevron 1.8s ease 4, scrollChevronRest 0.5s ease 7.2s forwards;
 }
-.scroll-cue::before { top: 18px; }
-.scroll-cue::after { top: 26px; animation-delay: 0.25s; }
+.scroll-cue::before { top: 33px; }
+.scroll-cue::after { top: 41px; animation-delay: 0.25s, 7.45s; }
 @keyframes scrollChevron {
   0% { opacity: 0; transform: translateX(-50%) rotate(45deg) translate(0, 0); }
   50% { opacity: 1; transform: translateX(-50%) rotate(45deg) translate(4px, 4px); }
   100% { opacity: 0; transform: translateX(-50%) rotate(45deg) translate(8px, 8px); }
+}
+@keyframes scrollChevronRest {
+  from { opacity: 0; transform: translateX(-50%) rotate(45deg) translate(0, 0); }
+  to { opacity: 1; transform: translateX(-50%) rotate(45deg) translate(4px, 4px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .scroll-cue::before, .scroll-cue::after { animation: none; opacity: 1; transform: translateX(-50%) rotate(45deg) translate(4px, 4px); }
 }
 
 /* ---------------- About ---------------- */
