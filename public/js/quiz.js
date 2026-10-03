@@ -310,7 +310,7 @@
     let nameFieldHtml = '';
     if (verseIndex === 0 && kakaoMe && kakaoMe.loggedIn && kakaoMe.nickname) {
       nameFieldHtml = `<div class="quiz-name-field quiz-name-field--kakao">
-           <p class="quiz-kakao-name">🙂 <strong>${escapeHtml(kakaoMe.nickname)}</strong>님으로 참여해요</p>
+           <p class="quiz-kakao-name">🙂 <strong>${escapeHtml(kakaoMe.nickname)}</strong> 님으로 참여해요</p>
            <p class="quiz-name-notice" id="quiz-name-notice">${kakaoAlreadyJoined ? '이미 이 퀴즈에 참여하셨어요. 결과는 마이페이지에서 볼 수 있어요.' : ''}</p>
          </div>`;
     } else if (verseIndex === 0) {
@@ -568,7 +568,7 @@
         <p style="text-align:center; color:var(--muted); font-size:0.9rem;">
           총 ${totalBlanks}칸 중 ${correctCount}칸 정답 (한 번에 맞힌 칸 ${firstTryCount}개)
         </p>
-        <p style="text-align:center; color:var(--muted); font-size:0.85rem;">참여해주셔서 감사해요, ${escapeHtml(participantName)}님!</p>
+        <p style="text-align:center; color:var(--muted); font-size:0.85rem;">참여해주셔서 감사해요, ${escapeHtml(participantName)} 님!</p>
         ${kakaoMe && kakaoMe.loggedIn ? '<p style="text-align:center; font-size:0.85rem;"><a href="/me.html" style="color:var(--gold); font-weight:600;">마이페이지에서 내 퀴즈 기록 보기 →</a></p>' : ''}
         <div style="text-align:center; margin-top:20px;">
           <a href="/#qt" class="btn btn--navy">홈으로</a>
