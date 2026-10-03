@@ -330,8 +330,14 @@ label { display: block; font-size: 0.85rem; font-weight: 600; color: var(--muted
 }
 .attachment-edit-item .remove-attachment { color: #b3413a; background: none; border: none; cursor: pointer; font-size: 0.8rem; }
 
-.post-form-actions { display: flex; gap: 10px; margin-top: 4px; }
-.post-form-actions .btn-primary, .post-form-actions .btn-secondary { flex: none; }
+/* 등록/수정 버튼 + 취소 버튼 줄.
+   .btn-primary는 기본이 width:100% + margin-top:20px라서, 예전처럼 flex:none으로 두면
+   등록 버튼이 줄 전체 폭을 다 차지하고 수정할 때 나타나는 '취소' 버튼은 카드 오른쪽 밖으로
+   밀려나 있었습니다(위치도 20px 위로 어긋남). 등록 버튼은 남는 폭을 채우고(flex:1),
+   취소 버튼은 자기 크기만 차지하도록, 둘 다 같은 높이·같은 줄에 맞춥니다. */
+.post-form-actions { display: flex; align-items: stretch; gap: 10px; margin-top: 20px; }
+.post-form-actions .btn-primary { flex: 1 1 auto; width: auto; min-width: 0; margin-top: 0; }
+.post-form-actions .btn-secondary { flex: none; margin-top: 0; padding-left: 22px; padding-right: 22px; }
 .post-row .badge {
   font-size: 0.72rem;
   font-weight: 700;
