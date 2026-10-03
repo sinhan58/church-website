@@ -610,7 +610,8 @@
         if (mobileItem) mobileItem.remove();
         return;
       }
-      const label = me && me.loggedIn ? `${me.nickname || '내 정보'}님` : '로그인';
+      // 이름이 아직 없으면(카카오 닉네임 미동의 + 직접 정한 이름 없음) '마이페이지'로 표시
+      const label = me && me.loggedIn ? (me.nickname ? `${me.nickname}님` : '마이페이지') : '로그인';
       const headerBtn = $('#header-account');
       if (headerBtn) {
         $('#header-account-name').textContent = label;
@@ -618,7 +619,7 @@
         headerBtn.hidden = false;
       }
       const mobileLabel = $('#nav-mobile-me-label');
-      if (mobileLabel) mobileLabel.textContent = me && me.loggedIn ? `마이페이지 (${me.nickname || '내 정보'}님)` : '로그인 · 마이페이지';
+      if (mobileLabel) mobileLabel.textContent = me && me.loggedIn ? (me.nickname ? `마이페이지 (${me.nickname}님)` : '마이페이지') : '로그인 · 마이페이지';
     })
     .catch(() => {});
 
