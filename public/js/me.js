@@ -122,45 +122,104 @@
   });
 
   // ---------------- 내 활동 그리기 ----------------
+  let currentName = '';
+
+  function setName(name) {
+    currentName = name || '';
+    $('#me-nickname').textContent = currentName ? `${currentName}님` : '이름을 정해 주세요';
+    $('#me-avatar').textContent = currentName ? currentName.trim().charAt(0) : '?';
+    $('#me-name-value').textContent = currentName;
+  }
+
   function renderActivity(a) {
-    $('#me-nickname').textContent = a.nickname || '성도';
-    $('#me-avatar').textContent = (a.nickname || '🙂').trim().charAt(0) || '🙂';
-    $('#me-since').textContent = a.firstLoginAt ? `${formatDate(a.firstLoginAt)}부터 함께하고 있어요` : '';
+    setName(a.nickname);
+    $('#me-since').textContent = a.firstLoginAt ? `${formatDate(a.firstLoginAt)}부터 함께하고 있어요` : '카카오로 로그인했어요';
 
     const b = a.bible || {};
-    const pct = b.total ? Math.round(((b.readCount || 0) / b.total) * 1000) / 10 : 0;
-    $('#me-bible-count').textContent = (b.readCount || 0).toLocaleString();
-    $('#me-bible-of').textContent = `/ 전체 ${(b.total || 1189).toLocaleString()}장 (${pct}%)`;
-    $('#me-bible-bar').style.width = `${Math.min(100, pct)}%`;
-    $('#me-ot').textContent = b.ot ? `${b.ot.read}/${b.ot.total}장` : '-';
-    $('#me-nt').textContent = b.nt ? `${b.nt.read}/${b.nt.total}장` : '-';
+    const total = b.total || 1189;
+    const read = b.readCount || 0;
+    const pct = total ? (read / total) * 100 : 0;
+    $('#me-bible-count').textContent = read.toLocaleString();
+    $('#me-bible-of').textContent = `/ ${total.toLocaleString()}장`;
+    $('#me-ring').setAttribute('aria-label', `성경 ${total}장 중 ${read}장 읽음 (${Math.round(pct * 10) / 10}%)`);
+    // 한 장이라도 읽었으면 고리가 보이도록 최소 1%
+    requestAnimationFrame(() => $('#me-ring').style.setProperty('--p', read > 0 ? Math.max(1, pct).toFixed(2) : 0));
+    $('#me-ot').textContent = b.ot ? `${b.ot.read} / ${b.ot.total}장` : '-';
+    $('#me-nt').textContent = b.nt ? `${b.nt.read} / ${b.nt.total}장` : '-';
     $('#me-books').textContent = `${b.completedBooks || 0}권`;
     const cont = $('#me-continue-btn');
     if (b.lastRead) {
       cont.href = `/bible.html?b=${encodeURIComponent(b.lastRead.code)}&c=${b.lastRead.chapter}`;
-      cont.textContent = `${b.lastRead.name} ${b.lastRead.chapter}장부터 이어 읽기 →`;
+      cont.textContent = `${b.lastRead.name} ${b.lastRead.chapter}장 이어 읽기`;
     }
 
     const amen = a.amen || [];
-    $('#me-amen-count').textContent = amen.length ? `${amen.length}` : '';
+    $('#me-amen-count').textContent = amen.length ? `${amen.length}개` : '';
     $('#me-amen-list').innerHTML = amen.length
-      ? amen.map((q) => `
+      ? amen.map((q) => {
+          const d = q.date ? new Date(q.date) : null;
+          const ok = d && !isNaN(d);
+          return `
           <li><a href="/qt/${encodeURIComponent(q.id)}">
-            <span class="me-list-title">${escapeHtml(q.title)}</span>
-            <span class="me-list-meta">${escapeHtml([q.verseRef, formatDate(q.date)].filter(Boolean).join(' · '))}</span>
-          </a></li>`).join('')
-      : '<li class="me-empty">아직 아멘한 큐티가 없어요. 오늘의 큐티를 읽고 ♥ 아멘을 눌러 보세요.</li>';
+            <span class="me-qt-date">${ok ? `<b>${d.getDate()}</b><span>${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}</span>` : ''}</span>
+            <span class="me-qt-text">
+              <span class="me-qt-title">${escapeHtml(q.title)}</span>
+              ${q.verseRef ? `<span class="me-qt-ref">${escapeHtml(q.verseRef)}</span>` : ''}
+            </span>
+            <span class="me-qt-heart" aria-label="아멘">♥</span>
+          </a></li>`;
+        }).join('')
+      : '<li class="me-empty-row">아직 아멘한 큐티가 없어요. <a href="/#qt">오늘의 큐티</a>를 읽고 아멘을 눌러 보세요.</li>';
 
     const quizzes = a.quizzes || [];
-    $('#me-quiz-count').textContent = quizzes.length ? `${quizzes.length}` : '';
+    $('#me-quiz-count').textContent = quizzes.length ? `${quizzes.length}회` : '';
     $('#me-quiz-list').innerHTML = quizzes.length
       ? quizzes.map((q) => `
-          <li><div class="me-list-row">
-            <span class="me-list-title">${escapeHtml(q.title)}</span>
-            <span class="me-list-meta">${q.correctCount}/${q.totalBlanks} 정답 · ${escapeHtml(String(q.score))}점 · ${formatDate(q.submittedAt)}</span>
-          </div></li>`).join('')
-      : '<li class="me-empty">아직 참여한 말씀 퀴즈가 없어요.</li>';
+          <li>
+            <div class="me-quiz-text">
+              <span class="me-quiz-title">${escapeHtml(q.title)}</span>
+              <span class="me-quiz-sub">${formatDate(q.submittedAt)} 참여, ${q.totalBlanks}문제 중 ${q.correctCount}개 정답</span>
+            </div>
+            <div class="me-quiz-score"><b>${escapeHtml(String(q.score))}</b><span>점</span></div>
+          </li>`).join('')
+      : '<li class="me-empty-row">아직 참여한 말씀 퀴즈가 없어요. <a href="/quiz.html">이번 주 퀴즈 풀기</a></li>';
   }
+
+  // ---------------- 이름 정하기 / 바꾸기 ----------------
+  function openNameModal({ first = false } = {}) {
+    $('#me-name-title').textContent = first ? '홈페이지에서 쓸 이름을 정해 주세요' : '이름 바꾸기';
+    $('#me-name-desc').textContent = first
+      ? '카카오 닉네임을 받아오지 못했어요. 상단 메뉴와 말씀 퀴즈 순위표에 표시될 이름을 정해 주세요.'
+      : '상단 메뉴와 말씀 퀴즈 순위표에 이 이름으로 표시돼요.';
+    $('#me-name-input').value = currentName;
+    $('#me-name-error').textContent = '';
+    $('#me-name-modal').classList.add('open');
+    setTimeout(() => $('#me-name-input').focus(), 50);
+  }
+  function closeNameModal() { $('#me-name-modal').classList.remove('open'); }
+  function saveName() {
+    const name = $('#me-name-input').value.trim();
+    if (!name) { $('#me-name-error').textContent = '이름을 입력해 주세요.'; return; }
+    const btn = $('#me-name-save');
+    btn.disabled = true;
+    fetch('/api/me/name', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name })
+    })
+      .then((r) => r.json().then((d) => ({ ok: r.ok, d })))
+      .then(({ ok, d }) => {
+        if (!ok) throw new Error(d.error || '저장하지 못했어요.');
+        setName(d.nickname);
+        closeNameModal();
+      })
+      .catch((err) => { $('#me-name-error').textContent = err.message; })
+      .finally(() => { btn.disabled = false; });
+  }
+  $('#me-name-btn').addEventListener('click', () => openNameModal());
+  $('#me-name-save').addEventListener('click', saveName);
+  $('#me-name-cancel').addEventListener('click', closeNameModal);
+  $('#me-name-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') saveName(); });
 
   // ---------------- 시작 ----------------
   const params = new URLSearchParams(location.search);
@@ -184,10 +243,12 @@
       .then((a) => {
         renderActivity(a);
         $('#me-content').hidden = false;
+        // 카카오 닉네임도, 직접 정한 이름도 없으면 이름부터 정하도록 안내
+        if (!a.nickname) openNameModal({ first: true });
       })
       .catch(() => {
         $('#me-loading').hidden = false;
-        $('#me-loading').textContent = '내 활동을 불러오지 못했어요. 잠시 후 다시 시도해 주세요.';
+        $('#me-loading').textContent = '내 활동을 불러오지 못했어요. 인터넷 연결을 확인하고 새로고침해 주세요.';
       });
   });
 })();
