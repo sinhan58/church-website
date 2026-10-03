@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8" />
+<script>if ('scrollRestoration' in history) { history.scrollRestoration = 'manual'; }</script>
+<!-- 글씨체 준비될 때까지 잠깐 화면 숨기기 (최대 0.8초) -->
+<script>document.documentElement.classList.add('fonts-loading');</script>
+<style>
+  html.fonts-loading body { opacity: 0; }
+  body { transition: opacity 0.25s ease; }
+</style>
+<script>
+(function () {
+  var done = false;
+  function reveal() {
+    if (done) return;
+    done = true;
+    document.documentElement.classList.remove('fonts-loading');
+  }
+  function waitForLinkLoad(link) {
+    return new Promise(function (resolve) {
+      if (link.sheet) { resolve(); return; }
+      link.addEventListener('load', resolve, { once: true });
+      link.addEventListener('error', resolve, { once: true });
+    });
+  }
+  var fontLinks = Array.prototype.slice.call(document.querySelectorAll('link.gfont-link'));
+  var linksReady = fontLinks.length ? Promise.all(fontLinks.map(waitForLinkLoad)) : Promise.resolve();
+  var fontsApiReady = ('fonts' in document) ? document.fonts.ready : Promise.resolve();
+  var ready = linksReady.then(function () { return fontsApiReady; });
+  Promise.race([
+    ready,
+    new Promise(function (resolve) { setTimeout(resolve, 800); })
+  ]).then(reveal);
+  setTimeout(reveal, 1500);
+})();
+</script>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>마이페이지</title>
+<meta name="description" content="카카오 로그인으로 성경 읽기, 큐티 아멘, 말씀 퀴즈 등 내 활동을 한눈에 볼 수 있습니다." />
+<meta name="robots" content="noindex" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link class="gfont-link" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;600;700&display=block" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
+<link rel="stylesheet" href="/css/style.css?v=245" />
+<!--FONT_STYLE_TAG-->
+
+<!-- PWA: 홈 화면에 추가했을 때 앱처럼 보이도록 하는 설정 -->
+<link rel="manifest" href="/manifest.json" />
+<meta name="theme-color" content="#0d1526" />
+<link rel="icon" href="/icons/icon-192-v2.png" />
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon-v2.png" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+</head>
+<body>
+
+<header class="site-header scrolled">
+  <div class="container">
+    <a href="/" class="brand"><img src="/images/brand-symbol.png?v=2" class="brand-logo" alt="" /><span id="me-brand-text">물댄동산교회</span></a>
+  </div>
+</header>
+
+<main>
+  <section class="section me-section">
+    <div class="container me-container">
+
+      <div class="section-head" style="text-align:left; margin-bottom:20px;">
+        <span class="eyebrow">MY PAGE</span>
+        <h2>마이페이지</h2>
+      </div>
+
+      <p class="me-status" id="me-loading">불러오는 중...</p>
+
+      <!-- 로그인 전 -->
+      <div class="me-card me-login-card" id="me-login-card" hidden>
+        <h3>카카오로 간편하게 로그인하세요</h3>
+        <p>로그인하면 홈페이지에서의 활동이 자동으로 기록돼요.</p>
+        <ul class="me-benefits">
+          <li>📖 성경 읽기표와 이어 읽기 위치 저장</li>
+          <li>🙏 아멘을 누른 큐티 모아 보기</li>
+          <li>✏️ 말씀 퀴즈에 이름 입력 없이 참여하고 기록 보기</li>
+        </ul>
+        <button type="button" class="bible-login-btn" id="me-login-btn">
+          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 3C6.5 3 2 6.6 2 11c0 2.8 1.9 5.3 4.7 6.7l-1 3.7c-.1.3.3.6.6.4l4.4-2.9c.4 0 .9.1 1.3.1 5.5 0 10-3.6 10-8S17.5 3 12 3z"/></svg>
+          카카오로 로그인하기
+        </button>
+        <p class="me-small">로그인 시 카카오 회원번호와 닉네임만 받아오며, 이메일·전화번호 등 다른 정보는 받지 않아요.</p>
+      </div>
+
+      <!-- 로그인 후 -->
+      <div id="me-content" hidden>
+        <div class="me-card me-profile">
+          <div class="me-avatar" id="me-avatar">🙂</div>
+          <div class="me-profile-text">
+            <p class="me-name"><strong id="me-nickname"></strong>님, 반가워요</p>
+            <p class="me-small" id="me-since"></p>
+          </div>
+          <button type="button" class="me-link-btn" id="me-logout-btn">로그아웃</button>
+        </div>
+
+        <div class="me-card">
+          <div class="me-card-head">
+            <h3>📖 성경 읽기</h3>
+            <a href="/bible.html?chart=1" class="me-more">읽기표 보기 →</a>
+          </div>
+          <div class="me-bible-total">
+            <span class="me-big" id="me-bible-count">0</span><span class="me-unit">장</span>
+            <span class="me-small" id="me-bible-of"></span>
+          </div>
+          <div class="me-bar"><span id="me-bible-bar"></span></div>
+          <div class="me-bible-split">
+            <div><span class="me-small">구약</span> <strong id="me-ot"></strong></div>
+            <div><span class="me-small">신약</span> <strong id="me-nt"></strong></div>
+            <div><span class="me-small">완독한 책</span> <strong id="me-books"></strong></div>
+          </div>
+          <a href="/bible.html" class="me-action-btn" id="me-continue-btn">성경 읽으러 가기 →</a>
+        </div>
+
+        <div class="me-card">
+          <div class="me-card-head">
+            <h3>🙏 아멘한 큐티 <span class="me-count" id="me-amen-count"></span></h3>
+          </div>
+          <ul class="me-list" id="me-amen-list"></ul>
+        </div>
+
+        <div class="me-card">
+          <div class="me-card-head">
+            <h3>✏️ 말씀 퀴즈 <span class="me-count" id="me-quiz-count"></span></h3>
+            <a href="/quiz.html" class="me-more">퀴즈 풀러 가기 →</a>
+          </div>
+          <ul class="me-list" id="me-quiz-list"></ul>
+        </div>
+
+        <div class="me-danger">
+          <button type="button" class="me-link-btn" id="me-delete-btn">내 기록 모두 삭제하기</button>
+        </div>
+      </div>
+
+    </div>
+  </section>
+</main>
+
+<!-- 안내/확인 창 (브라우저 기본 알림창 대신) -->
+<div class="bible-progress-modal bible-notice-modal" id="me-notice-modal" role="dialog" aria-modal="true" aria-labelledby="me-notice-title">
+  <div class="bible-progress-modal-inner bible-notice-inner">
+    <div class="bible-notice-icon" id="me-notice-icon"></div>
+    <h3 class="bible-notice-title" id="me-notice-title"></h3>
+    <p class="bible-notice-text" id="me-notice-text"></p>
+    <div class="bible-confirm-actions" id="me-notice-actions"></div>
+  </div>
+</div>
+
+<footer class="site-footer">
+  <div class="container">
+    <p>&copy; <span id="me-year"></span> <span id="me-footer-name">물댄동산교회</span>. All rights reserved. &nbsp;·&nbsp; <a href="/privacy.html" style="color:inherit;">개인정보처리방침</a></p>
+  </div>
+</footer>
+
+<script src="/js/me.js?v=1"></script>
+</body>
+</html>
