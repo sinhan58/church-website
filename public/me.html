@@ -42,7 +42,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link class="gfont-link" href="https://fonts.googleapis.com/css2?family=Noto+Serif+KR:wght@500;700&family=Noto+Sans+KR:wght@400;500;600;700&display=block" rel="stylesheet">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/static/pretendard.css">
-<link rel="stylesheet" href="/css/style.css?v=245" />
+<link rel="stylesheet" href="/css/style.css?v=247" />
 <!--FONT_STYLE_TAG-->
 
 <!-- PWA: 홈 화면에 추가했을 때 앱처럼 보이도록 하는 설정 -->
@@ -61,85 +61,106 @@
   </div>
 </header>
 
-<main>
-  <section class="section me-section">
-    <div class="container me-container">
+<main class="me-page">
+  <div class="me-wrap">
 
-      <div class="section-head" style="text-align:left; margin-bottom:20px;">
-        <span class="eyebrow">MY PAGE</span>
-        <h2>마이페이지</h2>
+    <p class="me-status" id="me-loading">불러오는 중…</p>
+
+    <!-- 로그인 전 -->
+    <section class="me-welcome" id="me-login-card" hidden>
+      <div class="me-welcome-mark" aria-hidden="true"></div>
+      <h1 class="me-welcome-title">나의 신앙 기록</h1>
+      <p class="me-welcome-lead">카카오로 로그인하면 성경 읽기, 큐티 아멘, 말씀 퀴즈 기록이 한곳에 모여요.</p>
+      <button type="button" class="me-kakao-btn" id="me-login-btn">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true"><path fill="currentColor" d="M12 3C6.5 3 2 6.6 2 11c0 2.8 1.9 5.3 4.7 6.7l-1 3.7c-.1.3.3.6.6.4l4.4-2.9c.4 0 .9.1 1.3.1 5.5 0 10-3.6 10-8S17.5 3 12 3z"/></svg>
+        카카오로 로그인
+      </button>
+      <ul class="me-welcome-list">
+        <li><strong>성경 읽기표</strong>어디까지 읽었는지 장별로 저장돼요</li>
+        <li><strong>아멘한 큐티</strong>마음에 남은 큐티를 다시 볼 수 있어요</li>
+        <li><strong>말씀 퀴즈</strong>이름 입력 없이 참여하고 점수가 남아요</li>
+      </ul>
+      <p class="me-fineprint">카카오 회원번호와 닉네임만 받아오며, 이메일·전화번호 등은 받지 않아요. 로그인하지 않아도 홈페이지의 모든 기능을 이용할 수 있어요.</p>
+    </section>
+
+    <!-- 로그인 후 -->
+    <div class="me-layout" id="me-content" hidden>
+
+      <aside class="me-side">
+        <section class="me-profile" aria-label="내 정보">
+          <div class="me-profile-top">
+            <div class="me-avatar" id="me-avatar" aria-hidden="true"></div>
+            <div class="me-profile-name">
+              <h1 id="me-nickname"></h1>
+              <p id="me-since"></p>
+            </div>
+          </div>
+
+          <!-- 이 페이지의 중심: 성경 통독 진행 고리 -->
+          <div class="me-ring-block">
+            <div class="me-ring" id="me-ring" role="img" aria-label="성경 읽기 진행률">
+              <div class="me-ring-inner">
+                <span class="me-ring-num" id="me-bible-count">0</span>
+                <span class="me-ring-of" id="me-bible-of">/ 1,189장</span>
+              </div>
+            </div>
+            <dl class="me-ring-stats">
+              <div><dt>구약</dt><dd id="me-ot">-</dd></div>
+              <div><dt>신약</dt><dd id="me-nt">-</dd></div>
+              <div><dt>완독한 책</dt><dd id="me-books">-</dd></div>
+            </dl>
+          </div>
+          <div class="me-profile-actions">
+            <a href="/bible.html" class="me-btn me-btn--gold" id="me-continue-btn">성경 읽기</a>
+            <a href="/bible.html?chart=1" class="me-btn me-btn--ghost">읽기표 보기</a>
+          </div>
+        </section>
+
+        <nav class="me-settings" aria-label="계정 설정">
+          <button type="button" class="me-setting" id="me-name-btn">
+            <span>이름 바꾸기</span><span class="me-setting-value" id="me-name-value"></span>
+          </button>
+          <button type="button" class="me-setting" id="me-logout-btn"><span>로그아웃</span></button>
+          <button type="button" class="me-setting me-setting--danger" id="me-delete-btn"><span>내 기록 모두 삭제</span></button>
+        </nav>
+      </aside>
+
+      <div class="me-main">
+        <section class="me-block">
+          <header class="me-block-head">
+            <h2>아멘한 큐티</h2>
+            <span class="me-block-count" id="me-amen-count"></span>
+          </header>
+          <ul class="me-qt-list" id="me-amen-list"></ul>
+        </section>
+
+        <section class="me-block">
+          <header class="me-block-head">
+            <h2>말씀 퀴즈</h2>
+            <span class="me-block-count" id="me-quiz-count"></span>
+            <a href="/quiz.html" class="me-block-link">퀴즈 풀기</a>
+          </header>
+          <ul class="me-quiz-list" id="me-quiz-list"></ul>
+        </section>
       </div>
-
-      <p class="me-status" id="me-loading">불러오는 중...</p>
-
-      <!-- 로그인 전 -->
-      <div class="me-card me-login-card" id="me-login-card" hidden>
-        <h3>카카오로 간편하게 로그인하세요</h3>
-        <p>로그인하면 홈페이지에서의 활동이 자동으로 기록돼요.</p>
-        <ul class="me-benefits">
-          <li>📖 성경 읽기표와 이어 읽기 위치 저장</li>
-          <li>🙏 아멘을 누른 큐티 모아 보기</li>
-          <li>✏️ 말씀 퀴즈에 이름 입력 없이 참여하고 기록 보기</li>
-        </ul>
-        <button type="button" class="bible-login-btn" id="me-login-btn">
-          <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 3C6.5 3 2 6.6 2 11c0 2.8 1.9 5.3 4.7 6.7l-1 3.7c-.1.3.3.6.6.4l4.4-2.9c.4 0 .9.1 1.3.1 5.5 0 10-3.6 10-8S17.5 3 12 3z"/></svg>
-          카카오로 로그인하기
-        </button>
-        <p class="me-small">로그인 시 카카오 회원번호와 닉네임만 받아오며, 이메일·전화번호 등 다른 정보는 받지 않아요.</p>
-      </div>
-
-      <!-- 로그인 후 -->
-      <div id="me-content" hidden>
-        <div class="me-card me-profile">
-          <div class="me-avatar" id="me-avatar">🙂</div>
-          <div class="me-profile-text">
-            <p class="me-name"><strong id="me-nickname"></strong>님, 반가워요</p>
-            <p class="me-small" id="me-since"></p>
-          </div>
-          <button type="button" class="me-link-btn" id="me-logout-btn">로그아웃</button>
-        </div>
-
-        <div class="me-card">
-          <div class="me-card-head">
-            <h3>📖 성경 읽기</h3>
-            <a href="/bible.html?chart=1" class="me-more">읽기표 보기 →</a>
-          </div>
-          <div class="me-bible-total">
-            <span class="me-big" id="me-bible-count">0</span><span class="me-unit">장</span>
-            <span class="me-small" id="me-bible-of"></span>
-          </div>
-          <div class="me-bar"><span id="me-bible-bar"></span></div>
-          <div class="me-bible-split">
-            <div><span class="me-small">구약</span> <strong id="me-ot"></strong></div>
-            <div><span class="me-small">신약</span> <strong id="me-nt"></strong></div>
-            <div><span class="me-small">완독한 책</span> <strong id="me-books"></strong></div>
-          </div>
-          <a href="/bible.html" class="me-action-btn" id="me-continue-btn">성경 읽으러 가기 →</a>
-        </div>
-
-        <div class="me-card">
-          <div class="me-card-head">
-            <h3>🙏 아멘한 큐티 <span class="me-count" id="me-amen-count"></span></h3>
-          </div>
-          <ul class="me-list" id="me-amen-list"></ul>
-        </div>
-
-        <div class="me-card">
-          <div class="me-card-head">
-            <h3>✏️ 말씀 퀴즈 <span class="me-count" id="me-quiz-count"></span></h3>
-            <a href="/quiz.html" class="me-more">퀴즈 풀러 가기 →</a>
-          </div>
-          <ul class="me-list" id="me-quiz-list"></ul>
-        </div>
-
-        <div class="me-danger">
-          <button type="button" class="me-link-btn" id="me-delete-btn">내 기록 모두 삭제하기</button>
-        </div>
-      </div>
-
     </div>
-  </section>
+
+  </div>
 </main>
+
+<!-- 이름 정하기/바꾸기 -->
+<div class="bible-progress-modal bible-notice-modal" id="me-name-modal" role="dialog" aria-modal="true" aria-labelledby="me-name-title">
+  <div class="bible-progress-modal-inner bible-notice-inner me-name-inner">
+    <h3 class="bible-notice-title" id="me-name-title">홈페이지에서 쓸 이름</h3>
+    <p class="bible-notice-text" id="me-name-desc">상단 메뉴와 말씀 퀴즈 순위표에 이 이름으로 표시돼요.</p>
+    <input type="text" class="me-name-input" id="me-name-input" maxlength="12" placeholder="예: 홍길동" autocomplete="nickname" />
+    <p class="me-name-error" id="me-name-error"></p>
+    <div class="bible-confirm-actions">
+      <button type="button" class="bible-confirm-btn is-primary" id="me-name-save">저장하기</button>
+      <button type="button" class="bible-confirm-btn is-quiet" id="me-name-cancel">나중에</button>
+    </div>
+  </div>
+</div>
 
 <!-- 안내/확인 창 (브라우저 기본 알림창 대신) -->
 <div class="bible-progress-modal bible-notice-modal" id="me-notice-modal" role="dialog" aria-modal="true" aria-labelledby="me-notice-title">
@@ -157,6 +178,6 @@
   </div>
 </footer>
 
-<script src="/js/me.js?v=1"></script>
+<script src="/js/me.js?v=2"></script>
 </body>
 </html>
