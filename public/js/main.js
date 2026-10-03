@@ -588,6 +588,40 @@
       '</a>'
     );
   }
+  // 모바일 메뉴 맨 아래(성경 다음)에 '마이페이지/로그인' 항목 추가
+  if (navMobile && !navMobile.querySelector('.nav-mobile-me')) {
+    navMobile.insertAdjacentHTML('beforeend',
+      '<a href="/me.html" class="nav-mobile-me">' +
+        '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="8" r="4" stroke="currentColor" stroke-width="1.8"/><path d="M4 20c1.5-3.5 4.5-5 8-5s6.5 1.5 8 5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>' +
+        '<span id="nav-mobile-me-label">로그인</span>' +
+      '</a>'
+    );
+  }
+
+  // 카카오 로그인 상태를 확인해서 상단 메뉴줄에 '로그인' 또는 'OOO님'을 표시
+  // (실패해도 홈페이지 다른 기능에는 영향 없음. 서버에 카카오 키가 없으면 표시하지 않음)
+  Promise.all([
+    fetch('/api/me', { credentials: 'same-origin' }).then((r) => r.json()),
+    fetch('/api/bible/kakao-config').then((r) => r.json())
+  ])
+    .then(([me, cfg]) => {
+      if (!cfg || !cfg.enabled) {
+        const mobileItem = navMobile && navMobile.querySelector('.nav-mobile-me');
+        if (mobileItem) mobileItem.remove();
+        return;
+      }
+      const label = me && me.loggedIn ? `${me.nickname || '내 정보'}님` : '로그인';
+      const headerBtn = $('#header-account');
+      if (headerBtn) {
+        $('#header-account-name').textContent = label;
+        headerBtn.setAttribute('aria-label', me && me.loggedIn ? '마이페이지' : '카카오 로그인');
+        headerBtn.hidden = false;
+      }
+      const mobileLabel = $('#nav-mobile-me-label');
+      if (mobileLabel) mobileLabel.textContent = me && me.loggedIn ? `마이페이지 (${me.nickname || '내 정보'}님)` : '로그인 · 마이페이지';
+    })
+    .catch(() => {});
+
   navMobile.addEventListener('click', (e) => {
     // 링크 안의 아이콘/글씨를 눌러도 메뉴가 닫히도록 closest('a')로 확인
     if (e.target.closest('a')) closeMobileMenu();
