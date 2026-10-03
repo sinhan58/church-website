@@ -311,8 +311,10 @@ router.get('/bible/kakao/callback', async (req, res) => {
     const accessToken = await exchangeCodeForToken(code, KAKAO_REDIRECT_URI);
     const user = await fetchKakaoUser(accessToken);
     const kakaoId = String(user.id);
+    // 카카오 닉네임 (카카오 개발자 사이트의 '동의항목 > 닉네임'이 켜져 있어야 받아올 수 있음)
     const nickname =
-      (user.kakao_account && user.kakao_account.profile && user.kakao_account.profile.nickname) || '';
+      (user.kakao_account && user.kakao_account.profile && user.kakao_account.profile.nickname) ||
+      (user.properties && user.properties.nickname) || '';
 
     await updateBibleHistory((history) => {
       if (!history.users[kakaoId]) history.users[kakaoId] = {};
@@ -344,6 +346,11 @@ router.post('/bible/logout', (req, res) => {
 // 읽기 기록 데이터 형식 버전. 2로 바뀔 때 예전 방식으로 쌓인 "펼친 장" 기록은 모두 비웁니다
 // (요청에 따라 새로 시작). 이어 읽기 위치·닉네임은 그대로 둡니다.
 const BIBLE_HISTORY_VERSION = 2;
+
+// 화면에 보일 이름: 성도님이 마이페이지에서 직접 정한 이름 > 카카오 닉네임
+function memberName(u) {
+  return (u && (u.displayName || u.nickname)) || '';
+}
 
 // 모든 읽기 기록 변경은 이 함수로 (동시에 저장해도 서로 덮어쓰지 않게 차례대로 처리)
 function updateBibleHistory(mutate) {
@@ -383,7 +390,7 @@ router.get('/bible/history', async (req, res) => {
     const readChapters = Array.isArray(record.readChapters) ? record.readChapters : [];
     res.json({
       loggedIn: true,
-      nickname: record.nickname || '',
+      nickname: memberName(record),
       lastRead: record.lastRead || null,
       readCount: readChapters.length,
       readChapters
@@ -574,7 +581,7 @@ router.get('/me', async (req, res) => {
     const u = (history.users && history.users[kakaoId]) || {};
     res.json({
       loggedIn: true,
-      nickname: u.nickname || '',
+      nickname: memberName(u),
       amenQt: Array.isArray(u.amenQt) ? u.amenQt : []
     });
   } catch (err) {
@@ -626,7 +633,8 @@ router.get('/me/activity', async (req, res) => {
       });
 
     res.json({
-      nickname: u.nickname || '',
+      nickname: memberName(u),
+      kakaoNickname: u.nickname || '',
       firstLoginAt: u.firstLoginAt || null,
       bible: {
         readCount: readChapters.length,
@@ -639,6 +647,23 @@ router.get('/me/activity', async (req, res) => {
       amen,
       quizzes: myQuiz
     });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 홈페이지에서 쓸 이름 정하기/바꾸기 (말씀 퀴즈 순위표·상단 메뉴·마이페이지에 표시)
+router.post('/me/name', limitRequests({ name: 'me-name', max: 20, windowMs: TEN_MIN }), async (req, res) => {
+  try {
+    const kakaoId = getKakaoIdFromReq(req);
+    if (!kakaoId) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    const name = String((req.body && req.body.name) || '').replace(/[<>]/g, '').replace(/\s+/g, ' ').trim();
+    if (name.length < 1 || name.length > 12) return res.status(400).json({ error: '이름은 1~12자로 입력해 주세요.' });
+    await updateBibleHistory((history) => {
+      if (!history.users[kakaoId]) history.users[kakaoId] = {};
+      history.users[kakaoId].displayName = name;
+    });
+    res.json({ ok: true, nickname: name });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -688,7 +713,7 @@ router.post('/quiz/:id/submit', limitRequests({ name: 'quiz', max: 10, windowMs:
     if (kakaoId && (!name || !String(name).trim())) {
       const history = (await readData('bibleHistory')) || {};
       const u = (history.users && history.users[kakaoId]) || {};
-      name = u.nickname || '';
+      name = memberName(u);
     }
     if (!name || !String(name).trim()) return res.status(400).json({ error: '이름을 입력해주세요.' });
     const submission = {
