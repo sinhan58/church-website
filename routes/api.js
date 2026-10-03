@@ -192,8 +192,25 @@ router.get('/qt/:id', async (req, res) => {
 
 router.post('/qt/:id/amen', limitRequests({ name: 'amen', max: 40, windowMs: TEN_MIN }), async (req, res) => {
   try {
-    const delta = req.body.action === 'remove' ? -1 : 1;
+    let delta = req.body.action === 'remove' ? -1 : 1;
     let amen = null;
+    // 카카오 로그인 상태면 "내가 아멘한 큐티" 목록에 기록 (같은 사람이 두 번 올리는 것도 방지)
+    const kakaoId = getKakaoIdFromReq(req);
+    if (kakaoId) {
+      await updateBibleHistory((history) => {
+        if (!history.users[kakaoId]) history.users[kakaoId] = {};
+        const u = history.users[kakaoId];
+        const set = new Set(Array.isArray(u.amenQt) ? u.amenQt : []);
+        if (delta > 0) {
+          if (set.has(req.params.id)) delta = 0; // 이미 아멘한 큐티
+          set.add(req.params.id);
+        } else {
+          if (!set.has(req.params.id)) delta = 0; // 아멘한 적 없는 큐티
+          set.delete(req.params.id);
+        }
+        u.amenQt = [...set];
+      });
+    }
     // 동시에 여러 명이 눌러도 숫자가 빠지지 않도록 차례대로 처리
     await updateData('qt', (qt) => {
       const list = qt || [];
@@ -269,11 +286,27 @@ router.get('/bible/kakao-config', (req, res) => {
   });
 });
 
+// 카카오 로그인 후 돌아갈 곳. state 값으로 전달받습니다.
+//  - "?b=GEN&c=3" 처럼 '?'로 시작하면: 성경 페이지의 그 위치 (예전 방식 그대로)
+//  - "/me.html", "/quiz.html?id=..." 처럼 '/'로 시작하면: 홈페이지 안의 그 주소
+//  - 그 외(다른 사이트 주소 등)는 무시하고 성경 페이지로
+function kakaoReturnPath(state, { error = false } = {}) {
+  let back = '';
+  try { back = state ? decodeURIComponent(state) : ''; } catch (e) { back = ''; }
+  let path;
+  if (back.startsWith('?')) path = `/bible.html${back}`;
+  else if (back.startsWith('/') && !back.startsWith('//') && !back.includes('\\')) path = back;
+  else path = '/bible.html';
+  if (error) path += (path.includes('?') ? '&' : '?') + 'kakaoError=1';
+  return path;
+}
+
 // 카카오 로그인 완료 후 카카오 서버가 사용자를 이 주소로 돌려보냅니다.
+// (카카오 개발자 사이트에 등록된 Redirect URI가 이 주소라서, 홈페이지 전체 로그인도 이 주소를 같이 씁니다)
 router.get('/bible/kakao/callback', async (req, res) => {
+  const { code, state } = req.query;
   try {
-    const { code, state } = req.query;
-    if (!code) return res.redirect('/bible.html?kakaoError=1');
+    if (!code) return res.redirect(kakaoReturnPath(state, { error: true }));
 
     const accessToken = await exchangeCodeForToken(code, KAKAO_REDIRECT_URI);
     const user = await fetchKakaoUser(accessToken);
@@ -283,26 +316,17 @@ router.get('/bible/kakao/callback', async (req, res) => {
 
     await updateBibleHistory((history) => {
       if (!history.users[kakaoId]) history.users[kakaoId] = {};
-      if (nickname) history.users[kakaoId].nickname = nickname;
-      history.users[kakaoId].lastLoginAt = new Date().toISOString();
+      const u = history.users[kakaoId];
+      if (nickname) u.nickname = nickname;
+      if (!u.firstLoginAt) u.firstLoginAt = new Date().toISOString();
+      u.lastLoginAt = new Date().toISOString();
     });
 
     setLoginCookie(res, kakaoId);
-
-    // 로그인하기 직전 보고 있던 장/절 위치(state)로 그대로 돌아갑니다.
-    let back = '';
-    if (state) {
-      try {
-        back = decodeURIComponent(state);
-        if (!back.startsWith('?')) back = ''; // 이상한 값이 섞여 들어오는 걸 방지
-      } catch (e) {
-        back = '';
-      }
-    }
-    res.redirect(`/bible.html${back}`);
+    res.redirect(kakaoReturnPath(state));
   } catch (err) {
     console.error('카카오 로그인 실패:', err.message);
-    res.redirect('/bible.html?kakaoError=1');
+    res.redirect(kakaoReturnPath(state, { error: true }));
   }
 });
 
@@ -537,23 +561,156 @@ router.get('/quiz/current', async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
+// ================= 홈페이지 공통 카카오 로그인 / 마이페이지 =================
+// 회원 정보는 성경 읽기 기록과 같은 곳(bibleHistory.users[카카오ID])에 함께 저장합니다.
+// (닉네임, 읽은 장, 아멘 누른 큐티, 처음·마지막 로그인 시각)
+
+// 상단 메뉴줄 등에서 로그인 여부와 닉네임 확인
+router.get('/me', async (req, res) => {
+  try {
+    const kakaoId = getKakaoIdFromReq(req);
+    if (!kakaoId) return res.json({ loggedIn: false });
+    const history = (await readData('bibleHistory')) || {};
+    const u = (history.users && history.users[kakaoId]) || {};
+    res.json({
+      loggedIn: true,
+      nickname: u.nickname || '',
+      amenQt: Array.isArray(u.amenQt) ? u.amenQt : []
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+router.post('/me/logout', (req, res) => {
+  clearLoginCookie(res);
+  res.json({ ok: true });
+});
+
+// 마이페이지: 내 활동 한눈에 보기
+router.get('/me/activity', async (req, res) => {
+  try {
+    const kakaoId = getKakaoIdFromReq(req);
+    if (!kakaoId) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    const [history, qtList, quizzes, submissions] = await Promise.all([
+      readData('bibleHistory'), readData('qt'), readData('quizzes'), readData('quizSubmissions')
+    ]);
+    const u = (history && history.users && history.users[kakaoId]) || {};
+    const books = bible.getBooksIndex();
+    const readChapters = (history && history.readVersion === BIBLE_HISTORY_VERSION && Array.isArray(u.readChapters)) ? u.readChapters : [];
+    const readSet = new Set(readChapters);
+    const countIn = (t) => books.filter((b) => b.testament === t).reduce((sum, b) => {
+      let n = 0; for (let i = 1; i <= b.chapters; i++) if (readSet.has(`${b.code}-${i}`)) n++; return sum + n;
+    }, 0);
+    const totalOf = (t) => books.filter((b) => b.testament === t).reduce((s2, b) => s2 + b.chapters, 0);
+    const lastBook = u.lastRead ? bible.getBookByCode(u.lastRead.code) : null;
+
+    const qtById = new Map((qtList || []).map((q) => [q.id, q]));
+    const amen = (Array.isArray(u.amenQt) ? u.amenQt : [])
+      .map((id) => qtById.get(id))
+      .filter(Boolean)
+      .map((q) => ({ id: q.id, title: q.title || '', date: q.date || '', verseRef: q.verseRef || '' }))
+      .sort((a, b) => String(b.date).localeCompare(String(a.date)));
+
+    const quizById = new Map((quizzes || []).map((q) => [q.id, q]));
+    const myQuiz = (submissions || [])
+      .filter((sub) => sub.kakaoId === kakaoId)
+      .map((sub) => {
+        const q = quizById.get(sub.quizId) || {};
+        return {
+          quizId: sub.quizId,
+          title: q.title || '말씀 퀴즈',
+          score: sub.score, correctCount: sub.correctCount, totalBlanks: sub.totalBlanks,
+          submittedAt: sub.submittedAt
+        };
+      });
+
+    res.json({
+      nickname: u.nickname || '',
+      firstLoginAt: u.firstLoginAt || null,
+      bible: {
+        readCount: readChapters.length,
+        total: totalOf('OT') + totalOf('NT'),
+        ot: { read: countIn('OT'), total: totalOf('OT') },
+        nt: { read: countIn('NT'), total: totalOf('NT') },
+        completedBooks: books.filter((b) => { for (let i = 1; i <= b.chapters; i++) if (!readSet.has(`${b.code}-${i}`)) return false; return true; }).length,
+        lastRead: u.lastRead && lastBook ? { code: lastBook.code, name: lastBook.name, chapter: u.lastRead.chapter } : null
+      },
+      amen,
+      quizzes: myQuiz
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 내 기록 모두 삭제 (개인정보 삭제 요청권). 닉네임·읽기 기록·아멘 목록을 지우고,
+// 퀴즈 참여 기록에서는 카카오 계정 연결만 끊습니다(순위표의 이름·점수는 그대로).
+router.post('/me/delete', async (req, res) => {
+  try {
+    const kakaoId = getKakaoIdFromReq(req);
+    if (!kakaoId) return res.status(401).json({ error: '로그인이 필요합니다.' });
+    await updateBibleHistory((history) => { delete history.users[kakaoId]; });
+    await updateData('quizSubmissions', (list) => {
+      if (!Array.isArray(list)) return undefined;
+      list.forEach((sub) => { if (sub.kakaoId === kakaoId) delete sub.kakaoId; });
+      return list;
+    });
+    clearLoginCookie(res);
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 로그인한 사람이 이 퀴즈에 이미 참여했는지
+router.get('/quiz/:id/my', async (req, res) => {
+  try {
+    const kakaoId = getKakaoIdFromReq(req);
+    if (!kakaoId) return res.json({ loggedIn: false });
+    const submissions = (await readData('quizSubmissions')) || [];
+    const mine = submissions.find((sub) => sub.quizId === req.params.id && sub.kakaoId === kakaoId);
+    res.json({ loggedIn: true, participated: !!mine, score: mine ? mine.score : null });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 router.post('/quiz/:id/submit', limitRequests({ name: 'quiz', max: 10, windowMs: TEN_MIN }), async (req, res) => {
   try {
     const quizzes = (await readData('quizzes')) || [];
     const quiz = quizzes.find((q) => q.id === req.params.id);
     if (!quiz) return res.status(404).json({ error: '퀴즈를 찾을 수 없습니다.' });
-    const { name, score, correctCount, totalBlanks, firstTryCount } = req.body;
-    if (!name || !name.trim()) return res.status(400).json({ error: '이름을 입력해주세요.' });
-    const submissions = (await readData('quizSubmissions')) || [];
+    const { score, correctCount, totalBlanks, firstTryCount } = req.body;
+    let { name } = req.body;
+    // 카카오 로그인 상태면 이름을 따로 입력하지 않아도 닉네임으로 기록하고, 내 기록(마이페이지)에 연결
+    const kakaoId = getKakaoIdFromReq(req);
+    if (kakaoId && (!name || !String(name).trim())) {
+      const history = (await readData('bibleHistory')) || {};
+      const u = (history.users && history.users[kakaoId]) || {};
+      name = u.nickname || '';
+    }
+    if (!name || !String(name).trim()) return res.status(400).json({ error: '이름을 입력해주세요.' });
     const submission = {
-      id: makeId('qzsub'), quizId: quiz.id, name: name.trim().slice(0, 20),
+      id: makeId('qzsub'), quizId: quiz.id, name: String(name).trim().slice(0, 20),
       score: Number(score) || 0, correctCount: Number(correctCount) || 0,
       totalBlanks: Number(totalBlanks) || 0, firstTryCount: Number(firstTryCount) || 0,
       submittedAt: new Date().toISOString()
     };
-    submissions.unshift(submission);
-    await writeData('quizSubmissions', submissions);
-    res.json(submission);
+    if (kakaoId) submission.kakaoId = kakaoId;
+    let duplicate = false;
+    await updateData('quizSubmissions', (list) => {
+      const submissions = Array.isArray(list) ? list : [];
+      if (kakaoId && submissions.some((sub) => sub.quizId === quiz.id && sub.kakaoId === kakaoId)) {
+        duplicate = true;
+        return undefined; // 저장 안 함
+      }
+      submissions.unshift(submission);
+      return submissions;
+    });
+    if (duplicate) return res.status(409).json({ error: '이미 이 퀴즈에 참여하셨어요.' });
+    const { kakaoId: _omit, ...publicSubmission } = submission;
+    res.json(publicSubmission);
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
