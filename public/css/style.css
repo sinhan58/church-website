@@ -3513,6 +3513,11 @@ body.has-mini-player .quick-fab-wrap { bottom: calc(20px + 68px); }
 /* 퀴즈 카드도 등장 애니메이션용 .reveal.is-visible 클래스를 같이 달고 있어서 같은
    이유로 호버가 씹혔습니다 — 태그 선택자(a)로 특정도를 높였습니다. */
 a.quiz-teaser-card:hover { transform: translateY(-4px); box-shadow: 0 10px 24px rgba(13,21,38,0.12); }
+/* 이번주 칼럼 카드도 오늘의 큐티·말씀 퀴즈 카드와 똑같이: 화면에 들어올 때 서서히 나타나고
+   (index.html에서 .reveal 추가), 마우스를 올리고 내릴 때 같은 속도로 부드럽게 오르내림.
+   예전엔 .reveal이 없어서 등장 효과가 없었고, 움직임 시간이 :hover 안에만 있어서 마우스를
+   내리면 툭 떨어지듯 바로 돌아왔습니다. (.reveal.is-visible보다 우선하도록 a 태그를 붙임) */
+a.qt-card--column:hover { transform: translateY(-4px); box-shadow: 0 10px 24px rgba(13,21,38,0.12); }
 /* 배지 위치를 오늘의 큐티/이번주 칼럼 카드와 통일(왼쪽 위). 카드 자체 padding(28px 18px)이
    이미 여백을 주고 있으므로, 다른 카드에서 쓰는 .qt-card-badges의 자체 padding은 뺍니다. */
 .quiz-teaser-card .qt-card-badges { padding: 0; margin: 0 0 14px; }
