@@ -126,7 +126,7 @@
 
   function setName(name) {
     currentName = name || '';
-    $('#me-nickname').textContent = currentName ? `${currentName}님` : '이름을 정해 주세요';
+    $('#me-nickname').textContent = currentName ? `${currentName} 님` : '이름을 정해 주세요';
     $('#me-avatar').textContent = currentName ? currentName.trim().charAt(0) : '?';
     $('#me-name-value').textContent = currentName;
   }
