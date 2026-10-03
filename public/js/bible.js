@@ -746,6 +746,8 @@
       if (isLoggedIn) {
         const nameEl = $('#bible-account-name');
         nameEl.textContent = historyData.nickname ? `${historyData.nickname}님, 안녕하세요` : '카카오 계정으로 로그인됨';
+        // 마이페이지의 '읽기표 보기'로 들어온 경우 읽기표를 바로 열어줌
+        if (new URLSearchParams(location.search).get('chart') === '1') setTimeout(openProgressModal, 300);
         // 지난번에 확인 없이 떠났던 장이 있으면 먼저 물어봄
         const validPrev = previousPending.filter((k) => booksIndex.some((b) => k.startsWith(b.code + '-')));
         if (unreadOf(validPrev).length) setTimeout(() => openReadConfirm(validPrev, { previous: true }), 400);
