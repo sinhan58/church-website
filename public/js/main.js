@@ -644,7 +644,7 @@
         headerBtn.hidden = false;
       }
       const mobileLabel = $('#nav-mobile-me-label');
-      if (mobileLabel) mobileLabel.textContent = me && me.loggedIn ? (me.nickname ? `마이페이지 (${me.nickname} 님)` : '마이페이지') : '로그인 · 마이페이지';
+      if (mobileLabel) mobileLabel.textContent = me && me.loggedIn ? '마이페이지' : '로그인 · 마이페이지';
     })
     .catch(() => {});
 
