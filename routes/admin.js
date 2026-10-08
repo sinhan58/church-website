@@ -19,7 +19,7 @@ try {
   console.error('[admin] sharp 모듈을 불러오지 못했습니다. 이미지 자동 압축 기능은 비활성화됩니다:', err.message);
 }
 
-const { readData, writeData, makeId, saveUploadedFile, readAllData } = require('../utils/db');
+const { readData, writeData, updateData, makeId, saveUploadedFile, readAllData } = require('../utils/db');
 const { requireAuth, requireMainAdmin, requirePermission } = require('../middleware/auth');
 const { updateSermonsCache, getCachedSermons } = require('../utils/youtube');
 const { pregenerateMissingSermonPosters, listBuiltinPhotoFilenames } = require('../utils/sermonPoster');
@@ -1407,6 +1407,24 @@ router.get('/quiz/:id/submissions', requirePermission('qt'), async (req, res) =>
       .filter((s) => s.quizId === req.params.id)
       .sort((a, b) => b.score - a.score || b.firstTryCount - a.firstTryCount);
     res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// 한 퀴즈의 참여 기록(순위표 명단 포함)을 모두 지웁니다. 시험 참여 기록을 정리할 때 쓰며,
+// 지운 기록은 되돌릴 수 없습니다. (카카오 로그인으로 참여한 분의 '내 퀴즈 기록'도 함께 사라지고,
+// 같은 계정으로 다시 참여할 수 있게 됩니다)
+router.delete('/quiz/:id/submissions', requirePermission('qt'), async (req, res) => {
+  try {
+    let removed = 0;
+    await updateData('quizSubmissions', (list) => {
+      const all = Array.isArray(list) ? list : [];
+      const rest = all.filter((s) => s.quizId !== req.params.id);
+      removed = all.length - rest.length;
+      return removed > 0 ? rest : undefined; // 지울 게 없으면 저장하지 않음
+    });
+    res.json({ ok: true, removed });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
