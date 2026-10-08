@@ -221,6 +221,21 @@
   $('#me-name-cancel').addEventListener('click', closeNameModal);
   $('#me-name-input').addEventListener('keydown', (e) => { if (e.key === 'Enter') saveName(); });
 
+  // 창(읽기표·책 선택·확인·안내 창 등)이 열려 있는 동안 뒤쪽 페이지 스크롤을 잠급니다.
+  // (style.css의 html.bible-modal-open) 창이 열리고 닫히는 것은 'open' 클래스로 알 수 있어서,
+  // 창을 여닫는 코드를 하나하나 고치지 않고 클래스 변화를 지켜보다가 켜고 끕니다.
+  (function setupModalScrollLock() {
+    const modals = document.querySelectorAll('.bible-progress-modal, .bible-book-modal');
+    if (!modals.length || !window.MutationObserver) return;
+    const update = () => {
+      const anyOpen = Array.prototype.some.call(modals, (m) => m.classList.contains('open'));
+      document.documentElement.classList.toggle('bible-modal-open', anyOpen);
+    };
+    const observer = new MutationObserver(update);
+    modals.forEach((m) => observer.observe(m, { attributes: true, attributeFilter: ['class'] }));
+    update();
+  })();
+
   // ---------------- 시작 ----------------
   const params = new URLSearchParams(location.search);
   Promise.all([
