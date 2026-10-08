@@ -479,15 +479,16 @@ html.theme-b .hamburger span {
   background: rgba(28, 43, 42, 0.12);
   margin: 6px 12px;
 }
+/* '성경'·'마이페이지' 항목: 위 일반 메뉴(.nav-mobile a: 1rem)와 같은 글씨 크기를 쓰도록
+   font-size를 따로 두지 않음 */
 .nav-mobile a.nav-mobile-bible {
   display: flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.92rem;
 }
 .nav-mobile a.nav-mobile-bible svg {
-  width: 17px;
-  height: 17px;
+  width: 18px;
+  height: 18px;
   flex: none;
   color: var(--gold);
 }
@@ -4129,6 +4130,18 @@ a:focus-visible, button:focus-visible {
   justify-content: center;
 }
 .bible-book-modal.open { display: flex; }
+/* 창(읽기표·책 선택·확인 창 등)이 열려 있을 때 뒤쪽 성경 화면이 같이 스크롤되지 않도록:
+   1) 창 안쪽을 끝까지 스크롤한 뒤 더 밀어도 뒤 화면으로 넘어가지 않게 하고(overscroll-behavior),
+   2) 창 바깥(어두운 배경)을 문질러도 뒤 화면이 움직이지 않게 하며(touch-action),
+   3) 창이 열려 있는 동안 페이지 자체 스크롤을 잠급니다(html.bible-modal-open, bible.js·me.js가 켬/끔).
+   잠글 때 화면 위치는 그대로 유지되고, PC에서 스크롤바가 사라져 화면이 옆으로 밀리지 않도록
+   스크롤바 자리는 남겨 둡니다. */
+.bible-book-modal,
+.bible-progress-modal { overscroll-behavior: contain; touch-action: none; }
+.bible-book-modal-inner,
+.bible-progress-modal-inner { overscroll-behavior: contain; touch-action: pan-y; }
+.bible-book-modal-inner { overflow-y: auto; }
+html.bible-modal-open { overflow: hidden; scrollbar-gutter: stable; }
 .bible-book-modal-inner {
   background: #fff;
   border-radius: 16px;
@@ -4491,8 +4504,8 @@ html.theme-b .header-account { filter: drop-shadow(0 1px 3px rgba(0,0,0,0.45)); 
   .header-account { margin-left: auto; margin-right: 8px; padding: 5px 10px; font-size: 0.78rem; max-width: 120px; }
 }
 /* 모바일 메뉴 아래쪽 '마이페이지/로그인' 항목 (성경 항목과 같은 모양) */
-.nav-mobile a.nav-mobile-me { display: flex; align-items: center; gap: 8px; font-size: 0.92rem; }
-.nav-mobile a.nav-mobile-me svg { width: 17px; height: 17px; flex: none; color: var(--gold); }
+.nav-mobile a.nav-mobile-me { display: flex; align-items: center; gap: 8px; }
+.nav-mobile a.nav-mobile-me svg { width: 18px; height: 18px; flex: none; color: var(--gold); }
 
 /* ================= 마이페이지 =================
    교회 홈페이지의 남색·금색을 그대로 쓰되, 이 페이지의 중심은 "성경 통독 진행 고리" 하나.
