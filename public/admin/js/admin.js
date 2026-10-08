@@ -581,7 +581,10 @@
         </div>`;
 
       listEl.innerHTML = `
-        <h3 style="font-size:0.95rem; margin:20px 0 10px;">참여자 상세 목록</h3>
+        <div style="display:flex; align-items:center; justify-content:space-between; gap:10px; margin:20px 0 10px;">
+          <h3 style="font-size:0.95rem; margin:0;">참여자 상세 목록</h3>
+          <button type="button" class="btn-secondary" id="quiz-reset-subs-btn" style="color:#b3413a; border-color:#b3413a;">참여 기록 모두 지우기</button>
+        </div>
         <div class="post-list">
           ${subs
             .map(
@@ -597,6 +600,27 @@
             )
             .join('')}
         </div>`;
+      const resetBtn = $('#quiz-reset-subs-btn');
+      if (resetBtn) {
+        resetBtn.addEventListener('click', async () => {
+          const ok = confirm(
+            `이 퀴즈의 참여 기록 ${count}건을 모두 지울까요?\n\n` +
+            '· 홈페이지 "이번 주 참여 TOP5" 순위표가 비워져요.\n' +
+            '· 카카오 로그인으로 참여한 분의 "내 퀴즈 기록"도 함께 사라져요.\n' +
+            '· 지운 기록은 되돌릴 수 없어요.'
+          );
+          if (!ok) return;
+          resetBtn.disabled = true;
+          try {
+            const r = await api(`/api/admin/quiz/${quizId}/submissions`, { method: 'DELETE' });
+            alert(`참여 기록 ${r && r.removed != null ? r.removed : count}건을 지웠어요.`);
+            loadQuizStats(quizId);
+          } catch (err) {
+            resetBtn.disabled = false;
+            alert('지우지 못했어요: ' + err.message);
+          }
+        });
+      }
     } catch (err) {
       summaryEl.innerHTML = `<p class="hint">불러오지 못했습니다: ${escapeHtml(err.message)}</p>`;
     }
