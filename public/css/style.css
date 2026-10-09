@@ -4542,7 +4542,13 @@ html.theme-b .header-account { filter: drop-shadow(0 1px 3px rgba(0,0,0,0.45)); 
 .me-fineprint { font-size: 0.78rem; color: var(--muted); line-height: 1.6; margin: 0; }
 
 /* 로그인 후 레이아웃 */
-.me-layout { display: grid; grid-template-columns: 340px 1fr; gap: 40px; align-items: start; }
+/* 칸 너비를 minmax(0, 1fr)로 둠: 그냥 1fr은 "안의 내용이 한 줄로 차지하는 최소 너비"보다 줄어들지
+   못해서, 제목이 긴 큐티·퀴즈가 있으면 칸이 화면보다 넓어지고 → 휴대폰에서 마이페이지 전체가
+   화면 밖으로 밀려 나가 확대된 것처럼 잘려 보였습니다. */
+.me-layout { display: grid; grid-template-columns: 340px minmax(0, 1fr); gap: 40px; align-items: start; }
+.me-side, .me-main, .me-profile, .me-settings, .me-block { min-width: 0; }
+/* 혹시 다른 이유로 옆으로 넘치는 것이 생겨도 화면 전체가 넓어지지 않도록 안전장치 */
+.me-page { overflow-x: clip; }
 .me-side { position: sticky; top: 96px; display: flex; flex-direction: column; gap: 16px; }
 
 /* 내 정보 + 진행 고리 (남색 패널) */
@@ -4624,14 +4630,19 @@ html.theme-b .header-account { filter: drop-shadow(0 1px 3px rgba(0,0,0,0.45)); 
 .me-qt-date b { display: block; font-family: var(--font-heading); font-size: 1.3rem; color: var(--navy-deep); }
 .me-qt-date span { font-size: 0.72rem; color: var(--muted); }
 .me-qt-text { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
-.me-qt-title { font-size: 0.98rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 제목이 길면 한 줄로 잘라 버리지 않고 두 줄까지 보여줌 */
+.me-qt-title, .me-quiz-title {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2;
+  overflow: hidden; overflow-wrap: anywhere; word-break: keep-all;
+}
+.me-qt-title { font-size: 0.98rem; font-weight: 600; }
 .me-qt-ref { font-size: 0.8rem; color: var(--muted); }
 .me-qt-heart { margin-left: auto; color: #d9473f; font-size: 0.95rem; flex: none; }
 
 /* 말씀 퀴즈: 오른쪽에 점수 */
 .me-quiz-list li { display: flex; align-items: center; gap: 14px; padding: 14px 4px; border-bottom: 1px solid var(--line); }
 .me-quiz-text { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 3px; }
-.me-quiz-title { font-size: 0.98rem; font-weight: 600; color: var(--ink); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.me-quiz-title { font-size: 0.98rem; font-weight: 600; color: var(--ink); }
 .me-quiz-sub { font-size: 0.8rem; color: var(--muted); }
 .me-quiz-score { flex: none; text-align: right; font-family: var(--font-heading); color: var(--navy-deep); }
 .me-quiz-score b { font-size: 1.35rem; }
@@ -4652,7 +4663,7 @@ html.theme-b .header-account { filter: drop-shadow(0 1px 3px rgba(0,0,0,0.45)); 
 
 @media (max-width: 900px) {
   .me-page { padding-top: 108px; }
-  .me-layout { grid-template-columns: 1fr; gap: 32px; }
+  .me-layout { grid-template-columns: minmax(0, 1fr); gap: 32px; }
   /* 모바일: 내 정보 → 활동 목록 → 계정 설정(맨 아래) 순서 */
   .me-side { display: contents; }
   .me-profile { order: 1; }
